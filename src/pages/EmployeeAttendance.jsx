@@ -171,7 +171,7 @@ const EmployeeAttendance = () => {
         />
       </Card>
 
-      <div className="mt-4 p-4 bg-gray-50 rounded">
+      <div className="mt-4 p-4 rounded">
         <h3 className="font-semibold mb-2">Legend:</h3>
         <div className="flex flex-wrap gap-4">
           <div className="flex items-center gap-2">

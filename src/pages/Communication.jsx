@@ -28,7 +28,9 @@ import {
   DeleteOutlined,
   UserAddOutlined,
 } from "@ant-design/icons";
+import { theme } from "antd";
 import { supabase } from "../lib/supabase";
+import { CloseOutlined } from "@ant-design/icons";
 import { useAuth } from "../contexts/AuthContext";
 
 const { Sider, Content } = Layout;
@@ -56,6 +58,10 @@ const Communication = () => {
   const messagesEndRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+
+  const { token } = theme.useToken();
+  const isDark =
+    token.colorBgContainer === "#1f2937" || token.colorBgLayout === "#111827";
 
   useEffect(() => {
     fetchUsers();
@@ -647,71 +653,153 @@ const Communication = () => {
             isOwn ? "flex-row-reverse" : "flex-row"
           } items-start gap-3 max-w-[75%]`}
         >
+          {/* Avatar */}
           <Avatar
             src={isOwn ? profile.user_photo : msg.sender?.user_photo}
             icon={<UserOutlined />}
             size={40}
-            style={{ backgroundColor: "#001529", flexShrink: 0 }}
+            className="flex-shrink-0"
+            style={{
+              backgroundColor: isDark ? "#1f2937" : "#e5e7eb",
+            }}
           />
+
           <div className="flex-1">
+            {/* Name + Time */}
             <div
               className={`flex items-baseline gap-2 mb-1 ${
                 isOwn ? "flex-row-reverse" : "flex-row"
               }`}
             >
-              <span className="font-semibold text-sm text-gray-800">
+              <span
+                className="font-semibold text-sm"
+                style={{ color: isDark ? "#f9fafb" : "#111827" }}
+              >
                 {isOwn ? profile.full_name || "You" : msg.sender?.full_name}
               </span>
-              <span className="text-xs text-gray-500">
+
+              <span
+                className="text-xs"
+                style={{ color: isDark ? "#9ca3af" : "#6b7280" }}
+              >
                 {new Date(msg.created_at).toLocaleTimeString([], {
                   hour: "2-digit",
                   minute: "2-digit",
                 })}
               </span>
             </div>
+
+            {/* Message Bubble */}
             <div
-              className={`rounded-2xl px-4 py-3 shadow-sm ${
+              className="rounded-2xl px-4 py-3 shadow-sm"
+              style={
                 isOwn
-                  ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white"
-                  : "bg-white border border-gray-200"
-              }`}
+                  ? {
+                      background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+                      color: "#ffffff",
+                    }
+                  : {
+                      backgroundColor: isDark ? "#1f2937" : "#ffffff",
+                      border: `1px solid ${isDark ? "#374151" : "#e5e7eb"}`,
+                      color: isDark ? "#f9fafb" : "#111827",
+                    }
+              }
             >
+              {/* Image */}
               {msg.file_type === "image" && (
-                <img
+                <WhatsAppImage
                   src={msg.file_url}
-                  alt="attachment"
-                  className="max-w-full rounded-lg mb-2"
-                  style={{ maxWidth: "300px" }}
+                  isOwn={isOwn}
+                  isDark={isDark}
                 />
               )}
+
+              {/* Voice */}
               {msg.file_type === "voice" && (
                 <div className="mb-2 w-full min-w-[300px]">
                   <audio
                     controls
-                    className="w-full h-12"
+                    className="w-full h-12 rounded-lg"
                     style={{
-                      borderRadius: "8px",
-                      backgroundColor: "rgba(0,0,0,0.05)",
-                      minHeight: "48px",
+                      backgroundColor: isDark ? "#374151" : "#f3f4f6",
                     }}
                   >
                     <source src={msg.file_url} type="audio/webm" />
                   </audio>
                 </div>
               )}
+
+              {/* Document */}
               {msg.file_type === "document" && (
                 <a
                   href={msg.file_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`flex items-center gap-2 mb-2 hover:underline ${
-                    isOwn ? "text-white" : "text-blue-600"
-                  }`}
+                  className="flex items-center gap-3 mb-2 px-3 py-2 rounded-xl transition-all"
+                  style={{
+                    backgroundColor: isOwn
+                      ? "rgba(255,255,255,0.15)"
+                      : isDark
+                      ? "#1f2937"
+                      : "#f9fafb",
+                    border: isOwn
+                      ? "none"
+                      : `1px solid ${isDark ? "#374151" : "#e5e7eb"}`,
+                    color: isOwn ? "#ffffff" : isDark ? "#e5e7eb" : "#111827",
+                    maxWidth: "300px",
+                  }}
                 >
-                  <FileOutlined />
-                  <span>{msg.file_name}</span>
+                  {/* File Icon */}
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 10,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: isOwn
+                        ? "rgba(255,255,255,0.25)"
+                        : isDark
+                        ? "#374151"
+                        : "#e5e7eb",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <FileOutlined
+                      style={{
+                        fontSize: 18,
+                        color: isOwn
+                          ? "#ffffff"
+                          : isDark
+                          ? "#93c5fd"
+                          : "#2563eb",
+                      }}
+                    />
+                  </div>
+
+                  {/* File Info */}
+                  <div className="flex flex-col overflow-hidden">
+                    <span className="text-sm font-medium truncate">
+                      {msg.file_name}
+                    </span>
+                    <span
+                      className="text-xs"
+                      style={{
+                        color: isOwn
+                          ? "rgba(255,255,255,0.7)"
+                          : isDark
+                          ? "#9ca3af"
+                          : "#6b7280",
+                      }}
+                    >
+                      Document
+                    </span>
+                  </div>
                 </a>
               )}
+
+              {/* Text */}
               {msg.message && (
                 <div className="whitespace-pre-wrap break-words">
                   {msg.message}
@@ -750,9 +838,17 @@ const Communication = () => {
                   return (
                     <div
                       key={channel.id}
-                      className={`cursor-pointer hover:bg-gray-100 px-2 py-2 rounded flex items-center justify-between ${
-                        selectedChannel?.id === channel.id ? "bg-blue-50" : ""
-                      }`}
+                      className={`cursor-pointer px-2 py-2 rounded flex items-center justify-between transition-colors
+                        ${
+                          selectedChannel?.id === channel.id
+                            ? isDark
+                              ? "bg-gray-800 text-white"
+                              : "bg-blue-50 text-gray-900"
+                            : isDark
+                            ? "hover:bg-gray-800 text-gray-300"
+                            : "hover:bg-gray-100 text-gray-900"
+                        }
+                      `}
                     >
                       <div
                         className="flex-1 flex items-center justify-between"
@@ -798,9 +894,17 @@ const Communication = () => {
                   return (
                     <div
                       key={user.id}
-                      className={`cursor-pointer hover:bg-gray-100 px-2 py-2 rounded flex items-center gap-2 ${
-                        selectedUser?.id === user.id ? "bg-blue-50" : ""
-                      }`}
+                      className={`cursor-pointer px-2 py-2 rounded flex items-center justify-between transition-colors
+                        ${
+                          selectedChannel?.id === user.id
+                            ? isDark
+                              ? "bg-gray-800 text-white"
+                              : "bg-blue-50 text-gray-900"
+                            : isDark
+                            ? "hover:bg-gray-800 text-gray-300"
+                            : "hover:bg-gray-100 text-gray-900"
+                        }
+                      `}
                       onClick={() => {
                         setSelectedUser(user);
                         setSelectedChannel(null);
@@ -829,7 +933,7 @@ const Communication = () => {
       <Content className="flex flex-col">
         {selectedUser || selectedChannel ? (
           <>
-            <div className="p-4 border-b bg-white shadow-sm">
+            <div className="p-4 border-b shadow-sm">
               <div className="flex items-center gap-3">
                 {selectedUser && (
                   <Avatar
@@ -858,14 +962,14 @@ const Communication = () => {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 bg-gradient-to-b from-gray-50 to-white">
+            <div className="flex-1 overflow-y-auto p-6">
               {messages.map(renderMessage)}
               <div ref={messagesEndRef} />
             </div>
 
-            <div className="p-4 border-t bg-white shadow-lg">
+            <div className="p-4 border-t shadow-lg">
               {audioURL && (
-                <div className="mb-2 flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="mb-2 flex items-center gap-2 p-3 rounded-lg border border-blue-200">
                   <audio
                     controls
                     src={audioURL}
@@ -1012,7 +1116,7 @@ const Communication = () => {
           {channelMembers.map((member) => (
             <div
               key={member.id}
-              className="flex items-center justify-between p-3 border rounded hover:bg-gray-50"
+              className="flex items-center justify-between p-3 border rounded"
             >
               <div className="flex items-center gap-3">
                 <Avatar
@@ -1084,6 +1188,80 @@ const Communication = () => {
         </Form>
       </Modal>
     </Layout>
+  );
+};
+
+const WhatsAppImage = ({ src, isOwn, isDark }) => {
+  const [loaded, setLoaded] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      {/* Chat Image Bubble */}
+      <div
+        className="relative mb-2 cursor-pointer"
+        onClick={() => setOpen(true)}
+        style={{
+          maxWidth: "280px",
+          borderRadius: "14px",
+          overflow: "hidden",
+          backgroundColor: isDark ? "#1f2937" : "#f3f4f6",
+        }}
+      >
+        {/* Skeleton */}
+        {!loaded && (
+          <div
+            className="absolute inset-0 animate-pulse"
+            style={{
+              backgroundColor: isDark ? "#374151" : "#e5e7eb",
+            }}
+          />
+        )}
+
+        <img
+          src={src}
+          alt="attachment"
+          onLoad={() => setLoaded(true)}
+          className={`w-full object-cover transition-opacity duration-300 ${
+            loaded ? "opacity-100" : "opacity-0"
+          }`}
+          style={{
+            maxHeight: "320px",
+            borderRadius: "14px",
+          }}
+        />
+      </div>
+
+      {/* Full Screen Viewer (WhatsApp Style) */}
+      {open && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center"
+          style={{
+            backgroundColor: "rgba(0,0,0,0.9)",
+          }}
+          onClick={() => setOpen(false)}
+        >
+          {/* Close Button */}
+          <div
+            className="absolute top-4 right-4 z-10 cursor-pointer"
+            onClick={() => setOpen(false)}
+          >
+            <CloseOutlined style={{ fontSize: 22, color: "#fff" }} />
+          </div>
+
+          {/* Image */}
+          <img
+            src={src}
+            alt="full-view"
+            className="max-w-full max-h-full object-contain"
+            style={{
+              borderRadius: "8px",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+    </>
   );
 };
 

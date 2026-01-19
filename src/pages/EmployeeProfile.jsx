@@ -195,7 +195,7 @@ const EmployeeProfile = () => {
           </Form.Item>
 
           <Form.Item label="Salary" className="mb-0">
-            <div className="p-3 bg-gray-50 rounded">
+            <div className="p-3 rounded">
               <div className="text-lg font-semibold text-green-600">
                 {profile?.salary_type === 'fixed' && profile?.salary_amount
                   ? `PKR ${parseFloat(profile.salary_amount).toLocaleString()}/month`

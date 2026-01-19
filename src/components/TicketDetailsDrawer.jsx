@@ -227,13 +227,20 @@ const TicketDetailsDrawer = ({ visible, onClose, ticket, onUpdate }) => {
 
             {ticket.description && (
               <div>
-                <h3 className="text-sm font-semibold text-gray-500 mb-2">Description</h3>
-                <p className="text-gray-700">{ticket.description}</p>
+                <h3 className="text-sm font-semibold mb-2">Description</h3>
+                <p>{ticket.description}</p>
+              </div>
+            )}
+
+            {ticket.due_date && (
+              <div>
+                <h3 className="text-sm font-semibold mb-2">Due Date</h3>
+                <p>{ticket.due_date}</p>
               </div>
             )}
 
             <div>
-              <h3 className="text-sm font-semibold text-gray-500 mb-2">Assigned To</h3>
+              <h3 className="text-sm font-semibold mb-2">Assigned To</h3>
               <div className="flex items-center gap-2">
                 <Avatar
                   src={ticket.assigned_user?.user_photo}
@@ -241,7 +248,7 @@ const TicketDetailsDrawer = ({ visible, onClose, ticket, onUpdate }) => {
                   size={32}
                   shape="circle"
                 />
-                <span className="text-gray-700">{ticket.assigned_user?.full_name || 'Unassigned'}</span>
+                <span>{ticket.assigned_user?.full_name || 'Unassigned'}</span>
               </div>
             </div>
 
@@ -320,7 +327,7 @@ const TicketDetailsDrawer = ({ visible, onClose, ticket, onUpdate }) => {
             <Divider />
 
             <div>
-              <h3 className="text-sm font-semibold text-gray-500 mb-3">Comments ({comments.length})</h3>
+              <h3 className="text-sm font-semibold mb-3">Comments ({comments.length})</h3>
 
               <div className="mb-4">
                 <TextArea
@@ -363,17 +370,17 @@ const TicketDetailsDrawer = ({ visible, onClose, ticket, onUpdate }) => {
                         />
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="font-semibold text-gray-900">
+                            <span className="font-semibold">
                               {comment.profiles?.full_name}
                             </span>
                             <Tag size="small" color={comment.profiles?.role === 'project_manager' ? 'blue' : 'default'}>
                               {comment.profiles?.role?.replace('_', ' ').toUpperCase()}
                             </Tag>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs">
                               {dayjs(comment.created_at).fromNow()}
                             </span>
                           </div>
-                          <p className="text-gray-700 whitespace-pre-wrap">{comment.message}</p>
+                          <p className="whitespace-pre-wrap">{comment.message}</p>
                         </div>
                       </div>
                     </div>

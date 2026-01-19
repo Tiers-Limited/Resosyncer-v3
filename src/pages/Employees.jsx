@@ -656,7 +656,7 @@ const Employees = () => {
           <p className="text-green-600 font-semibold">
             {newUserCredentials?.role === 'project_manager' ? 'Project Manager' : 'Employee'} account created successfully!
           </p>
-          <div className="bg-gray-50 p-4 rounded border">
+          <div className="p-4 rounded border">
             <p className="font-semibold mb-2">Login Credentials:</p>
             <div className="space-y-2">
               <div>
@@ -666,7 +666,7 @@ const Employees = () => {
                 <span className="font-medium">Email:</span> {newUserCredentials?.email}
               </div>
               <div>
-                <span className="font-medium">Password:</span> <code className="bg-gray-200 px-2 py-1 rounded">{newUserCredentials?.password}</code>
+                <span className="font-medium">Password:</span> <code className="px-2 py-1 rounded">{newUserCredentials?.password}</code>
               </div>
             </div>
           </div>

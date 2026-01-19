@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Card, Row, Col, Statistic, Table, Tag, Badge, Modal, Checkbox, Button, Input, DatePicker, Select } from 'antd';
+import { Card, Row, Col, Statistic, Table, Tag, Badge, Modal, Checkbox, Button, Input, DatePicker, Select, ConfigProvider } from 'antd';
 const { TextArea } = Input;
 import {
   ProjectOutlined,
@@ -16,10 +16,13 @@ import {
   DeleteOutlined,
   CalendarOutlined,
 } from '@ant-design/icons';
+import { theme } from 'antd';
 import { supabase } from '../lib/supabase';
 import BirthdayWidget from '../components/BirthdayWidget';
 import ClientWorldMap from '../components/ClientWorldMap';
 import dayjs from 'dayjs';
+
+const { useToken } = theme;
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
@@ -45,8 +48,40 @@ const Dashboard = () => {
   const [adminUsers, setAdminUsers] = useState([]);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [currentUserEmail, setCurrentUserEmail] = useState(null);
+  const { token } = useToken();
 
-useEffect(() => {
+  // Get theme mode from localStorage
+  const [themeMode, setThemeMode] = useState(() => {
+    const saved = localStorage.getItem('themeMode');
+    return saved || 'system';
+  });
+
+  const getEffectiveTheme = () => {
+    if (themeMode === 'system') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return themeMode;
+  };
+
+  const darkMode = getEffectiveTheme() === 'dark';
+
+  // Listen for theme changes
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const saved = localStorage.getItem('themeMode');
+      setThemeMode(saved || 'system');
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    const interval = setInterval(handleStorageChange, 100);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
     fetchDashboardData();
     fetchActiveEmployees();
     fetchTodos();
@@ -61,7 +96,7 @@ useEffect(() => {
     return () => clearInterval(interval);
   }, []);
 
-useEffect(() => {
+  useEffect(() => {
     if (currentUserId) {
       fetchTodos();
     }
@@ -168,7 +203,7 @@ useEffect(() => {
     return 0;
   };
 
-const fetchTodos = async () => {
+  const fetchTodos = async () => {
     if (!currentUserId) return;
 
     try {
@@ -187,7 +222,7 @@ const fetchTodos = async () => {
     }
   };
 
-const fetchAdminUsers = async () => {
+  const fetchAdminUsers = async () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -202,7 +237,7 @@ const fetchAdminUsers = async () => {
     }
   };
 
-const getCurrentUser = async () => {
+  const getCurrentUser = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -214,7 +249,7 @@ const getCurrentUser = async () => {
     }
   };
 
-const fetchMeetings = async () => {
+  const fetchMeetings = async () => {
     if (!currentUserId || !currentUserEmail) return;
 
     try {
@@ -242,7 +277,7 @@ const fetchMeetings = async () => {
     }
   };
 
-const handleAddTodo = async () => {
+  const handleAddTodo = async () => {
     if (!newTodo.title.trim()) return;
 
     try {
@@ -334,9 +369,14 @@ const handleAddTodo = async () => {
     },
   ];
 
+  const textColor = darkMode ? '#f9fafb' : '#111827';
+  const secondaryTextColor = darkMode ? '#9ca3af' : '#6b7280';
+  const hoverBg = darkMode ? '#374151' : '#f3f4f6';
+  const borderColor = darkMode ? '#374151' : '#e5e7eb';
+
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Dashboard Overview</h1>
+    <div style={{ color: textColor }}>
+      <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '24px', color: textColor }}>Dashboard Overview</h1>
 
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} lg={8}>
@@ -345,10 +385,10 @@ const handleAddTodo = async () => {
               title="Total Projects"
               value={stats.totalProjects}
               prefix={<ProjectOutlined />}
-              valueStyle={{ color: '#001529' }}
+              valueStyle={{ color: darkMode ? '#f9fafb' : '#001529' }}
             />
-            <div className="mt-2 text-xs text-gray-500">
-              <span className="text-green-600">
+            <div style={{ marginTop: '8px', fontSize: '12px', color: secondaryTextColor }}>
+              <span style={{ color: '#52c41a' }}>
                 <RiseOutlined /> {stats.activeProjects} active
               </span>
             </div>
@@ -361,7 +401,7 @@ const handleAddTodo = async () => {
               title="Total Employees"
               value={stats.totalEmployees}
               prefix={<UserOutlined />}
-              valueStyle={{ color: '#001529' }}
+              valueStyle={{ color: darkMode ? '#f9fafb' : '#001529' }}
             />
           </Card>
         </Col>
@@ -372,7 +412,7 @@ const handleAddTodo = async () => {
               title="Total Teams"
               value={stats.totalTeams}
               prefix={<TeamOutlined />}
-              valueStyle={{ color: '#001529' }}
+              valueStyle={{ color: darkMode ? '#f9fafb' : '#001529' }}
             />
           </Card>
         </Col>
@@ -411,11 +451,11 @@ const handleAddTodo = async () => {
         </Col>
       </Row>
 
-      <Row gutter={[16, 16]} className="mt-6">
+      <Row gutter={[16, 16]} style={{ marginTop: '24px' }}>
         <Col xs={24}>
           <Card
             title={
-              <div className="flex items-center gap-2">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <ClockCircleOutlined />
                 <span>Active Employees Today</span>
                 <Badge count={activeEmployees.length} style={{ backgroundColor: '#52c41a' }} />
@@ -423,36 +463,36 @@ const handleAddTodo = async () => {
             }
           >
             {activeEmployees.length === 0 ? (
-              <div className="text-center text-gray-500 py-4">No employees working currently</div>
+              <div style={{ textAlign: 'center', color: secondaryTextColor, padding: '16px 0' }}>No employees working currently</div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '16px' }}>
                 {activeEmployees.map((emp) => (
                   <Card
                     key={emp.id}
                     size="small"
-                    className="shadow-sm hover:shadow-md transition-shadow"
+                    style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
                   >
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="flex items-center gap-2 w-full">
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
                         {emp.status === 'active' ? (
-                          <PlayCircleOutlined className="text-green-500 text-lg" />
+                          <PlayCircleOutlined style={{ color: '#52c41a', fontSize: '18px' }} />
                         ) : (
-                          <PauseCircleOutlined className="text-orange-500 text-lg" />
+                          <PauseCircleOutlined style={{ color: '#fa8c16', fontSize: '18px' }} />
                         )}
-                        <span className="font-medium truncate flex-1">{emp.profiles?.full_name}</span>
+                        <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{emp.profiles?.full_name}</span>
                       </div>
-                      <div className="w-full">
-                        <Tag color={emp.status === 'active' ? 'green' : 'orange'} className="w-full text-center">
+                      <div style={{ width: '100%' }}>
+                        <Tag color={emp.status === 'active' ? 'green' : 'orange'} style={{ width: '100%', textAlign: 'center' }}>
                           {emp.status === 'active' ? 'Working' : 'Paused'}
                         </Tag>
                       </div>
-                      <div className="text-xl font-mono font-bold text-blue-600">
+                      <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 'bold', color: '#1890ff' }}>
                         {formatTime(getElapsedTime(emp))}
                       </div>
                       {emp.standup_message && (
                         <button
                           onClick={() => handleViewStandup(emp)}
-                          className="text-xs text-blue-500 hover:text-blue-700 underline"
+                          style={{ fontSize: '12px', color: '#1890ff', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer' }}
                         >
                           View Standup
                         </button>
@@ -466,7 +506,7 @@ const handleAddTodo = async () => {
         </Col>
       </Row>
 
-      <Row gutter={[16, 16]} className="mt-6">
+      <Row gutter={[16, 16]} style={{ marginTop: '24px' }}>
         <Col xs={24} lg={14}>
           <Card title="Recent Projects" loading={loading}>
             <Table
@@ -484,10 +524,10 @@ const handleAddTodo = async () => {
         </Col>
       </Row>
 
-      <Row gutter={[16, 16]} className="mt-6">
+      <Row gutter={[16, 16]} style={{ marginTop: '24px' }}>
         <Col xs={24} lg={12}>
           <Card
-            title={<div className="flex items-center gap-2"><CheckCircleOutlined /> To-Do List</div>}
+            title={<div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckCircleOutlined /> To-Do List</div>}
             extra={
               <Button type="primary" icon={<PlusOutlined />} onClick={() => {
                 setNewTodo({ title: '', description: '', priority: 'medium', due_date: null });
@@ -496,36 +536,38 @@ const handleAddTodo = async () => {
                 Add Task
               </Button>
             }
-            className="h-full"
+            style={{ height: '100%' }}
           >
-            <div className="space-y-2 max-h-96 overflow-y-auto">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '384px', overflowY: 'auto' }}>
               {todos.length === 0 ? (
-                <div className="text-center text-gray-500 py-8">No tasks yet</div>
+                <div style={{ textAlign: 'center', color: secondaryTextColor, padding: '32px 0' }}>No tasks yet</div>
               ) : (
-todos.map((todo) => (
-                  <div key={todo.id} className="flex items-start gap-2 p-2 hover:bg-gray-50 rounded">
+                todos.map((todo) => (
+                  <div key={todo.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '8px', borderRadius: '4px', cursor: 'pointer' }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = hoverBg}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                     <Checkbox
                       checked={todo.completed}
                       onChange={() => handleToggleTodo(todo.id, todo.completed)}
                     />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className={`${todo.completed ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ textDecoration: todo.completed ? 'line-through' : 'none', color: todo.completed ? secondaryTextColor : textColor }}>
                           {todo.title}
                         </span>
                         {todo.priority && (
-                          <Tag color={todo.priority === 'high' ? 'red' : todo.priority === 'medium' ? 'orange' : 'default'} className="text-xs">
+                          <Tag color={todo.priority === 'high' ? 'red' : todo.priority === 'medium' ? 'orange' : 'default'} style={{ fontSize: '12px' }}>
                             {todo.priority}
                           </Tag>
                         )}
                       </div>
                       {todo.due_date && (
-                        <div className="text-xs text-gray-500 mt-1">
+                        <div style={{ fontSize: '12px', color: secondaryTextColor, marginTop: '4px' }}>
                           Due: {dayjs(todo.due_date).format('MMM DD, YYYY')}
                         </div>
                       )}
                       {todo.description && (
-                        <div className="text-xs text-gray-600 mt-1">
+                        <div style={{ fontSize: '12px', color: secondaryTextColor, marginTop: '4px' }}>
                           {todo.description}
                         </div>
                       )}
@@ -546,7 +588,7 @@ todos.map((todo) => (
 
         <Col xs={24} lg={12}>
           <Card
-            title={<div className="flex items-center gap-2"><CalendarOutlined /> Meeting Reminders</div>}
+            title={<div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CalendarOutlined /> Meeting Reminders</div>}
             extra={
               <Button type="primary" icon={<PlusOutlined />} onClick={() => {
                 setNewMeeting({ title: '', meeting_date: null, description: '', email_reminders: [], attendee_type: 'individual', attendee_emails: [] });
@@ -555,36 +597,38 @@ todos.map((todo) => (
                 Add Meeting
               </Button>
             }
-            className="h-full"
+            style={{ height: '100%' }}
           >
-            <div className="space-y-3 max-h-96 overflow-y-auto">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '384px', overflowY: 'auto' }}>
               {meetings.length === 0 ? (
-                <div className="text-center text-gray-500 py-8">No meetings scheduled</div>
+                <div style={{ textAlign: 'center', color: secondaryTextColor, padding: '32px 0' }}>No meetings scheduled</div>
               ) : (
-meetings.map((meeting) => (
-                  <div key={meeting.id} className="p-3 border rounded hover:bg-gray-50">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-900">{meeting.title}</span>
+                meetings.map((meeting) => (
+                  <div key={meeting.id} style={{ padding: '12px', border: `1px solid ${borderColor}`, borderRadius: '4px', cursor: 'pointer' }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = hoverBg}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontWeight: 500, color: textColor }}>{meeting.title}</span>
                           {meeting.attendee_type === 'individual' ? (
-                            <Tag color="default" className="text-xs">Only Me</Tag>
+                            <Tag color="default" style={{ fontSize: '12px' }}>Only Me</Tag>
                           ) : (
-                            <Tag color="blue" className="text-xs">
+                            <Tag color="blue" style={{ fontSize: '12px' }}>
                               {meeting.attendee_emails?.length || 0} Attendees
                             </Tag>
                           )}
                         </div>
-                        <div className="text-sm text-gray-600 mt-1">
+                        <div style={{ fontSize: '14px', color: secondaryTextColor, marginTop: '4px' }}>
                           {dayjs(meeting.meeting_date).format('MMM DD, YYYY - h:mm A')}
                         </div>
                         {meeting.description && (
-                          <div className="text-sm text-gray-500 mt-1">{meeting.description}</div>
+                          <div style={{ fontSize: '14px', color: secondaryTextColor, marginTop: '4px' }}>{meeting.description}</div>
                         )}
                         {meeting.email_reminders && meeting.email_reminders.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-2">
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
                             {meeting.email_reminders.map((reminder, idx) => (
-                              <Tag key={idx} color="blue" className="text-xs">
+                              <Tag key={idx} color="blue" style={{ fontSize: '12px' }}>
                                 {reminder === '30min' && '30 min'}
                                 {reminder === '1hour' && '1 hr'}
                                 {reminder === '2hours' && '2 hrs'}
@@ -612,7 +656,7 @@ meetings.map((meeting) => (
         </Col>
       </Row>
 
-      <Row gutter={[16, 16]} className="mt-6">
+      <Row gutter={[16, 16]} style={{ marginTop: '24px' }}>
         <Col xs={24}>
           <ClientWorldMap countries={clientCountries} />
         </Col>
@@ -626,18 +670,18 @@ meetings.map((meeting) => (
       >
         {selectedStandup && (
           <div>
-            <p className="text-gray-600 mb-2">
+            <p style={{ color: secondaryTextColor, marginBottom: '8px' }}>
               <strong>Employee:</strong> {selectedStandup.profiles?.full_name}
             </p>
-            <p className="text-gray-600 mb-2">
+            <p style={{ color: secondaryTextColor, marginBottom: '8px' }}>
               <strong>Date:</strong> {selectedStandup.date}
             </p>
-            <p className="text-gray-600 mb-4">
+            <p style={{ color: secondaryTextColor, marginBottom: '16px' }}>
               <strong>Total Hours:</strong> {selectedStandup.total_hours?.toFixed(2) || 0} hours
             </p>
-            <div className="bg-gray-50 p-4 rounded">
-              <p className="font-medium mb-2">Message:</p>
-              <p className="whitespace-pre-wrap">{selectedStandup.standup_message}</p>
+            <div style={{ background: darkMode ? '#374151' : '#f9fafb', padding: '16px', borderRadius: '4px' }}>
+              <p style={{ fontWeight: 500, marginBottom: '8px' }}>Message:</p>
+              <p style={{ whiteSpace: 'pre-wrap' }}>{selectedStandup.standup_message}</p>
             </div>
           </div>
         )}
@@ -650,12 +694,12 @@ meetings.map((meeting) => (
           setMeetingModalVisible(false);
           setNewMeeting({ title: '', meeting_date: null, description: '', email_reminders: [], attendee_type: 'individual', attendee_emails: [] });
         }}
-onOk={async () => {
+        onOk={async () => {
           if (!newMeeting.title || !newMeeting.meeting_date) {
             return;
           }
           try {
-const { error } = await supabase
+            const { error } = await supabase
               .from('meetings')
               .insert([{ ...newMeeting, created_by: currentUserId, user_id: currentUserId }]);
 
@@ -669,9 +713,9 @@ const { error } = await supabase
         }}
         okText="Add Meeting"
       >
-        <div className="space-y-4">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: secondaryTextColor, marginBottom: '4px' }}>Title *</label>
             <Input
               value={newMeeting.title}
               onChange={(e) => setNewMeeting({ ...newMeeting, title: e.target.value })}
@@ -679,17 +723,17 @@ const { error } = await supabase
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date & Time *</label>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: secondaryTextColor, marginBottom: '4px' }}>Date & Time *</label>
             <DatePicker
               showTime
               value={newMeeting.meeting_date ? dayjs(newMeeting.meeting_date) : null}
               onChange={(date) => setNewMeeting({ ...newMeeting, meeting_date: date ? date.toISOString() : null })}
-              className="w-full"
+              style={{ width: '100%' }}
               format="MMM DD, YYYY h:mm A"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Attendees *</label>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: secondaryTextColor, marginBottom: '4px' }}>Attendees *</label>
             <Select
               value={newMeeting.attendee_type}
               onChange={(value) => {
@@ -699,7 +743,7 @@ const { error } = await supabase
                   attendee_emails: value === 'individual' ? [] : (currentUserEmail ? [currentUserEmail] : [])
                 });
               }}
-              className="w-full"
+              style={{ width: '100%' }}
               options={[
                 { label: 'Individual (Only Me)', value: 'individual' },
                 { label: 'Multiple Admins', value: 'multiple' },
@@ -708,8 +752,8 @@ const { error } = await supabase
           </div>
           {newMeeting.attendee_type === 'multiple' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Select Admins *</label>
-              <div className="mb-2">
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: secondaryTextColor, marginBottom: '4px' }}>Select Admins *</label>
+              <div style={{ marginBottom: '8px' }}>
                 <Tag color="green">You (Included by default)</Tag>
               </div>
               <Select
@@ -719,7 +763,7 @@ const { error } = await supabase
                 onChange={(value) => {
                   setNewMeeting({ ...newMeeting, attendee_emails: currentUserEmail ? [currentUserEmail, ...value] : value });
                 }}
-                className="w-full"
+                style={{ width: '100%' }}
                 options={adminUsers.filter(admin => admin.email !== currentUserEmail).map(admin => ({
                   label: `${admin.full_name} (${admin.email})`,
                   value: admin.email,
@@ -728,13 +772,13 @@ const { error } = await supabase
             </div>
           )}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email Reminders</label>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: secondaryTextColor, marginBottom: '4px' }}>Email Reminders</label>
             <Select
               mode="multiple"
               placeholder="Select reminder times"
               value={newMeeting.email_reminders}
               onChange={(value) => setNewMeeting({ ...newMeeting, email_reminders: value })}
-              className="w-full"
+              style={{ width: '100%' }}
               options={[
                 { label: '30 Minutes Before', value: '30min' },
                 { label: '1 Hour Before', value: '1hour' },
@@ -746,7 +790,7 @@ const { error } = await supabase
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: secondaryTextColor, marginBottom: '4px' }}>Description</label>
             <TextArea
               rows={3}
               value={newMeeting.description}
@@ -767,9 +811,9 @@ const { error } = await supabase
         onOk={handleAddTodo}
         okText="Add Task"
       >
-        <div className="space-y-4">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: secondaryTextColor, marginBottom: '4px' }}>Title *</label>
             <Input
               value={newTodo.title}
               onChange={(e) => setNewTodo({ ...newTodo, title: e.target.value })}
@@ -777,11 +821,11 @@ const { error } = await supabase
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: secondaryTextColor, marginBottom: '4px' }}>Priority</label>
             <Select
               value={newTodo.priority}
               onChange={(value) => setNewTodo({ ...newTodo, priority: value })}
-              className="w-full"
+              style={{ width: '100%' }}
               options={[
                 { label: 'Low', value: 'low' },
                 { label: 'Medium', value: 'medium' },
@@ -790,16 +834,16 @@ const { error } = await supabase
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: secondaryTextColor, marginBottom: '4px' }}>Due Date</label>
             <DatePicker
               value={newTodo.due_date ? dayjs(newTodo.due_date) : null}
               onChange={(date) => setNewTodo({ ...newTodo, due_date: date ? date.format('YYYY-MM-DD') : null })}
-              className="w-full"
+              style={{ width: '100%' }}
               format="MMM DD, YYYY"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: secondaryTextColor, marginBottom: '4px' }}>Description</label>
             <TextArea
               rows={3}
               value={newTodo.description}

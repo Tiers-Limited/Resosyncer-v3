@@ -101,7 +101,7 @@ const BirthdayWidget = () => {
               className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
                 person.isToday
                   ? 'bg-gradient-to-r from-pink-50 to-purple-50 border border-pink-200'
-                  : 'hover:bg-gray-50'
+                  : ''
               }`}
             >
               <Avatar

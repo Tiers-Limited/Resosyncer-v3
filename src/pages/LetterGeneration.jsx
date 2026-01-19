@@ -419,7 +419,7 @@ const LetterGeneration = () => {
   };
 
   return (
-    <div className="h-full bg-gray-50 overflow-auto">
+    <div className="h-full overflow-auto">
       <div className="max-w-4xl mx-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
