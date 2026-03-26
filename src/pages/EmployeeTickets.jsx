@@ -20,6 +20,7 @@ const EmployeeTickets = () => {
   const { profile } = useAuth();
   const [tickets, setTickets] = useState([]);
   const [currentProject, setCurrentProject] = useState(null);
+  const [sprints, setSprints] = useState([]);
   const [loading, setLoading] = useState(false);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
@@ -31,6 +32,7 @@ const EmployeeTickets = () => {
     if (profile?.id && projectId) {
       fetchCurrentProject();
       fetchTickets();
+      fetchSprints();
     }
   }, [profile, projectId]);
 
@@ -100,6 +102,21 @@ const EmployeeTickets = () => {
       console.error('Error:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSprints = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('sprints')
+        .select('id,name,status,start_date,end_date')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      setSprints(data || []);
+    } catch (error) {
+      console.error('Error fetching sprints:', error);
+      setSprints([]);
     }
   };
 
@@ -429,7 +446,7 @@ const EmployeeTickets = () => {
         }}
         ticket={selectedTicket}
         projectAssignees={[]}
-        sprints={[]}
+        sprints={sprints}
         lockFieldsForPM
         onRefresh={fetchTickets}
       />

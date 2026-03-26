@@ -235,6 +235,7 @@ const EmployeeProjects = () => {
   const [selectedProject, setSelectedProject] = useState(null);
   const [showProjectDrawer, setShowProjectDrawer] = useState(false);
   const [tickets, setTickets] = useState([]);
+  const [projectSprints, setProjectSprints] = useState([]);
   const [activeTab, setActiveTab] = useState("board");
   const [searchQ, setSearchQ] = useState("");
   const [detailTicket, setDetailTicket] = useState(null);
@@ -290,32 +291,43 @@ const EmployeeProjects = () => {
   const fetchProjectTickets = async (projectId) => {
     setLoadingData(true);
     try {
-      const { data, error } = await supabase
-        .from("tickets")
-        .select(
-          `
-          *,
-          assigned_user:assigned_to (
-            id,
-            full_name,
-            user_photo
-          ),
-          projects (
-            id,
-            name
-          )
-        `,
-        )
-        .eq("project_id", projectId)
-        .eq("assigned_to", profile.id)
-        .order("created_at", { ascending: false });
+      const [{ data: ticketData, error: ticketError }, { data: sprintData, error: sprintError }] =
+        await Promise.all([
+          supabase
+            .from("tickets")
+            .select(
+              `
+              *,
+              assigned_user:assigned_to (
+                id,
+                full_name,
+                user_photo
+              ),
+              projects (
+                id,
+                name
+              )
+            `,
+            )
+            .eq("project_id", projectId)
+            .eq("assigned_to", profile.id)
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("sprints")
+            .select("id,name,status,start_date,end_date")
+            .eq("project_id", projectId)
+            .order("created_at", { ascending: true }),
+        ]);
 
-      if (error) throw error;
-      setTickets(data || []);
+      if (ticketError) throw ticketError;
+      if (sprintError) throw sprintError;
+      setTickets(ticketData || []);
+      setProjectSprints(sprintData || []);
     } catch (err) {
       console.error(err);
       message.error("Failed to fetch project tickets");
       setTickets([]);
+      setProjectSprints([]);
     } finally {
       setLoadingData(false);
     }
@@ -333,6 +345,7 @@ const EmployeeProjects = () => {
     setShowProjectDrawer(false);
     setSelectedProject(null);
     setTickets([]);
+    setProjectSprints([]);
     setSearchQ("");
     setActiveTab("board");
     setDetailTicket(null);
@@ -955,7 +968,7 @@ const EmployeeProjects = () => {
         onClose={() => setDetailsModalOpen(false)}
         ticket={detailTicket}
         projectAssignees={selectedProject?.project_assignees || []}
-        sprints={[]}
+        sprints={projectSprints}
         lockFieldsForPM
         onRefresh={() => {
           if (selectedProject?.id) fetchProjectTickets(selectedProject.id);

@@ -92,6 +92,9 @@ const getAssigneeIds = (ticket) => {
   return [];
 };
 
+const prettyStatus = (s) => (s ? s.replaceAll("_", " ").toUpperCase() : "—");
+const prettyPriority = (p) => (p ? p[0].toUpperCase() + p.slice(1) : "—");
+
 export default function TicketDetailsModal({
   open,
   ticket,
@@ -140,6 +143,21 @@ export default function TicketDetailsModal({
   const [currentPoints, setCurrentPoints] = useState(ticket?.story_points || 0);
   const [currentDueDate, setCurrentDueDate] = useState(ticket?.due_date || null);
 
+  const fetchComments = async () => {
+    if (!ticket?.id) return;
+    setLoadingComments(true);
+    try {
+      const { data, error } = await supabase
+        .from("ticket_comments")
+        .select("*, profiles:user_id(id,full_name,user_photo)")
+        .eq("ticket_id", ticket.id)
+        .order("created_at", { ascending: true });
+      if (!error) setComments(data || []);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
   useEffect(() => {
     if (!open || !ticket?.id) return;
     setActiveTab("comments");
@@ -153,20 +171,6 @@ export default function TicketDetailsModal({
 
   useEffect(() => {
     if (!open || !ticket?.id) return;
-
-    const fetchComments = async () => {
-      setLoadingComments(true);
-      try {
-        const { data, error } = await supabase
-          .from("ticket_comments")
-          .select("*, profiles:user_id(id,full_name,user_photo)")
-          .eq("ticket_id", ticket.id)
-          .order("created_at", { ascending: true });
-        if (!error) setComments(data || []);
-      } finally {
-        setLoadingComments(false);
-      }
-    };
 
     const fetchAttachments = async () => {
       try {
@@ -247,6 +251,7 @@ export default function TicketDetailsModal({
       setNewComment("");
       await logHistory("comment_added", "", "Added a comment");
       onRefresh?.();
+      fetchComments();
     } catch (e) {
       message.error("Failed to add comment");
       console.error(e);
@@ -263,6 +268,23 @@ export default function TicketDetailsModal({
       })),
     [sprints],
   );
+
+  const sprintMap = useMemo(
+    () => new Map((sprints || []).map((s) => [s.id, s.name || "Sprint"])),
+    [sprints],
+  );
+  const assigneeText = useMemo(() => {
+    const names = currentAssigneeIds
+      .map((id) => assigneeOptions.find((a) => a.value === id)?.label)
+      .filter(Boolean);
+    if (names.length > 0) return names.join(", ");
+    if (ticket?.assigned_user?.full_name) return ticket.assigned_user.full_name;
+    return "Unassigned";
+  }, [assigneeOptions, currentAssigneeIds, ticket?.assigned_user?.full_name]);
+  const sprintText = useMemo(() => {
+    if (!currentSprintId) return "—";
+    return sprintMap.get(currentSprintId) || "—";
+  }, [currentSprintId, sprintMap]);
 
   return (
     <Modal
@@ -591,121 +613,157 @@ export default function TicketDetailsModal({
           <div style={{ fontSize: 11, fontWeight: 900, color: "#94a3b8" }}>
             ASSIGNEES
           </div>
-          <Select
-            mode="multiple"
-            value={currentAssigneeIds}
-            onChange={(ids) => {
-              setCurrentAssigneeIds(ids);
-              if (fieldLocked) return;
-              updateTicketField(
-                "assigned_to_ids",
-                ids,
-                getAssigneeIds(ticket).join(","),
-              );
-              updateTicketField("assigned_to", ids[0] || null, ticket?.assigned_to);
-            }}
-            options={assigneeOptions.map((o) => ({
-              value: o.value,
-              label: o.label,
-            }))}
-            placeholder="Select assignees"
-            style={{ width: "100%", marginTop: 6 }}
-            disabled={fieldLocked}
-          />
+          {isEmployee ? (
+            <div style={{ marginTop: 6, fontSize: 13, color: "#0f172a", fontWeight: 600 }}>
+              {assigneeText}
+            </div>
+          ) : (
+            <Select
+              mode="multiple"
+              value={currentAssigneeIds}
+              onChange={(ids) => {
+                setCurrentAssigneeIds(ids);
+                if (fieldLocked) return;
+                updateTicketField(
+                  "assigned_to_ids",
+                  ids,
+                  getAssigneeIds(ticket).join(","),
+                );
+                updateTicketField("assigned_to", ids[0] || null, ticket?.assigned_to);
+              }}
+              options={assigneeOptions.map((o) => ({
+                value: o.value,
+                label: o.label,
+              }))}
+              placeholder="Select assignees"
+              style={{ width: "100%", marginTop: 6 }}
+              disabled={fieldLocked}
+            />
+          )}
 
           <div style={{ height: 14 }} />
 
           <div style={{ fontSize: 11, fontWeight: 900, color: "#94a3b8" }}>
             PRIORITY
           </div>
-          <Select
-            value={currentPriority}
-            onChange={(val) => {
-              setCurrentPriority(val);
-              if (fieldLocked) return;
-              updateTicketField("priority", val, ticket?.priority);
-            }}
-            options={PRIORITY_OPTIONS.map((p) => ({
-              value: p,
-              label: p[0].toUpperCase() + p.slice(1),
-            }))}
-            style={{ width: "100%", marginTop: 6 }}
-            disabled={fieldLocked}
-          />
+          {isEmployee ? (
+            <div style={{ marginTop: 6, fontSize: 13, color: "#0f172a", fontWeight: 600 }}>
+              {prettyPriority(currentPriority)}
+            </div>
+          ) : (
+            <Select
+              value={currentPriority}
+              onChange={(val) => {
+                setCurrentPriority(val);
+                if (fieldLocked) return;
+                updateTicketField("priority", val, ticket?.priority);
+              }}
+              options={PRIORITY_OPTIONS.map((p) => ({
+                value: p,
+                label: p[0].toUpperCase() + p.slice(1),
+              }))}
+              style={{ width: "100%", marginTop: 6 }}
+              disabled={fieldLocked}
+            />
+          )}
 
           <div style={{ height: 14 }} />
 
           <div style={{ fontSize: 11, fontWeight: 900, color: "#94a3b8" }}>
             STATUS
           </div>
-          <Select
-            value={currentStatus}
-            onChange={(val) => {
-              setCurrentStatus(val);
-              if (fieldLocked) return;
-              updateTicketField("status", val, ticket?.status);
-            }}
-            options={STATUS_OPTIONS.map((s) => ({
-              value: s,
-              label: s.replace("_", " ").toUpperCase(),
-            }))}
-            style={{ width: "100%", marginTop: 6 }}
-            disabled={fieldLocked}
-          />
+          {isEmployee ? (
+            <div style={{ marginTop: 6, fontSize: 13, color: "#0f172a", fontWeight: 600 }}>
+              {prettyStatus(currentStatus)}
+            </div>
+          ) : (
+            <Select
+              value={currentStatus}
+              onChange={(val) => {
+                setCurrentStatus(val);
+                if (fieldLocked) return;
+                updateTicketField("status", val, ticket?.status);
+              }}
+              options={STATUS_OPTIONS.map((s) => ({
+                value: s,
+                label: s.replace("_", " ").toUpperCase(),
+              }))}
+              style={{ width: "100%", marginTop: 6 }}
+              disabled={fieldLocked}
+            />
+          )}
 
           <div style={{ height: 14 }} />
 
           <div style={{ fontSize: 11, fontWeight: 900, color: "#94a3b8" }}>
             SPRINT
           </div>
-          <Select
-            value={currentSprintId}
-            onChange={(val) => {
-              setCurrentSprintId(val);
-              if (fieldLocked) return;
-              updateTicketField("sprint_id", val || null, ticket?.sprint_id);
-            }}
-            options={[{ value: null, label: "—" }, ...sprintOptions]}
-            style={{ width: "100%", marginTop: 6 }}
-            disabled={fieldLocked}
-          />
+          {isEmployee ? (
+            <div style={{ marginTop: 6, fontSize: 13, color: "#0f172a", fontWeight: 600 }}>
+              {sprintText}
+            </div>
+          ) : (
+            <Select
+              value={currentSprintId}
+              onChange={(val) => {
+                setCurrentSprintId(val);
+                if (fieldLocked) return;
+                updateTicketField("sprint_id", val || null, ticket?.sprint_id);
+              }}
+              options={[{ value: null, label: "—" }, ...sprintOptions]}
+              style={{ width: "100%", marginTop: 6 }}
+              disabled={fieldLocked}
+            />
+          )}
 
           <div style={{ height: 14 }} />
 
           <div style={{ fontSize: 11, fontWeight: 900, color: "#94a3b8" }}>
             STORY POINTS
           </div>
-          <Select
-            value={currentPoints}
-            onChange={(val) => {
-              setCurrentPoints(val);
-              if (fieldLocked) return;
-              updateTicketField("story_points", val, ticket?.story_points || 0);
-            }}
-            options={POINTS_OPTIONS.map((p) => ({
-              value: p,
-              label: `${p} pts`,
-            }))}
-            style={{ width: "100%", marginTop: 6 }}
-            disabled={fieldLocked}
-          />
+          {isEmployee ? (
+            <div style={{ marginTop: 6, fontSize: 13, color: "#0f172a", fontWeight: 600 }}>
+              {currentPoints} pts
+            </div>
+          ) : (
+            <Select
+              value={currentPoints}
+              onChange={(val) => {
+                setCurrentPoints(val);
+                if (fieldLocked) return;
+                updateTicketField("story_points", val, ticket?.story_points || 0);
+              }}
+              options={POINTS_OPTIONS.map((p) => ({
+                value: p,
+                label: `${p} pts`,
+              }))}
+              style={{ width: "100%", marginTop: 6 }}
+              disabled={fieldLocked}
+            />
+          )}
 
           <div style={{ height: 14 }} />
 
           <div style={{ fontSize: 11, fontWeight: 900, color: "#94a3b8" }}>
             DUE DATE
           </div>
-          <DatePicker
-            value={currentDueDate ? dayjs(currentDueDate) : null}
-            onChange={(d) => {
-              const iso = d ? d.format("YYYY-MM-DD") : null;
-              setCurrentDueDate(iso);
-              if (fieldLocked) return;
-              updateTicketField("due_date", iso, ticket?.due_date);
-            }}
-            style={{ width: "100%", marginTop: 6 }}
-            disabled={fieldLocked}
-          />
+          {isEmployee ? (
+            <div style={{ marginTop: 6, fontSize: 13, color: "#0f172a", fontWeight: 600 }}>
+              {currentDueDate ? dayjs(currentDueDate).format("MMM D, YYYY") : "—"}
+            </div>
+          ) : (
+            <DatePicker
+              value={currentDueDate ? dayjs(currentDueDate) : null}
+              onChange={(d) => {
+                const iso = d ? d.format("YYYY-MM-DD") : null;
+                setCurrentDueDate(iso);
+                if (fieldLocked) return;
+                updateTicketField("due_date", iso, ticket?.due_date);
+              }}
+              style={{ width: "100%", marginTop: 6 }}
+              disabled={fieldLocked}
+            />
+          )}
 
           <div style={{ height: 14 }} />
           <div style={{ fontSize: 11, color: "#94a3b8" }}>
