@@ -72,6 +72,7 @@ import {
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { supabase } from "../lib/supabase";
+import TicketDetailsModal from "../components/TicketDetailsModal";
 
 dayjs.extend(relativeTime);
 
@@ -4798,14 +4799,13 @@ const PMProjects = () => {
 
       {/* ═══ TICKET DETAIL MODAL ═══ */}
       {detailTicket && (
-        <TicketDetailModal
+        <TicketDetailsModal
+          open={!!detailTicket}
           ticket={detailTicket}
-          allTickets={tickets}
           sprints={sprints}
-          project={selectedProject}
-          profile={profile}
+          projectAssignees={selectedProject?.project_assignees || []}
+          lockFieldsForPM
           onClose={() => setDetailTicket(null)}
-          onUpdate={handleTicketUpdate}
           onRefresh={() => fetchProjectData(selectedProject?.id)}
         />
       )}
