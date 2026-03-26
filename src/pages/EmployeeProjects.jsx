@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { message, Spin, Tooltip } from "antd";
-import { Calendar } from "lucide-react";
+import { Drawer, message, Spin, Tooltip } from "antd";
+import { Calendar, Search, X } from "lucide-react";
 import dayjs from "dayjs";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import TicketDetailsDrawer from "../components/TicketDetailsDrawer";
 
 const initials = (name = "") =>
   name
@@ -229,9 +229,16 @@ const ProjectCard = ({ project, onClick }) => {
 };
 
 const EmployeeProjects = () => {
-  const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(false);
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [showProjectDrawer, setShowProjectDrawer] = useState(false);
+  const [tickets, setTickets] = useState([]);
+  const [activeTab, setActiveTab] = useState("board");
+  const [searchQ, setSearchQ] = useState("");
+  const [detailTicket, setDetailTicket] = useState(null);
+  const [detailsDrawerVisible, setDetailsDrawerVisible] = useState(false);
   const { profile } = useAuth();
 
   useEffect(() => {
@@ -280,9 +287,78 @@ const EmployeeProjects = () => {
     return { total, active, done };
   }, [projects]);
 
-  const openProject = (project) => {
-    navigate(`/projects/${project.id}/tickets`);
+  const fetchProjectTickets = async (projectId) => {
+    setLoadingData(true);
+    try {
+      const { data, error } = await supabase
+        .from("tickets")
+        .select(
+          `
+          *,
+          assigned_user:assigned_to (
+            id,
+            full_name,
+            user_photo
+          ),
+          projects (
+            id,
+            name
+          )
+        `,
+        )
+        .eq("project_id", projectId)
+        .eq("assigned_to", profile.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setTickets(data || []);
+    } catch (err) {
+      console.error(err);
+      message.error("Failed to fetch project tickets");
+      setTickets([]);
+    } finally {
+      setLoadingData(false);
+    }
   };
+
+  const openProject = async (project) => {
+    setSelectedProject(project);
+    setShowProjectDrawer(true);
+    setActiveTab("board");
+    setSearchQ("");
+    await fetchProjectTickets(project.id);
+  };
+
+  const closeProjectDrawer = () => {
+    setShowProjectDrawer(false);
+    setSelectedProject(null);
+    setTickets([]);
+    setSearchQ("");
+    setActiveTab("board");
+    setDetailTicket(null);
+    setDetailsDrawerVisible(false);
+  };
+
+  const filteredTickets = useMemo(() => {
+    if (!searchQ.trim()) return tickets;
+    const q = searchQ.toLowerCase();
+    return tickets.filter((t) => (t.title || "").toLowerCase().includes(q));
+  }, [tickets, searchQ]);
+
+  const boardColumns = useMemo(
+    () => [
+      { key: "open", label: "To Do", color: "#44546f", bg: "#f0f4f8", border: "#dde3ec", headerBg: "#e4ecf5" },
+      { key: "in_progress", label: "In Progress", color: "#0c66e4", bg: "#e9f2ff", border: "#b8d0f5", headerBg: "#cce0ff" },
+      { key: "completed", label: "Done", color: "#22a06b", bg: "#dcfff1", border: "#abe5c7", headerBg: "#baf3db" },
+      { key: "closed", label: "Closed", color: "#626f86", bg: "#f1f2f4", border: "#d1d5db", headerBg: "#e2e4e9" },
+    ],
+    [],
+  );
+
+  const backlogTickets = useMemo(
+    () => filteredTickets.filter((t) => !t.sprint_id),
+    [filteredTickets],
+  );
 
   return (
     <>
@@ -473,6 +549,415 @@ const EmployeeProjects = () => {
           )}
         </div>
       </div>
+
+      {/* ═══ PROJECT DRAWER (PM-like flow) ═══ */}
+      <Drawer
+        open={showProjectDrawer}
+        onClose={closeProjectDrawer}
+        width="96%"
+        styles={{
+          header: {
+            padding: "12px 18px",
+            borderBottom: "1px solid #f1f2f4",
+            background: "#fff",
+          },
+          body: { padding: 0, background: "#f4f5f7" },
+        }}
+        title={
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              width: "100%",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 6,
+                  background: "linear-gradient(135deg,#003467,#0c66e4)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <span style={{ color: "#fff", fontWeight: 900, fontSize: 13 }}>
+                  P
+                </span>
+              </div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "#172b4d" }}>
+                  {selectedProject?.name}
+                </div>
+                <div style={{ fontSize: 10, color: "#94a3b8" }}>
+                  {selectedProject?.description}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 7, marginRight: 40 }}>
+              {[
+                { label: "Tickets", val: tickets.length, color: "#003467" },
+                {
+                  label: "Open",
+                  val: tickets.filter((t) => t.status === "open").length,
+                  color: "#f97316",
+                },
+                {
+                  label: "Done",
+                  val: tickets.filter(
+                    (t) => t.status === "completed" || t.status === "closed",
+                  ).length,
+                  color: "#22a06b",
+                },
+              ].map((s) => (
+                <div
+                  key={s.label}
+                  style={{
+                    background: "#f4f5f7",
+                    border: "1px solid #dde3ec",
+                    borderRadius: 6,
+                    padding: "4px 10px",
+                    textAlign: "center",
+                    minWidth: 52,
+                  }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 800, color: s.color }}>
+                    {s.val}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 9,
+                      color: "#9ca3af",
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.4,
+                    }}
+                  >
+                    {s.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        }
+      >
+        <div style={{ padding: "0 18px 24px" }}>
+          {/* Tabs + search */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "12px 0",
+              borderBottom: "1px solid #e5e7eb",
+              marginBottom: 16,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                gap: 0,
+                background: "#f1f2f4",
+                padding: 3,
+                borderRadius: 6,
+              }}
+            >
+              {["board", "backlog"].map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setActiveTab(t)}
+                  style={{
+                    padding: "5px 14px",
+                    borderRadius: 4,
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    transition: "all .15s",
+                    background: activeTab === t ? "#fff" : "transparent",
+                    color: activeTab === t ? "#172b4d" : "#626f86",
+                    boxShadow:
+                      activeTab === t ? "0 1px 3px rgba(0,0,0,.1)" : "none",
+                  }}
+                >
+                  {t === "board" ? "Board" : "Backlog"}
+                  {t === "backlog" && backlogTickets.length > 0 && (
+                    <span
+                      style={{
+                        marginLeft: 4,
+                        background: activeTab === t ? "#e0e7ff" : "#e5e7eb",
+                        color: activeTab === t ? "#4338ca" : "#6b7280",
+                        fontSize: 9,
+                        fontWeight: 700,
+                        padding: "1px 4px",
+                        borderRadius: 99,
+                      }}
+                    >
+                      {backlogTickets.length}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                background: "#fff",
+                border: "1px solid #dde3ec",
+                borderRadius: 6,
+                padding: "5px 10px",
+              }}
+            >
+              <Search size={12} color="#9ca3af" />
+              <input
+                placeholder="Search issues…"
+                value={searchQ}
+                onChange={(e) => setSearchQ(e.target.value)}
+                style={{
+                  border: "none",
+                  outline: "none",
+                  fontSize: 12,
+                  color: "#172b4d",
+                  width: 150,
+                  background: "transparent",
+                }}
+              />
+              {searchQ && (
+                <button
+                  onClick={() => setSearchQ("")}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: 0,
+                    color: "#9ca3af",
+                    display: "flex",
+                  }}
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {loadingData ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                height: 240,
+              }}
+            >
+              <Spin size="large" />
+            </div>
+          ) : activeTab === "board" ? (
+            <div
+              className="pm-scroll"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4,1fr)",
+                gap: 12,
+                overflowX: "auto",
+              }}
+            >
+              {boardColumns.map((col) => {
+                const items = filteredTickets.filter((t) => t.status === col.key);
+                return (
+                  <div
+                    key={col.key}
+                    style={{
+                      background: col.bg,
+                      border: `1.5px solid ${col.border}`,
+                      borderRadius: 10,
+                      padding: 10,
+                      minHeight: 240,
+                    }}
+                  >
+                    <div
+                      style={{
+                        background: col.headerBg,
+                        border: `1px solid ${col.border}`,
+                        borderRadius: 8,
+                        padding: "8px 10px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: 10,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 800,
+                          color: col.color,
+                          textTransform: "uppercase",
+                          letterSpacing: 0.5,
+                        }}
+                      >
+                        {col.label}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: col.color,
+                          background: "#fff",
+                          padding: "1px 7px",
+                          borderRadius: 99,
+                          border: `1px solid ${col.border}`,
+                        }}
+                      >
+                        {items.length}
+                      </span>
+                    </div>
+
+                    {items.map((t) => (
+                      <div
+                        key={t.id}
+                        onClick={() => {
+                          setDetailTicket(t);
+                          setDetailsDrawerVisible(true);
+                        }}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            setDetailTicket(t);
+                            setDetailsDrawerVisible(true);
+                          }
+                        }}
+                        style={{
+                          background: "#fff",
+                          border: "1px solid #dde3ec",
+                          borderRadius: 8,
+                          padding: "10px 10px",
+                          marginBottom: 8,
+                          cursor: "pointer",
+                          boxShadow: "0 1px 2px rgba(0,0,0,.04)",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.boxShadow =
+                            "0 4px 14px rgba(0,0,0,.08)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.boxShadow =
+                            "0 1px 2px rgba(0,0,0,.04)";
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 650,
+                            color: "#172b4d",
+                            marginBottom: 6,
+                            lineHeight: 1.3,
+                          }}
+                        >
+                          {t.title}
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}>
+                          <span style={{ fontSize: 10, color: "#9ca3af" }}>
+                            {t.priority ? `Priority: ${t.priority}` : "Priority: —"}
+                          </span>
+                          <span style={{ fontSize: 10, color: "#9ca3af" }}>
+                            {t.due_date ? `Due ${fmtDate(t.due_date)}` : ""}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+
+                    {items.length === 0 && (
+                      <div
+                        style={{
+                          border: "1.5px dashed #dde3ec",
+                          borderRadius: 8,
+                          padding: "22px 10px",
+                          textAlign: "center",
+                          background: "#fff",
+                        }}
+                      >
+                        <p style={{ fontSize: 11, color: "#cbd5e1", margin: 0 }}>
+                          No issues
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div
+              style={{
+                background: "#fff",
+                border: "1px solid #dde3ec",
+                borderRadius: 10,
+                padding: 12,
+              }}
+            >
+              {backlogTickets.length === 0 ? (
+                <div
+                  style={{
+                    border: "1.5px dashed #dde3ec",
+                    borderRadius: 8,
+                    padding: "28px 14px",
+                    textAlign: "center",
+                  }}
+                >
+                  <p style={{ fontSize: 12, color: "#9ca3af", margin: 0 }}>
+                    No backlog issues
+                  </p>
+                </div>
+              ) : (
+                backlogTickets.map((t) => (
+                  <div
+                    key={t.id}
+                    onClick={() => {
+                      setDetailTicket(t);
+                      setDetailsDrawerVisible(true);
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        setDetailTicket(t);
+                        setDetailsDrawerVisible(true);
+                      }
+                    }}
+                    style={{
+                      padding: "10px 10px",
+                      borderBottom: "1px solid #f1f2f4",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div style={{ fontSize: 12, fontWeight: 650, color: "#172b4d" }}>
+                      {t.title}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>
+                      {t.ticket_type ? t.ticket_type.toUpperCase() : ""}{" "}
+                      {t.priority ? `• ${t.priority.toUpperCase()}` : ""}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      </Drawer>
+
+      <TicketDetailsDrawer
+        visible={detailsDrawerVisible}
+        onClose={() => setDetailsDrawerVisible(false)}
+        ticket={detailTicket}
+        onUpdate={() => {
+          if (selectedProject?.id) fetchProjectTickets(selectedProject.id);
+        }}
+      />
     </>
   );
 };
