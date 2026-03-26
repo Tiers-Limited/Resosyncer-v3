@@ -105,7 +105,8 @@ export default function TicketDetailsModal({
   const fileInputRef = useRef(null);
 
   const isPM = profile?.role === "project_manager";
-  const fieldLocked = lockFieldsForPM && isPM;
+  const isEmployee = profile?.role === "employee";
+  const fieldLocked = lockFieldsForPM && (isPM || isEmployee);
 
   const [activeTab, setActiveTab] = useState("comments");
   const [comments, setComments] = useState([]);
