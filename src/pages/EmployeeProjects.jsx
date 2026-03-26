@@ -4,7 +4,7 @@ import { Calendar, Search, X } from "lucide-react";
 import dayjs from "dayjs";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
-import TicketDetailsDrawer from "../components/TicketDetailsDrawer";
+import TicketDetailsModal from "../components/TicketDetailsModal";
 
 const initials = (name = "") =>
   name
@@ -238,7 +238,7 @@ const EmployeeProjects = () => {
   const [activeTab, setActiveTab] = useState("board");
   const [searchQ, setSearchQ] = useState("");
   const [detailTicket, setDetailTicket] = useState(null);
-  const [detailsDrawerVisible, setDetailsDrawerVisible] = useState(false);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const { profile } = useAuth();
 
   useEffect(() => {
@@ -336,7 +336,7 @@ const EmployeeProjects = () => {
     setSearchQ("");
     setActiveTab("board");
     setDetailTicket(null);
-    setDetailsDrawerVisible(false);
+    setDetailsModalOpen(false);
   };
 
   const filteredTickets = useMemo(() => {
@@ -822,14 +822,14 @@ const EmployeeProjects = () => {
                         key={t.id}
                         onClick={() => {
                           setDetailTicket(t);
-                          setDetailsDrawerVisible(true);
+                          setDetailsModalOpen(true);
                         }}
                         role="button"
                         tabIndex={0}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             setDetailTicket(t);
-                            setDetailsDrawerVisible(true);
+                            setDetailsModalOpen(true);
                           }
                         }}
                         style={{
@@ -919,14 +919,14 @@ const EmployeeProjects = () => {
                     key={t.id}
                     onClick={() => {
                       setDetailTicket(t);
-                      setDetailsDrawerVisible(true);
+                      setDetailsModalOpen(true);
                     }}
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         setDetailTicket(t);
-                        setDetailsDrawerVisible(true);
+                        setDetailsModalOpen(true);
                       }
                     }}
                     style={{
@@ -950,11 +950,14 @@ const EmployeeProjects = () => {
         </div>
       </Drawer>
 
-      <TicketDetailsDrawer
-        visible={detailsDrawerVisible}
-        onClose={() => setDetailsDrawerVisible(false)}
+      <TicketDetailsModal
+        open={detailsModalOpen}
+        onClose={() => setDetailsModalOpen(false)}
         ticket={detailTicket}
-        onUpdate={() => {
+        projectAssignees={selectedProject?.project_assignees || []}
+        sprints={[]}
+        lockFieldsForPM
+        onRefresh={() => {
           if (selectedProject?.id) fetchProjectTickets(selectedProject.id);
         }}
       />

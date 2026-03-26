@@ -4,7 +4,7 @@ import { Card, Table, Button, Tag, Space, Drawer, Form, Input, Select, message, 
 import { PlusOutlined, BugOutlined, EditOutlined, DeleteOutlined, ArrowLeftOutlined, EyeOutlined } from '@ant-design/icons';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import TicketDetailsDrawer from '../components/TicketDetailsDrawer';
+import TicketDetailsModal from "../components/TicketDetailsModal";
 
 const { TextArea } = Input;
 
@@ -22,7 +22,7 @@ const PMTickets = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [form] = Form.useForm();
-  const [detailsDrawerVisible, setDetailsDrawerVisible] = useState(false);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
 
   useEffect(() => {
@@ -173,6 +173,7 @@ const PMTickets = () => {
             description: values.description,
             status: values.status,
             priority: values.priority,
+            ticket_type: values.ticket_type,
             assigned_to: values.assigned_to,
           })
           .eq('id', editingTicket.id);
@@ -190,6 +191,7 @@ const PMTickets = () => {
             description: values.description,
             status: values.status,
             priority: values.priority,
+            ticket_type: values.ticket_type,
             assigned_to: values.assigned_to,
             created_by: profile.id,
           }]);
@@ -231,6 +233,17 @@ const PMTickets = () => {
     return colors[priority] || 'default';
   };
 
+  const getTypeColor = (type) => {
+    const colors = {
+      epic: 'purple',
+      story: 'green',
+      task: 'blue',
+      bug: 'red',
+      subtask: 'default',
+    };
+    return colors[type] || 'default';
+  };
+
   const filteredTickets = tickets.filter(ticket => {
     if (statusFilter !== 'all' && ticket.status !== statusFilter) return false;
     if (priorityFilter !== 'all' && ticket.priority !== priorityFilter) return false;
@@ -242,13 +255,24 @@ const PMTickets = () => {
       title: 'Title',
       dataIndex: 'title',
       key: 'title',
-      width: '25%',
+      width: '20%',
+    },
+    {
+      title: 'Type',
+      dataIndex: 'ticket_type',
+      key: 'ticket_type',
+      width: '10%',
+      render: (type) => (
+        <Tag color={getTypeColor(type)}>
+          {type?.toUpperCase()}
+        </Tag>
+      ),
     },
     {
       title: 'Assigned To',
       dataIndex: ['assigned_user', 'full_name'],
       key: 'assigned_to',
-      width: '20%',
+      width: '18%',
       render: (text) => text || 'Unassigned',
     },
     {
@@ -291,7 +315,7 @@ const PMTickets = () => {
             icon={<EyeOutlined />}
             onClick={() => {
               setSelectedTicket(record);
-              setDetailsDrawerVisible(true);
+              setDetailsModalOpen(true);
             }}
           >
             View
@@ -422,6 +446,21 @@ const PMTickets = () => {
           </Form.Item>
 
           <Form.Item
+            name="ticket_type"
+            label="Type"
+            rules={[{ required: true, message: 'Please select ticket type' }]}
+            initialValue="task"
+          >
+            <Select placeholder="Select ticket type">
+              <Select.Option value="epic">Epic</Select.Option>
+              <Select.Option value="story">Story</Select.Option>
+              <Select.Option value="task">Task</Select.Option>
+              <Select.Option value="bug">Bug</Select.Option>
+              <Select.Option value="subtask">Subtask</Select.Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
             name="description"
             label="Description"
             rules={[{ required: true, message: 'Please enter description' }]}
@@ -483,14 +522,17 @@ const PMTickets = () => {
         </Form>
       </Drawer>
 
-      <TicketDetailsDrawer
-        visible={detailsDrawerVisible}
+      <TicketDetailsModal
+        open={detailsModalOpen}
         onClose={() => {
-          setDetailsDrawerVisible(false);
+          setDetailsModalOpen(false);
           setSelectedTicket(null);
         }}
         ticket={selectedTicket}
-        onUpdate={fetchTickets}
+        projectAssignees={[]}
+        sprints={[]}
+        lockFieldsForPM
+        onRefresh={fetchTickets}
       />
     </div>
   );

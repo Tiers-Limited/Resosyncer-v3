@@ -12,7 +12,7 @@ import {
 } from '@ant-design/icons';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import TicketDetailsDrawer from '../components/TicketDetailsDrawer';
+import TicketDetailsModal from "../components/TicketDetailsModal";
 
 const EmployeeTickets = () => {
   const { projectId } = useParams();
@@ -21,7 +21,7 @@ const EmployeeTickets = () => {
   const [tickets, setTickets] = useState([]);
   const [currentProject, setCurrentProject] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [detailsDrawerVisible, setDetailsDrawerVisible] = useState(false);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [viewMode, setViewMode] = useState('kanban');
@@ -105,7 +105,7 @@ const EmployeeTickets = () => {
 
   const handleViewTicket = (ticket) => {
     setSelectedTicket(ticket);
-    setDetailsDrawerVisible(true);
+    setDetailsModalOpen(true);
   };
 
   const handleUpdateTicketStatus = async (ticketId, newStatus) => {
@@ -421,14 +421,17 @@ const EmployeeTickets = () => {
         </div>
       )}
 
-      <TicketDetailsDrawer
-        visible={detailsDrawerVisible}
+      <TicketDetailsModal
+        open={detailsModalOpen}
         onClose={() => {
-          setDetailsDrawerVisible(false);
+          setDetailsModalOpen(false);
           setSelectedTicket(null);
         }}
         ticket={selectedTicket}
-        onUpdate={fetchTickets}
+        projectAssignees={[]}
+        sprints={[]}
+        lockFieldsForPM
+        onRefresh={fetchTickets}
       />
     </div>
   );
