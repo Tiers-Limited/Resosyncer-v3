@@ -194,6 +194,17 @@ const TicketDetailsDrawer = ({ visible, onClose, ticket, onUpdate }) => {
     return colors[priority] || 'default';
   };
 
+  const getTypeColor = (type) => {
+    const colors = {
+      epic: 'purple',
+      story: 'green',
+      task: 'blue',
+      bug: 'red',
+      subtask: 'default',
+    };
+    return colors[type] || 'default';
+  };
+
   const isEmployee = profile?.role === 'employee';
   const isPM = profile?.role === 'project_manager';
   const canRequestCompletion = isEmployee && ticket?.assigned_to === profile?.id &&
@@ -222,6 +233,14 @@ const TicketDetailsDrawer = ({ visible, onClose, ticket, onUpdate }) => {
                 <Tag color={getPriorityColor(ticket.priority)}>
                   {ticket.priority?.toUpperCase()}
                 </Tag>
+                <Tag color={getTypeColor(ticket.ticket_type)}>
+                  {ticket.ticket_type?.toUpperCase()}
+                </Tag>
+                {ticket.story_points > 0 && (
+                  <Tag color="geekblue">
+                    {ticket.story_points} {ticket.story_points === 1 ? 'POINT' : 'POINTS'}
+                  </Tag>
+                )}
               </Space>
             </div>
 

@@ -1,32 +1,69 @@
 import { useState, useEffect } from "react";
+import { Table, Button, Tag, message, Modal, Input, Select } from "antd";
 import {
-  Card,
-  Table,
-  Button,
-  Tag,
-  message,
-  Modal,
-  Input,
-  Select,
-  Switch,
-} from "antd";
-import { PlusOutlined, BulbOutlined } from "@ant-design/icons";
-import { theme } from "antd";
+  PlusOutlined,
+  SendOutlined,
+  ClockCircleOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  InboxOutlined,
+  MessageOutlined,
+  FileTextOutlined,
+  UserOutlined,
+} from "@ant-design/icons";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
 const { TextArea } = Input;
 
-const Requests = () => {
-  const { token } = theme.useToken();
-  const isDark =
-    token.colorBgContainer === "#1f2937" || token.colorBgLayout === "#111827";
+const STATUS_CONFIG = {
+  pending: {
+    color: "#d97706",
+    bg: "#fffbeb",
+    border: "#fde68a",
+    icon: <ClockCircleOutlined />,
+    label: "Pending",
+  },
+  approved: {
+    color: "#059669",
+    bg: "#ecfdf5",
+    border: "#a7f3d0",
+    icon: <CheckCircleOutlined />,
+    label: "Approved",
+  },
+  rejected: {
+    color: "#e11d48",
+    bg: "#fff1f2",
+    border: "#fecdd3",
+    icon: <CloseCircleOutlined />,
+    label: "Rejected",
+  },
+};
 
+const TYPE_CONFIG = {
+  advance_salary: {
+    label: "Advance Salary",
+    color: "#7c3aed",
+    bg: "#f5f3ff",
+    border: "#ddd6fe",
+  },
+  leave: {
+    label: "Leave Request",
+    color: "#0369a1",
+    bg: "#f0f9ff",
+    border: "#bae6fd",
+  },
+  other: { label: "Other", color: "#475569", bg: "#f8fafc", border: "#e2e8f0" },
+};
+
+const Requests = () => {
   const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [responseModal, setResponseModal] = useState(false);
   const [createModal, setCreateModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [expandedRow, setExpandedRow] = useState(null);
+  const [tenantId, setTenantId] = useState(null);
   const [formData, setFormData] = useState({ status: "", response: "" });
   const [createFormData, setCreateFormData] = useState({
     request_type: "",
@@ -35,20 +72,40 @@ const Requests = () => {
   });
   const { profile } = useAuth();
 
+  // ── Fetch tenant_id from auth ──────────────────────────────────────────
   useEffect(() => {
-    fetchRequests();
+    const init = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("tenant_id")
+          .eq("id", user.id)
+          .single();
+        setTenantId(profile?.tenant_id ?? null);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    init();
   }, []);
+
+  useEffect(() => {
+    if (tenantId) fetchRequests();
+  }, [tenantId]);
 
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      let query = supabase.from("requests").select(`
-          *,
-          profiles!requests_user_id_fkey (
-            full_name,
-            email
-          )
-        `);
+      let query = supabase
+        .from("requests")
+        .select(
+          `*, profiles!requests_user_id_fkey (full_name, email, user_photo)`,
+        )
+        .eq("tenant_id", tenantId); // 👈 tenant filter
 
       if (profile?.role === "project_manager") {
         query = query.eq("user_id", profile.id);
@@ -57,10 +114,9 @@ const Requests = () => {
       const { data, error } = await query.order("created_at", {
         ascending: false,
       });
-
       if (error) throw error;
       setRequests(data || []);
-    } catch (error) {
+    } catch {
       message.error("Failed to fetch requests");
     } finally {
       setLoading(false);
@@ -72,7 +128,6 @@ const Requests = () => {
       message.error("Please wait for profile to load");
       return;
     }
-
     if (
       !createFormData.request_type ||
       !createFormData.subject ||
@@ -81,26 +136,24 @@ const Requests = () => {
       message.error("Please fill all required fields");
       return;
     }
-
     setLoading(true);
     try {
       const { error } = await supabase.from("requests").insert([
         {
           user_id: profile.id,
+          tenant_id: tenantId, // 👈 tenant_id on insert
           request_type: createFormData.request_type,
           subject: createFormData.subject,
           description: createFormData.description,
           status: "pending",
         },
       ]);
-
       if (error) throw error;
-
       message.success("Request submitted successfully");
       setCreateModal(false);
       setCreateFormData({ request_type: "", subject: "", description: "" });
       fetchRequests();
-    } catch (error) {
+    } catch {
       message.error("Failed to submit request");
     } finally {
       setLoading(false);
@@ -112,7 +165,6 @@ const Requests = () => {
       message.error("Please fill all required fields");
       return;
     }
-
     setLoading(true);
     try {
       const { error } = await supabase
@@ -124,43 +176,108 @@ const Requests = () => {
           responded_at: new Date().toISOString(),
         })
         .eq("id", selectedRequest.id);
-
       if (error) throw error;
-
       message.success("Response submitted successfully");
       setResponseModal(false);
       setFormData({ status: "", response: "" });
       fetchRequests();
-    } catch (error) {
+    } catch {
       message.error("Failed to submit response");
     } finally {
       setLoading(false);
     }
   };
 
+  // ── Stats ──────────────────────────────────────────────────────────────
+  const stats = {
+    total: requests.length,
+    pending: requests.filter((r) => r.status === "pending").length,
+    approved: requests.filter((r) => r.status === "approved").length,
+    rejected: requests.filter((r) => r.status === "rejected").length,
+  };
+
+  // ── Columns ────────────────────────────────────────────────────────────
   const columns = [
     {
       title: "Employee",
-      dataIndex: ["profiles", "full_name"],
       key: "employee",
-      render: (text) => (
-        <span className={isDark ? "text-gray-200" : "text-gray-900"}>
-          {text}
-        </span>
+      render: (_, rec) => (
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: "50%",
+              background: "linear-gradient(135deg, #6366f1, #0ea5e9)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 13,
+              fontWeight: 700,
+              color: "#fff",
+              flexShrink: 0,
+              overflow: "hidden",
+            }}
+          >
+            {rec.profiles?.user_photo ? (
+              <img
+                src={rec.profiles.user_photo}
+                alt=""
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            ) : (
+              (rec.profiles?.full_name || "?")[0].toUpperCase()
+            )}
+          </div>
+          <div>
+            <div
+              style={{
+                fontWeight: 600,
+                fontSize: 13,
+                color: "#0f172a",
+                lineHeight: 1.2,
+              }}
+            >
+              {rec.profiles?.full_name || "—"}
+            </div>
+            <div style={{ fontSize: 11, color: "#94a3b8" }}>
+              {rec.profiles?.email || ""}
+            </div>
+          </div>
+        </div>
       ),
     },
     {
       title: "Type",
       dataIndex: "request_type",
       key: "request_type",
-      render: (type) => <Tag color="blue">{type.toUpperCase()}</Tag>,
+      render: (type) => {
+        const cfg = TYPE_CONFIG[type] || TYPE_CONFIG.other;
+        return (
+          <span
+            style={{
+              display: "inline-block",
+              padding: "3px 10px",
+              borderRadius: 20,
+              border: `1px solid ${cfg.border}`,
+              background: cfg.bg,
+              fontSize: 11,
+              fontWeight: 700,
+              color: cfg.color,
+              letterSpacing: "0.03em",
+            }}
+          >
+            {cfg.label}
+          </span>
+        );
+      },
     },
     {
       title: "Subject",
       dataIndex: "subject",
       key: "subject",
       render: (text) => (
-        <span className={isDark ? "text-gray-200" : "text-gray-900"}>
+        <span style={{ fontWeight: 500, fontSize: 13, color: "#1e293b" }}>
           {text}
         </span>
       ),
@@ -170,12 +287,25 @@ const Requests = () => {
       dataIndex: "status",
       key: "status",
       render: (status) => {
-        const colors = {
-          pending: "orange",
-          approved: "green",
-          rejected: "red",
-        };
-        return <Tag color={colors[status]}>{status.toUpperCase()}</Tag>;
+        const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+        return (
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "4px 10px",
+              borderRadius: 20,
+              border: `1px solid ${cfg.border}`,
+              background: cfg.bg,
+              fontSize: 11,
+              fontWeight: 700,
+              color: cfg.color,
+            }}
+          >
+            {cfg.icon} {cfg.label}
+          </span>
+        );
       },
     },
     {
@@ -183,35 +313,57 @@ const Requests = () => {
       dataIndex: "created_at",
       key: "created_at",
       render: (date) => (
-        <span className={isDark ? "text-gray-300" : "text-gray-600"}>
-          {new Date(date).toLocaleDateString()}
+        <span style={{ fontSize: 12, color: "#64748b" }}>
+          {new Date(date).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}
         </span>
       ),
     },
     {
-      title: "Actions",
+      title: "",
       key: "actions",
+      width: 140,
       render: (_, record) => {
-        if (profile?.role === "project_manager") {
+        if (profile?.role === "project_manager") return null;
+        if (record.status === "pending") {
           return (
-            <span className={isDark ? "text-gray-500" : "text-gray-400"}>
-              -
-            </span>
+            <Button
+              icon={<MessageOutlined />}
+              onClick={() => {
+                setSelectedRequest(record);
+                setResponseModal(true);
+              }}
+              style={{
+                borderRadius: 8,
+                height: 32,
+                paddingInline: 14,
+                fontWeight: 600,
+                fontSize: 12,
+                background: "#0f172a",
+                border: "none",
+                color: "#fff",
+                boxShadow: "0 2px 6px rgba(15,23,42,0.2)",
+              }}
+            >
+              Respond
+            </Button>
           );
         }
-        return record.status === "pending" ? (
-          <Button
-            type="link"
-            onClick={() => {
-              setSelectedRequest(record);
-              setResponseModal(true);
+        return (
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 11,
+              fontWeight: 600,
+              color: "#94a3b8",
             }}
           >
-            Respond
-          </Button>
-        ) : (
-          <span className={isDark ? "text-gray-500" : "text-gray-400"}>
-            Responded
+            <CheckCircleOutlined style={{ fontSize: 10 }} /> Done
           </span>
         );
       },
@@ -220,95 +372,429 @@ const Requests = () => {
 
   return (
     <div
-      className={`min-h-screen p-6 ${isDark ? "bg-gray-900" : "bg-gray-50"}`}
+      style={{
+        minHeight: "100vh",
+        background: "#f8fafc",
+        padding: "28px 32px",
+        fontFamily: "'Outfit', sans-serif",
+      }}
     >
-      <div className="flex justify-between items-center mb-6">
-        <h1
-          className={`text-2xl font-bold ${
-            isDark ? "text-gray-100" : "text-gray-900"
-          }`}
-        >
-          Requests
-        </h1>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-          </div>
-          {profile?.role === "project_manager" && (
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => setCreateModal(true)}
-              style={{ backgroundColor: "#2563eb" }}
-            >
-              New Request
-            </Button>
-          )}
-        </div>
-      </div>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
+        * { font-family: 'Outfit', sans-serif !important; box-sizing: border-box; }
 
-      <Card
-        className={isDark ? "dark-card" : ""}
-        bodyStyle={{
-          padding: 0,
-          backgroundColor: isDark ? "#1f2937" : "#ffffff",
+        .req-table .ant-table { background: transparent !important; }
+        .req-table .ant-table-thead > tr > th {
+          background: #f9fafb !important; color: #94a3b8 !important;
+          font-size: 11px !important; font-weight: 700 !important;
+          text-transform: uppercase; letter-spacing: 0.06em;
+          border-bottom: 1px solid #f1f5f9 !important;
+          padding: 11px 16px !important;
+        }
+        .req-table .ant-table-tbody > tr > td {
+          border-bottom: 1px solid #f9fafb !important;
+          padding: 14px 16px !important;
+          vertical-align: middle;
+        }
+        .req-table .ant-table-tbody > tr:last-child > td { border-bottom: none !important; }
+        .req-table .ant-table-tbody > tr:hover > td { background: #f8fafc !important; }
+        .req-table .ant-table-row { cursor: pointer; }
+        .req-table .ant-table-expanded-row > td { background: #fafafa !important; padding: 0 !important; }
+        .req-table .ant-pagination-item-active { border-color: #0f172a !important; }
+        .req-table .ant-pagination-item-active a { color: #0f172a !important; }
+
+        .req-input .ant-input,
+        .req-input textarea,
+        .req-select .ant-select-selector {
+          border-radius: 9px !important;
+          border-color: #e2e8f0 !important;
+          font-size: 13px !important;
+          padding: 9px 13px !important;
+          background: #f8fafc !important;
+          transition: all 0.15s;
+        }
+        .req-input .ant-input:focus,
+        .req-input textarea:focus,
+        .req-select .ant-select-focused .ant-select-selector {
+          border-color: #6366f1 !important;
+          background: #fff !important;
+          box-shadow: 0 0 0 3px rgba(99,102,241,0.08) !important;
+        }
+        .req-select .ant-select-selector { height: auto !important; padding: 6px 13px !important; }
+
+        .stat-card { transition: transform 0.15s, box-shadow 0.15s; }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(15,23,42,0.08) !important; }
+
+        .req-modal .ant-modal-content { border-radius: 18px !important; overflow: hidden; padding: 0 !important; }
+        .req-modal .ant-modal-header { padding: 22px 28px 18px !important; border-bottom: 1px solid #f1f5f9 !important; margin: 0 !important; }
+        .req-modal .ant-modal-body { padding: 24px 28px !important; }
+        .req-modal .ant-modal-footer { padding: 16px 28px !important; border-top: 1px solid #f1f5f9 !important; margin: 0 !important; }
+        .req-modal .ant-modal-footer .ant-btn { border-radius: 9px !important; height: 38px !important; font-weight: 600 !important; font-size: 13px !important; }
+        .req-modal .ant-modal-footer .ant-btn-primary { background: #0f172a !important; border-color: #0f172a !important; }
+        .req-modal .ant-modal-footer .ant-btn-primary:hover { background: #1e293b !important; }
+      `}</style>
+
+      {/* ── Header ── */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          marginBottom: 28,
+          flexWrap: "wrap",
+          gap: 16,
         }}
       >
+        <div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 4,
+            }}
+          >
+            <div
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: "50%",
+                background: "#0f172a",
+              }}
+            />
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "#94a3b8",
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+              }}
+            >
+              Management
+            </span>
+          </div>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: 26,
+              fontWeight: 800,
+              color: "#0f172a",
+              letterSpacing: -0.5,
+            }}
+          >
+            Requests
+          </h1>
+        </div>
+        {profile?.role === "project_manager" && (
+          <Button
+            icon={<PlusOutlined />}
+            onClick={() => setCreateModal(true)}
+            style={{
+              height: 40,
+              paddingInline: 20,
+              borderRadius: 10,
+              background: "#0f172a",
+              border: "none",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: 13,
+              boxShadow: "0 4px 12px rgba(15,23,42,0.25)",
+            }}
+          >
+            New Request
+          </Button>
+        )}
+      </div>
+
+      {/* ── Stat Cards ── */}
+      <div
+        style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}
+      >
+        {[
+          {
+            label: "Total",
+            value: stats.total,
+            color: "#0f172a",
+            bg: "#f8fafc",
+            border: "#e2e8f0",
+            icon: <InboxOutlined />,
+          },
+          {
+            label: "Pending",
+            value: stats.pending,
+            ...STATUS_CONFIG.pending,
+            icon: <ClockCircleOutlined />,
+          },
+          {
+            label: "Approved",
+            value: stats.approved,
+            ...STATUS_CONFIG.approved,
+            icon: <CheckCircleOutlined />,
+          },
+          {
+            label: "Rejected",
+            value: stats.rejected,
+            ...STATUS_CONFIG.rejected,
+            icon: <CloseCircleOutlined />,
+          },
+        ].map(({ label, value, color, bg, border, icon }) => (
+          <div
+            key={label}
+            className="stat-card"
+            style={{
+              flex: "1 1 120px",
+              minWidth: 110,
+              padding: "16px 18px",
+              borderRadius: 14,
+              border: `1px solid ${border}`,
+              background: bg,
+              boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                marginBottom: 8,
+              }}
+            >
+              <span style={{ color, fontSize: 13 }}>{icon}</span>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: "#94a3b8",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                {label}
+              </span>
+            </div>
+            <div
+              style={{ fontSize: 26, fontWeight: 800, color, lineHeight: 1 }}
+            >
+              {value}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Table ── */}
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 16,
+          border: "1px solid #f1f5f9",
+          boxShadow: "0 1px 4px rgba(15,23,42,0.04)",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            padding: "16px 20px",
+            borderBottom: "1px solid #f9fafb",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <FileTextOutlined style={{ color: "#94a3b8", fontSize: 14 }} />
+            <span style={{ fontWeight: 700, fontSize: 14, color: "#0f172a" }}>
+              All Requests
+            </span>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: "#64748b",
+                background: "#f1f5f9",
+                borderRadius: 20,
+                padding: "1px 10px",
+              }}
+            >
+              {requests.length}
+            </span>
+          </div>
+          <span style={{ fontSize: 12, color: "#94a3b8" }}>
+            Click a row to expand details
+          </span>
+        </div>
+
         <Table
+          className="req-table"
           columns={columns}
           dataSource={requests}
           rowKey="id"
           loading={loading}
-          className={isDark ? "dark-table" : ""}
+          onRow={(rec) => ({
+            onClick: () =>
+              setExpandedRow(expandedRow === rec.id ? null : rec.id),
+          })}
           expandable={{
-            expandedRowRender: (record) => (
-              <div
-                className={`p-4 rounded ${
-                  isDark ? "bg-gray-800" : "bg-gray-50"
-                }`}
-              >
-                <p
-                  className={`mb-2 ${
-                    isDark ? "text-gray-200" : "text-gray-900"
-                  }`}
+            expandedRowKeys: expandedRow ? [expandedRow] : [],
+            showExpandColumn: false,
+            expandedRowRender: (record) => {
+              const statusCfg =
+                STATUS_CONFIG[record.status] || STATUS_CONFIG.pending;
+              return (
+                <div
+                  style={{
+                    padding: "20px 24px 20px 70px",
+                    background: "#fafafa",
+                    borderTop: "1px solid #f1f5f9",
+                  }}
                 >
-                  <strong>Description:</strong>
-                </p>
-                <p
-                  className={`mb-4 ${
-                    isDark ? "text-gray-300" : "text-gray-700"
-                  }`}
-                >
-                  {record.description || "No description provided"}
-                </p>
-                {record.response && (
-                  <>
-                    <p
-                      className={`mb-2 ${
-                        isDark ? "text-gray-200" : "text-gray-900"
-                      }`}
-                    >
-                      <strong>Response:</strong>
-                    </p>
-                    <p className={isDark ? "text-gray-300" : "text-gray-700"}>
-                      {record.response}
-                    </p>
-                  </>
-                )}
-              </div>
-            ),
+                  <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
+                    <div style={{ flex: 2, minWidth: 220 }}>
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: "#94a3b8",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.06em",
+                          marginBottom: 6,
+                        }}
+                      >
+                        Description
+                      </div>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: 13,
+                          color: "#1e293b",
+                          lineHeight: 1.7,
+                        }}
+                      >
+                        {record.description || "No description provided"}
+                      </p>
+                    </div>
+                    {record.response && (
+                      <div style={{ flex: 2, minWidth: 220 }}>
+                        <div
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            color: "#94a3b8",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.06em",
+                            marginBottom: 6,
+                          }}
+                        >
+                          Response
+                        </div>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: 13,
+                            color: "#1e293b",
+                            lineHeight: 1.7,
+                          }}
+                        >
+                          {record.response}
+                        </p>
+                      </div>
+                    )}
+                    <div style={{ minWidth: 140 }}>
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: "#94a3b8",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.06em",
+                          marginBottom: 6,
+                        }}
+                      >
+                        Status
+                      </div>
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "6px 14px",
+                          borderRadius: 20,
+                          border: `1px solid ${statusCfg.border}`,
+                          background: statusCfg.bg,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color: statusCfg.color,
+                        }}
+                      >
+                        {statusCfg.icon} {statusCfg.label}
+                      </span>
+                      {record.responded_at && (
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "#94a3b8",
+                            marginTop: 6,
+                          }}
+                        >
+                          {new Date(record.responded_at).toLocaleDateString(
+                            "en-US",
+                            { month: "short", day: "numeric" },
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            },
           }}
           pagination={{
             pageSize: 10,
-            showTotal: (total) => `Total ${total} requests`,
+            showTotal: (total) => (
+              <span style={{ fontSize: 12, color: "#94a3b8" }}>
+                {total} requests
+              </span>
+            ),
           }}
+          style={{ borderRadius: 0 }}
         />
-      </Card>
+      </div>
 
+      {/* ── Create Modal ── */}
       <Modal
+        className="req-modal"
         title={
-          <span className={isDark ? "text-gray-100" : "text-gray-900"}>
-            Create New Request
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 10,
+                background: "#f1f5f9",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <PlusOutlined style={{ color: "#475569", fontSize: 16 }} />
+            </div>
+            <div>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: "#94a3b8",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                }}
+              >
+                New
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>
+                Submit a Request
+              </div>
+            </div>
+          </div>
         }
         open={createModal}
         onCancel={() => {
@@ -317,40 +803,55 @@ const Requests = () => {
         }}
         onOk={handleCreateRequest}
         confirmLoading={loading}
-        className={isDark ? "dark-modal" : ""}
+        okText={
+          <span>
+            <SendOutlined style={{ marginRight: 6 }} />
+            Submit Request
+          </span>
+        }
+        cancelText="Cancel"
+        width={500}
       >
-        <div className="space-y-4">
-          <div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <div className="req-select">
             <label
-              className={`block mb-2 text-sm font-medium ${
-                isDark ? "text-gray-300" : "text-gray-700"
-              }`}
+              style={{
+                display: "block",
+                marginBottom: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                color: "#475569",
+              }}
             >
-              Request Type *
+              Request Type <span style={{ color: "#e11d48" }}>*</span>
             </label>
             <Select
-              value={createFormData.request_type}
-              onChange={(value) =>
-                setCreateFormData({ ...createFormData, request_type: value })
+              value={createFormData.request_type || undefined}
+              onChange={(v) =>
+                setCreateFormData({ ...createFormData, request_type: v })
               }
-              placeholder="Select request type"
-              className="w-full"
+              placeholder="Select a type…"
+              style={{ width: "100%" }}
             >
               <Select.Option value="advance_salary">
-                Advance Salary
+                💰 Advance Salary
               </Select.Option>
-              <Select.Option value="leave">Leave Request</Select.Option>
-              <Select.Option value="other">Other</Select.Option>
+              <Select.Option value="leave">🏖️ Leave Request</Select.Option>
+              <Select.Option value="other">📋 Other</Select.Option>
             </Select>
           </div>
 
-          <div>
+          <div className="req-input">
             <label
-              className={`block mb-2 text-sm font-medium ${
-                isDark ? "text-gray-300" : "text-gray-700"
-              }`}
+              style={{
+                display: "block",
+                marginBottom: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                color: "#475569",
+              }}
             >
-              Subject *
+              Subject <span style={{ color: "#e11d48" }}>*</span>
             </label>
             <Input
               value={createFormData.subject}
@@ -360,17 +861,21 @@ const Requests = () => {
                   subject: e.target.value,
                 })
               }
-              placeholder="Enter subject"
+              placeholder="Brief subject line…"
             />
           </div>
 
-          <div>
+          <div className="req-input">
             <label
-              className={`block mb-2 text-sm font-medium ${
-                isDark ? "text-gray-300" : "text-gray-700"
-              }`}
+              style={{
+                display: "block",
+                marginBottom: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                color: "#475569",
+              }}
             >
-              Description *
+              Description <span style={{ color: "#e11d48" }}>*</span>
             </label>
             <TextArea
               value={createFormData.description}
@@ -381,17 +886,48 @@ const Requests = () => {
                 })
               }
               rows={4}
-              placeholder="Enter detailed description"
+              placeholder="Describe your request in detail…"
+              style={{ resize: "none" }}
             />
           </div>
         </div>
       </Modal>
 
+      {/* ── Respond Modal ── */}
       <Modal
+        className="req-modal"
         title={
-          <span className={isDark ? "text-gray-100" : "text-gray-900"}>
-            Respond to Request
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 10,
+                background: "#f0f9ff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <MessageOutlined style={{ color: "#0369a1", fontSize: 16 }} />
+            </div>
+            <div>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: "#94a3b8",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                }}
+              >
+                Review
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>
+                Respond to Request
+              </div>
+            </div>
+          </div>
         }
         open={responseModal}
         onCancel={() => {
@@ -400,35 +936,97 @@ const Requests = () => {
         }}
         onOk={handleRespond}
         confirmLoading={loading}
-        className={isDark ? "dark-modal" : ""}
+        okText={
+          <span>
+            <SendOutlined style={{ marginRight: 6 }} />
+            Submit Response
+          </span>
+        }
+        cancelText="Cancel"
+        width={500}
       >
-        <div className="space-y-4">
-          <div>
-            <label
-              className={`block mb-2 text-sm font-medium ${
-                isDark ? "text-gray-300" : "text-gray-700"
-              }`}
+        {selectedRequest && (
+          <div
+            style={{
+              background: "#f8fafc",
+              borderRadius: 10,
+              border: "1px solid #e2e8f0",
+              padding: "14px 16px",
+              marginBottom: 20,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "#94a3b8",
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                marginBottom: 6,
+              }}
             >
-              Decision *
+              Request
+            </div>
+            <div
+              style={{
+                fontWeight: 700,
+                fontSize: 14,
+                color: "#0f172a",
+                marginBottom: 2,
+              }}
+            >
+              {selectedRequest.subject}
+            </div>
+            <div style={{ fontSize: 12, color: "#64748b" }}>
+              {selectedRequest.profiles?.full_name} ·{" "}
+              {TYPE_CONFIG[selectedRequest.request_type]?.label}
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <div className="req-select">
+            <label
+              style={{
+                display: "block",
+                marginBottom: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                color: "#475569",
+              }}
+            >
+              Decision <span style={{ color: "#e11d48" }}>*</span>
             </label>
             <Select
-              value={formData.status}
-              onChange={(value) => setFormData({ ...formData, status: value })}
-              placeholder="Select decision"
-              className="w-full"
+              value={formData.status || undefined}
+              onChange={(v) => setFormData({ ...formData, status: v })}
+              placeholder="Approve or reject…"
+              style={{ width: "100%" }}
             >
-              <Select.Option value="approved">Approve</Select.Option>
-              <Select.Option value="rejected">Reject</Select.Option>
+              <Select.Option value="approved">
+                <span style={{ color: "#059669", fontWeight: 600 }}>
+                  ✓ Approve
+                </span>
+              </Select.Option>
+              <Select.Option value="rejected">
+                <span style={{ color: "#e11d48", fontWeight: 600 }}>
+                  ✕ Reject
+                </span>
+              </Select.Option>
             </Select>
           </div>
 
-          <div>
+          <div className="req-input">
             <label
-              className={`block mb-2 text-sm font-medium ${
-                isDark ? "text-gray-300" : "text-gray-700"
-              }`}
+              style={{
+                display: "block",
+                marginBottom: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                color: "#475569",
+              }}
             >
-              Response Message *
+              Response Message <span style={{ color: "#e11d48" }}>*</span>
             </label>
             <TextArea
               value={formData.response}
@@ -436,133 +1034,12 @@ const Requests = () => {
                 setFormData({ ...formData, response: e.target.value })
               }
               rows={4}
-              placeholder="Enter your response"
+              placeholder="Write your response here…"
+              style={{ resize: "none" }}
             />
           </div>
         </div>
       </Modal>
-
-      <style>{`
-        ${
-          isDark
-            ? `
-          .dark-card {
-            background-color: #1f2937;
-            border-color: #374151;
-          }
-          
-          .dark-table .ant-table {
-            background-color: #1f2937;
-            color: #f3f4f6;
-          }
-          
-          .dark-table .ant-table-thead > tr > th {
-            background-color: #111827;
-            color: #d1d5db;
-            border-bottom-color: #374151;
-          }
-          
-          .dark-table .ant-table-tbody > tr {
-            background-color: #1f2937;
-          }
-          
-          .dark-table .ant-table-tbody > tr:hover > td {
-            background-color: #374151;
-          }
-          
-          .dark-table .ant-table-tbody > tr > td {
-            border-bottom-color: #374151;
-            color: #f3f4f6;
-          }
-          
-          .dark-table .ant-table-placeholder {
-            background-color: #1f2937;
-            color: #9ca3af;
-          }
-          
-          .dark-table .ant-pagination-item {
-            background-color: #374151;
-            border-color: #4b5563;
-          }
-          
-          .dark-table .ant-pagination-item a {
-            color: #d1d5db;
-          }
-          
-          .dark-table .ant-pagination-item-active {
-            background-color: #2563eb;
-            border-color: #2563eb;
-          }
-          
-          .dark-table .ant-pagination-item-active a {
-            color: #ffffff;
-          }
-          
-          .dark-table .ant-pagination-prev button,
-          .dark-table .ant-pagination-next button {
-            color: #d1d5db;
-          }
-          
-          .dark-table .ant-select-selector {
-            background-color: #374151 !important;
-            border-color: #4b5563 !important;
-            color: #f3f4f6 !important;
-          }
-          
-          .dark-table .ant-pagination-options-quick-jumper input {
-            background-color: #374151;
-            border-color: #4b5563;
-            color: #f3f4f6;
-          }
-          
-          .dark-table .ant-table-expanded-row > td {
-            background-color: #1f2937;
-          }
-          
-          .dark-modal .ant-modal-content {
-            background-color: #1f2937;
-            color: #f3f4f6;
-          }
-          
-          .dark-modal .ant-modal-header {
-            background-color: #1f2937;
-            border-bottom-color: #374151;
-          }
-          
-          .dark-modal .ant-modal-footer {
-            background-color: #1f2937;
-            border-top-color: #374151;
-          }
-          
-          .dark-modal .ant-modal-close-x {
-            color: #d1d5db;
-          }
-          
-          .dark-modal .ant-input,
-          .dark-modal .ant-input-textarea textarea {
-            background-color: #374151;
-            border-color: #4b5563;
-            color: #f3f4f6;
-          }
-          
-          .dark-modal .ant-input::placeholder,
-          .dark-modal .ant-input-textarea textarea::placeholder {
-            color: #6b7280;
-          }
-          
-          .dark-modal .ant-select-selector {
-            background-color: #374151 !important;
-            border-color: #4b5563 !important;
-            color: #f3f4f6 !important;
-          }
-          
-          .dark-modal .ant-select-arrow {
-            color: #9ca3af;
-          }
-        `
-            : ""
-        }
-      `}</style>
     </div>
   );
 };

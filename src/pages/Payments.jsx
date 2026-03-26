@@ -1,54 +1,234 @@
-import { useState, useEffect } from "react";
-import {
-  Button,
-  message,
-  Select,
-  Input,
-  Drawer,
-  Tag,
-  Modal,
-  Switch,
-} from "antd";
+import { useState, useEffect, useCallback } from "react";
+import { Button, message, Select, Input, Drawer, Modal } from "antd";
 const { TextArea } = Input;
 import {
   PlusOutlined,
   SearchOutlined,
   DeleteOutlined,
   InboxOutlined,
-  BulbOutlined,
+  ArrowUpOutlined,
+  CheckCircleFilled,
+  CloseCircleFilled,
+  DollarOutlined,
+  EditOutlined,
+  ReloadOutlined,
 } from "@ant-design/icons";
 import { supabase } from "../lib/supabase";
-import { theme } from "antd";
 import dayjs from "dayjs";
 
-const Payments = () => {
-  const { token } = theme.useToken();
-  const isDark =
-    token.colorBgContainer === "#1f2937" || token.colorBgLayout === "#111827";
+// ── Status config ──────────────────────────────────────────────────────────
+const STATUS = {
+  paid: {
+    label: "Paid",
+    color: "#059669",
+    bg: "#ecfdf5",
+    border: "#a7f3d0",
+    icon: <CheckCircleFilled style={{ fontSize: 11 }} />,
+  },
+  not_paid: {
+    label: "Not Paid",
+    color: "#e11d48",
+    bg: "#fff1f2",
+    border: "#fecdd3",
+    icon: <CloseCircleFilled style={{ fontSize: 11 }} />,
+  },
+};
 
+const fmt = (n, currency = "USD") => {
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+    }).format(n);
+  } catch {
+    return `${currency} ${parseFloat(n).toFixed(2)}`;
+  }
+};
+
+// ── All world currencies ───────────────────────────────────────────────────
+const CURRENCIES = [
+  { code: "USD", name: "US Dollar", symbol: "$" },
+  { code: "EUR", name: "Euro", symbol: "€" },
+  { code: "GBP", name: "British Pound", symbol: "£" },
+  { code: "JPY", name: "Japanese Yen", symbol: "¥" },
+  { code: "AUD", name: "Australian Dollar", symbol: "A$" },
+  { code: "CAD", name: "Canadian Dollar", symbol: "C$" },
+  { code: "CHF", name: "Swiss Franc", symbol: "Fr" },
+  { code: "CNY", name: "Chinese Yuan", symbol: "¥" },
+  { code: "SEK", name: "Swedish Krona", symbol: "kr" },
+  { code: "NZD", name: "New Zealand Dollar", symbol: "NZ$" },
+  { code: "MXN", name: "Mexican Peso", symbol: "$" },
+  { code: "SGD", name: "Singapore Dollar", symbol: "S$" },
+  { code: "HKD", name: "Hong Kong Dollar", symbol: "HK$" },
+  { code: "NOK", name: "Norwegian Krone", symbol: "kr" },
+  { code: "KRW", name: "South Korean Won", symbol: "₩" },
+  { code: "TRY", name: "Turkish Lira", symbol: "₺" },
+  { code: "INR", name: "Indian Rupee", symbol: "₹" },
+  { code: "RUB", name: "Russian Ruble", symbol: "₽" },
+  { code: "BRL", name: "Brazilian Real", symbol: "R$" },
+  { code: "ZAR", name: "South African Rand", symbol: "R" },
+  { code: "DKK", name: "Danish Krone", symbol: "kr" },
+  { code: "PLN", name: "Polish Złoty", symbol: "zł" },
+  { code: "TWD", name: "Taiwan Dollar", symbol: "NT$" },
+  { code: "THB", name: "Thai Baht", symbol: "฿" },
+  { code: "IDR", name: "Indonesian Rupiah", symbol: "Rp" },
+  { code: "HUF", name: "Hungarian Forint", symbol: "Ft" },
+  { code: "CZK", name: "Czech Koruna", symbol: "Kč" },
+  { code: "ILS", name: "Israeli Shekel", symbol: "₪" },
+  { code: "CLP", name: "Chilean Peso", symbol: "$" },
+  { code: "PHP", name: "Philippine Peso", symbol: "₱" },
+  { code: "AED", name: "UAE Dirham", symbol: "د.إ" },
+  { code: "COP", name: "Colombian Peso", symbol: "$" },
+  { code: "SAR", name: "Saudi Riyal", symbol: "﷼" },
+  { code: "MYR", name: "Malaysian Ringgit", symbol: "RM" },
+  { code: "RON", name: "Romanian Leu", symbol: "lei" },
+  { code: "ARS", name: "Argentine Peso", symbol: "$" },
+  { code: "VND", name: "Vietnamese Dong", symbol: "₫" },
+  { code: "EGP", name: "Egyptian Pound", symbol: "£" },
+  { code: "NGN", name: "Nigerian Naira", symbol: "₦" },
+  { code: "UAH", name: "Ukrainian Hryvnia", symbol: "₴" },
+  { code: "KWD", name: "Kuwaiti Dinar", symbol: "KD" },
+  { code: "QAR", name: "Qatari Riyal", symbol: "QR" },
+  { code: "BGN", name: "Bulgarian Lev", symbol: "лв" },
+  { code: "HRK", name: "Croatian Kuna", symbol: "kn" },
+  { code: "ISK", name: "Icelandic Króna", symbol: "kr" },
+  { code: "PKR", name: "Pakistani Rupee", symbol: "₨" },
+  { code: "BDT", name: "Bangladeshi Taka", symbol: "৳" },
+  { code: "LKR", name: "Sri Lankan Rupee", symbol: "₨" },
+  { code: "MAD", name: "Moroccan Dirham", symbol: "MAD" },
+  { code: "KES", name: "Kenyan Shilling", symbol: "KSh" },
+  { code: "GHS", name: "Ghanaian Cedi", symbol: "₵" },
+  { code: "TZS", name: "Tanzanian Shilling", symbol: "TSh" },
+  { code: "UGX", name: "Ugandan Shilling", symbol: "USh" },
+  { code: "ETB", name: "Ethiopian Birr", symbol: "Br" },
+  { code: "DZD", name: "Algerian Dinar", symbol: "DA" },
+  { code: "TND", name: "Tunisian Dinar", symbol: "DT" },
+  { code: "LYD", name: "Libyan Dinar", symbol: "LD" },
+  { code: "SDG", name: "Sudanese Pound", symbol: "SD" },
+  { code: "MZN", name: "Mozambican Metical", symbol: "MT" },
+  { code: "ZMW", name: "Zambian Kwacha", symbol: "ZK" },
+  { code: "RWF", name: "Rwandan Franc", symbol: "RF" },
+  { code: "XOF", name: "West African CFA Franc", symbol: "CFA" },
+  { code: "XAF", name: "Central African CFA Franc", symbol: "CFA" },
+  { code: "JOD", name: "Jordanian Dinar", symbol: "JD" },
+  { code: "LBP", name: "Lebanese Pound", symbol: "L£" },
+  { code: "IQD", name: "Iraqi Dinar", symbol: "ID" },
+  { code: "IRR", name: "Iranian Rial", symbol: "﷼" },
+  { code: "OMR", name: "Omani Rial", symbol: "OR" },
+  { code: "BHD", name: "Bahraini Dinar", symbol: "BD" },
+  { code: "YER", name: "Yemeni Rial", symbol: "﷼" },
+  { code: "AFN", name: "Afghan Afghani", symbol: "؋" },
+  { code: "UZS", name: "Uzbekistani Som", symbol: "so'm" },
+  { code: "KZT", name: "Kazakhstani Tenge", symbol: "₸" },
+  { code: "GEL", name: "Georgian Lari", symbol: "₾" },
+  { code: "AMD", name: "Armenian Dram", symbol: "֏" },
+  { code: "AZN", name: "Azerbaijani Manat", symbol: "₼" },
+  { code: "BYN", name: "Belarusian Ruble", symbol: "Br" },
+  { code: "MDL", name: "Moldovan Leu", symbol: "L" },
+  { code: "MKD", name: "Macedonian Denar", symbol: "den" },
+  { code: "ALL", name: "Albanian Lek", symbol: "L" },
+  { code: "BAM", name: "Bosnia Mark", symbol: "KM" },
+  { code: "RSD", name: "Serbian Dinar", symbol: "din" },
+  { code: "MNT", name: "Mongolian Tögrög", symbol: "₮" },
+  { code: "KHR", name: "Cambodian Riel", symbol: "៛" },
+  { code: "LAK", name: "Lao Kip", symbol: "₭" },
+  { code: "MMK", name: "Myanmar Kyat", symbol: "K" },
+  { code: "NPR", name: "Nepalese Rupee", symbol: "₨" },
+  { code: "BTN", name: "Bhutanese Ngultrum", symbol: "Nu" },
+  { code: "MVR", name: "Maldivian Rufiyaa", symbol: "Rf" },
+  { code: "PGK", name: "Papua New Guinean Kina", symbol: "K" },
+  { code: "FJD", name: "Fijian Dollar", symbol: "FJ$" },
+  { code: "SBD", name: "Solomon Islands Dollar", symbol: "SI$" },
+  { code: "VUV", name: "Vanuatu Vatu", symbol: "VT" },
+  { code: "WST", name: "Samoan Tālā", symbol: "T" },
+  { code: "TOP", name: "Tongan Paʻanga", symbol: "T$" },
+  { code: "PEN", name: "Peruvian Sol", symbol: "S/." },
+  { code: "BOB", name: "Bolivian Boliviano", symbol: "Bs." },
+  { code: "PYG", name: "Paraguayan Guaraní", symbol: "₲" },
+  { code: "UYU", name: "Uruguayan Peso", symbol: "$U" },
+  { code: "VES", name: "Venezuelan Bolívar", symbol: "Bs.S" },
+  { code: "GYD", name: "Guyanese Dollar", symbol: "G$" },
+  { code: "SRD", name: "Surinamese Dollar", symbol: "Sr$" },
+  { code: "TTD", name: "Trinidad Dollar", symbol: "TT$" },
+  { code: "JMD", name: "Jamaican Dollar", symbol: "J$" },
+  { code: "BBD", name: "Barbadian Dollar", symbol: "Bds$" },
+  { code: "BSD", name: "Bahamian Dollar", symbol: "B$" },
+  { code: "HTG", name: "Haitian Gourde", symbol: "G" },
+  { code: "CUP", name: "Cuban Peso", symbol: "$MN" },
+  { code: "DOP", name: "Dominican Peso", symbol: "RD$" },
+  { code: "GTQ", name: "Guatemalan Quetzal", symbol: "Q" },
+  { code: "HNL", name: "Honduran Lempira", symbol: "L" },
+  { code: "NIO", name: "Nicaraguan Córdoba", symbol: "C$" },
+  { code: "CRC", name: "Costa Rican Colón", symbol: "₡" },
+  { code: "PAB", name: "Panamanian Balboa", symbol: "B/." },
+  { code: "AWG", name: "Aruban Florin", symbol: "ƒ" },
+  { code: "ANG", name: "Netherlands Antillean Guilder", symbol: "ƒ" },
+  { code: "XCD", name: "East Caribbean Dollar", symbol: "EC$" },
+  { code: "BMD", name: "Bermudian Dollar", symbol: "$" },
+  { code: "KYD", name: "Cayman Islands Dollar", symbol: "CI$" },
+];
+
+// ── Component ──────────────────────────────────────────────────────────────
+const Payments = () => {
+  const [tenantId, setTenantId] = useState(null);
   const [payments, setPayments] = useState([]);
-  const [filteredPayments, setFilteredPayments] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [drawerVisible, setDrawerVisible] = useState(false);
+  const [filtered, setFiltered] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState(null);
-  const [searchText, setSearchText] = useState("");
+  const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState([]);
   const [showArchived, setShowArchived] = useState(false);
+  const [savingId, setSavingId] = useState(null); // tracks which row is auto-saving
 
-  const [formData, setFormData] = useState({
+  const [form, setForm] = useState({
     client_name: "",
     amount: "",
     status: "not_paid",
     remarks: "",
+    currency: "USD",
   });
 
+  // ── Fetch tenant_id from profiles ────────────────────────────────────────
   useEffect(() => {
-    fetchPayments();
-  }, [showArchived]);
+    const init = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("tenant_id")
+          .eq("id", user.id)
+          .single();
+        setTenantId(profile?.tenant_id ?? null);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    init();
+  }, []);
 
   useEffect(() => {
-    filterPayments();
-  }, [payments, searchText, statusFilter]);
+    if (tenantId) fetchPayments();
+  }, [tenantId, showArchived]);
+
+  useEffect(() => {
+    let result = [...payments];
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (p) =>
+          p.client_name?.toLowerCase().includes(q) ||
+          p.remarks?.toLowerCase().includes(q),
+      );
+    }
+    if (statusFilter.length) {
+      result = result.filter((p) => statusFilter.includes(p.status));
+    }
+    setFiltered(result);
+  }, [payments, search, statusFilter]);
 
   const fetchPayments = async () => {
     setLoading(true);
@@ -56,694 +236,1152 @@ const Payments = () => {
       const { data, error } = await supabase
         .from("payments")
         .select("*")
+        .eq("tenant_id", tenantId) // 👈 tenant filter
         .eq("is_archived", showArchived)
         .order("created_at", { ascending: false });
-
       if (error) throw error;
       setPayments(data || []);
-    } catch (error) {
+    } catch {
       message.error("Failed to fetch payments");
-      console.error("Error:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const filterPayments = () => {
-    let filtered = [...payments];
-
-    if (searchText) {
-      filtered = filtered.filter(
-        (payment) =>
-          payment.client_name
-            ?.toLowerCase()
-            .includes(searchText.toLowerCase()) ||
-          payment.remarks?.toLowerCase().includes(searchText.toLowerCase())
-      );
-    }
-
-    if (statusFilter.length > 0) {
-      filtered = filtered.filter((payment) =>
-        statusFilter.includes(payment.status)
-      );
-    }
-
-    setFilteredPayments(filtered);
-  };
-
   const handleSubmit = async () => {
+    if (!form.client_name || !form.amount) {
+      message.error("Client name and amount are required");
+      return;
+    }
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
       if (editingPayment) {
         const { error } = await supabase
           .from("payments")
-          .update({
-            ...formData,
-            updated_at: new Date().toISOString(),
-          })
+          .update({ ...form, updated_at: new Date().toISOString() })
           .eq("id", editingPayment.id);
-
         if (error) throw error;
-        message.success("Payment updated successfully");
+        message.success("Payment updated");
       } else {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         const { error } = await supabase.from("payments").insert([
           {
-            ...formData,
+            ...form,
+            tenant_id: tenantId, // 👈 tenant_id on insert
             created_by: user.id,
           },
         ]);
-
         if (error) throw error;
-        message.success("Payment added successfully");
+        message.success("Payment added");
       }
-
-      setDrawerVisible(false);
+      setDrawerOpen(false);
       resetForm();
       fetchPayments();
-    } catch (error) {
+    } catch {
       message.error("Failed to save payment");
-      console.error("Error:", error);
     }
   };
 
-  const handleEdit = (payment) => {
-    setEditingPayment(payment);
-    setFormData({
-      client_name: payment.client_name,
-      amount: payment.amount,
-      status: payment.status,
-      remarks: payment.remarks || "",
-    });
-    setDrawerVisible(true);
-  };
-
-  const handleArchive = async (id) => {
+  const handleInlineEdit = useCallback(async (id, field, value) => {
+    // Optimistic update
+    setPayments((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, [field]: value } : p)),
+    );
+    setSavingId(id);
     try {
       const { error } = await supabase
         .from("payments")
-        .update({ is_archived: true })
+        .update({ [field]: value, updated_at: new Date().toISOString() })
         .eq("id", id);
-
       if (error) throw error;
-      message.success("Payment archived successfully");
+    } catch {
+      message.error("Failed to update");
       fetchPayments();
-    } catch (error) {
-      message.error("Failed to archive payment");
-      console.error("Error:", error);
+    } finally {
+      setSavingId(null);
     }
-  };
+  }, []);
 
-  const handleUnarchive = async (id) => {
+  const handleArchive = async (id, archive) => {
     try {
       const { error } = await supabase
         .from("payments")
-        .update({ is_archived: false })
+        .update({ is_archived: archive })
         .eq("id", id);
-
       if (error) throw error;
-      message.success("Payment restored successfully");
+      message.success(archive ? "Archived" : "Restored");
       fetchPayments();
-    } catch (error) {
-      message.error("Failed to restore payment");
-      console.error("Error:", error);
+    } catch {
+      message.error("Failed");
     }
   };
 
   const handleDelete = (id) => {
     Modal.confirm({
       title: "Delete Payment",
-      content: "Are you sure you want to permanently delete this payment?",
+      content: "This action is permanent and cannot be undone.",
       okText: "Delete",
       okType: "danger",
+      icon: <DeleteOutlined style={{ color: "#e11d48" }} />,
       onOk: async () => {
-        try {
-          const { error } = await supabase
-            .from("payments")
-            .delete()
-            .eq("id", id);
-
-          if (error) throw error;
-          message.success("Payment deleted successfully");
-          fetchPayments();
-        } catch (error) {
-          message.error("Failed to delete payment");
-          console.error("Error:", error);
+        const { error } = await supabase.from("payments").delete().eq("id", id);
+        if (error) {
+          message.error("Failed to delete");
+          return;
         }
+        message.success("Deleted");
+        fetchPayments();
       },
     });
   };
 
-  const handleInlineEdit = async (paymentId, field, value) => {
-    setPayments((prev) =>
-      prev.map((p) => (p.id === paymentId ? { ...p, [field]: value } : p))
-    );
-
-    try {
-      const { error } = await supabase
-        .from("payments")
-        .update({ [field]: value, updated_at: new Date().toISOString() })
-        .eq("id", paymentId);
-
-      if (error) throw error;
-    } catch (error) {
-      message.error("Failed to update payment");
-      console.error("Error:", error);
-      fetchPayments();
-    }
-  };
-
   const resetForm = () => {
-    setFormData({
+    setForm({
       client_name: "",
       amount: "",
       status: "not_paid",
       remarks: "",
+      currency: "USD",
     });
     setEditingPayment(null);
   };
 
-  const getTotalAmount = () => {
-    return filteredPayments.reduce(
-      (sum, payment) => sum + parseFloat(payment.amount || 0),
-      0
-    );
-  };
+  // ── Stats ──────────────────────────────────────────────────────────────
+  const total = filtered.reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+  const paid = filtered
+    .filter((p) => p.status === "paid")
+    .reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+  const unpaid = filtered
+    .filter((p) => p.status === "not_paid")
+    .reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+  const paidPct = total > 0 ? Math.round((paid / total) * 100) : 0;
 
-  const getPaidAmount = () => {
-    return filteredPayments
-      .filter((p) => p.status === "paid")
-      .reduce((sum, payment) => sum + parseFloat(payment.amount || 0), 0);
-  };
-
-  const getUnpaidAmount = () => {
-    return filteredPayments
-      .filter((p) => p.status === "not_paid")
-      .reduce((sum, payment) => sum + parseFloat(payment.amount || 0), 0);
-  };
-
+  // ── Render ─────────────────────────────────────────────────────────────
   return (
     <div
-      className={`min-h-screen p-6 ${isDark ? "bg-gray-900" : "bg-gray-50"}`}
+      style={{
+        minHeight: "100vh",
+        background: "#f8fafc",
+        padding: "28px 32px",
+        fontFamily: "'DM Sans', sans-serif",
+      }}
     >
-      <div className="flex justify-between items-center mb-6">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+        * { font-family: 'DM Sans', sans-serif !important; }
+        .mono { font-family: 'DM Mono', monospace !important; }
+
+        .pay-row { transition: background 0.1s; }
+        .pay-row:hover { background: #f8fafc !important; }
+        .pay-row td { vertical-align: middle; }
+
+        .inline-input { border: none !important; background: transparent !important; outline: none !important; padding: 0 !important; box-shadow: none !important; font-size: 13px !important; color: #0f172a !important; width: 100%; cursor: text; }
+        .inline-input:focus { background: #f1f5f9 !important; border-radius: 6px !important; padding: 3px 7px !important; }
+        .inline-input .ant-input-prefix { color: #94a3b8 !important; margin-right: 2px; }
+        .inline-textarea { border: none !important; background: transparent !important; outline: none !important; padding: 0 !important; box-shadow: none !important; font-size: 12px !important; color: #64748b !important; width: 100%; resize: none !important; cursor: text; }
+        .inline-textarea:focus { background: #f1f5f9 !important; border-radius: 6px !important; padding: 4px 7px !important; }
+
+        .stat-card { transition: transform 0.15s ease, box-shadow 0.15s ease; cursor: default; }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(15,23,42,0.09) !important; }
+
+        .pay-drawer .ant-drawer-content { border-radius: 20px 0 0 20px !important; }
+        .pay-drawer .ant-drawer-header { padding: 22px 28px !important; border-bottom: 1px solid #f1f5f9 !important; }
+        .pay-drawer .ant-drawer-body { padding: 24px 28px !important; }
+        .pay-drawer .ant-drawer-footer { padding: 16px 28px !important; border-top: 1px solid #f1f5f9 !important; }
+
+        .field-label { display: block; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 7px; }
+        .field-input .ant-input, .field-input textarea, .field-select .ant-select-selector {
+          border-radius: 9px !important; border: 1px solid #e2e8f0 !important;
+          background: #f8fafc !important; font-size: 13px !important;
+          padding: 9px 12px !important; transition: all 0.15s;
+        }
+        .field-input .ant-input:focus, .field-input textarea:focus {
+          border-color: #0f172a !important; background: #fff !important;
+          box-shadow: 0 0 0 3px rgba(15,23,42,0.06) !important;
+        }
+        .field-select .ant-select-selector { height: auto !important; padding: 6px 12px !important; }
+        .field-select .ant-select-focused .ant-select-selector {
+          border-color: #0f172a !important; box-shadow: 0 0 0 3px rgba(15,23,42,0.06) !important;
+        }
+
+        .progress-bar { height: 4px; background: #f1f5f9; border-radius: 99px; overflow: hidden; margin-top: 8px; }
+        .progress-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #059669, #34d399); transition: width 0.6s ease; }
+
+        .search-input .ant-input-prefix { color: #94a3b8; }
+        .search-input input { font-size: 13px !important; }
+        .search-input .ant-input-affix-wrapper {
+          border-radius: 10px !important; border-color: #e2e8f0 !important;
+          background: #fff !important; padding: 8px 14px !important;
+        }
+        .search-input .ant-input-affix-wrapper:focus-within {
+          border-color: #0f172a !important;
+          box-shadow: 0 0 0 3px rgba(15,23,42,0.06) !important;
+        }
+        .filter-select .ant-select-selector {
+          border-radius: 10px !important; border-color: #e2e8f0 !important;
+          background: #fff !important; padding: 6px 12px !important; height: auto !important;
+        }
+
+        @keyframes fadeInUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+        .fade-in { animation: fadeInUp 0.25s ease forwards; }
+        .saving-pulse { animation: pulse 1s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+      `}</style>
+
+      {/* ── Header ── */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          marginBottom: 28,
+          flexWrap: "wrap",
+          gap: 16,
+        }}
+      >
         <div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 4,
+            }}
+          >
+            <div
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: "50%",
+                background: "#0f172a",
+              }}
+            />
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "#94a3b8",
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+              }}
+            >
+              Finance
+            </span>
+          </div>
           <h1
-            className={`text-2xl font-semibold ${
-              isDark ? "text-gray-100" : "text-gray-900"
-            }`}
+            style={{
+              margin: 0,
+              fontSize: 26,
+              fontWeight: 800,
+              color: "#0f172a",
+              letterSpacing: -0.5,
+            }}
           >
             Payments Tracker
           </h1>
-          <p className={`mt-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-            Track all client payments and invoices
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: "#94a3b8" }}>
+            Track client invoices and payment status
           </p>
         </div>
-        <div className="flex gap-2 items-center">
-          <div className="flex items-center gap-2">
-          </div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <Button
-            type={showArchived ? "default" : "primary"}
-            onClick={() => setShowArchived(!showArchived)}
             icon={<InboxOutlined />}
+            onClick={() => setShowArchived(!showArchived)}
+            style={{
+              height: 38,
+              borderRadius: 10,
+              fontWeight: 600,
+              fontSize: 13,
+              border: "1px solid #e2e8f0",
+              background: showArchived ? "#0f172a" : "#fff",
+              color: showArchived ? "#fff" : "#475569",
+            }}
           >
-            {showArchived ? "Show Active" : "Show Archived"}
+            {showArchived ? "Active" : "Archived"}
           </Button>
           <Button
-            type="primary"
             icon={<PlusOutlined />}
             onClick={() => {
               resetForm();
-              setDrawerVisible(true);
+              setDrawerOpen(true);
             }}
-            style={{ backgroundColor: "#2563eb" }}
+            style={{
+              height: 38,
+              paddingInline: 20,
+              borderRadius: 10,
+              background: "#0f172a",
+              border: "none",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: 13,
+              boxShadow: "0 4px 12px rgba(15,23,42,0.22)",
+            }}
           >
             Add Payment
           </Button>
         </div>
       </div>
 
+      {/* ── Stat Cards ── */}
       <div
-        className={`rounded-lg shadow mb-6 p-6 ${
-          isDark ? "bg-gray-800" : "bg-white"
-        }`}
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+          gap: 14,
+          marginBottom: 24,
+        }}
       >
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="text-center">
-            <div
-              className={`text-3xl font-bold ${
-                isDark ? "text-gray-100" : "text-gray-900"
-              }`}
+        {/* Total */}
+        <div
+          className="stat-card fade-in"
+          style={{
+            background: "#fff",
+            borderRadius: 16,
+            border: "1px solid #f1f5f9",
+            padding: "20px 22px",
+            boxShadow: "0 1px 4px rgba(15,23,42,0.04)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 10,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                color: "#94a3b8",
+                textTransform: "uppercase",
+                letterSpacing: "0.07em",
+              }}
             >
-              ${getTotalAmount().toFixed(2)}
-            </div>
+              Total Volume
+            </span>
             <div
-              className={`mt-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: 8,
+                background: "#f1f5f9",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
             >
-              Total Amount
+              <DollarOutlined style={{ fontSize: 13, color: "#475569" }} />
             </div>
           </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-green-600">
-              ${getPaidAmount().toFixed(2)}
-            </div>
-            <div
-              className={`mt-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}
+          <div
+            className="mono"
+            style={{
+              fontSize: 24,
+              fontWeight: 700,
+              color: "#0f172a",
+              letterSpacing: -0.5,
+            }}
+          >
+            {fmt(total)}
+          </div>
+          <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+            {filtered.length} entries · mixed currencies
+          </div>
+        </div>
+
+        {/* Paid */}
+        <div
+          className="stat-card fade-in"
+          style={{
+            background: "#ecfdf5",
+            borderRadius: 16,
+            border: "1px solid #a7f3d0",
+            padding: "20px 22px",
+            boxShadow: "0 1px 4px rgba(5,150,105,0.06)",
+            animationDelay: "0.05s",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 10,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                color: "#059669",
+                textTransform: "uppercase",
+                letterSpacing: "0.07em",
+              }}
             >
-              Paid
+              Collected
+            </span>
+            <div
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: 8,
+                background: "#d1fae5",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <CheckCircleFilled style={{ fontSize: 13, color: "#059669" }} />
             </div>
           </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-red-600">
-              ${getUnpaidAmount().toFixed(2)}
-            </div>
+          <div
+            className="mono"
+            style={{
+              fontSize: 24,
+              fontWeight: 700,
+              color: "#059669",
+              letterSpacing: -0.5,
+            }}
+          >
+            {fmt(paid)}
+          </div>
+          <div style={{ marginTop: 8 }}>
             <div
-              className={`mt-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: 3,
+              }}
             >
-              Unpaid
+              <span style={{ fontSize: 11, color: "#059669", fontWeight: 600 }}>
+                {paidPct}% of total
+              </span>
             </div>
+            <div className="progress-bar">
+              <div className="progress-fill" style={{ width: `${paidPct}%` }} />
+            </div>
+          </div>
+        </div>
+
+        {/* Unpaid */}
+        <div
+          className="stat-card fade-in"
+          style={{
+            background: "#fff1f2",
+            borderRadius: 16,
+            border: "1px solid #fecdd3",
+            padding: "20px 22px",
+            boxShadow: "0 1px 4px rgba(225,29,72,0.06)",
+            animationDelay: "0.1s",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 10,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                color: "#e11d48",
+                textTransform: "uppercase",
+                letterSpacing: "0.07em",
+              }}
+            >
+              Outstanding
+            </span>
+            <div
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: 8,
+                background: "#ffe4e6",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <CloseCircleFilled style={{ fontSize: 13, color: "#e11d48" }} />
+            </div>
+          </div>
+          <div
+            className="mono"
+            style={{
+              fontSize: 24,
+              fontWeight: 700,
+              color: "#e11d48",
+              letterSpacing: -0.5,
+            }}
+          >
+            {fmt(unpaid)}
+          </div>
+          <div
+            style={{
+              fontSize: 11,
+              color: "#e11d48",
+              marginTop: 4,
+              fontWeight: 600,
+            }}
+          >
+            {filtered.filter((p) => p.status === "not_paid").length} unpaid
+            invoices
           </div>
         </div>
       </div>
 
+      {/* ── Search + Filter ── */}
       <div
-        className={`rounded-lg shadow mb-6 p-4 ${
-          isDark ? "bg-gray-800" : "bg-white"
-        }`}
+        style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}
       >
-        <div className="flex flex-wrap gap-4">
+        <div className="search-input" style={{ flex: 1, minWidth: 220 }}>
           <Input
-            placeholder="Search by client name or remarks..."
             prefix={<SearchOutlined />}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            className={`flex-1 min-w-[200px] ${isDark ? "dark-input" : ""}`}
-          />
-          <Select
-            mode="multiple"
-            placeholder="Filter by status"
-            value={statusFilter}
-            onChange={setStatusFilter}
-            className={`w-48 ${isDark ? "dark-select" : ""}`}
-            options={[
-              { label: "Paid", value: "paid" },
-              { label: "Not Paid", value: "not_paid" },
-            ]}
+            placeholder="Search client name or remarks…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            allowClear
           />
         </div>
+        <Select
+          className="filter-select"
+          mode="multiple"
+          placeholder="Filter by status"
+          value={statusFilter}
+          onChange={setStatusFilter}
+          style={{ minWidth: 180 }}
+          options={[
+            { label: "✓ Paid", value: "paid" },
+            { label: "✕ Not Paid", value: "not_paid" },
+          ]}
+        />
+        <Button
+          icon={<ReloadOutlined spin={loading} />}
+          onClick={fetchPayments}
+          style={{
+            height: 38,
+            borderRadius: 10,
+            border: "1px solid #e2e8f0",
+            color: "#64748b",
+            fontWeight: 600,
+          }}
+        >
+          Refresh
+        </Button>
       </div>
 
+      {/* ── Table ── */}
       <div
-        className={`rounded-lg shadow overflow-hidden ${
-          isDark ? "bg-gray-800" : "bg-white"
-        }`}
+        style={{
+          background: "#fff",
+          borderRadius: 16,
+          border: "1px solid #f1f5f9",
+          boxShadow: "0 1px 4px rgba(15,23,42,0.04)",
+          overflow: "hidden",
+        }}
       >
+        {/* Table header bar */}
+        <div
+          style={{
+            padding: "14px 20px",
+            borderBottom: "1px solid #f9fafb",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <DollarOutlined style={{ color: "#94a3b8" }} />
+            <span style={{ fontWeight: 700, fontSize: 14, color: "#0f172a" }}>
+              {showArchived ? "Archived" : "Active"} Payments
+            </span>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: "#64748b",
+                background: "#f1f5f9",
+                borderRadius: 20,
+                padding: "1px 10px",
+              }}
+            >
+              {filtered.length}
+            </span>
+          </div>
+          <span style={{ fontSize: 12, color: "#94a3b8" }}>
+            Click cells to edit inline
+          </span>
+        </div>
+
         {loading ? (
           <div
-            className={`text-center py-8 ${
-              isDark ? "text-gray-400" : "text-gray-600"
-            }`}
+            style={{ textAlign: "center", padding: "60px 0", color: "#94a3b8" }}
           >
-            Loading...
+            <ReloadOutlined
+              spin
+              style={{ fontSize: 24, marginBottom: 10, display: "block" }}
+            />
+            Loading payments…
           </div>
-        ) : filteredPayments.length === 0 ? (
-          <div
-            className={`text-center py-8 ${
-              isDark ? "text-gray-400" : "text-gray-500"
-            }`}
-          >
-            No payments found
+        ) : filtered.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "64px 0" }}>
+            <DollarOutlined
+              style={{
+                fontSize: 32,
+                color: "#e2e8f0",
+                display: "block",
+                margin: "0 auto 10px",
+              }}
+            />
+            <span style={{ color: "#94a3b8", fontSize: 14 }}>
+              No payments found
+            </span>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead
-                className={`border-b ${
-                  isDark
-                    ? "bg-gray-900 border-gray-700"
-                    : "bg-gray-50 border-gray-200"
-                }`}
-              >
-                <tr>
-                  <th
-                    className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                      isDark ? "text-gray-300" : "text-gray-500"
-                    }`}
-                  >
-                    Client Name
-                  </th>
-                  <th
-                    className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                      isDark ? "text-gray-300" : "text-gray-500"
-                    }`}
-                  >
-                    Amount
-                  </th>
-                  <th
-                    className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                      isDark ? "text-gray-300" : "text-gray-500"
-                    }`}
-                  >
-                    Status
-                  </th>
-                  <th
-                    className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                      isDark ? "text-gray-300" : "text-gray-500"
-                    }`}
-                  >
-                    Remarks
-                  </th>
-                  <th
-                    className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                      isDark ? "text-gray-300" : "text-gray-500"
-                    }`}
-                  >
-                    Created
-                  </th>
-                  <th
-                    className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                      isDark ? "text-gray-300" : "text-gray-500"
-                    }`}
-                  >
-                    Actions
-                  </th>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr
+                  style={{
+                    background: "#f9fafb",
+                    borderBottom: "1px solid #f1f5f9",
+                  }}
+                >
+                  {[
+                    "Client",
+                    "Amount",
+                    "Currency",
+                    "Status",
+                    "Remarks",
+                    "Created",
+                    "",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      style={{
+                        padding: "10px 18px",
+                        textAlign: "left",
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: "#94a3b8",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.07em",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody
-                className={`divide-y ${
-                  isDark
-                    ? "bg-gray-800 divide-gray-700"
-                    : "bg-white divide-gray-200"
-                }`}
-              >
-                {filteredPayments.map((payment) => (
-                  <tr
-                    key={payment.id}
-                    className={
-                      isDark ? "hover:bg-gray-700" : "hover:bg-gray-50"
-                    }
-                  >
-                    <td className="px-6 py-4">
-                      <Input
-                        value={payment.client_name}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          handleInlineEdit(
-                            payment.id,
-                            "client_name",
-                            e.target.value
-                          );
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        bordered={false}
-                        className={`font-medium px-2 -mx-2 ${
-                          isDark
-                            ? "text-gray-100 hover:bg-gray-600"
-                            : "text-gray-900 hover:bg-gray-100"
-                        }`}
-                        style={{ cursor: "text" }}
-                      />
-                    </td>
-                    <td className="px-6 py-4">
-                      <Input
-                        type="number"
-                        prefix="$"
-                        value={payment.amount}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          handleInlineEdit(
-                            payment.id,
-                            "amount",
-                            e.target.value
-                          );
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        bordered={false}
-                        className={`font-medium px-2 -mx-2 ${
-                          isDark
-                            ? "text-gray-100 hover:bg-gray-600"
-                            : "text-gray-900 hover:bg-gray-100"
-                        }`}
-                        style={{ cursor: "text" }}
-                      />
-                    </td>
-                    <td
-                      className="px-6 py-4"
-                      onClick={(e) => e.stopPropagation()}
+              <tbody>
+                {filtered.map((payment, idx) => {
+                  const sc = STATUS[payment.status] || STATUS.not_paid;
+                  return (
+                    <tr
+                      key={payment.id}
+                      className="pay-row fade-in"
+                      style={{
+                        borderBottom:
+                          idx < filtered.length - 1
+                            ? "1px solid #f9fafb"
+                            : "none",
+                        background: "#fff",
+                        animationDelay: `${idx * 0.03}s`,
+                      }}
                     >
-                      <Select
-                        value={payment.status}
-                        onChange={(value) =>
-                          handleInlineEdit(payment.id, "status", value)
-                        }
-                        bordered={false}
-                        style={{ width: "100%", marginLeft: -11 }}
-                        className={
-                          isDark ? "hover:bg-gray-600" : "hover:bg-gray-100"
-                        }
-                        suffixIcon={null}
-                      >
-                        <Select.Option value="paid">
-                          <Tag color="green">Paid</Tag>
-                        </Select.Option>
-                        <Select.Option value="not_paid">
-                          <Tag color="red">Not Paid</Tag>
-                        </Select.Option>
-                      </Select>
-                    </td>
-                    <td className="px-6 py-4">
-                      <TextArea
-                        value={payment.remarks || ""}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          handleInlineEdit(
-                            payment.id,
-                            "remarks",
-                            e.target.value
-                          );
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        placeholder="Add remarks..."
-                        bordered={false}
-                        autoSize={{ minRows: 1, maxRows: 3 }}
-                        className={`text-sm px-2 -mx-2 ${
-                          isDark
-                            ? "text-gray-300 hover:bg-gray-600"
-                            : "text-gray-700 hover:bg-gray-100"
-                        }`}
-                        style={{ cursor: "text" }}
-                      />
-                    </td>
-                    <td
-                      className={`px-6 py-4 text-sm ${
-                        isDark ? "text-gray-400" : "text-gray-500"
-                      }`}
-                    >
-                      {dayjs(payment.created_at).format("MMM DD, YYYY")}
-                    </td>
-                    <td
-                      className="px-6 py-4"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="flex gap-2">
-                        {showArchived ? (
-                          <Button
-                            type="link"
-                            onClick={() => handleUnarchive(payment.id)}
-                            className="text-blue-600"
-                          >
-                            Restore
-                          </Button>
-                        ) : (
-                          <Button
-                            type="link"
-                            onClick={() => handleArchive(payment.id)}
-                            className={
-                              isDark ? "text-gray-400" : "text-gray-600"
-                            }
-                          >
-                            Archive
-                          </Button>
-                        )}
-                        <Button
-                          type="link"
-                          danger
-                          icon={<DeleteOutlined />}
-                          onClick={() => handleDelete(payment.id)}
+                      {/* Client */}
+                      <td style={{ padding: "12px 18px", minWidth: 160 }}>
+                        <Input
+                          className="inline-input"
+                          value={payment.client_name}
+                          onChange={(e) =>
+                            handleInlineEdit(
+                              payment.id,
+                              "client_name",
+                              e.target.value,
+                            )
+                          }
+                          bordered={false}
                         />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                        {savingId === payment.id && (
+                          <span
+                            className="saving-pulse"
+                            style={{ fontSize: 10, color: "#94a3b8" }}
+                          >
+                            saving…
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Amount */}
+                      <td style={{ padding: "12px 18px", minWidth: 140 }}>
+                        <Input
+                          className="inline-input mono"
+                          prefix={
+                            <span
+                              style={{
+                                color: "#94a3b8",
+                                fontSize: 11,
+                                fontWeight: 600,
+                                minWidth: 20,
+                              }}
+                            >
+                              {CURRENCIES.find(
+                                (c) => c.code === (payment.currency || "USD"),
+                              )?.symbol || "$"}
+                            </span>
+                          }
+                          type="number"
+                          value={payment.amount}
+                          onChange={(e) =>
+                            handleInlineEdit(
+                              payment.id,
+                              "amount",
+                              e.target.value,
+                            )
+                          }
+                          bordered={false}
+                          style={{ fontWeight: 700, color: "#0f172a" }}
+                        />
+                      </td>
+
+                      {/* Currency */}
+                      <td style={{ padding: "12px 18px", minWidth: 130 }}>
+                        <Select
+                          value={payment.currency || "USD"}
+                          onChange={(v) =>
+                            handleInlineEdit(payment.id, "currency", v)
+                          }
+                          bordered={false}
+                          style={{ marginLeft: -10, width: 110 }}
+                          suffixIcon={null}
+                          showSearch
+                          optionFilterProp="label"
+                          dropdownStyle={{ borderRadius: 10, minWidth: 260 }}
+                          options={CURRENCIES.map((c) => ({
+                            value: c.code,
+                            label: `${c.code} – ${c.name}`,
+                            code: c.code,
+                            symbol: c.symbol,
+                          }))}
+                          optionRender={(opt) => (
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                              }}
+                            >
+                              <span
+                                style={{
+                                  width: 28,
+                                  fontWeight: 700,
+                                  color: "#0f172a",
+                                  fontSize: 12,
+                                  fontFamily: "DM Mono, monospace",
+                                }}
+                              >
+                                {opt.data.symbol}
+                              </span>
+                              <span style={{ fontSize: 12, color: "#475569" }}>
+                                <strong>{opt.data.code}</strong> —{" "}
+                                {
+                                  CURRENCIES.find(
+                                    (c) => c.code === opt.data.code,
+                                  )?.name
+                                }
+                              </span>
+                            </div>
+                          )}
+                        ></Select>
+                      </td>
+
+                      {/* Status */}
+                      <td style={{ padding: "12px 18px", minWidth: 140 }}>
+                        <Select
+                          value={payment.status}
+                          onChange={(v) =>
+                            handleInlineEdit(payment.id, "status", v)
+                          }
+                          bordered={false}
+                          style={{ marginLeft: -10 }}
+                          suffixIcon={null}
+                          dropdownStyle={{ borderRadius: 10 }}
+                        >
+                          {Object.entries(STATUS).map(([val, cfg]) => (
+                            <Select.Option key={val} value={val}>
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 5,
+                                  padding: "3px 10px",
+                                  borderRadius: 20,
+                                  border: `1px solid ${cfg.border}`,
+                                  background: cfg.bg,
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  color: cfg.color,
+                                }}
+                              >
+                                {cfg.icon} {cfg.label}
+                              </span>
+                            </Select.Option>
+                          ))}
+                        </Select>
+                      </td>
+
+                      {/* Remarks */}
+                      <td
+                        style={{
+                          padding: "12px 18px",
+                          minWidth: 200,
+                          maxWidth: 280,
+                        }}
+                      >
+                        <TextArea
+                          className="inline-textarea"
+                          value={payment.remarks || ""}
+                          onChange={(e) =>
+                            handleInlineEdit(
+                              payment.id,
+                              "remarks",
+                              e.target.value,
+                            )
+                          }
+                          placeholder="Add note…"
+                          bordered={false}
+                          autoSize={{ minRows: 1, maxRows: 3 }}
+                        />
+                      </td>
+
+                      {/* Date */}
+                      <td
+                        style={{ padding: "12px 18px", whiteSpace: "nowrap" }}
+                      >
+                        <span style={{ fontSize: 12, color: "#64748b" }}>
+                          {dayjs(payment.created_at).format("MMM D, YYYY")}
+                        </span>
+                      </td>
+
+                      {/* Actions */}
+                      <td
+                        style={{ padding: "12px 18px", whiteSpace: "nowrap" }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 4,
+                            alignItems: "center",
+                          }}
+                        >
+                          <Button
+                            size="small"
+                            icon={<EditOutlined />}
+                            onClick={() => {
+                              setEditingPayment(payment);
+                              setForm({
+                                client_name: payment.client_name,
+                                amount: payment.amount,
+                                status: payment.status,
+                                remarks: payment.remarks || "",
+                                currency: payment.currency || "USD",
+                              });
+                              setDrawerOpen(true);
+                            }}
+                            style={{
+                              borderRadius: 7,
+                              border: "1px solid #e2e8f0",
+                              color: "#475569",
+                              fontWeight: 600,
+                              fontSize: 12,
+                              height: 30,
+                              paddingInline: 10,
+                            }}
+                          />
+                          {showArchived ? (
+                            <Button
+                              size="small"
+                              icon={<ArrowUpOutlined />}
+                              onClick={() => handleArchive(payment.id, false)}
+                              style={{
+                                borderRadius: 7,
+                                border: "1px solid #bae6fd",
+                                background: "#f0f9ff",
+                                color: "#0369a1",
+                                fontWeight: 600,
+                                fontSize: 12,
+                                height: 30,
+                                paddingInline: 10,
+                              }}
+                            >
+                              Restore
+                            </Button>
+                          ) : (
+                            <Button
+                              size="small"
+                              icon={<InboxOutlined />}
+                              onClick={() => handleArchive(payment.id, true)}
+                              style={{
+                                borderRadius: 7,
+                                border: "1px solid #e2e8f0",
+                                color: "#94a3b8",
+                                fontWeight: 600,
+                                fontSize: 12,
+                                height: 30,
+                                paddingInline: 10,
+                              }}
+                            />
+                          )}
+                          <Button
+                            size="small"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={() => handleDelete(payment.id)}
+                            style={{
+                              borderRadius: 7,
+                              border: "1px solid #fecdd3",
+                              background: "#fff1f2",
+                              color: "#e11d48",
+                              height: 30,
+                              paddingInline: 10,
+                            }}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
+      {/* ── Drawer ── */}
       <Drawer
+        className="pay-drawer"
         title={
-          <span className={isDark ? "text-gray-100" : "text-gray-900"}>
-            {editingPayment ? "Edit Payment" : "Add New Payment"}
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: "#f1f5f9",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <DollarOutlined style={{ color: "#475569", fontSize: 16 }} />
+            </div>
+            <div>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: "#94a3b8",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                }}
+              >
+                {editingPayment ? "Edit" : "New"}
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>
+                {editingPayment ? "Update Payment" : "Add Payment"}
+              </div>
+            </div>
+          </div>
         }
-        open={drawerVisible}
+        open={drawerOpen}
         onClose={() => {
-          setDrawerVisible(false);
+          setDrawerOpen(false);
           resetForm();
         }}
-        width={500}
-        className={isDark ? "dark-drawer" : ""}
+        width={460}
         footer={
-          <div className="flex justify-end gap-2">
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
             <Button
               onClick={() => {
-                setDrawerVisible(false);
+                setDrawerOpen(false);
                 resetForm();
               }}
+              style={{ borderRadius: 9, height: 38, fontWeight: 600 }}
             >
               Cancel
             </Button>
             <Button
               type="primary"
               onClick={handleSubmit}
-              style={{ backgroundColor: "#2563eb" }}
+              style={{
+                borderRadius: 9,
+                height: 38,
+                paddingInline: 22,
+                background: "#0f172a",
+                border: "none",
+                fontWeight: 700,
+                boxShadow: "0 4px 12px rgba(15,23,42,0.2)",
+              }}
             >
               {editingPayment ? "Update" : "Add"} Payment
             </Button>
           </div>
         }
       >
-        <div className="space-y-4">
-          <div>
-            <label
-              className={`block text-sm font-medium mb-1 ${
-                isDark ? "text-gray-300" : "text-gray-700"
-              }`}
-            >
-              Client Name *
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div className="field-input">
+            <label className="field-label">
+              Client Name <span style={{ color: "#e11d48" }}>*</span>
             </label>
             <Input
-              value={formData.client_name}
+              value={form.client_name}
               onChange={(e) =>
-                setFormData({ ...formData, client_name: e.target.value })
+                setForm({ ...form, client_name: e.target.value })
               }
-              placeholder="Enter client name"
+              placeholder="e.g. Acme Corporation"
             />
           </div>
 
-          <div>
-            <label
-              className={`block text-sm font-medium mb-1 ${
-                isDark ? "text-gray-300" : "text-gray-700"
-              }`}
-            >
-              Amount *
-            </label>
-            <Input
-              type="number"
-              prefix="$"
-              value={formData.amount}
-              onChange={(e) =>
-                setFormData({ ...formData, amount: e.target.value })
-              }
-              placeholder="Enter amount"
-            />
+          <div style={{ display: "flex", gap: 12 }}>
+            <div className="field-input" style={{ flex: 1 }}>
+              <label className="field-label">
+                Amount <span style={{ color: "#e11d48" }}>*</span>
+              </label>
+              <Input
+                type="number"
+                prefix={
+                  <span
+                    style={{
+                      color: "#94a3b8",
+                      fontWeight: 700,
+                      fontFamily: "DM Mono, monospace",
+                      minWidth: 20,
+                    }}
+                  >
+                    {CURRENCIES.find((c) => c.code === form.currency)?.symbol ||
+                      "$"}
+                  </span>
+                }
+                value={form.amount}
+                onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                placeholder="0.00"
+                style={{ fontFamily: "'DM Mono', monospace" }}
+              />
+            </div>
+
+            <div className="field-select" style={{ width: 160 }}>
+              <label className="field-label">
+                Currency <span style={{ color: "#e11d48" }}>*</span>
+              </label>
+              <Select
+                value={form.currency}
+                onChange={(v) => setForm({ ...form, currency: v })}
+                style={{ width: "100%" }}
+                showSearch
+                optionFilterProp="label"
+                dropdownStyle={{ borderRadius: 10, minWidth: 280 }}
+                options={CURRENCIES.map((c) => ({
+                  value: c.code,
+                  label: `${c.code} – ${c.name}`,
+                  symbol: c.symbol,
+                }))}
+                optionRender={(opt) => (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "2px 0",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 26,
+                        fontWeight: 700,
+                        color: "#0f172a",
+                        fontSize: 12,
+                        fontFamily: "DM Mono, monospace",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {opt.data.symbol}
+                    </span>
+                    <div>
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          fontSize: 12,
+                          color: "#0f172a",
+                        }}
+                      >
+                        {opt.data.value}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "#94a3b8",
+                          marginLeft: 6,
+                        }}
+                      >
+                        {
+                          CURRENCIES.find((c) => c.code === opt.data.value)
+                            ?.name
+                        }
+                      </span>
+                    </div>
+                  </div>
+                )}
+              />
+            </div>
           </div>
 
-          <div>
-            <label
-              className={`block text-sm font-medium mb-1 ${
-                isDark ? "text-gray-300" : "text-gray-700"
-              }`}
-            >
-              Status *
+          <div className="field-select">
+            <label className="field-label">
+              Status <span style={{ color: "#e11d48" }}>*</span>
             </label>
             <Select
-              value={formData.status}
-              onChange={(value) => setFormData({ ...formData, status: value })}
-              className="w-full"
+              value={form.status}
+              onChange={(v) => setForm({ ...form, status: v })}
+              style={{ width: "100%" }}
             >
-              <Select.Option value="paid">Paid</Select.Option>
-              <Select.Option value="not_paid">Not Paid</Select.Option>
+              {Object.entries(STATUS).map(([val, cfg]) => (
+                <Select.Option key={val} value={val}>
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 5,
+                      color: cfg.color,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {cfg.icon} {cfg.label}
+                  </span>
+                </Select.Option>
+              ))}
             </Select>
           </div>
 
-          <div>
-            <label
-              className={`block text-sm font-medium mb-1 ${
-                isDark ? "text-gray-300" : "text-gray-700"
-              }`}
-            >
-              Remarks
-            </label>
+          <div className="field-input">
+            <label className="field-label">Remarks</label>
             <TextArea
+              value={form.remarks}
+              onChange={(e) => setForm({ ...form, remarks: e.target.value })}
               rows={4}
-              value={formData.remarks}
-              onChange={(e) =>
-                setFormData({ ...formData, remarks: e.target.value })
-              }
-              placeholder="Add any additional notes..."
+              placeholder="Invoice number, notes, payment terms…"
+              style={{ resize: "none" }}
             />
           </div>
         </div>
       </Drawer>
-
-      <style>{`
-        ${
-          isDark
-            ? `
-          .dark-input input {
-            background-color: #374151;
-            border-color: #4b5563;
-            color: #f3f4f6;
-          }
-          .dark-input input::placeholder {
-            color: #6b7280;
-          }
-          .dark-select .ant-select-selector {
-            background-color: #374151 !important;
-            border-color: #4b5563 !important;
-            color: #f3f4f6 !important;
-          }
-          .dark-select .ant-select-arrow {
-            color: #9ca3af;
-          }
-          .dark-drawer .ant-drawer-content {
-            background-color: #1f2937;
-          }
-          .dark-drawer .ant-drawer-header {
-            background-color: #1f2937;
-            border-bottom-color: #374151;
-          }
-          .dark-drawer .ant-drawer-body {
-            background-color: #1f2937;
-          }
-          .dark-drawer .ant-drawer-footer {
-            background-color: #1f2937;
-            border-top-color: #374151;
-          }
-          .dark-drawer input,
-          .dark-drawer textarea {
-            background-color: #374151;
-            border-color: #4b5563;
-            color: #f3f4f6;
-          }
-          .dark-drawer input::placeholder,
-          .dark-drawer textarea::placeholder {
-            color: #6b7280;
-          }
-          .dark-drawer .ant-select-selector {
-            background-color: #374151 !important;
-            border-color: #4b5563 !important;
-            color: #f3f4f6 !important;
-          }
-        `
-            : ""
-        }
-      `}</style>
     </div>
   );
 };

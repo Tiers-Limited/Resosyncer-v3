@@ -1,305 +1,648 @@
-import { useState, useEffect } from 'react';
-import { Card, Table, Button, Space, message, Modal, Form, Input, Select } from 'antd';
-import { PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
+import { useState, useEffect, useMemo } from "react";
+import { Button, message, Modal, Form, Input, Select, Avatar } from "antd";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Search,
+  Users,
+  CalendarDays,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
+import { supabase } from "../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
 
 const { TextArea } = Input;
 
+/* ── helpers ─────────────────────────────────────────────────── */
+const PALETTE = [
+  "#3b5bdb",
+  "#0ca678",
+  "#e67700",
+  "#c2255c",
+  "#7048e8",
+  "#1098ad",
+  "#d9480f",
+  "#2f9e44",
+];
+const getColor = (str = "") => {
+  let h = 0;
+  for (const c of str) h = c.charCodeAt(0) + ((h << 5) - h);
+  return PALETTE[Math.abs(h) % PALETTE.length];
+};
+const getInit = (name = "") =>
+  name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
+/* ── MemberAvatar ─────────────────────────────────────────────── */
+const MemberAvatar = ({ member, size = 24, radius = 8 }) =>
+  member.user_photo ? (
+    <img
+      src={member.user_photo}
+      alt={member.full_name}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: radius,
+        objectFit: "cover",
+        flexShrink: 0,
+      }}
+    />
+  ) : (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: radius,
+        flexShrink: 0,
+        background: getColor(member.full_name || ""),
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: size * 0.38,
+        fontWeight: 700,
+        color: "#fff",
+      }}
+    >
+      {getInit(member.full_name)}
+    </div>
+  );
+
+/* ── CSS ──────────────────────────────────────────────────────── */
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Mulish:wght@400;500;600&display=swap');
+
+.tm { font-family:'Mulish',-apple-system,sans-serif; }
+
+.tm-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:28px; gap:12px; flex-wrap:wrap; }
+.tm-title  { font-family:'Sora',sans-serif; font-size:26px; font-weight:700; color:#0d0d0d; margin:0; letter-spacing:-.5px; }
+.tm-sub    { font-size:13px; color:#9a9a9a; margin:4px 0 0; }
+
+.tm-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:26px; }
+@media(max-width:560px){.tm-stats{grid-template-columns:1fr 1fr;}}
+.tm-stat  { background:#fff; border-radius:16px; padding:18px 20px; box-shadow:0 2px 12px rgba(0,0,0,.06); }
+.tm-stat-n { font-family:'Sora',sans-serif; font-size:32px; font-weight:700; line-height:1; }
+.tm-stat-l { font-size:10.5px; text-transform:uppercase; letter-spacing:.6px; color:#a0a0a0; font-weight:600; margin-top:5px; }
+
+.tm-toolbar { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; align-items:center; }
+.tm-search  { position:relative; flex:1; min-width:200px; max-width:320px; }
+.tm-search-icon { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:#c8c8c8; pointer-events:none; }
+.tm-search input { width:100%; padding:8px 12px 8px 34px; border:none; border-radius:10px; background:#f5f5f5; font-size:13px; font-family:inherit; outline:none; color:#0d0d0d; transition:background .15s,box-shadow .15s; }
+.tm-search input:focus { background:#fff; box-shadow:0 0 0 3px rgba(59,91,219,.12); }
+.tm-count { font-size:12px; color:#b8b8b8; margin-left:4px; }
+
+.tm-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(310px,1fr)); gap:16px; }
+
+.tm-card { background:#fff; border-radius:18px; overflow:hidden; transition:box-shadow .2s,transform .18s; display:flex; flex-direction:column; box-shadow:0 2px 12px rgba(0,0,0,.06); }
+.tm-card:hover { box-shadow:0 12px 32px rgba(0,0,0,.11); transform:translateY(-2px); }
+
+.tm-card-body  { padding:22px 22px 16px; flex:1; }
+.tm-card-top   { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:12px; gap:10px; }
+.tm-card-name  { font-family:'Sora',sans-serif; font-size:15.5px; font-weight:700; color:#0d0d0d; margin:0 0 5px; }
+.tm-card-desc  { font-size:12.5px; color:#8a8a8a; line-height:1.55; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.tm-count-pill { background:#f3f3f3; border-radius:8px; padding:4px 10px; font-size:11px; font-weight:700; color:#6a6a6a; white-space:nowrap; display:flex; align-items:center; gap:4px; flex-shrink:0; }
+
+.tm-members       { margin-top:16px; }
+.tm-members-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:#c8c8c8; margin-bottom:9px; }
+.tm-chips         { display:flex; flex-wrap:wrap; gap:6px; }
+.tm-chip          { display:inline-flex; align-items:center; gap:6px; background:#f7f7f7; border-radius:20px; padding:3px 10px 3px 4px; }
+.tm-chip-name     { font-size:12px; font-weight:600; color:#3a3a3a; }
+.tm-chip-role     { font-size:10px; color:#b0b0b0; }
+.tm-no-members    { font-size:12.5px; color:#d0d0d0; font-style:italic; }
+.tm-show-more     { border:none; background:#efefef; border-radius:20px; padding:3px 11px; font-size:11px; font-weight:700; color:#7a7a7a; cursor:pointer; display:inline-flex; align-items:center; gap:4px; font-family:inherit; transition:background .13s; }
+.tm-show-more:hover { background:#e4e4e4; }
+
+.tm-card-date { font-size:11px; color:#d0d0d0; margin-top:12px; display:flex; align-items:center; gap:5px; }
+
+.tm-card-footer { padding:10px 16px; display:flex; gap:2px; justify-content:flex-end; background:#fafafa; }
+.tm-btn { border:none; background:transparent; cursor:pointer; padding:6px 11px; border-radius:8px; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:5px; color:#7a7a7a; transition:all .13s; font-family:inherit; }
+.tm-btn:hover       { background:#f0f0f0; color:#222; }
+.tm-btn.edit:hover  { background:#fff7e0; color:#d46b08; }
+.tm-btn.del:hover   { background:#fff1f0; color:#cf1322; }
+
+.tm-empty      { text-align:center; padding:72px 20px; }
+.tm-empty-ico  { font-size:44px; margin-bottom:14px; }
+.tm-empty-text { font-size:15px; font-weight:600; color:#5a5a5a; }
+.tm-empty-hint { font-size:12.5px; color:#b8b8b8; margin-top:5px; }
+
+.tm-add-btn { background:#0d0d0d !important; border-color:#0d0d0d !important; border-radius:10px !important; font-family:'Sora',sans-serif !important; font-weight:600 !important; height:38px !important; padding:0 18px !important; box-shadow:none !important; }
+.tm-add-btn:hover { background:#2a2a2a !important; border-color:#2a2a2a !important; }
+
+/* skeleton */
+@keyframes tm-sweep { to { background-position:-200% 0; } }
+.tm-sk { background:#fff; border-radius:18px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 2px 12px rgba(0,0,0,.06); }
+.tm-sk-body { padding:22px; flex:1; }
+.tm-sk-line { border-radius:6px; background:linear-gradient(90deg,#f2f2f2 25%,#e8e8e8 50%,#f2f2f2 75%); background-size:200% 100%; animation:tm-sweep 1.5s ease-in-out infinite; }
+.tm-sk-chips { display:flex; gap:6px; margin-top:14px; }
+.tm-sk-chip  { height:28px; border-radius:20px; background:linear-gradient(90deg,#f2f2f2 25%,#e8e8e8 50%,#f2f2f2 75%); background-size:200% 100%; animation:tm-sweep 1.5s ease-in-out infinite; }
+.tm-sk-footer { padding:12px 16px; display:flex; justify-content:flex-end; gap:8px; background:#fafafa; }
+.tm-sk-btn { height:30px; border-radius:8px; background:linear-gradient(90deg,#f2f2f2 25%,#e8e8e8 50%,#f2f2f2 75%); background-size:200% 100%; animation:tm-sweep 1.5s ease-in-out infinite; }
+
+.tm-modal-sec { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:#c8c8c8; margin:18px 0 10px; padding-bottom:7px; border-bottom:1px solid #f5f5f5; }
+`;
+
+/* ════════════════════════════════════════════════════════════ */
 const Teams = () => {
   const [teams, setTeams] = useState([]);
   const [employees, setEmployees] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingTeam, setEditingTeam] = useState(null);
+  const [currentTenantId, setCurrentTenantId] = useState(null);
+  const [search, setSearch] = useState("");
+  const [expandedTeam, setExpandedTeam] = useState(null);
   const [form] = Form.useForm();
   const { profile } = useAuth();
 
   useEffect(() => {
-    fetchTeams();
-    fetchEmployees();
+    fetchCurrentTenant();
   }, []);
 
-  const fetchTeams = async () => {
+  const fetchCurrentTenant = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("tenant_id")
+        .eq("id", user.id)
+        .single();
+      if (error) throw error;
+      const tid = data?.tenant_id;
+      setCurrentTenantId(tid);
+      fetchTeams(tid);
+      fetchEmployees(tid);
+    } catch {
+      message.error("Failed to load tenant");
+    }
+  };
+
+  const fetchTeams = async (tid) => {
+    if (!tid) return;
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('teams')
-        .select(`
-          *,
-          profiles:profiles(id, full_name, email, role)
-        `)
-        .order('created_at', { ascending: false });
-
+        .from("teams")
+        .select("*, profiles:profiles(id,full_name,email,role,user_photo)")
+        .eq("tenant_id", tid)
+        .order("created_at", { ascending: false });
       if (error) throw error;
       setTeams(data || []);
-    } catch (error) {
-      message.error('Failed to fetch teams');
+    } catch {
+      message.error("Failed to fetch teams");
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchEmployees = async () => {
+  const fetchEmployees = async (tid) => {
+    if (!tid) return;
     try {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, role')
-        .in('role', ['employee', 'project_manager']);
-
+        .from("profiles")
+        .select("id,full_name,email,role,user_photo")
+        .eq("tenant_id", tid)
+        .in("role", ["employee", "project_manager"]);
       if (error) throw error;
       setEmployees(data || []);
-    } catch (error) {
-      console.error('Error fetching employees:', error);
+    } catch (e) {
+      console.error(e);
     }
   };
 
-  const handleAddTeam = async (values) => {
-    if (!profile?.id && !editingTeam) {
-      message.error('Please wait for profile to load');
+  const handleSave = async (values) => {
+    if (!currentTenantId) {
+      message.error("Tenant not loaded");
       return;
     }
-
     setLoading(true);
     try {
       if (editingTeam) {
-        const { error: teamError } = await supabase
-          .from('teams')
-          .update({
-            name: values.name,
-            description: values.description,
-          })
-          .eq('id', editingTeam.id);
-
-        if (teamError) throw teamError;
-
-        const { error: clearError } = await supabase
-          .from('profiles')
+        const { error: teamErr } = await supabase
+          .from("teams")
+          .update({ name: values.name, description: values.description })
+          .eq("id", editingTeam.id)
+          .eq("tenant_id", currentTenantId);
+        if (teamErr) throw teamErr;
+        await supabase
+          .from("profiles")
           .update({ team_id: null })
-          .eq('team_id', editingTeam.id);
-
-        if (clearError) throw clearError;
-
-        if (values.members && values.members.length > 0) {
-          const { error: updateError } = await supabase
-            .from('profiles')
+          .eq("team_id", editingTeam.id);
+        if (values.members?.length) {
+          const { error: memErr } = await supabase
+            .from("profiles")
             .update({ team_id: editingTeam.id })
-            .in('id', values.members);
-
-          if (updateError) throw updateError;
+            .in("id", values.members);
+          if (memErr) throw memErr;
         }
-
-        message.success('Team updated successfully');
+        message.success("Team updated");
       } else {
-        const { data: teamData, error: teamError } = await supabase
-          .from('teams')
-          .insert([{
-            name: values.name,
-            description: values.description,
-            created_by: profile.id,
-          }])
+        const { data: teamData, error: teamErr } = await supabase
+          .from("teams")
+          .insert([
+            {
+              name: values.name,
+              description: values.description,
+              created_by: profile?.id,
+              tenant_id: currentTenantId,
+            },
+          ])
           .select()
           .single();
-
-        if (teamError) throw teamError;
-
-        if (values.members && values.members.length > 0) {
-          const { error: updateError } = await supabase
-            .from('profiles')
+        if (teamErr) throw teamErr;
+        if (values.members?.length) {
+          const { error: memErr } = await supabase
+            .from("profiles")
             .update({ team_id: teamData.id })
-            .in('id', values.members);
-
-          if (updateError) throw updateError;
+            .in("id", values.members);
+          if (memErr) throw memErr;
         }
-
-        message.success('Team created successfully');
+        message.success("Team created");
       }
-
-      setModalVisible(false);
-      setEditingTeam(null);
-      form.resetFields();
-      fetchTeams();
-    } catch (error) {
-      message.error(editingTeam ? 'Failed to update team' : 'Failed to create team');
-      console.error('Error:', error);
+      closeModal();
+      fetchTeams(currentTenantId);
+    } catch (e) {
+      message.error(editingTeam ? "Failed to update" : "Failed to create");
+      console.error(e);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEditTeam = (team) => {
+  const handleEdit = (team) => {
     setEditingTeam(team);
-    const memberIds = team.profiles?.map(p => p.id) || [];
     form.setFieldsValue({
       name: team.name,
       description: team.description,
-      members: memberIds,
+      members: team.profiles?.map((p) => p.id) || [],
     });
     setModalVisible(true);
   };
 
-  const handleDeleteTeam = async (teamId) => {
+  const handleDelete = async (teamId, teamName) => {
     try {
-      const { error: clearError } = await supabase
-        .from('profiles')
+      await supabase
+        .from("profiles")
         .update({ team_id: null })
-        .eq('team_id', teamId);
-
-      if (clearError) throw clearError;
-
+        .eq("team_id", teamId);
       const { error } = await supabase
-        .from('teams')
+        .from("teams")
         .delete()
-        .eq('id', teamId);
-
+        .eq("id", teamId)
+        .eq("tenant_id", currentTenantId);
       if (error) throw error;
-      message.success('Team deleted successfully');
-      fetchTeams();
-    } catch (error) {
-      message.error('Failed to delete team');
-      console.error('Error:', error);
+      message.success("Team deleted");
+      fetchTeams(currentTenantId);
+    } catch {
+      message.error("Delete failed");
     }
   };
 
-  const columns = [
-    {
-      title: 'Team Name',
-      dataIndex: 'name',
-      key: 'name',
-    },
-    {
-      title: 'Description',
-      dataIndex: 'description',
-      key: 'description',
-      render: (text) => text || '-',
-    },
-    {
-      title: 'Created At',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      render: (date) => new Date(date).toLocaleDateString(),
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      render: (_, record) => (
-        <Space>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            onClick={() => handleEditTeam(record)}
-          >
-            Edit
-          </Button>
-          <Button
-            type="link"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => {
-              Modal.confirm({
-                title: 'Delete Team',
-                content: 'Are you sure you want to delete this team? Team members will be unassigned.',
-                onOk: () => handleDeleteTeam(record.id),
-              });
-            }}
-          >
-            Delete
-          </Button>
-        </Space>
+  const closeModal = () => {
+    setModalVisible(false);
+    setEditingTeam(null);
+    form.resetFields();
+  };
+
+  const stats = useMemo(
+    () => ({
+      total: teams.length,
+      members: teams.reduce((s, t) => s + (t.profiles?.length || 0), 0),
+      empty: teams.filter((t) => !t.profiles?.length).length,
+    }),
+    [teams],
+  );
+
+  const filtered = useMemo(
+    () =>
+      teams.filter(
+        (t) =>
+          !search ||
+          t.name.toLowerCase().includes(search.toLowerCase()) ||
+          t.description?.toLowerCase().includes(search.toLowerCase()),
       ),
-    },
-  ];
+    [teams, search],
+  );
 
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Teams</h1>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => setModalVisible(true)}
-          style={{ backgroundColor: '#001529' }}
-        >
-          Create Team
-        </Button>
-      </div>
+  /* ── TeamCard ─────────────────────────────────────────────── */
+  const TeamCard = ({ team }) => {
+    const members = team.profiles || [];
+    const isOpen = expandedTeam === team.id;
+    const visible = isOpen ? members : members.slice(0, 4);
 
-      <Card>
-        <Table
-          columns={columns}
-          dataSource={teams}
-          rowKey="id"
-          loading={loading}
-          expandable={{
-            expandedRowRender: (record) => (
-              <div className="p-4 bg-gray-50 rounded">
-                <p className="font-semibold mb-3">Team Members:</p>
-                {record.profiles && record.profiles.length > 0 ? (
-                  <div className="space-y-2">
-                    {record.profiles.map((member) => (
-                      <div key={member.id} className="flex items-center gap-3 p-2 bg-white rounded border">
-                        <span className="font-medium">{member.full_name}</span>
-                        <span className="text-gray-500">({member.email})</span>
-                        <span className="ml-auto">
-                          {member.role === 'project_manager' ? (
-                            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">Project Manager</span>
-                          ) : (
-                            <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">Employee</span>
-                          )}
-                        </span>
-                      </div>
-                    ))}
+    return (
+      <div className="tm-card">
+        <div className="tm-card-body">
+          <div className="tm-card-top">
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p className="tm-card-name">{team.name}</p>
+              {team.description ? (
+                <p className="tm-card-desc">{team.description}</p>
+              ) : (
+                <p
+                  className="tm-card-desc"
+                  style={{ color: "#d8d8d8", fontStyle: "italic" }}
+                >
+                  No description
+                </p>
+              )}
+            </div>
+            <span className="tm-count-pill">
+              <Users size={11} strokeWidth={2.5} />
+              {members.length}
+            </span>
+          </div>
+
+          {/* Members */}
+          <div className="tm-members">
+            <div className="tm-members-label">Members</div>
+            {members.length === 0 ? (
+              <span className="tm-no-members">No members assigned yet</span>
+            ) : (
+              <div className="tm-chips">
+                {visible.map((m) => (
+                  <div key={m.id} className="tm-chip">
+                    <MemberAvatar member={m} size={22} radius={6} />
+                    <span className="tm-chip-name">{m.full_name}</span>
+                    {m.role === "project_manager" && (
+                      <span className="tm-chip-role">PM</span>
+                    )}
                   </div>
-                ) : (
-                  <p className="text-gray-500">No members in this team</p>
+                ))}
+                {!isOpen && members.length > 4 && (
+                  <button
+                    className="tm-show-more"
+                    onClick={() => setExpandedTeam(team.id)}
+                  >
+                    +{members.length - 4} more <ChevronDown size={11} />
+                  </button>
+                )}
+                {isOpen && members.length > 4 && (
+                  <button
+                    className="tm-show-more"
+                    onClick={() => setExpandedTeam(null)}
+                  >
+                    Show less <ChevronUp size={11} />
+                  </button>
                 )}
               </div>
-            ),
-          }}
-          pagination={{
-            pageSize: 10,
-            showTotal: (total) => `Total ${total} teams`,
-          }}
-        />
-      </Card>
+            )}
+          </div>
 
+          <div className="tm-card-date">
+            <CalendarDays size={11} strokeWidth={2} />
+            {new Date(team.created_at).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            })}
+          </div>
+        </div>
+
+        <div className="tm-card-footer">
+          <button className="tm-btn edit" onClick={() => handleEdit(team)}>
+            <Pencil size={13} strokeWidth={2.2} /> Edit
+          </button>
+          <button
+            className="tm-btn del"
+            onClick={() =>
+              Modal.confirm({
+                title: "Delete Team",
+                content: `Remove "${team.name}"? Members will be unassigned.`,
+                okType: "danger",
+                onOk: () => handleDelete(team.id, team.name),
+              })
+            }
+          >
+            <Trash2 size={13} strokeWidth={2.2} /> Delete
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  /* ── SkeletonCard ─────────────────────────────────────────── */
+  const SkeletonCard = ({ i }) => (
+    <div className="tm-sk">
+      <div className="tm-sk-body">
+        <div
+          className="tm-sk-line"
+          style={{ height: 17, width: "52%", marginBottom: 10 }}
+        />
+        <div
+          className="tm-sk-line"
+          style={{ height: 12, width: "88%", marginBottom: 6 }}
+        />
+        <div
+          className="tm-sk-line"
+          style={{ height: 12, width: "68%", marginBottom: 18 }}
+        />
+        <div
+          className="tm-sk-line"
+          style={{ height: 9, width: 56, marginBottom: 10 }}
+        />
+        <div className="tm-sk-chips">
+          <div className="tm-sk-chip" style={{ width: 100 + (i % 3) * 22 }} />
+          <div className="tm-sk-chip" style={{ width: 86 }} />
+          {i % 2 === 0 && <div className="tm-sk-chip" style={{ width: 104 }} />}
+        </div>
+        <div
+          className="tm-sk-line"
+          style={{ height: 9, width: 110, marginTop: 14 }}
+        />
+      </div>
+      <div className="tm-sk-footer">
+        <div className="tm-sk-btn" style={{ width: 62 }} />
+        <div className="tm-sk-btn" style={{ width: 72 }} />
+      </div>
+    </div>
+  );
+
+  /* ══════════════════ RENDER ════════════════════════════════ */
+  return (
+    <div className="tm">
+      <style>{CSS}</style>
+
+      {/* Header */}
+      <div className="tm-header">
+        <div>
+          <h1 className="tm-title">Teams</h1>
+          <p className="tm-sub">Organise your workforce into focused groups</p>
+        </div>
+        <button
+          className="tm-add-btn"
+          onClick={() => setModalVisible(true)}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 7,
+            background: "#0d0d0d",
+            color: "#fff",
+            border: "none",
+            borderRadius: 10,
+            height: 38,
+            padding: "0 18px",
+            fontFamily: "Sora,sans-serif",
+            fontWeight: 600,
+            fontSize: 13,
+            cursor: "pointer",
+            transition: "background .15s",
+          }}
+          onMouseOver={(e) => (e.currentTarget.style.background = "#2a2a2a")}
+          onMouseOut={(e) => (e.currentTarget.style.background = "#0d0d0d")}
+        >
+          <Plus size={15} strokeWidth={2.5} /> Create Team
+        </button>
+      </div>
+
+      {/* Stats */}
+      <div className="tm-stats">
+        {[
+          { n: stats.total, label: "Total Teams", color: "#0d0d0d" },
+          { n: stats.members, label: "Total Members", color: "#3b5bdb" },
+          { n: stats.empty, label: "Empty Teams", color: "#e67700" },
+        ].map((s) => (
+          <div className="tm-stat" key={s.label}>
+            <div className="tm-stat-n" style={{ color: s.color }}>
+              {s.n}
+            </div>
+            <div className="tm-stat-l">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Toolbar */}
+      <div className="tm-toolbar">
+        <div className="tm-search">
+          <Search size={14} className="tm-search-icon" strokeWidth={2} />
+          <input
+            placeholder="Search teams…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <span className="tm-count">
+          {filtered.length} team{filtered.length !== 1 ? "s" : ""}
+        </span>
+      </div>
+
+      {/* Grid */}
+      {loading ? (
+        <div className="tm-grid">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} i={i} />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="tm-empty">
+          <div className="tm-empty-ico">🏢</div>
+          <div className="tm-empty-text">
+            {search ? "No teams match your search" : "No teams yet"}
+          </div>
+          <div className="tm-empty-hint">
+            {!search && 'Click "Create Team" to get started'}
+          </div>
+        </div>
+      ) : (
+        <div className="tm-grid">
+          {filtered.map((t) => (
+            <TeamCard key={t.id} team={t} />
+          ))}
+        </div>
+      )}
+
+      {/* Modal */}
       <Modal
-        title={editingTeam ? 'Edit Team' : 'Create New Team'}
+        title={
+          <span
+            style={{
+              fontFamily: "Sora,sans-serif",
+              fontWeight: 700,
+              fontSize: 16,
+            }}
+          >
+            {editingTeam ? "Edit Team" : "Create New Team"}
+          </span>
+        }
         open={modalVisible}
-        onCancel={() => {
-          setModalVisible(false);
-          setEditingTeam(null);
-          form.resetFields();
-        }}
+        onCancel={closeModal}
         onOk={() => form.submit()}
         confirmLoading={loading}
-        width={600}
+        width={560}
+        okText={editingTeam ? "Update" : "Create"}
+        okButtonProps={{
+          style: {
+            background: "#0d0d0d",
+            borderColor: "#0d0d0d",
+            borderRadius: 8,
+            fontWeight: 600,
+          },
+        }}
       >
         <Form
           form={form}
           layout="vertical"
-          onFinish={handleAddTeam}
+          onFinish={handleSave}
+          style={{ marginTop: 8 }}
         >
+          <p className="tm-modal-sec">Team Info</p>
           <Form.Item
             name="name"
             label="Team Name"
-            rules={[{ required: true, message: 'Please enter team name' }]}
+            rules={[{ required: true, message: "Please enter a team name" }]}
           >
-            <Input placeholder="Enter team name" />
+            <Input placeholder="e.g. Frontend Squad" />
           </Form.Item>
-
           <Form.Item name="description" label="Description">
-            <TextArea rows={3} placeholder="Enter team description" />
+            <TextArea rows={3} placeholder="What does this team work on?" />
           </Form.Item>
 
-          <Form.Item name="members" label="Team Members">
+          <p className="tm-modal-sec">Members</p>
+          <Form.Item name="members" label="Assign Members">
             <Select
               mode="multiple"
-              placeholder="Select team members"
-              options={employees.map(emp => ({
-                label: `${emp.full_name} (${emp.email})`,
-                value: emp.id,
+              placeholder="Search and select employees…"
+              showSearch
+              optionFilterProp="label"
+              style={{ width: "100%" }}
+              options={employees.map((e) => ({
+                label: `${e.full_name} — ${e.role === "project_manager" ? "PM" : "Employee"}`,
+                value: e.id,
               }))}
+              optionRender={(opt) => {
+                const emp = employees.find((e) => e.id === opt.value);
+                if (!emp) return opt.label;
+                return (
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: 9 }}
+                  >
+                    <MemberAvatar member={emp} size={28} radius={8} />
+                    <div>
+                      <div
+                        style={{
+                          fontWeight: 600,
+                          fontSize: 13,
+                          color: "#0d0d0d",
+                        }}
+                      >
+                        {emp.full_name}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#9a9a9a" }}>
+                        {emp.role === "project_manager"
+                          ? "Project Manager"
+                          : "Employee"}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }}
             />
           </Form.Item>
         </Form>

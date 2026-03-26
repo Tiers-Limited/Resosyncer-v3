@@ -1,52 +1,105 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import SignIn from './pages/SignIn';
-import AdminSetup from './pages/AdminSetup';
-import Dashboard from './pages/Dashboard';
-import PMDashboard from './pages/PMDashboard';
-import EmployeeDashboard from './pages/EmployeeDashboard';
-import Projects from './pages/Projects';
-import PMProjects from './pages/PMProjects';
-import PMTickets from './pages/PMTickets';
-import EmployeeProjects from './pages/EmployeeProjects';
-import EmployeeTickets from './pages/EmployeeTickets';
-import Employees from './pages/Employees';
-import EmployeeDetail from './pages/EmployeeDetail';
-import Teams from './pages/Teams';
-import Requests from './pages/Requests';
-import EmployeeRequests from './pages/EmployeeRequests';
-import Attendance from './pages/Attendance';
-import EmployeeAttendance from './pages/EmployeeAttendance';
-import Leads from './pages/Leads';
-import Payments from './pages/Payments';
-import Documents from './pages/Documents';
-import Communication from './pages/Communication';
-import Settings from './pages/Settings';
-import EmployeeProfile from './pages/EmployeeProfile';
-import LetterGeneration from './pages/LetterGeneration';
-import MainLayout from './components/Layout/MainLayout';
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { useLocation } from "react-router-dom";
+import Register from "./pages/register";
+import SignIn from "./pages/SignIn";
+import AdminSetup from "./pages/AdminSetup";
+import Dashboard from "./pages/Dashboard";
+import PMDashboard from "./pages/PMDashboard";
+import EmployeeDashboard from "./pages/EmployeeDashboard";
+import Projects from "./pages/Projects";
+import PMProjects from "./pages/PMProjects";
+import PMTickets from "./pages/PMTickets";
+import EmployeeProjects from "./pages/EmployeeProjects";
+import EmployeeTickets from "./pages/EmployeeTickets";
+import Employees from "./pages/Employees";
+import EmployeeDetail from "./pages/EmployeeDetail";
+import Teams from "./pages/Teams";
+import Requests from "./pages/Requests";
+import EmployeeRequests from "./pages/EmployeeRequests";
+import EmployeeStatsPage from "./pages/EmployeeStats";
+import Leads from "./pages/Leads";
+import Payments from "./pages/Payments";
+import Documents from "./pages/Documents";
+import Communication from "./pages/Communication";
+import Settings from "./pages/Settings";
+import EmployeeProfile from "./pages/EmployeeProfile";
+import LetterGeneration from "./pages/LetterGeneration";
+import EmployeeTimingStats from "./pages/ActivityMonitor";
+import StandupAttendance from "./pages/StandupAttendance";
+import EmployeeAttendanceProfile from "./pages/employeeAttendances";
+import StandupStats from "./pages/employeeStandups";
+import AdminTrainingMaterials from "./pages/adminTraining";
+import EmployeeTrainingMaterials from "./pages/employeesTraining";
+import ContractGenerator from "./pages/ContractMaker";
+import Recruitment from "./pages/recruitment";
+import AdminStandupStats from "./pages/adminStandups";
+import ApplyPage from "./pages/applyPage";
+import ApplicationTrackingPage from "./pages/applicationStatus";
+import MeetingRoom from "./pages/meetingsroom";
+import MeetingsPage from "./pages/mettingspage";
+import MainLayout from "./components/Layout/MainLayout";
 
-const ProtectedRoute = ({ children, pmComponent, adminComponent, employeeComponent }) => {
+// Super-Admin
+import SuperadminDashboard from "./pages/superadmin/Platform/overview";
+import TenantsPage from "./pages/superadmin/Platform/tenants";
+import TenantDetailPage from "./pages/superadmin/Platform/tenantDetails";
+
+const ProtectedRoute = ({
+  children,
+  pmComponent,
+  adminComponent,
+  employeeComponent,
+  saComponent,
+  routePath,
+}) => {
   const { user, loading, profile } = useAuth();
+  const location = useLocation();
+  const path = location.pathname;
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        Loading...
+      </div>
+    );
   }
 
   if (!user) {
     return <Navigate to="/signin" replace />;
   }
 
+  if (
+    profile?.role === "admin" &&
+    Array.isArray(profile?.permissions) &&
+    routePath
+  ) {
+    if (!profile.permissions.includes(routePath)) {
+      return <Navigate to="/dashboard" replace />;
+    }
+  }
+
   let component = children;
 
-  if (profile?.role === 'project_manager' && pmComponent) {
+  if (profile?.role === "superadmin" && saComponent) {
+    component = saComponent;
+  } else if (profile?.role === "project_manager" && pmComponent) {
     component = pmComponent;
-  } else if (profile?.role === 'admin' && adminComponent) {
-    component = adminComponent;
-  } else if (profile?.role === 'employee' && employeeComponent) {
+  } else if (profile?.role === "employee" && employeeComponent) {
     component = employeeComponent;
   } else if (adminComponent) {
     component = adminComponent;
+  }
+
+  const isMeetingRoute = path === "/meeting" || /^\/meet\/[^/]+$/.test(path);
+
+  if (isMeetingRoute) {
+    return component;
   }
 
   return <MainLayout>{component}</MainLayout>;
@@ -57,13 +110,22 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
+          <Route path="/register" element={<Register />} />
           <Route path="/admin-setup" element={<AdminSetup />} />
+          <Route path="/apply/:jobId" element={<ApplyPage />} />
           <Route path="/signin" element={<SignIn />} />
 
+          <Route
+            path="/track/:applicantId"
+            element={<ApplicationTrackingPage />}
+          />
+
+          {/* /dashboard is always allowed — it's the fallback redirect target */}
           <Route
             path="/dashboard"
             element={
               <ProtectedRoute
+                saComponent={<SuperadminDashboard />}
                 pmComponent={<PMDashboard />}
                 adminComponent={<Dashboard />}
                 employeeComponent={<EmployeeDashboard />}
@@ -72,9 +134,20 @@ function App() {
           />
 
           <Route
+            path="/tenants"
+            element={<ProtectedRoute saComponent={<TenantsPage />} />}
+          />
+
+          <Route
+            path="/tenants/:id"
+            element={<ProtectedRoute saComponent={<TenantDetailPage />} />}
+          />
+
+          <Route
             path="/projects"
             element={
               <ProtectedRoute
+                routePath="/projects"
                 pmComponent={<PMProjects />}
                 adminComponent={<Projects />}
                 employeeComponent={<EmployeeProjects />}
@@ -83,18 +156,60 @@ function App() {
           />
 
           <Route
+            path="/training-material"
+            element={
+              <ProtectedRoute
+                routePath="/training-material"
+                adminComponent={<AdminTrainingMaterials />}
+                employeeComponent={<EmployeeTrainingMaterials />}
+              />
+            }
+          />
+
+          <Route
+            path="/meetings"
+            element={<ProtectedRoute adminComponent={<MeetingRoom />} />}
+          />
+
+          <Route
+            path="/meet/:roomId"
+            element={<ProtectedRoute adminComponent={<MeetingsPage />} />}
+          />
+
+          <Route
+            path="/contract-maker"
+            element={
+              <ProtectedRoute
+                routePath="/contract-maker"
+                adminComponent={<ContractGenerator />}
+              />
+            }
+          />
+
+          <Route
+            path="/recruitment"
+            element={
+              <ProtectedRoute
+                routePath="/recruitment"
+                adminComponent={<Recruitment />}
+              />
+            }
+          />
+
+          <Route
             path="/employees"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute routePath="/employees">
                 <Employees />
               </ProtectedRoute>
             }
           />
 
+          {/* Detail pages inherit the parent route's permission */}
           <Route
             path="/employees/:id"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute routePath="/employees">
                 <EmployeeDetail />
               </ProtectedRoute>
             }
@@ -103,7 +218,7 @@ function App() {
           <Route
             path="/teams"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute routePath="/teams">
                 <Teams />
               </ProtectedRoute>
             }
@@ -113,6 +228,7 @@ function App() {
             path="/requests"
             element={
               <ProtectedRoute
+                routePath="/requests"
                 adminComponent={<Requests />}
                 pmComponent={<Requests />}
                 employeeComponent={<EmployeeRequests />}
@@ -121,11 +237,42 @@ function App() {
           />
 
           <Route
+            path="/monitor"
+            element={
+              <ProtectedRoute
+                routePath="/monitor"
+                adminComponent={<EmployeeTimingStats />}
+              />
+            }
+          />
+
+          <Route
+            path="/stats"
+            element={
+              <ProtectedRoute
+                routePath="/stats"
+                adminComponent={<EmployeeStatsPage />}
+              />
+            }
+          />
+
+          <Route
+            path="/standups"
+            element={
+              <ProtectedRoute
+                routePath="/standups"
+                adminComponent={<AdminStandupStats />}
+                employeeComponent={<StandupStats />}
+                pmComponent={<StandupAttendance />}
+              />
+            }
+          />
+
+          <Route
             path="/attendance"
             element={
               <ProtectedRoute
-                adminComponent={<Attendance />}
-                employeeComponent={<EmployeeAttendance />}
+                employeeComponent={<EmployeeAttendanceProfile />}
               />
             }
           />
@@ -133,9 +280,7 @@ function App() {
           <Route
             path="/profile"
             element={
-              <ProtectedRoute
-                employeeComponent={<EmployeeProfile />}
-              >
+              <ProtectedRoute employeeComponent={<EmployeeProfile />}>
                 <Settings />
               </ProtectedRoute>
             }
@@ -144,7 +289,7 @@ function App() {
           <Route
             path="/leads"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute routePath="/leads">
                 <Leads />
               </ProtectedRoute>
             }
@@ -153,7 +298,7 @@ function App() {
           <Route
             path="/payments"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute routePath="/payments">
                 <Payments />
               </ProtectedRoute>
             }
@@ -162,7 +307,7 @@ function App() {
           <Route
             path="/documents"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute routePath="/documents">
                 <Documents />
               </ProtectedRoute>
             }
@@ -171,7 +316,7 @@ function App() {
           <Route
             path="/communication"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute routePath="/communication">
                 <Communication />
               </ProtectedRoute>
             }
@@ -180,7 +325,7 @@ function App() {
           <Route
             path="/settings"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute routePath="/settings">
                 <Settings />
               </ProtectedRoute>
             }
@@ -199,6 +344,7 @@ function App() {
             path="/projects/:projectId/tickets"
             element={
               <ProtectedRoute
+                routePath="/projects"
                 pmComponent={<PMTickets />}
                 employeeComponent={<EmployeeTickets />}
               />
