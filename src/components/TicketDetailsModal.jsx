@@ -1,6 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Input, Spin, Tooltip, Select, DatePicker, message } from "antd";
-import { MessageSquare, Paperclip, History, Send, X } from "lucide-react";
+import {
+  Modal,
+  Input,
+  Spin,
+  Tooltip,
+  Select,
+  DatePicker,
+  message,
+  Space,
+} from "antd";
+import {
+  MessageSquare,
+  Paperclip,
+  History,
+  Send,
+  X,
+  CheckCircle2,
+  Users,
+  Flag,
+  Calendar,
+  Edit2,
+} from "lucide-react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { supabase } from "../lib/supabase";
@@ -109,7 +129,7 @@ export default function TicketDetailsModal({
 
   const isPM = profile?.role === "project_manager";
   const isEmployee = profile?.role === "employee";
-  const fieldLocked = lockFieldsForPM && (isPM || isEmployee);
+  const fieldLocked = isEmployee;
 
   const [activeTab, setActiveTab] = useState("comments");
   const [comments, setComments] = useState([]);
@@ -392,10 +412,49 @@ export default function TicketDetailsModal({
     if (ticket?.assigned_user?.full_name) return ticket.assigned_user.full_name;
     return "Unassigned";
   }, [assigneeOptions, currentAssigneeIds, ticket?.assigned_user?.full_name]);
+  const selectedAssigneeProfiles = useMemo(() => {
+    if (!currentAssigneeIds?.length) return [];
+    return currentAssigneeIds
+      .map((id) => {
+        const profileEntry = (projectAssignees || []).find(
+          (a) => a?.profiles?.id === id,
+        );
+        return profileEntry?.profiles || null;
+      })
+      .filter(Boolean);
+  }, [currentAssigneeIds, projectAssignees]);
   const sprintText = useMemo(() => {
     if (!currentSprintId) return "—";
     return sprintMap.get(currentSprintId) || "—";
   }, [currentSprintId, sprintMap]);
+
+  const historyIcon = (field) => {
+    if (field === "comment_added") return <MessageSquare size={12} />;
+    if (field === "attachment_added") return <Paperclip size={12} />;
+    if (field === "status") return <CheckCircle2 size={12} />;
+    if (field === "priority") return <Flag size={12} />;
+    if (field === "assigned_to" || field === "assigned_to_ids")
+      return <Users size={12} />;
+    if (field === "due_date") return <Calendar size={12} />;
+    return <Edit2 size={12} />;
+  };
+
+  const historyLabel = (item) => {
+    if (item.field_name === "comment_added") return "added a comment";
+    if (item.field_name === "attachment_added")
+      return `attached "${item.new_value}"`;
+    if (item.field_name === "status")
+      return `changed status from "${item.old_value || "—"}" to "${item.new_value || "—"}"`;
+    if (item.field_name === "priority")
+      return `changed priority from "${item.old_value || "—"}" to "${item.new_value || "—"}"`;
+    if (
+      item.field_name === "assigned_to" ||
+      item.field_name === "assigned_to_ids"
+    ) {
+      return "updated assignees";
+    }
+    return `updated ${item.field_name}`;
+  };
 
   return (
     <Modal
@@ -797,31 +856,84 @@ export default function TicketDetailsModal({
           )}
 
           {activeTab === "history" && (
-            <div style={{ color: "#64748b", fontSize: 13 }}>
-              {history.length === 0 ? "No history yet" : null}
-              {history.map((h) => (
+            <div>
+              {history.length === 0 ? (
                 <div
-                  key={h.id}
                   style={{
-                    padding: "10px 12px",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 10,
-                    marginBottom: 8,
-                    background: "#fff",
+                    textAlign: "center",
+                    padding: "24px 0",
+                    color: "#9ca3af",
+                    fontSize: 12,
                   }}
                 >
-                  <div style={{ fontSize: 12, fontWeight: 800, color: "#0f172a" }}>
-                    {h.field_name}
-                  </div>
-                  <div style={{ fontSize: 12, color: "#64748b" }}>
-                    {h.old_value ? `"${h.old_value}" → ` : ""}
-                    "{h.new_value}"
-                  </div>
-                  <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
-                    {h.profiles?.full_name || "Unknown"} • {fmtTime(h.created_at)}
-                  </div>
+                  No activity yet
                 </div>
-              ))}
+              ) : (
+                <div style={{ position: "relative" }}>
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: 13,
+                      top: 0,
+                      bottom: 0,
+                      width: 1.5,
+                      background: "#e5e7eb",
+                    }}
+                  />
+                  {history.map((item) => (
+                    <div
+                      key={item.id}
+                      style={{
+                        display: "flex",
+                        gap: 10,
+                        marginBottom: 14,
+                        position: "relative",
+                        zIndex: 1,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: "50%",
+                          background: "#f1f5f9",
+                          border: "2px solid #e5e7eb",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                          color: "#64748b",
+                        }}
+                      >
+                        {historyIcon(item.field_name)}
+                      </div>
+                      <div style={{ flex: 1, paddingTop: 4 }}>
+                        <span
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: "#1e293b",
+                          }}
+                        >
+                          {item.profiles?.full_name || "Someone"}
+                        </span>{" "}
+                        <span style={{ fontSize: 12, color: "#64748b" }}>
+                          {historyLabel(item)}
+                        </span>
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: "#9ca3af",
+                            marginTop: 2,
+                          }}
+                        >
+                          {fmtTime(item.created_at)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -839,8 +951,34 @@ export default function TicketDetailsModal({
             ASSIGNEES
           </div>
           {isEmployee ? (
-            <div style={{ marginTop: 6, fontSize: 13, color: "#0f172a", fontWeight: 600 }}>
-              {assigneeText}
+            <div style={{ marginTop: 6 }}>
+              {selectedAssigneeProfiles.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                  {selectedAssigneeProfiles.map((p) => (
+                    <div
+                      key={p.id}
+                      style={{ display: "flex", alignItems: "center", gap: 8 }}
+                    >
+                      <UserAvatar
+                        name={p.full_name || "?"}
+                        image={p.user_photo}
+                        size={22}
+                      />
+                      <span
+                        style={{ fontSize: 13, color: "#0f172a", fontWeight: 600 }}
+                      >
+                        {p.full_name || p.email || "User"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div
+                  style={{ marginTop: 6, fontSize: 13, color: "#0f172a", fontWeight: 600 }}
+                >
+                  {assigneeText}
+                </div>
+              )}
             </div>
           ) : (
             <Select
@@ -858,11 +996,61 @@ export default function TicketDetailsModal({
               }}
               options={assigneeOptions.map((o) => ({
                 value: o.value,
-                label: o.label,
+                label: (
+                  <Space size={8}>
+                    <UserAvatar name={o.label} image={o.photo} size={20} />
+                    <span>{o.label}</span>
+                  </Space>
+                ),
               }))}
               placeholder="Select assignees"
               style={{ width: "100%", marginTop: 6 }}
               disabled={fieldLocked}
+              tagRender={({ value, closable, onClose }) => {
+                const p = (projectAssignees || []).find(
+                  (a) => a?.profiles?.id === value,
+                )?.profiles;
+                return (
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      background: "#f1f5f9",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 999,
+                      padding: "2px 6px",
+                      marginRight: 4,
+                    }}
+                  >
+                    <UserAvatar
+                      name={p?.full_name || "?"}
+                      image={p?.user_photo}
+                      size={16}
+                    />
+                    <span style={{ fontSize: 11, fontWeight: 600, color: "#334155" }}>
+                      {p?.full_name || value}
+                    </span>
+                    {closable && (
+                      <button
+                        type="button"
+                        onClick={onClose}
+                        style={{
+                          border: "none",
+                          background: "transparent",
+                          color: "#94a3b8",
+                          cursor: "pointer",
+                          padding: 0,
+                          lineHeight: 1,
+                          fontSize: 12,
+                        }}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                );
+              }}
             />
           )}
 
