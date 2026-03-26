@@ -118,6 +118,9 @@ export default function TicketDetailsModal({
   const [newComment, setNewComment] = useState("");
   const [loadingComments, setLoadingComments] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [completionRequest, setCompletionRequest] = useState(null);
+  const [loadingRequestAction, setLoadingRequestAction] = useState(false);
+  const [reviewNotes, setReviewNotes] = useState("");
 
   const assigneeOptions = useMemo(
     () =>
@@ -158,6 +161,29 @@ export default function TicketDetailsModal({
     }
   };
 
+  const fetchCompletionRequest = async () => {
+    if (!ticket?.id) return;
+    try {
+      const { data, error } = await supabase
+        .from("ticket_completion_requests")
+        .select(
+          `
+          *,
+          requester:requested_by(id,full_name,user_photo),
+          reviewer:reviewed_by(id,full_name,user_photo)
+        `,
+        )
+        .eq("ticket_id", ticket.id)
+        .order("requested_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!error) setCompletionRequest(data || null);
+    } catch (e) {
+      console.error(e);
+      setCompletionRequest(null);
+    }
+  };
+
   useEffect(() => {
     if (!open || !ticket?.id) return;
     setActiveTab("comments");
@@ -167,6 +193,7 @@ export default function TicketDetailsModal({
     setCurrentSprintId(ticket.sprint_id || null);
     setCurrentPoints(ticket.story_points || 0);
     setCurrentDueDate(ticket.due_date || null);
+    setReviewNotes("");
   }, [open, ticket?.id]);
 
   useEffect(() => {
@@ -199,9 +226,19 @@ export default function TicketDetailsModal({
     };
 
     fetchComments();
+    fetchCompletionRequest();
     fetchAttachments();
     fetchHistory();
   }, [open, ticket?.id, profile?.id]);
+
+  const canRequestCompletion =
+    isEmployee &&
+    ticket?.assigned_to === profile?.id &&
+    ticket?.status !== "completed" &&
+    ticket?.status !== "closed" &&
+    (!completionRequest || completionRequest.status === "rejected");
+
+  const canReviewCompletion = isPM && completionRequest?.status === "pending";
 
   const logHistory = async (field, oldVal, newVal) => {
     try {
@@ -257,6 +294,80 @@ export default function TicketDetailsModal({
       console.error(e);
     } finally {
       setSubmittingComment(false);
+    }
+  };
+
+  const requestCompletion = async () => {
+    if (!ticket?.id) return;
+    setLoadingRequestAction(true);
+    try {
+      const { error } = await supabase.from("ticket_completion_requests").insert([
+        {
+          ticket_id: ticket.id,
+          requested_by: profile?.id,
+          status: "pending",
+        },
+      ]);
+      if (error) throw error;
+      await logHistory("completion_request", "", "Requested completion");
+      message.success("Completion request submitted");
+      await fetchCompletionRequest();
+      onRefresh?.();
+    } catch (e) {
+      message.error("Failed to submit completion request");
+      console.error(e);
+    } finally {
+      setLoadingRequestAction(false);
+    }
+  };
+
+  const reviewCompletionRequest = async (approved) => {
+    if (!completionRequest?.id || !ticket?.id) return;
+    setLoadingRequestAction(true);
+    try {
+      const nextStatus = approved ? "approved" : "rejected";
+      const { error: requestError } = await supabase
+        .from("ticket_completion_requests")
+        .update({
+          status: nextStatus,
+          reviewed_by: profile?.id,
+          reviewed_at: new Date().toISOString(),
+          review_notes: reviewNotes.trim() || null,
+        })
+        .eq("id", completionRequest.id);
+
+      if (requestError) throw requestError;
+
+      // Business rule:
+      // - Approve => ticket closed
+      // - Request changes => move back to in progress
+      const targetTicketStatus = approved ? "closed" : "in_progress";
+      const { error: ticketError } = await supabase
+        .from("tickets")
+        .update({ status: targetTicketStatus })
+        .eq("id", ticket.id);
+
+      if (ticketError) throw ticketError;
+
+      setCurrentStatus(targetTicketStatus);
+      await logHistory(
+        "completion_review",
+        completionRequest.status,
+        approved ? "approved_closed" : "rejected_changes_requested",
+      );
+      message.success(
+        approved
+          ? "Completion approved. Ticket moved to Closed."
+          : "Changes requested. Ticket moved to In Progress.",
+      );
+      setReviewNotes("");
+      await fetchCompletionRequest();
+      onRefresh?.();
+    } catch (e) {
+      message.error("Failed to review completion request");
+      console.error(e);
+    } finally {
+      setLoadingRequestAction(false);
     }
   };
 
@@ -342,6 +453,120 @@ export default function TicketDetailsModal({
               {ticket?.description || "—"}
             </div>
           </div>
+
+          {(completionRequest || canRequestCompletion || canReviewCompletion) && (
+            <div
+              style={{
+                border: "1px solid #e5e7eb",
+                borderRadius: 10,
+                background: "#f8fafc",
+                padding: "12px 12px",
+                marginBottom: 14,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 800,
+                  color: "#334155",
+                  marginBottom: 6,
+                }}
+              >
+                Completion Workflow
+              </div>
+
+              {completionRequest ? (
+                <div style={{ fontSize: 12, color: "#475569", marginBottom: 8 }}>
+                  <strong>Status:</strong>{" "}
+                  {completionRequest.status?.toUpperCase() || "—"}
+                  {completionRequest.requester?.full_name
+                    ? ` • Requested by ${completionRequest.requester.full_name}`
+                    : ""}
+                  {completionRequest.requested_at
+                    ? ` ${fmtTime(completionRequest.requested_at)}`
+                    : ""}
+                  {completionRequest.reviewer?.full_name
+                    ? ` • Reviewed by ${completionRequest.reviewer.full_name}`
+                    : ""}
+                  {completionRequest.review_notes
+                    ? ` • Notes: ${completionRequest.review_notes}`
+                    : ""}
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8 }}>
+                  No completion request yet.
+                </div>
+              )}
+
+              {canRequestCompletion && (
+                <button
+                  onClick={requestCompletion}
+                  disabled={loadingRequestAction}
+                  style={{
+                    background: "#0c66e4",
+                    border: "none",
+                    color: "#fff",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    padding: "7px 12px",
+                    borderRadius: 8,
+                    cursor: loadingRequestAction ? "not-allowed" : "pointer",
+                    opacity: loadingRequestAction ? 0.7 : 1,
+                  }}
+                >
+                  {loadingRequestAction ? "Submitting..." : "Request Completion"}
+                </button>
+              )}
+
+              {canReviewCompletion && (
+                <div>
+                  <TextArea
+                    value={reviewNotes}
+                    onChange={(e) => setReviewNotes(e.target.value)}
+                    rows={3}
+                    placeholder="Add notes (optional for approve, recommended for request changes)"
+                    style={{ marginBottom: 8 }}
+                  />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      onClick={() => reviewCompletionRequest(true)}
+                      disabled={loadingRequestAction}
+                      style={{
+                        background: "#16a34a",
+                        border: "none",
+                        color: "#fff",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        padding: "7px 12px",
+                        borderRadius: 8,
+                        cursor: loadingRequestAction ? "not-allowed" : "pointer",
+                        opacity: loadingRequestAction ? 0.7 : 1,
+                      }}
+                    >
+                      Approve & Close
+                    </button>
+                    <button
+                      onClick={() => reviewCompletionRequest(false)}
+                      disabled={loadingRequestAction}
+                      style={{
+                        background: "#f97316",
+                        border: "none",
+                        color: "#fff",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        padding: "7px 12px",
+                        borderRadius: 8,
+                        cursor: loadingRequestAction ? "not-allowed" : "pointer",
+                        opacity: loadingRequestAction ? 0.7 : 1,
+                      }}
+                    >
+                      Request Changes
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Tabs */}
           <div
