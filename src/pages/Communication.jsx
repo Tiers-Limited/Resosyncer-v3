@@ -5,6 +5,7 @@ import {
   useRef,
   useCallback,
 } from "react";
+import { useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import {
   Avatar,
@@ -50,6 +51,14 @@ import {
   MessagesSquare,
   UserCircle2,
   Inbox,
+   Lock, 
+  ArrowRight, 
+  MessageCircle, 
+  Phone, 
+  ThumbsUp, 
+  Star,
+  Shield,
+  Zap,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
@@ -2134,12 +2143,670 @@ const ToastContainer = ({ toasts, onDismiss, onOpen }) => {
   );
 };
 
+/* ── Free Plan Paywall ── */
+const getStatusColor = (status) => {
+  if (status === "live")
+    return {
+      dot: "#10b981",
+      bg: "#dcfce7",
+      text: "#166534",
+      border: "#bbf7d0",
+    };
+  if (status === "scheduled")
+    return {
+      dot: "#3b82f6",
+      bg: "#dbeafe",
+      text: "#1e40af",
+      border: "#bfdbfe",
+    };
+  if (status === "ended")
+    return {
+      dot: "#6b7280",
+      bg: "#f3f4f6",
+      text: "#374151",
+      border: "#d1d5db",
+    };
+};
+
+function FreePlanPaywall({ navigate }) {
+  const features = [
+    {
+      icon: <MessageCircle size={20} />,
+      color: "#3b82f6",
+      bg: "#eff6ff",
+      title: "Real-time Chat",
+      desc: "Instant messaging with rich text formatting, emojis, mentions, and threaded replies.",
+    },
+    {
+      icon: <Video size={20} />,
+      color: "#8b5cf6",
+      bg: "#f5f3ff",
+      title: "HD Video Calls",
+      desc: "Crystal-clear video calls with up to 100 participants, screen sharing, and virtual backgrounds.",
+    },
+    {
+      icon: <Phone size={20} />,
+      color: "#22c55e",
+      bg: "#f0fdf4",
+      title: "Audio Calls",
+      desc: "High-quality audio calls with noise cancellation and call recording options.",
+    },
+    {
+      icon: <ThumbsUp size={20} />,
+      color: "#f59e0b",
+      bg: "#fffbeb",
+      title: "Message Reactions",
+      desc: "Quick emoji reactions, custom stickers, and reaction analytics for engagement.",
+    },
+    {
+      icon: <Mic size={20} />,
+      color: "#ef4444",
+      bg: "#fef2f2",
+      title: "Voice Messages",
+      desc: "Send and receive voice messages with transcription and playback controls.",
+    },
+    {
+      icon: <Paperclip size={20} />,
+      color: "#0891b2",
+      bg: "#ecfeff",
+      title: "Document Sharing",
+      desc: "Upload and share documents, images, PDFs with preview and download tracking.",
+    },
+    {
+      icon: <Hash size={20} />,
+      color: "#7c3aed",
+      bg: "#f3e8ff",
+      title: "Communication Channels",
+      desc: "Organized channels for teams, projects, and topics with permissions and search.",
+    },
+  ];
+
+  // Fake blurred conversations for the preview behind the paywall
+  const fakeConversations = [
+    {
+      title: "Design Team",
+      type: "channel",
+      time: "2 min ago",
+      messages: 47,
+      people: 12,
+      status: "active",
+    },
+    {
+      title: "Sarah Johnson",
+      type: "direct",
+      time: "10:00 AM",
+      messages: 8,
+      people: 1,
+      status: "typing",
+    },
+    {
+      title: "Product Updates",
+      type: "channel",
+      time: "Yesterday",
+      messages: 23,
+      people: 28,
+      status: "muted",
+    },
+    {
+      title: "John Smith",
+      type: "direct",
+      time: "Mon 3:15",
+      messages: 5,
+      people: 1,
+      status: "voice",
+    },
+    {
+      title: "Sales Pipeline",
+      type: "channel",
+      time: "2 days ago",
+      messages: 156,
+      people: 8,
+      status: "pinned",
+    },
+  ];
+
+  return (
+    <div
+      style={{
+        minHeight: "calc(100vh - 60px)",
+        background: "#f8fafc",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {/* ── Blurred ghost conversations behind everything ── */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          filter: "blur(3px)",
+          opacity: 0.35,
+          pointerEvents: "none",
+          padding: "24px 28px",
+          userSelect: "none",
+        }}
+      >
+        {/* Ghost conversations header */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            marginBottom: 20,
+          }}
+        >
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              background: "#e2e8f0",
+            }}
+          />
+          <div
+            style={{
+              height: 24,
+              width: 160,
+              borderRadius: 8,
+              background: "#e2e8f0",
+            }}
+          />
+          <div
+            style={{
+              height: 28,
+              width: 56,
+              borderRadius: 8,
+              background: "#e2e8f0",
+              marginLeft: "auto",
+            }}
+          />
+        </div>
+        {/* Ghost conversations list */}
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: 16,
+            border: "1px solid #f1f5f9",
+            overflow: "hidden",
+            maxHeight: "80vh",
+          }}
+        >
+          {[...Array(8)].map((_, i) => (
+            <div
+              key={i}
+              style={{
+                padding: "16px 20px",
+                borderBottom: i < 7 ? "1px solid #f8fafc" : "none",
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+              }}
+            >
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 12,
+                  background: "#f1f5f9",
+                }}
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    height: 16,
+                    width: "70%",
+                    borderRadius: 4,
+                    background: "#e2e8f0",
+                    marginBottom: 4,
+                  }}
+                />
+                <div
+                  style={{
+                    height: 12,
+                    width: "50%",
+                    borderRadius: 3,
+                    background: "#f1f5f9",
+                  }}
+                />
+              </div>
+              <div
+                style={{
+                  height: 20,
+                  width: 60,
+                  borderRadius: 6,
+                  background: "#e2e8f0",
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Gradient overlay ── */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          background:
+            "linear-gradient(to bottom, rgba(248,250,252,0.5) 0%, rgba(248,250,252,0.85) 30%, rgba(248,250,252,0.97) 60%, #f8fafc 100%)",
+        }}
+      />
+
+      {/* ── Main paywall content ── */}
+      <div
+        style={{
+          position: "relative",
+          zIndex: 10,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          paddingTop: 60,
+          paddingBottom: 80,
+          paddingLeft: 24,
+          paddingRight: 24,
+        }}
+      >
+        {/* Pro Feature Badge */}
+        <div
+          style={{
+            position: "relative",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 7,
+            padding: "8px 18px",
+            background: "linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%)",
+            border: "1px solid #ddd6fe",
+            borderRadius: 30,
+            backdropFilter: "blur(2px)",
+            boxShadow: "0 4px 16px rgba(99,102,241,0.15)",
+            whiteSpace: "nowrap",
+            marginBottom: 16,
+          }}
+        >
+          <div
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: "50%",
+              background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Lock size={11} color="#fff" />
+          </div>
+          <span
+            style={{
+              fontSize: 13,
+              fontWeight: 700,
+              background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+            }}
+          >
+            Pro Feature
+          </span>
+        </div>
+
+        {/* Headline */}
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <h2
+            style={{
+              margin: 0,
+              fontSize: 30,
+              fontWeight: 900,
+              color: "#0f172a",
+              letterSpacing: "-0.04em",
+              lineHeight: 1.15,
+            }}
+          >
+            Collaborate seamlessly with
+            <br />
+            <span
+              style={{
+                background:
+                  "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+              }}
+            >
+              real-time communication
+            </span>
+          </h2>
+        </div>
+        <p
+          style={{
+            textAlign: "center",
+            fontSize: 15,
+            color: "#64748b",
+            maxWidth: 480,
+            margin: "0 auto 36px",
+            lineHeight: 1.6,
+          }}
+        >
+          Connect with your team instantly through chat, video calls, voice
+          messages, and organized channels. Share documents, react to
+          messages, and keep everyone on the same page in one unified
+          platform.
+        </p>
+
+        {/* Feature grid */}
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 860,
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gap: 16,
+            marginBottom: 56,
+          }}
+        >
+          {features.map((f, i) => (
+            <div
+              key={i}
+              style={{
+                background: "#fff",
+                borderRadius: 16,
+                border: "1px solid #f1f5f9",
+                padding: "20px 22px",
+                display: "flex",
+                gap: 16,
+                alignItems: "flex-start",
+                animation: `fadeUp 0.4s ease ${0.28 + i * 0.06}s both`,
+                transition: "box-shadow 0.2s, transform 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,0,0,0.07)";
+                e.currentTarget.style.transform = "translateY(-2px)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.boxShadow = "none";
+                e.currentTarget.style.transform = "none";
+              }}
+            >
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 12,
+                  background: f.bg,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: f.color,
+                  flexShrink: 0,
+                }}
+              >
+                {f.icon}
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: "#0f172a",
+                    marginBottom: 5,
+                  }}
+                >
+                  {f.title}
+                </div>
+                <div
+                  style={{ fontSize: 12, color: "#64748b", lineHeight: 1.6 }}
+                >
+                  {f.desc}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Conversation preview list (blurred sample) */}
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 600,
+            animation: "fadeUp 0.4s ease 0.6s both",
+          }}
+        >
+          <div style={{ textAlign: "center", marginBottom: 16 }}>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "#94a3b8",
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+              }}
+            >
+              Sample — what you'll see after upgrading
+            </span>
+          </div>
+          <div
+            style={{
+              position: "relative",
+              borderRadius: 16,
+              overflow: "hidden",
+            }}
+          >
+            {/* Blur + lock overlay on the sample */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                zIndex: 5,
+                background:
+                  "linear-gradient(to bottom, transparent 0%, rgba(248,250,252,0.6) 60%, rgba(248,250,252,0.97) 100%)",
+                display: "flex",
+                alignItems: "flex-end",
+                justifyContent: "center",
+                paddingBottom: 20,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 14px",
+                  borderRadius: 999,
+                  background: "rgba(15,23,42,0.85)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                }}
+              >
+                <Lock size={11} color="#94a3b8" />
+                <span
+                  style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8" }}
+                >
+                  Upgrade to unlock
+                </span>
+              </div>
+            </div>
+            <div
+              style={{
+                filter: "blur(1.5px)",
+                pointerEvents: "none",
+                userSelect: "none",
+              }}
+            >
+              {fakeConversations.map((c, i) => {
+                const getStatusColor = (status) => {
+                  if (status === "active")
+                    return {
+                      dot: "#22c55e",
+                      bg: "#f0fdf4",
+                      text: "#166534",
+                      border: "#bbf7d0",
+                    };
+                  if (status === "typing")
+                    return {
+                      dot: "#3b82f6",
+                      bg: "#eff6ff",
+                      text: "#1e40af",
+                      border: "#bfdbfe",
+                    };
+                  if (status === "voice")
+                    return {
+                      dot: "#ef4444",
+                      bg: "#fef2f2",
+                      text: "#dc2626",
+                      border: "#fecaca",
+                    };
+                  return {
+                    dot: "#94a3b8",
+                    bg: "#f1f5f9",
+                    text: "#64748b",
+                    border: "#e2e8f0",
+                  };
+                };
+                const color = getStatusColor(c.status);
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      background: "#fff",
+                      padding: "16px 20px",
+                      borderBottom:
+                        i < fakeConversations.length - 1
+                          ? "1px solid #f8fafc"
+                          : "none",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 16,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 12,
+                        background: `linear-gradient(135deg, ${color.dot}, ${color.dot}dd)`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          background: "#fff",
+                        }}
+                      />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 700,
+                          color: "#0f172a",
+                          marginBottom: 2,
+                        }}
+                      >
+                        {c.title}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "#94a3b8",
+                          display: "flex",
+                          gap: 10,
+                          alignItems: "center",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: "#475569",
+                          }}
+                        >
+                          {c.type === "channel" ? "#" : ""}
+                          {c.type}
+                        </span>
+                        <span>·</span>
+                        <span>{c.time}</span>
+                        <span>·</span>
+                        <span>{c.messages} messages</span>
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: 8,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        background: color.bg,
+                        color: color.text,
+                        border: `1px solid ${color.border}`,
+                      }}
+                    >
+                      {c.status === "active"
+                        ? "Open"
+                        : c.status === "typing"
+                          ? "Typing..."
+                          : c.status === "voice"
+                            ? "🎤"
+                            : "New"}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom trust line */}
+        <div
+          style={{
+            marginTop: 40,
+            display: "flex",
+            alignItems: "center",
+            gap: 20,
+            animation: "fadeUp 0.4s ease 0.7s both",
+          }}
+        >
+          {[
+            { icon: <Shield size={13} />, text: "14-day free trial" },
+            { icon: <Zap size={13} />, text: "Instant activation" },
+            { icon: <ArrowRight size={13} />, text: "Cancel anytime" },
+          ].map((t, i) => (
+            <div
+              key={i}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                fontSize: 12,
+                color: "#94a3b8",
+              }}
+            >
+              {t.icon} {t.text}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes popIn { from { opacity:0; transform:scale(0.7); } to { opacity:1; transform:scale(1); } }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+      `}</style>
+    </div>
+  );
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    MAIN COMPONENT
 ═══════════════════════════════════════════════════════════════════════════ */
 const Communication = () => {
   const { profile } = useAuth();
+  const navigate = useNavigate();
   const tenantId = profile?.tenant_id;
+
+  const [orgPlan, setOrgPlan] = useState(null);
 
   const [users, setUsers] = useState([]);
   const [channels, setChannels] = useState([]);
@@ -2278,6 +2945,18 @@ const Communication = () => {
     setToasts((p) => p.map((t) => (t.id === id ? { ...t, leaving: true } : t)));
     setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 250);
   }, []);
+
+  useEffect(() => {
+    const fetchPlan = async () => {
+      const { data: org } = await supabase
+        .from("tenants")
+        .select("plan")
+        .eq("id", profile.tenant_id)
+        .single();
+      setOrgPlan(org?.plan ?? null);
+    };
+    if (profile?.tenant_id) fetchPlan();
+  }, [profile?.tenant_id]);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -3015,15 +3694,13 @@ const Communication = () => {
         .single();
 
       if (ins && mentioned.length)
-        await supabase
-          .from("message_mentions")
-          .insert(
-            mentioned.map((uid) => ({
-              tenant_id: tenantId,
-              message_id: ins.id,
-              mentioned_user_id: uid,
-            })),
-          );
+        await supabase.from("message_mentions").insert(
+          mentioned.map((uid) => ({
+            tenant_id: tenantId,
+            message_id: ins.id,
+            mentioned_user_id: uid,
+          })),
+        );
 
       if (ins) {
         let poll = ins.poll;
@@ -3069,16 +3746,14 @@ const Communication = () => {
     );
     if (ex) await supabase.from("message_reactions").delete().eq("id", ex.id);
     else
-      await supabase
-        .from("message_reactions")
-        .insert([
-          {
-            tenant_id: tenantId,
-            message_id: msgId,
-            user_id: profile.id,
-            emoji,
-          },
-        ]);
+      await supabase.from("message_reactions").insert([
+        {
+          tenant_id: tenantId,
+          message_id: msgId,
+          user_id: profile.id,
+          emoji,
+        },
+      ]);
   };
 
   const del = async (msgId) => {
@@ -3243,18 +3918,16 @@ const Communication = () => {
   };
 
   const addMember = async (vals) => {
-    const { error } = await supabase
-      .from("channel_members")
-      .upsert(
-        [
-          {
-            channel_id: selectedChannel.id,
-            user_id: vals.userId,
-            tenant_id: tenantId,
-          },
-        ],
-        { onConflict: "channel_id,user_id", ignoreDuplicates: true },
-      );
+    const { error } = await supabase.from("channel_members").upsert(
+      [
+        {
+          channel_id: selectedChannel.id,
+          user_id: vals.userId,
+          tenant_id: tenantId,
+        },
+      ],
+      { onConflict: "channel_id,user_id", ignoreDuplicates: true },
+    );
     if (error) {
       console.error("addMember error:", error);
       return;
@@ -3532,6 +4205,9 @@ const Communication = () => {
     : selectedUser?.email || "";
   const totalUnread = Object.values(unread).reduce((s, v) => s + v, 0);
   const canSend = newMessage.trim() || stagedFile || audioURL;
+
+  if (orgPlan === "Free" || orgPlan === null)
+    return <FreePlanPaywall navigate={navigate} />;
 
   return (
     <>

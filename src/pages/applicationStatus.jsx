@@ -89,6 +89,8 @@ const mapApplicant = (r) => ({
   email: r.email,
   phone: r.phone,
   stage: r.stage,
+  answers: r.answers || {},
+  score: r.score,
   interviewDate: r.interview_date
     ? dayjs(r.interview_date).format("ddd, D MMM YYYY [at] h:mm A")
     : null,
@@ -413,6 +415,8 @@ export default function ApplicationTrackingPage() {
   const copy = STATUS_COPY[applicant.stage] || STATUS_COPY.applied;
   const { Icon: StatusIcon } = copy;
   const trackingId = applicant.id.slice(0, 8).toUpperCase();
+  const screening = applicant.answers?.__aiScreening || null;
+  const aiInterview = applicant.answers?.__aiInterview || null;
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
@@ -697,6 +701,59 @@ export default function ApplicationTrackingPage() {
               </div>
             )}
 
+            {aiInterview?.interviewLink && applicant.stage === "interview" && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  padding: "12px 16px",
+                  background: "#eff6ff",
+                  border: "1px solid #bfdbfe",
+                  borderRadius: 10,
+                  marginBottom: 16,
+                }}
+              >
+                <div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "#1d4ed8",
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    AI INTERVIEW LINK
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: "#1e3a8a",
+                      marginTop: 2,
+                    }}
+                  >
+                    Start your agentic AI interview when you're ready.
+                  </div>
+                </div>
+                <a
+                  href={aiInterview.interviewLink}
+                  style={{
+                    background: accent,
+                    color: "#fff",
+                    padding: "8px 14px",
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    textDecoration: "none",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Start Interview
+                </a>
+              </div>
+            )}
+
             {/* Progress stepper */}
             {!isRejected && (
               <div style={{ marginTop: 8 }}>
@@ -810,6 +867,46 @@ export default function ApplicationTrackingPage() {
         )}
 
         {/* ── What happens next ── */}
+        {screening && (
+          <div
+            style={{
+              background: "#fff",
+              border: "1px solid #e2e8f0",
+              borderRadius: 14,
+              padding: "16px 20px",
+              marginBottom: 20,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                color: "#94a3b8",
+                letterSpacing: "0.08em",
+                marginBottom: 12,
+              }}
+            >
+              AI SCREENING SNAPSHOT
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.6 }}>
+                {screening.summary}
+              </div>
+              <div style={{ fontSize: 12, color: "#64748b" }}>
+                ATS score: {screening.atsScore}/100
+              </div>
+              <div style={{ fontSize: 12, color: "#64748b" }}>
+                Confidence match: {Math.round((screening.confidenceScore || 0) * 100)}%
+              </div>
+              {screening.matchedSkills?.length > 0 && (
+                <div style={{ fontSize: 12, color: "#64748b" }}>
+                  Relevant skills: {screening.matchedSkills.join(", ")}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {!isRejected && !isHired && (
           <div
             style={{

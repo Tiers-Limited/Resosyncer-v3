@@ -46,6 +46,27 @@ import dayjs from "dayjs";
 
 const { TextArea } = Input;
 
+/* ─── Email sender ───────────────────────────────────────────────────────────── */
+const sendEmail = async ({ to, subject, body, companyName }) => {
+  try {
+    const res = await fetch(`${import.meta.env.VITE_EMAIL_API_URL}/api/email/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to, subject, html: body, companyName }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      console.error("❌ Email send failed:", data);
+      return { success: false, error: data };
+    }
+    console.log("✅ Email sent:", data.messageId);
+    return { success: true, data };
+  } catch (err) {
+    console.error("❌ Email send error:", err);
+    return { success: false, error: err.message };
+  }
+};
+
 /* ─── Constants ──────────────────────────────────────────────────────── */
 
 // No pre-defined bank list — free text input worldwide
@@ -440,12 +461,25 @@ const Employees = () => {
   const [filterRole, setFilterRole] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [viewMode, setViewMode] = useState("card");
+  const [maxUsers, setMaxUsers] = useState(0);
+  const [isUserLimitReached, setIsUserLimitReached] = useState(false);
   const [form] = Form.useForm();
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchCurrentTenant();
   }, []);
+
+  // Refresh employees when tab becomes visible to update limit status
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && currentTenantId) {
+        fetchEmployees(currentTenantId);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [currentTenantId]);
 
   const fetchCurrentTenant = async () => {
     try {
@@ -461,6 +495,17 @@ const Employees = () => {
       if (error) throw error;
       const tid = data?.tenant_id;
       setCurrentTenantId(tid);
+      
+      // Fetch tenant info for max_users
+      const { data: tenantData } = await supabase
+        .from("tenants")
+        .select("max_users")
+        .eq("id", tid)
+        .single();
+      if (tenantData?.max_users !== undefined) {
+        setMaxUsers(tenantData.max_users);
+      }
+      
       await fetchEmployees(tid);
       fetchTeams(tid);
     } catch {
@@ -481,6 +526,12 @@ const Employees = () => {
         .order("created_at", { ascending: false });
       if (error) throw error;
       setEmployees(data || []);
+      // Check if user limit reached
+      if (maxUsers !== undefined && data.length >= maxUsers) {
+        setIsUserLimitReached(true);
+      } else {
+        setIsUserLimitReached(false);
+      }
     } catch {
       message.error("Failed to fetch employees");
     } finally {
@@ -506,6 +557,13 @@ const Employees = () => {
   const handleAddEmployee = async (values) => {
     if (!currentTenantId) {
       message.error("Tenant not loaded");
+      return;
+    }
+    // Check user limit when creating new employee
+    if (!editingEmployee && maxUsers !== undefined && employees.length >= maxUsers) {
+      message.error(
+        `You've reached the maximum of ${maxUsers} user${maxUsers !== 1 ? "s" : ""} allowed on your current plan. Please upgrade to add more users.`,
+      );
       return;
     }
     setLoading(true);
@@ -588,6 +646,32 @@ const Employees = () => {
         });
         setCredentialsModal(true);
         message.success("Employee created");
+        
+        // Send welcome email
+        const welcomeHtml = `
+          <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:12px;">
+            <div style="background:#1e40af;border-radius:10px;padding:24px;margin-bottom:24px;text-align:center;">
+              <h1 style="color:#fff;margin:0;font-size:20px;letter-spacing:-0.5px;">Welcome to the team! 🎉</h1>
+            </div>
+            <p style="color:#0f172a;font-size:15px;margin:0 0 8px;">Hi <strong>${values.full_name}</strong>,</p>
+            <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 20px;">
+              Welcome to our team! Your account has been created and you can now access the employee portal.
+            </p>
+            <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:24px;">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:4px;">Login Details</div>
+              <div style="font-size:13px;color:#0f172a;margin-bottom:8px;"><strong>Email:</strong> ${values.email}</div>
+              <div style="font-size:13px;color:#0f172a;margin-bottom:8px;"><strong>Temporary Password:</strong> ${pwd}</div>
+              <div style="font-size:12px;color:#64748b;margin-top:8px;">Please change your password after first login.</div>
+            </div>
+            <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0;">This is an automated notification. Please do not reply.</p>
+          </div>
+        `;
+        sendEmail({
+          to: values.email,
+          subject: "Welcome to the team!",
+          body: welcomeHtml,
+          companyName: "Your Company",
+        }).catch(console.error);
       }
       closeDrawer();
       fetchEmployees(currentTenantId);
@@ -878,6 +962,71 @@ const Employees = () => {
   /* ═══════════════════════════ RENDER ══════════════════════════════════ */
   return (
     <div className="ep">
+      {/* ── User Limit Alert ──────────────────────────────────────── */}
+      {isUserLimitReached && maxUsers !== undefined && (
+        <div
+          style={{
+            background: "rgba(239, 68, 68, 0.05)",
+            border: "1px solid rgba(239, 68, 68, 0.3)",
+            padding: "12px 20px",
+            borderRadius: 10,
+            margin: "12px 16px 0",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            marginBottom: 12,
+          }}
+        >
+          <AlertCircle size={18} color="#ef4444" strokeWidth={2} />
+          <div style={{ flex: 1 }}>
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: "#ef4444",
+                fontFamily: "'DM Sans',sans-serif",
+              }}
+            >
+              User Limit Reached
+            </div>
+            <div
+              style={{
+                fontSize: 12,
+                color: "#dc2626",
+                marginTop: 2,
+                fontFamily: "'DM Sans',sans-serif",
+              }}
+            >
+              You have reached the maximum of {maxUsers} user{maxUsers !== 1 ? "s" : ""} allowed on your current plan.
+            </div>
+          </div>
+          <button
+            onClick={() => navigate("/subscription")}
+            style={{
+              padding: "6px 14px",
+              borderRadius: 7,
+              border: "1px solid #ef4444",
+              background: "transparent",
+              color: "#ef4444",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer",
+              fontFamily: "'DM Sans',sans-serif",
+              whiteSpace: "nowrap",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
+          >
+            Upgrade
+          </button>
+        </div>
+      )}
+
       <style>{CSS}</style>
 
       {/* Header */}
@@ -886,14 +1035,16 @@ const Employees = () => {
           <h1 className="ep-title">Employees</h1>
           <p className="ep-sub">Manage your team across the organisation</p>
         </div>
-        <Button
-          type="primary"
-          icon={<Plus size={14} />}
-          className="ep-add-btn"
-          onClick={() => setDrawerVisible(true)}
-        >
-          Add Employee
-        </Button>
+        {!isUserLimitReached && (
+          <Button
+            type="primary"
+            icon={<Plus size={14} />}
+            className="ep-add-btn"
+            onClick={() => setDrawerVisible(true)}
+          >
+            Add Employee
+          </Button>
+        )}
       </div>
 
       {/* Stats */}

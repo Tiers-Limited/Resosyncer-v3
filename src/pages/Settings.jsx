@@ -52,6 +52,7 @@ import {
   ReadOutlined,
   FolderOutlined,
   MessageOutlined,
+  CreditCardOutlined,
   VideoCameraOutlined
 } from "@ant-design/icons";
 import { useAuth } from "../contexts/AuthContext";
@@ -185,6 +186,7 @@ const PAGE_GROUPS = [
         label: "Communication",
         icon: <MessageOutlined />,
       },
+      { key: "/subscription", label: "Subscription", icon: <CreditCardOutlined /> },
       { key: "/settings", label: "Settings", icon: <SettingOutlined /> },
     ],
   },

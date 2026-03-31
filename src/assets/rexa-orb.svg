@@ -1,0 +1,89 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(256 256) rotate(90) scale(256)">
+      <stop offset="0" stop-color="#07112C"/>
+      <stop offset="0.58" stop-color="#07112C"/>
+      <stop offset="1" stop-color="#030816"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(256 256) rotate(90) scale(214)">
+      <stop offset="0.58" stop-color="#0D1C4B" stop-opacity="0"/>
+      <stop offset="0.76" stop-color="#2E63FF" stop-opacity="0.24"/>
+      <stop offset="0.88" stop-color="#93D9FF" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#F4FDFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ringA" x1="120" y1="100" x2="388" y2="412" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5AA9FF"/>
+      <stop offset="0.24" stop-color="#F6FFFF"/>
+      <stop offset="0.48" stop-color="#5A84FF"/>
+      <stop offset="0.72" stop-color="#D4F4FF"/>
+      <stop offset="1" stop-color="#4B6BFF"/>
+    </linearGradient>
+    <linearGradient id="ringB" x1="115" y1="384" x2="396" y2="134" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#68B4FF"/>
+      <stop offset="0.28" stop-color="#EFFCFF"/>
+      <stop offset="0.52" stop-color="#4F75FF"/>
+      <stop offset="0.74" stop-color="#BDEBFF"/>
+      <stop offset="1" stop-color="#688FFF"/>
+    </linearGradient>
+    <filter id="blurGlow" x="36" y="36" width="440" height="440" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="26"/>
+    </filter>
+    <filter id="softGlow" x="74" y="74" width="364" height="364" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="256" fill="url(#bg)"/>
+  <g opacity="0.9">
+    <circle cx="78" cy="132" r="2.5" fill="#A5D8FF"/>
+    <circle cx="406" cy="82" r="3.5" fill="#80B9FF"/>
+    <circle cx="432" cy="306" r="2.5" fill="#D8F7FF"/>
+    <circle cx="116" cy="394" r="2" fill="#8CC2FF"/>
+    <circle cx="176" cy="456" r="1.5" fill="#8CC2FF"/>
+    <circle cx="292" cy="66" r="1.5" fill="#C7EEFF"/>
+    <circle cx="356" cy="432" r="2.5" fill="#D8F7FF"/>
+    <circle cx="58" cy="254" r="1.5" fill="#A5D8FF"/>
+    <circle cx="462" cy="212" r="1.5" fill="#A5D8FF"/>
+  </g>
+
+  <g filter="url(#blurGlow)" opacity="0.8">
+    <path d="M404 257C404 340.5 336.5 408 253 408C169.5 408 102 340.5 102 257C102 173.5 169.5 106 253 106C336.5 106 404 173.5 404 257Z" stroke="#82C7FF" stroke-width="24"/>
+  </g>
+
+  <circle cx="256" cy="256" r="148" fill="url(#glow)"/>
+
+  <g filter="url(#softGlow)" opacity="0.95">
+    <path
+      d="M391 254C391 329.7 329.7 391 254 391C178.3 391 117 329.7 117 254C117 178.3 178.3 117 254 117C329.7 117 391 178.3 391 254Z"
+      stroke="url(#ringA)"
+      stroke-width="10"
+      stroke-linecap="round"
+      stroke-dasharray="2 16"
+    />
+    <path
+      d="M254 104C328.9 104 392.7 160.7 405.7 234.4C419.8 314.7 367.4 391.2 287.6 405.7C207.8 420.2 130.7 367.2 106.3 290.1C83.3 217.7 117.4 138.5 186.8 108.5"
+      stroke="url(#ringB)"
+      stroke-width="11"
+      stroke-linecap="round"
+    />
+    <path
+      d="M126 224C140.2 162.8 188.3 116.7 250 107.6C330.3 95.8 404.8 151.4 415.6 231.8C425.8 308.8 369 382.3 289 404.8C207.4 427.8 122.1 385.8 90.5 307.4"
+      stroke="url(#ringA)"
+      stroke-width="7"
+      stroke-linecap="round"
+      stroke-dasharray="1 12"
+      opacity="0.88"
+    />
+    <path
+      d="M403 303C379 366.4 314.8 410.7 244.5 406.7C163.8 402.2 102 333.1 106.5 252.4C110.7 176.6 171.6 117.7 247.4 115.9C321.7 114.1 385.5 167.7 402.5 239.6"
+      stroke="url(#ringB)"
+      stroke-width="6"
+      stroke-linecap="round"
+      stroke-dasharray="1 10"
+      opacity="0.72"
+    />
+  </g>
+
+  <circle cx="256" cy="256" r="103" fill="#040A1A" fill-opacity="0.94"/>
+  <circle cx="256" cy="256" r="101" stroke="#183D8A" stroke-opacity="0.4" stroke-width="2"/>
+</svg>

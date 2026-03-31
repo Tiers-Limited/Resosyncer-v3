@@ -39,10 +39,16 @@ import {
   AlignLeft,
   Timer,
   Layers,
+  Lock,
+  ArrowRight,
+  Star,
+  Shield,
+  Cpu,
 } from "lucide-react";
 import dayjs from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
+import { useNavigate } from "react-router-dom";
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
@@ -196,6 +202,778 @@ function UserAvatar({ profile, size = 32 }) {
   );
 }
 
+// ─── FREE PLAN PAYWALL ────────────────────────────────────────────────────────
+function FreePlanPaywall({ navigate }) {
+  const features = [
+    {
+      icon: <Video size={16} />,
+      title: "HD Video Meetings",
+      desc: "Crystal-clear video calls with up to 100 participants, screen sharing, and virtual backgrounds.",
+    },
+    {
+      icon: <Sparkles size={16} />,
+      title: "AI-Powered Summaries",
+      desc: "Automatic meeting summaries, action items, decisions, and sentiment analysis powered by Groq AI.",
+    },
+    {
+      icon: <Radio size={16} />,
+      title: "Live Meeting Rooms",
+      desc: "Instant meeting rooms with unique links. Start, join and manage meetings in real time.",
+    },
+    {
+      icon: <Calendar size={16} />,
+      title: "Smart Calendar View",
+      desc: "Visual calendar with meeting previews, day agenda, live indicators and month navigation.",
+    },
+    {
+      icon: <Square size={16} />,
+      title: "Meeting Recordings",
+      desc: "Record and replay meetings. Download recordings and share with attendees who missed it.",
+    },
+    {
+      icon: <Repeat2 size={16} />,
+      title: "Recurring Schedules",
+      desc: "Set daily, weekly or monthly recurring meetings with smart calendar integrations.",
+    },
+  ];
+
+  const fakeMeetings = [
+    {
+      title: "Weekly Team Sync",
+      time: "10:00 AM",
+      dur: 60,
+      people: 8,
+      status: "live",
+    },
+    {
+      title: "Product Design Review",
+      time: "2:00 PM",
+      dur: 45,
+      people: 5,
+      status: "scheduled",
+    },
+    {
+      title: "Q4 Planning Session",
+      time: "4:30 PM",
+      dur: 90,
+      people: 12,
+      status: "scheduled",
+    },
+    {
+      title: "Sprint Retrospective",
+      time: "Yesterday",
+      dur: 60,
+      people: 7,
+      status: "ended",
+    },
+    {
+      title: "Client Onboarding Call",
+      time: "Mon 11:00",
+      dur: 30,
+      people: 4,
+      status: "ended",
+    },
+  ];
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
+      {/* ── Header — mirrors the real Meetings page header ── */}
+      <div
+        style={{
+          background: "#fff",
+          borderBottom: "1px solid #e2e8f0",
+          padding: "20px 28px",
+          marginBottom: 24,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 16,
+          }}
+        >
+          <div>
+            <h1
+              style={{
+                margin: "0 0 4px",
+                fontSize: 26,
+                fontWeight: 800,
+                color: "#0f172a",
+                letterSpacing: "-0.04em",
+                lineHeight: 1,
+              }}
+            >
+              Meetings
+            </h1>
+            <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>
+              Schedule · Join · Summarise — all in one place
+            </p>
+          </div>
+
+          {/* Nav toggle + disabled create button */}
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              disabled
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "9px 18px",
+                background: "#e2e8f0",
+                border: "none",
+                borderRadius: 9,
+                fontWeight: 700,
+                fontSize: 13,
+                color: "#94a3b8",
+                cursor: "not-allowed",
+                opacity: 0.6,
+              }}
+            >
+              <Plus size={14} /> New Meeting
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding: "0 28px 40px" }}>
+        {/* ── Blurred mock KPI strip ── */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: 12,
+            marginBottom: 24,
+            filter: "blur(6px)",
+            pointerEvents: "none",
+            userSelect: "none",
+            opacity: 0.45,
+          }}
+        >
+          {[
+            ["#3b82f6", "12", "Upcoming Meetings"],
+            ["#8b5cf6", "3", "Live Right Now"],
+            ["#f59e0b", "48", "Total Recorded"],
+            ["#10b981", "24", "AI Summaries"],
+          ].map(([color, val, label]) => (
+            <div
+              key={label}
+              style={{
+                background: "#fff",
+                border: "1px solid #e2e8f0",
+                borderRadius: 14,
+                padding: "18px 20px",
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+              }}
+            >
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 12,
+                  background: `${color}15`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color,
+                }}
+              >
+                <Calendar size={18} />
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 26,
+                    fontWeight: 800,
+                    color: "#0f172a",
+                    lineHeight: 1,
+                  }}
+                >
+                  {val}
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "#94a3b8",
+                    marginTop: 3,
+                    fontWeight: 500,
+                  }}
+                >
+                  {label}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Main paywall card ── */}
+        <div
+          style={{
+            position: "relative",
+            background: "#fff",
+            border: "1px solid #e2e8f0",
+            borderRadius: 20,
+            overflow: "hidden",
+          }}
+        >
+          {/* Blurred mock calendar grid */}
+          <div
+            style={{
+              filter: "blur(5px)",
+              pointerEvents: "none",
+              userSelect: "none",
+              opacity: 0.3,
+              padding: "24px 24px 0",
+              borderBottom: "1px solid #e2e8f0",
+            }}
+          >
+            <div
+              style={{
+                background: "#f8fafc",
+                borderRadius: 12,
+                border: "1px solid #e2e8f0",
+                overflow: "hidden",
+                marginBottom: 0,
+              }}
+            >
+              {/* Day headers */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(7,1fr)",
+                  borderBottom: "1px solid #e2e8f0",
+                  background: "#fff",
+                }}
+              >
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+                  <div
+                    key={d}
+                    style={{
+                      padding: "10px 0",
+                      textAlign: "center",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "#94a3b8",
+                    }}
+                  >
+                    {d}
+                  </div>
+                ))}
+              </div>
+              {/* Calendar rows */}
+              {[...Array(3)].map((_, wi) => (
+                <div
+                  key={wi}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(7,1fr)",
+                    borderBottom: wi < 2 ? "1px solid #f1f5f9" : "none",
+                  }}
+                >
+                  {[...Array(7)].map((_, di) => (
+                    <div
+                      key={di}
+                      style={{
+                        minHeight: 80,
+                        padding: "8px 10px",
+                        borderLeft: di > 0 ? "1px solid #f8fafc" : "none",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: "50%",
+                          background: "#f1f5f9",
+                          marginBottom: 6,
+                        }}
+                      />
+                      {(wi + di) % 3 === 0 && (
+                        <div
+                          style={{
+                            height: 18,
+                            borderRadius: 4,
+                            background: "#bfdbfe",
+                            marginBottom: 4,
+                          }}
+                        />
+                      )}
+                      {(wi + di) % 4 === 0 && (
+                        <div
+                          style={{
+                            height: 18,
+                            borderRadius: 4,
+                            background: "#bbf7d0",
+                          }}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Gradient bleed over the mock */}
+          <div
+            style={{
+              position: "relative",
+              padding: "48px 40px 44px",
+              marginTop: -300,
+              background:
+                "linear-gradient(180deg, rgba(255,255,255,0) 0%, #fff 8%)",
+            }}
+          >
+            {/* Pro badge */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                marginBottom: 20,
+              }}
+            >
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 7,
+                  padding: "6px 14px",
+                  background:
+                    "linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%)",
+                  border: "1px solid #ddd6fe",
+                  borderRadius: 30,
+                }}
+              >
+                <div
+                  style={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: "50%",
+                    background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Lock size={10} color="#fff" />
+                </div>
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  Pro Feature
+                </span>
+              </div>
+            </div>
+
+            {/* Headline */}
+            <div style={{ textAlign: "center", marginBottom: 12 }}>
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: 30,
+                  fontWeight: 900,
+                  color: "#0f172a",
+                  letterSpacing: "-0.04em",
+                  lineHeight: 1.15,
+                }}
+              >
+                Run smarter meetings with
+                <br />
+                <span
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  Meetings & Calendar
+                </span>
+              </h2>
+            </div>
+            <p
+              style={{
+                textAlign: "center",
+                fontSize: 15,
+                color: "#64748b",
+                maxWidth: 480,
+                margin: "0 auto 36px",
+                lineHeight: 1.6,
+              }}
+            >
+              A complete meeting platform — from HD video rooms and smart
+              scheduling to AI-generated summaries, recordings, and real-time
+              team visibility.
+            </p>
+
+            {/* Feature grid */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gap: 12,
+                marginBottom: 36,
+                maxWidth: 760,
+                margin: "0 auto 36px",
+              }}
+            >
+              {features.map((f, i) => (
+                <div
+                  key={i}
+                  style={{
+                    padding: "16px 18px",
+                    background: "#f8fafc",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 12,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 9,
+                      background: "#fff",
+                      border: "1px solid #e2e8f0",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#3b82f6",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {f.icon}
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: "#0f172a",
+                        marginBottom: 3,
+                      }}
+                    >
+                      {f.title}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#64748b",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {f.desc}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* How it works flow */}
+            <div
+              style={{
+                maxWidth: 760,
+                margin: "0 auto 36px",
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                borderRadius: 14,
+                padding: "20px 24px",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "#94a3b8",
+                  letterSpacing: "0.07em",
+                  marginBottom: 16,
+                }}
+              >
+                HOW IT WORKS
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                {[
+                  {
+                    label: "Schedule",
+                    sub: "Pick date, time & guests",
+                    color: "#3b82f6",
+                    icon: <Calendar size={14} />,
+                  },
+                  {
+                    label: "Join Room",
+                    sub: "HD video with one click",
+                    color: "#6366f1",
+                    icon: <Video size={14} />,
+                  },
+                  {
+                    label: "AI Summary",
+                    sub: "Auto notes & action items",
+                    color: "#8b5cf6",
+                    icon: <Sparkles size={14} />,
+                  },
+                  {
+                    label: "Review",
+                    sub: "Replay recording anytime",
+                    color: "#10b981",
+                    icon: <Square size={14} />,
+                  },
+                ].map((s, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      flex: 1,
+                      minWidth: 0,
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
+                      <div
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 12,
+                          background: `${s.color}12`,
+                          border: `1.5px solid ${s.color}30`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: s.color,
+                          margin: "0 auto 8px",
+                        }}
+                      >
+                        {s.icon}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color: "#0f172a",
+                          marginBottom: 2,
+                        }}
+                      >
+                        {s.label}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "#94a3b8",
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {s.sub}
+                      </div>
+                    </div>
+                    {i < 3 && (
+                      <div
+                        style={{
+                          flexShrink: 0,
+                          padding: "0 4px",
+                          color: "#d1d5db",
+                        }}
+                      >
+                        <ChevronRight size={16} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Sample meetings list */}
+            <div
+              style={{
+                maxWidth: 760,
+                margin: "0 auto 36px",
+                border: "1px solid #e2e8f0",
+                borderRadius: 12,
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  padding: "12px 16px",
+                  borderBottom: "1px solid #f1f5f9",
+                  background: "#f8fafc",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <span
+                  style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}
+                >
+                  Sample Meetings
+                </span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: "#64748b",
+                    background: "#e2e8f0",
+                    padding: "1px 7px",
+                    borderRadius: 5,
+                    fontWeight: 600,
+                  }}
+                >
+                  Preview
+                </span>
+              </div>
+              {fakeMeetings.map((m, i) => {
+                const c = getStatusColor(m.status);
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "8px 1fr 100px 80px",
+                      alignItems: "center",
+                      gap: 14,
+                      padding: "12px 16px",
+                      borderBottom:
+                        i < fakeMeetings.length - 1
+                          ? "1px solid #f1f5f9"
+                          : "none",
+                      background: i % 2 === 0 ? "#fff" : "#fafafa",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: c.dot,
+                        flexShrink: 0,
+                      }}
+                    />
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 700,
+                          color: "#0f172a",
+                          marginBottom: 2,
+                        }}
+                      >
+                        {m.title}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "#94a3b8",
+                          display: "flex",
+                          gap: 8,
+                        }}
+                      >
+                        <span>{m.time}</span>
+                        <span>·</span>
+                        <span>{m.dur} min</span>
+                        <span>·</span>
+                        <span>{m.people} people</span>
+                      </div>
+                    </div>
+                    <div>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          padding: "3px 9px",
+                          borderRadius: 6,
+                          background: c.bg,
+                          color: c.text,
+                          border: `1px solid ${c.border}`,
+                        }}
+                      >
+                        {m.status === "live"
+                          ? "Live"
+                          : m.status === "scheduled"
+                            ? "Upcoming"
+                            : "Ended"}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      {[Video, Sparkles].map((Icon, ii) => (
+                        <div
+                          key={ii}
+                          style={{
+                            width: 26,
+                            height: 26,
+                            borderRadius: 6,
+                            background: "#f1f5f9",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "#94a3b8",
+                          }}
+                        >
+                          <Icon size={11} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* CTA */}
+            <div style={{ textAlign: "center" }}>
+              <a
+                href="/subscription"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "14px 32px",
+                  background:
+                    "linear-gradient(135deg, #1e40af 0%, #7c3aed 100%)",
+                  color: "#fff",
+                  borderRadius: 12,
+                  fontWeight: 800,
+                  fontSize: 15,
+                  textDecoration: "none",
+                  letterSpacing: "-0.01em",
+                  boxShadow:
+                    "0 4px 24px rgba(99,102,241,0.35), 0 1px 3px rgba(0,0,0,0.1)",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                  e.currentTarget.style.boxShadow =
+                    "0 8px 32px rgba(99,102,241,0.45), 0 1px 3px rgba(0,0,0,0.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow =
+                    "0 4px 24px rgba(99,102,241,0.35), 0 1px 3px rgba(0,0,0,0.1)";
+                }}
+              >
+                <Zap size={16} fill="currentColor" />
+                Upgrade to unlock Meetings
+                <ArrowRight size={16} />
+              </a>
+              <p style={{ margin: "12px 0 0", fontSize: 12, color: "#94a3b8" }}>
+                Upgrade your plan to access the full Meetings module and all Pro
+                features.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Calendar Grid ────────────────────────────────────────────────────────────
 function CalendarView({
   meetings,
@@ -206,7 +984,7 @@ function CalendarView({
 }) {
   const startOfMonth = currentMonth.startOf("month");
   const endOfMonth = currentMonth.endOf("month");
-  const startDay = startOfMonth.day(); // 0=Sun
+  const startDay = startOfMonth.day();
   const daysInMonth = currentMonth.daysInMonth();
   const today = dayjs();
 
@@ -240,7 +1018,6 @@ function CalendarView({
         overflow: "hidden",
       }}
     >
-      {/* Day headers */}
       <div
         style={{
           display: "grid",
@@ -265,7 +1042,6 @@ function CalendarView({
           </div>
         ))}
       </div>
-      {/* Weeks */}
       {weeks.map((week, wi) => (
         <div
           key={wi}
@@ -456,7 +1232,6 @@ function MeetingDetailPanel({
       }}
     >
       <style>{`@keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`}</style>
-      {/* Header */}
       <div
         style={{ padding: "20px 24px 16px", borderBottom: "1px solid #f8fafc" }}
       >
@@ -567,7 +1342,6 @@ function MeetingDetailPanel({
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px" }}>
-        {/* Description */}
         {meeting.description && (
           <div style={{ marginBottom: 20 }}>
             <div
@@ -594,8 +1368,6 @@ function MeetingDetailPanel({
             </p>
           </div>
         )}
-
-        {/* Participants */}
         <div style={{ marginBottom: 20 }}>
           <div
             style={{
@@ -632,8 +1404,6 @@ function MeetingDetailPanel({
             ))}
           </div>
         </div>
-
-        {/* Agenda */}
         {agendaItems.length > 0 && (
           <div style={{ marginBottom: 20 }}>
             <div
@@ -692,8 +1462,6 @@ function MeetingDetailPanel({
             </div>
           </div>
         )}
-
-        {/* Meeting Link */}
         <div style={{ marginBottom: 20 }}>
           <div
             style={{
@@ -752,7 +1520,6 @@ function MeetingDetailPanel({
         </div>
       </div>
 
-      {/* Footer Actions */}
       <div
         style={{
           padding: "16px 24px",
@@ -851,7 +1618,6 @@ function MeetingDetailPanel({
                   window.URL.revokeObjectURL(url);
                   message.success("Recording downloaded!");
                 } catch (error) {
-                  console.error("Download failed:", error);
                   message.error("Failed to download recording");
                 }
               }}
@@ -901,7 +1667,7 @@ function MeetingDetailPanel({
   );
 }
 
-// ─── Agenda List (right column) ───────────────────────────────────────────────
+// ─── Day Agenda List ──────────────────────────────────────────────────────────
 function DayAgendaList({
   meetings,
   selectedDay,
@@ -914,7 +1680,6 @@ function DayAgendaList({
 }) {
   const filtered = (() => {
     if (!selectedDay) {
-      // Show today's or upcoming meetings
       const today = dayjs();
       return meetings
         .filter((m) => dayjs(m.meeting_date).isSameOrAfter(today, "day"))
@@ -996,7 +1761,6 @@ function DayAgendaList({
               const meetingLink =
                 m.meeting_url ||
                 `${window.location.origin}/meet/${m.meeting_room_id}`;
-
               return (
                 <div
                   key={m.id}
@@ -1192,19 +1956,26 @@ function DayAgendaList({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function MeetingsPage() {
+  const navigate = useNavigate();
+
   const [tenantId, setTenantId] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [userId, setUserId] = useState(null);
   const [profiles, setProfiles] = useState([]);
   const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState("calendar"); // "calendar" | "list"
+  const [view, setView] = useState("calendar");
   const [currentMonth, setCurrentMonth] = useState(dayjs());
   const [selectedDay, setSelectedDay] = useState(null);
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [copiedLink, setCopiedLink] = useState(null);
   const [search, setSearch] = useState("");
+
+  // ── Plan detection ────────────────────────────────────────────────────────
+  // Reads from organizations.plan for the current user's tenant
+  const [orgPlan, setOrgPlan] = useState(null);
+  const [planLoading, setPlanLoading] = useState(true);
 
   const [form, setForm] = useState({
     title: "",
@@ -1222,7 +1993,6 @@ export default function MeetingsPage() {
   const [participantSearch, setParticipantSearch] = useState("");
   const [creating, setCreating] = useState(false);
 
-  // AI Summary state
   const [summaryMeeting, setSummaryMeeting] = useState(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryData, setSummaryData] = useState(null);
@@ -1245,8 +2015,21 @@ export default function MeetingsPage() {
           .single();
         setCurrentUser(profile);
         setTenantId(profile?.tenant_id ?? null);
+
+        // ── Fetch org plan ───────────────────────────────────────────────────
+        // Reads plan from organizations table for this tenant
+        if (profile?.tenant_id) {
+          const { data: org } = await supabase
+            .from("tenants")
+            .select("plan")
+            .eq("id", profile.tenant_id)
+            .single();
+          setOrgPlan(org?.plan ?? null);
+        }
       } catch (e) {
         console.error(e);
+      } finally {
+        setPlanLoading(false);
       }
     };
     init();
@@ -1285,8 +2068,6 @@ export default function MeetingsPage() {
       .order("meeting_date", { ascending: true });
 
     if (error) {
-      console.error("fetchMeetings:", error);
-      // Fallback: fetch all tenant meetings
       const { data: allData } = await supabase
         .from("meetings")
         .select(
@@ -1294,7 +2075,6 @@ export default function MeetingsPage() {
         )
         .eq("tenant_id", tenantId)
         .order("meeting_date", { ascending: true });
-      // Filter client-side for participant visibility
       const visible = (allData || []).filter(
         (m) =>
           m.created_by === userId ||
@@ -1357,6 +2137,11 @@ export default function MeetingsPage() {
   };
 
   const openCreate = () => {
+    // Double-guard: also block here if somehow the button is still shown
+    if (isFreePlan) {
+      navigate("/subscription");
+      return;
+    }
     const base = selectedDay ? currentMonth.date(selectedDay) : dayjs();
     setForm({
       title: "",
@@ -1424,13 +2209,8 @@ export default function MeetingsPage() {
       if (error) throw error;
 
       message.success("Meeting created!");
-      
-      // Immediately add the new meeting to the local state
-      setMeetings(prev => [...prev, newMeeting]);
-      
+      setMeetings((prev) => [...prev, newMeeting]);
       setShowCreate(false);
-
-      // Navigate calendar to the created meeting's date
       setCurrentMonth(dateTime.startOf("month"));
       setSelectedDay(dateTime.date());
       setSelectedMeeting(newMeeting);
@@ -1442,7 +2222,6 @@ export default function MeetingsPage() {
     }
   };
 
-  // ── AI Summary ────────────────────────────────────────────────────────────
   const generateAISummary = async (meeting) => {
     setSummaryLoading(true);
     try {
@@ -1471,57 +2250,9 @@ export default function MeetingsPage() {
             : "No chat messages"
         }`.trim();
 
-      const systemPrompt = `You are an expert meeting analyst.
-
-Return ONLY valid JSON (no markdown, no backticks) in this exact format:
-{
-  "summary": "string",
-  "actionItems": [{"text":"...","assignee":"...","due":"..."}],
-  "decisions": ["..."],
-  "keyTopics": ["..."],
-  "risks": ["..."],
-  "nextSteps": ["..."],
-  "sentiment": {"engagement":75,"positivity":70,"resolution":80}
-}
-
-SUMMARY FORMAT RULES:
-The "summary" field must be well-structured and formatted as plain text with clear sections:
-
-Meeting Title: <title>
-Meeting Date: <date>
-
-Meeting Agenda:
-- point 1
-- point 2
-
-Discussion Summary:
-- point 1
-- point 2
-
-Key Decisions Made:
-- decision 1
-- decision 2
-
-Action Items:
-- action 1 (assignee, due date)
-- action 2
-
-Risks/Concerns:
-- risk 1
-- risk 2
-
-Next Steps:
-- step 1
-- step 2
-
-IMPORTANT:
-- Do NOT return markdown or special formatting symbols like backticks
-- Use simple dashes (-) for bullet points
-- Keep summary clean, readable, and well-structured
-- Fill missing fields with reasonable assumptions if data is incomplete
-- Ensure JSON is always valid and properly escaped
-
-Base sentiment on tone and content. If no chat, use reasonable defaults.`;
+      const systemPrompt = `You are an expert meeting analyst. Return ONLY valid JSON (no markdown, no backticks) in this exact format:
+{"summary":"string","actionItems":[{"text":"...","assignee":"...","due":"..."}],"decisions":["..."],"keyTopics":["..."],"risks":["..."],"nextSteps":["..."],"sentiment":{"engagement":75,"positivity":70,"resolution":80}}
+SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Use simple dashes for bullet points. Keep it clean and readable. Base sentiment on tone and content. Ensure JSON is always valid.`;
 
       const raw = await groq(systemPrompt, contextBlock);
       const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
@@ -1557,45 +2288,35 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
   };
 
   const deleteMeeting = async (meeting) => {
-    if (!window.confirm(`Are you sure you want to delete "${meeting.title}"? This action cannot be undone.`)) {
+    if (
+      !window.confirm(
+        `Are you sure you want to delete "${meeting.title}"? This action cannot be undone.`,
+      )
+    )
       return;
-    }
-    
     try {
-      // First delete the recording file from storage if it exists
       if (meeting.recording_url) {
         try {
-          // Extract the file path from the recording URL
-          const urlParts = meeting.recording_url.split('/');
+          const urlParts = meeting.recording_url.split("/");
           const fileName = urlParts[urlParts.length - 1];
-          const filePath = `recordings/${meeting.meeting_room_id}/${fileName}`;
-          
           await supabase.storage
             .from("meeting-recordings")
-            .remove([filePath]);
+            .remove([`recordings/${meeting.meeting_room_id}/${fileName}`]);
         } catch (storageError) {
           console.warn("Could not delete recording file:", storageError);
-          // Continue with meeting deletion even if storage deletion fails
         }
       }
-      
-      // Delete related participant records
       await supabase
         .from("meeting_participants")
         .delete()
         .eq("meeting_id", meeting.id);
-      
-      // Then delete the meeting
       const { error } = await supabase
         .from("meetings")
         .delete()
         .eq("id", meeting.id);
-      
       if (error) throw error;
-      
       message.success("Meeting deleted successfully");
-      setSelectedMeeting(null); // Close the detail panel
-      // The real-time subscription will automatically update the meetings list
+      setSelectedMeeting(null);
     } catch (error) {
       console.error("Error deleting meeting:", error);
       message.error("Failed to delete meeting");
@@ -1610,7 +2331,6 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
     : meetings;
 
   const liveMeetings = meetings.filter((m) => m.status === "live");
-
   const filteredProfiles = profiles.filter(
     (p) =>
       p.id !== userId &&
@@ -1618,12 +2338,17 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
       (p.full_name?.toLowerCase().includes(participantSearch.toLowerCase()) ||
         p.email?.toLowerCase().includes(participantSearch.toLowerCase())),
   );
-
   const todayMeetings = meetings.filter((m) =>
     dayjs(m.meeting_date).isSame(dayjs(), "day"),
   );
 
-  if (!currentUser)
+  console.log(orgPlan);
+
+  // ── Plan check ────────────────────────────────────────────────────────────
+  // "Free" plan (case-insensitive) blocks the full meetings feature
+  const isFreePlan = orgPlan != null && orgPlan.trim().toLowerCase() === "free";
+
+  if (!currentUser || planLoading) {
     return (
       <div
         style={{
@@ -1642,7 +2367,25 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
         </div>
       </div>
     );
+  }
 
+  // ── FREE PLAN: show paywall instead of full page ──────────────────────────
+  if (isFreePlan) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "#f8fafc",
+          fontFamily: "'Inter', -apple-system, sans-serif",
+        }}
+      >
+        <FreePlanPaywall navigate={navigate} />
+        <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } } * { box-sizing: border-box; }`}</style>
+      </div>
+    );
+  }
+
+  // ── FULL PAGE (paid plans) ────────────────────────────────────────────────
   return (
     <div
       style={{
@@ -1651,7 +2394,7 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
         fontFamily: "'Inter', -apple-system, sans-serif",
       }}
     >
-      {/* ── TOP BAR ────────────────────────────────────────────────────────── */}
+      {/* TOP BAR */}
       <div
         style={{
           position: "sticky",
@@ -1706,8 +2449,6 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
             </div>
           </div>
         </div>
-
-        {/* Search */}
         <div style={{ position: "relative", marginLeft: "auto" }}>
           <Search
             size={13}
@@ -1739,8 +2480,6 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
             }}
           />
         </div>
-
-        {/* View toggle */}
         <div
           style={{
             display: "flex",
@@ -1775,31 +2514,30 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
             </button>
           ))}
         </div>
-        
-      {currentUser?.role !== "employee" && (
-        <button
-          onClick={openCreate}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 7,
-            padding: "8px 16px",
-            borderRadius: 10,
-            border: "none",
-            cursor: "pointer",
-            background: "linear-gradient(135deg, #0f172a, #0f172a)",
-            color: "#fff",
-            fontSize: 13,
-            fontWeight: 700,
-            boxShadow: "0 4px 12px rgba(59,130,246,0.35)",
-          }}
-        >
-          <Plus size={14} /> New Meeting
-        </button>
+        {currentUser?.role !== "employee" && (
+          <button
+            onClick={openCreate}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+              padding: "8px 16px",
+              borderRadius: 10,
+              border: "none",
+              cursor: "pointer",
+              background: "linear-gradient(135deg, #0f172a, #0f172a)",
+              color: "#fff",
+              fontSize: 13,
+              fontWeight: 700,
+              boxShadow: "0 4px 12px rgba(59,130,246,0.35)",
+            }}
+          >
+            <Plus size={14} /> New Meeting
+          </button>
         )}
       </div>
 
-      {/* ── LIVE BANNER ────────────────────────────────────────────────────── */}
+      {/* LIVE BANNER */}
       {liveMeetings.length > 0 && (
         <div
           style={{
@@ -1851,7 +2589,7 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
         </div>
       )}
 
-      {/* ── MAIN LAYOUT ────────────────────────────────────────────────────── */}
+      {/* MAIN LAYOUT */}
       {loading ? (
         <div
           style={{
@@ -1871,9 +2609,7 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
             overflow: "hidden",
           }}
         >
-          {/* Calendar main area */}
           <div style={{ flex: 1, overflowY: "auto", padding: 28 }}>
-            {/* Month nav */}
             <div
               style={{
                 display: "flex",
@@ -1945,7 +2681,6 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
                 <ChevronRight size={16} />
               </button>
             </div>
-
             <CalendarView
               meetings={filteredMeetings}
               currentMonth={currentMonth}
@@ -1956,8 +2691,6 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
               onMeetingClick={(m) => setSelectedMeeting(m)}
             />
           </div>
-
-          {/* Right side panel: day agenda */}
           <div
             style={{
               width: 300,
@@ -1980,7 +2713,6 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
           </div>
         </div>
       ) : (
-        /* LIST VIEW */
         <div style={{ margin: "0 auto", padding: "28px 24px" }}>
           {["live", "scheduled", "ended"].map((status) => {
             const group = filteredMeetings.filter((m) => m.status === status);
@@ -2051,7 +2783,6 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
                     try {
                       agItems = JSON.parse(m.agenda_items || "[]");
                     } catch {}
-
                     return (
                       <div
                         key={m.id}
@@ -2304,7 +3035,7 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
         </div>
       )}
 
-      {/* ── MEETING DETAIL PANEL ────────────────────────────────────────────── */}
+      {/* MEETING DETAIL PANEL */}
       {selectedMeeting && (
         <>
           <div
@@ -2331,7 +3062,7 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
         </>
       )}
 
-      {/* ── CREATE MODAL ─────────────────────────────────────────────────────── */}
+      {/* CREATE MODAL */}
       <Modal
         open={showCreate}
         onCancel={() => setShowCreate(false)}
@@ -2349,7 +3080,6 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
             maxHeight: "90vh",
           }}
         >
-          {/* Header */}
           <div
             style={{
               padding: "24px 28px 18px",
@@ -2405,7 +3135,6 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
               flex: 1,
             }}
           >
-            {/* Title */}
             <div>
               <label
                 style={{
@@ -2430,8 +3159,6 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
                 size="large"
               />
             </div>
-
-            {/* Description */}
             <div>
               <label
                 style={{
@@ -2456,8 +3183,6 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
                 style={{ borderRadius: 10, fontSize: 13 }}
               />
             </div>
-
-            {/* Type */}
             <div>
               <label
                 style={{
@@ -2514,8 +3239,6 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
                 ))}
               </div>
             </div>
-
-            {/* Participants */}
             <div>
               <label
                 style={{
@@ -2657,8 +3380,6 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
                 </div>
               )}
             </div>
-
-            {/* Date / Time / Duration */}
             <div
               style={{
                 display: "grid",
@@ -2736,8 +3457,6 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
                 </Select>
               </div>
             </div>
-
-            {/* Recurrence */}
             <div>
               <label
                 style={{
@@ -2765,8 +3484,6 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
                 <Option value="monthly">Monthly</Option>
               </Select>
             </div>
-
-            {/* Agenda */}
             <div>
               <label
                 style={{
@@ -2904,7 +3621,6 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
             </div>
           </div>
 
-          {/* Footer */}
           <div
             style={{
               padding: "14px 28px",
@@ -2964,7 +3680,7 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
         </div>
       </Modal>
 
-      {/* ── AI SUMMARY MODAL ─────────────────────────────────────────────────── */}
+      {/* AI SUMMARY MODAL */}
       <Modal
         open={!!summaryMeeting}
         onCancel={() => {
@@ -3085,7 +3801,6 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
                       gap: 20,
                     }}
                   >
-                    {/* Summary */}
                     <div>
                       <div
                         style={{
@@ -3114,7 +3829,6 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
                         {summaryData.summary}
                       </p>
                     </div>
-                    {/* Key Topics */}
                     {(summaryData.keyTopics || []).length > 0 && (
                       <div>
                         <div
@@ -3151,7 +3865,6 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
                         </div>
                       </div>
                     )}
-                    {/* Action Items */}
                     {(summaryData.actionItems || []).length > 0 && (
                       <div>
                         <div
@@ -3216,7 +3929,6 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
                         </div>
                       </div>
                     )}
-                    {/* Decisions */}
                     {(summaryData.decisions || []).length > 0 && (
                       <div>
                         <div
@@ -3264,7 +3976,6 @@ Base sentiment on tone and content. If no chat, use reasonable defaults.`;
                         </div>
                       </div>
                     )}
-                    {/* Sentiment */}
                     {summaryData.sentiment && (
                       <div>
                         <div

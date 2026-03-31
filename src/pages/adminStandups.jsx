@@ -30,9 +30,25 @@ import {
   FileTextOutlined,
   MessageOutlined,
 } from "@ant-design/icons";
+import {
+  Lock,
+  Star,
+  ArrowRight,
+  Shield,
+  Zap,
+  MessageSquare,
+  Sparkles,
+  Bell,
+  Plus,
+  ChevronRight,
+  BarChart2,
+  Repeat2,
+  Users,
+} from "lucide-react";
 import dayjs from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
 import { supabase } from "../lib/supabase";
+import { useNavigate } from "react-router-dom";
 
 dayjs.extend(isoWeek);
 
@@ -112,8 +128,987 @@ function getWeekdaysInMonth(year, month) {
 
 const VIEW = { PROJECTS: "projects", PROJECT_DETAIL: "project_detail" };
 
+// ─── Free Standup Paywall ─────────────────────────────────────────────────────
+function FreeStandupPaywall({ navigate }) {
+  const features = [
+    {
+      icon: <MessageSquare size={16} />,
+      title: "Async Standups",
+      desc: "Run daily standups without meetings. Team members answer prompts on their own schedule.",
+    },
+    {
+      icon: <Sparkles size={16} />,
+      title: "AI Summaries",
+      desc: "Automatically summarize team responses, surface blockers, and highlight key updates.",
+    },
+    {
+      icon: <Bell size={16} />,
+      title: "Smart Reminders",
+      desc: "Automated nudges so no one misses their standup. Configurable schedule per team.",
+    },
+    {
+      icon: <BarChart2 size={16} />,
+      title: "Participation Insights",
+      desc: "Track response rates, streaks, and team engagement over time with visual dashboards.",
+    },
+    {
+      icon: <Repeat2 size={16} />,
+      title: "Recurring Schedules",
+      desc: "Set daily, weekly or custom cadences. Standups run automatically without manual setup.",
+    },
+    {
+      icon: <Users size={16} />,
+      title: "Team-wide Visibility",
+      desc: "Everyone sees everyone's updates. Break silos and keep the whole org aligned.",
+    },
+  ];
+
+  const mockStandups = [
+    {
+      name: "Lena Park",
+      role: "Frontend",
+      avatar: "LP",
+      avatarBg: "#dbeafe",
+      avatarColor: "#2563eb",
+      time: "9:04 AM",
+      yesterday: "Finished the dashboard redesign and pushed for review.",
+      today: "Starting on the mobile nav refactor.",
+      blockers: null,
+    },
+    {
+      name: "James Osei",
+      role: "Backend",
+      avatar: "JO",
+      avatarBg: "#dcfce7",
+      avatarColor: "#16a34a",
+      time: "9:11 AM",
+      yesterday: "Fixed the auth token expiry bug in prod.",
+      today: "Writing unit tests for the new payments module.",
+      blockers: "Waiting on API docs from Stripe.",
+    },
+    {
+      name: "Sara Malik",
+      role: "Design",
+      avatar: "SM",
+      avatarBg: "#ede9fe",
+      avatarColor: "#7c3aed",
+      time: "9:18 AM",
+      yesterday: "Delivered final specs for onboarding flow.",
+      today: "User interviews at 2pm, then iterating on V2 mockups.",
+      blockers: null,
+    },
+  ];
+
+  const sidebarStandups = [
+    { name: "Daily Engineering", members: 8, color: "#22c55e", active: true },
+    { name: "Design Team", members: 5, color: "#f59e0b", active: false },
+    { name: "All Hands", members: 24, color: "#f59e0b", active: false },
+    { name: "Product Weekly", members: 11, color: "#94a3b8", active: false },
+  ];
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
+      {/* ── Header — mirrors the real Standups page header ── */}
+      <div
+        style={{
+          background: "#fff",
+          borderBottom: "1px solid #e2e8f0",
+          padding: "20px 28px",
+          marginBottom: 24,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 16,
+          }}
+        >
+          <div>
+            <h1
+              style={{
+                margin: "0 0 4px",
+                fontSize: 26,
+                fontWeight: 800,
+                color: "#0f172a",
+                letterSpacing: "-0.04em",
+                lineHeight: 1,
+              }}
+            >
+              Standups
+            </h1>
+            <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>
+              Async check-ins · AI summaries · Zero extra meetings
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding: "0 28px 40px" }}>
+        {/* ── Blurred mock KPI strip ── */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: 12,
+            marginBottom: 24,
+            filter: "blur(6px)",
+            pointerEvents: "none",
+            userSelect: "none",
+            opacity: 0.45,
+          }}
+        >
+          {[
+            ["#3b82f6", "4", "Active Standups"],
+            ["#22c55e", "87%", "Response Rate"],
+            ["#f59e0b", "14", "Day Streak"],
+            ["#8b5cf6", "24", "Team Members"],
+          ].map(([color, val, label]) => (
+            <div
+              key={label}
+              style={{
+                background: "#fff",
+                border: "1px solid #e2e8f0",
+                borderRadius: 14,
+                padding: "18px 20px",
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+              }}
+            >
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 12,
+                  background: `${color}15`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color,
+                }}
+              >
+                <MessageSquare size={18} />
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 26,
+                    fontWeight: 800,
+                    color: "#0f172a",
+                    lineHeight: 1,
+                  }}
+                >
+                  {val}
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "#94a3b8",
+                    marginTop: 3,
+                    fontWeight: 500,
+                  }}
+                >
+                  {label}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Main paywall card ── */}
+        <div
+          style={{
+            position: "relative",
+            background: "#fff",
+            border: "1px solid #e2e8f0",
+            borderRadius: 20,
+            overflow: "hidden",
+          }}
+        >
+          {/* Blurred mock standup UI */}
+          <div
+            style={{
+              filter: "blur(5px)",
+              pointerEvents: "none",
+              userSelect: "none",
+              opacity: 0.3,
+              borderBottom: "1px solid #e2e8f0",
+              overflow: "hidden",
+            }}
+          >
+            <div style={{ display: "flex" }}>
+              {/* Sidebar */}
+              <div
+                style={{
+                  width: 200,
+                  borderRight: "1px solid #f1f5f9",
+                  padding: "16px 12px",
+                  background: "#fafbfc",
+                  flexShrink: 0,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: "#94a3b8",
+                    letterSpacing: "0.06em",
+                    marginBottom: 10,
+                    paddingLeft: 8,
+                  }}
+                >
+                  ACTIVE STANDUPS
+                </div>
+                {sidebarStandups.map((s, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      padding: "9px 10px",
+                      borderRadius: 10,
+                      marginBottom: 3,
+                      background: s.active ? "#eff6ff" : "transparent",
+                      border: s.active
+                        ? "1px solid #bfdbfe"
+                        : "1px solid transparent",
+                    }}
+                  >
+                    <div
+                      style={{ display: "flex", alignItems: "center", gap: 7 }}
+                    >
+                      <div
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: "50%",
+                          background: s.color,
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: s.active ? "#1d4ed8" : "#374151",
+                          flex: 1,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {s.name}
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: "#94a3b8",
+                        paddingLeft: 13,
+                        marginTop: 1,
+                      }}
+                    >
+                      {s.members} members
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Main area */}
+              <div style={{ flex: 1, padding: "16px 20px", minWidth: 0 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    marginBottom: 14,
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 800,
+                        color: "#0f172a",
+                      }}
+                    >
+                      Daily Engineering Standup
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "#64748b",
+                        display: "flex",
+                        gap: 8,
+                        marginTop: 2,
+                      }}
+                    >
+                      <span>Today, Mar 29</span>
+                      <span>·</span>
+                      <span style={{ color: "#22c55e", fontWeight: 700 }}>
+                        ● 6/8 responded
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                    <div
+                      style={{
+                        padding: "5px 12px",
+                        borderRadius: 8,
+                        background: "#f0fdf4",
+                        border: "1px solid #bbf7d0",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "#16a34a",
+                      }}
+                    >
+                      Send Reminder
+                    </div>
+                    <div
+                      style={{
+                        padding: "5px 12px",
+                        borderRadius: 8,
+                        background: "#f5f3ff",
+                        border: "1px solid #ddd6fe",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "#7c3aed",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <Sparkles size={10} /> AI Summary
+                    </div>
+                  </div>
+                </div>
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                >
+                  {mockStandups.map((m, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        background: "#fff",
+                        border: "1px solid #f1f5f9",
+                        borderRadius: 12,
+                        padding: "12px 14px",
+                        display: "flex",
+                        gap: 12,
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: "50%",
+                          background: m.avatarBg,
+                          color: m.avatarColor,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 11,
+                          fontWeight: 800,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {m.avatar}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            marginBottom: 6,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: "#0f172a",
+                            }}
+                          >
+                            {m.name}
+                          </span>
+                          <span style={{ fontSize: 10, color: "#94a3b8" }}>
+                            {m.role}
+                          </span>
+                          <span
+                            style={{
+                              marginLeft: "auto",
+                              fontSize: 10,
+                              color: "#94a3b8",
+                            }}
+                          >
+                            {m.time}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 3,
+                          }}
+                        >
+                          {[
+                            {
+                              label: "Yesterday",
+                              text: m.yesterday,
+                              color: "#3b82f6",
+                            },
+                            { label: "Today", text: m.today, color: "#22c55e" },
+                            ...(m.blockers
+                              ? [
+                                  {
+                                    label: "Blockers",
+                                    text: m.blockers,
+                                    color: "#ef4444",
+                                  },
+                                ]
+                              : []),
+                          ].map((row, j) => (
+                            <div key={j} style={{ display: "flex", gap: 6 }}>
+                              <span
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: 700,
+                                  color: row.color,
+                                  width: 54,
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {row.label}
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  color: "#475569",
+                                  lineHeight: 1.5,
+                                }}
+                              >
+                                {row.text}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Gradient bleed over the mock */}
+          <div
+            style={{
+              position: "relative",
+              padding: "48px 40px 44px",
+              marginTop: -400,
+              background:
+                "linear-gradient(180deg, rgba(255,255,255,0) 0%, #fff 8%)",
+            }}
+          >
+            {/* Pro badge */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                marginBottom: 20,
+              }}
+            >
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 7,
+                  padding: "6px 14px",
+                  background:
+                    "linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%)",
+                  border: "1px solid #ddd6fe",
+                  borderRadius: 30,
+                }}
+              >
+                <div
+                  style={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: "50%",
+                    background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Lock size={10} color="#fff" />
+                </div>
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  Pro Feature
+                </span>
+              </div>
+            </div>
+
+            {/* Headline */}
+            <div style={{ textAlign: "center", marginBottom: 12 }}>
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: 30,
+                  fontWeight: 900,
+                  color: "#0f172a",
+                  letterSpacing: "-0.04em",
+                  lineHeight: 1.15,
+                }}
+              >
+                Ditch status meetings with
+                <br />
+                <span
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  Async Standups
+                </span>
+              </h2>
+            </div>
+            <p
+              style={{
+                textAlign: "center",
+                fontSize: 15,
+                color: "#64748b",
+                maxWidth: 480,
+                margin: "0 auto 36px",
+                lineHeight: 1.6,
+              }}
+            >
+              A complete async check-in system — from team prompts and smart
+              reminders to AI-generated summaries, participation tracking, and
+              full org visibility.
+            </p>
+
+            {/* Feature grid */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gap: 12,
+                maxWidth: 760,
+                margin: "0 auto 36px",
+              }}
+            >
+              {features.map((f, i) => (
+                <div
+                  key={i}
+                  style={{
+                    padding: "16px 18px",
+                    background: "#f8fafc",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 12,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 9,
+                      background: "#fff",
+                      border: "1px solid #e2e8f0",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#3b82f6",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {f.icon}
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: "#0f172a",
+                        marginBottom: 3,
+                      }}
+                    >
+                      {f.title}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#64748b",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {f.desc}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* How it works flow */}
+            <div
+              style={{
+                maxWidth: 760,
+                margin: "0 auto 36px",
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                borderRadius: 14,
+                padding: "20px 24px",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "#94a3b8",
+                  letterSpacing: "0.07em",
+                  marginBottom: 16,
+                }}
+              >
+                HOW IT WORKS
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                {[
+                  {
+                    label: "Create Standup",
+                    sub: "Set prompts & schedule",
+                    color: "#3b82f6",
+                    icon: <Plus size={14} />,
+                  },
+                  {
+                    label: "Team Responds",
+                    sub: "Async, on their time",
+                    color: "#6366f1",
+                    icon: <MessageSquare size={14} />,
+                  },
+                  {
+                    label: "AI Summarises",
+                    sub: "Blockers surfaced auto",
+                    color: "#8b5cf6",
+                    icon: <Sparkles size={14} />,
+                  },
+                  {
+                    label: "Stay Aligned",
+                    sub: "Full visibility for all",
+                    color: "#10b981",
+                    icon: <Users size={14} />,
+                  },
+                ].map((s, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      flex: 1,
+                      minWidth: 0,
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
+                      <div
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 12,
+                          background: `${s.color}12`,
+                          border: `1.5px solid ${s.color}30`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: s.color,
+                          margin: "0 auto 8px",
+                        }}
+                      >
+                        {s.icon}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color: "#0f172a",
+                          marginBottom: 2,
+                        }}
+                      >
+                        {s.label}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "#94a3b8",
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {s.sub}
+                      </div>
+                    </div>
+                    {i < 3 && (
+                      <div
+                        style={{
+                          flexShrink: 0,
+                          padding: "0 4px",
+                          color: "#d1d5db",
+                        }}
+                      >
+                        <ChevronRight size={16} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Sample standup responses table */}
+            <div
+              style={{
+                maxWidth: 760,
+                margin: "0 auto 36px",
+                border: "1px solid #e2e8f0",
+                borderRadius: 12,
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  padding: "12px 16px",
+                  borderBottom: "1px solid #f1f5f9",
+                  background: "#f8fafc",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <span
+                  style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}
+                >
+                  Sample Standup
+                </span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: "#64748b",
+                    background: "#e2e8f0",
+                    padding: "1px 7px",
+                    borderRadius: 5,
+                    fontWeight: 600,
+                  }}
+                >
+                  Preview
+                </span>
+                <span
+                  style={{
+                    marginLeft: "auto",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#16a34a",
+                    background: "#f0fdf4",
+                    padding: "2px 9px",
+                    borderRadius: 5,
+                    border: "1px solid #bbf7d0",
+                  }}
+                >
+                  ● 3/3 responded
+                </span>
+              </div>
+              {mockStandups.map((m, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "36px 1fr",
+                    gap: 12,
+                    padding: "14px 16px",
+                    borderBottom:
+                      i < mockStandups.length - 1
+                        ? "1px solid #f1f5f9"
+                        : "none",
+                    background: i % 2 === 0 ? "#fff" : "#fafafa",
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: "50%",
+                      background: m.avatarBg,
+                      color: m.avatarColor,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 11,
+                      fontWeight: 800,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {m.avatar}
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        marginBottom: 6,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 700,
+                          color: "#0f172a",
+                        }}
+                      >
+                        {m.name}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "#64748b",
+                          background: "#f1f5f9",
+                          padding: "1px 6px",
+                          borderRadius: 4,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {m.role}
+                      </span>
+                      <span
+                        style={{
+                          marginLeft: "auto",
+                          fontSize: 11,
+                          color: "#94a3b8",
+                        }}
+                      >
+                        {m.time}
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 4,
+                      }}
+                    >
+                      {[
+                        {
+                          label: "Yesterday",
+                          text: m.yesterday,
+                          color: "#3b82f6",
+                        },
+                        { label: "Today", text: m.today, color: "#22c55e" },
+                        ...(m.blockers
+                          ? [
+                              {
+                                label: "Blockers",
+                                text: m.blockers,
+                                color: "#ef4444",
+                              },
+                            ]
+                          : []),
+                      ].map((row, j) => (
+                        <div key={j} style={{ display: "flex", gap: 8 }}>
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 700,
+                              color: row.color,
+                              width: 58,
+                              flexShrink: 0,
+                            }}
+                          >
+                            {row.label}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: 12,
+                              color: "#475569",
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            {row.text}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* CTA */}
+            <div style={{ textAlign: "center" }}>
+              <a
+                href="/subscription"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "14px 32px",
+                  background:
+                    "linear-gradient(135deg, #1e40af 0%, #7c3aed 100%)",
+                  color: "#fff",
+                  borderRadius: 12,
+                  fontWeight: 800,
+                  fontSize: 15,
+                  textDecoration: "none",
+                  letterSpacing: "-0.01em",
+                  boxShadow:
+                    "0 4px 24px rgba(99,102,241,0.35), 0 1px 3px rgba(0,0,0,0.1)",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                  e.currentTarget.style.boxShadow =
+                    "0 8px 32px rgba(99,102,241,0.45), 0 1px 3px rgba(0,0,0,0.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow =
+                    "0 4px 24px rgba(99,102,241,0.35), 0 1px 3px rgba(0,0,0,0.1)";
+                }}
+              >
+                <Zap size={16} fill="currentColor" />
+                Upgrade to unlock Standups
+                <ArrowRight size={16} />
+              </a>
+              <p style={{ margin: "12px 0 0", fontSize: 12, color: "#94a3b8" }}>
+                Upgrade your plan to access the full Standups module and all Pro
+                features.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function AdminStandupStats() {
+  const navigate = useNavigate();
+
   const [tenantId, setTenantId] = useState(null);
+  const [orgPlan, setOrgPlan] = useState(null);
+  const [planLoading, setPlanLoading] = useState(true);
 
   useEffect(() => {
     const init = async () => {
@@ -128,8 +1123,19 @@ export default function AdminStandupStats() {
           .eq("id", user.id)
           .single();
         setTenantId(profile?.tenant_id ?? null);
+
+        if (profile?.tenant_id) {
+          const { data: org } = await supabase
+            .from("tenants")
+            .select("plan")
+            .eq("id", profile.tenant_id)
+            .single();
+          setOrgPlan(org?.plan ?? null);
+        }
       } catch (e) {
         console.error(e);
+      } finally {
+        setPlanLoading(false);
       }
     };
     init();
@@ -151,36 +1157,26 @@ export default function AdminStandupStats() {
 
   const [summaryModal, setSummaryModal] = useState(null);
 
-  // ── Load projects (scoped to tenant) ──────────────────────────────────
+  // ── Load projects ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!tenantId) return;
-
     let isMounted = true;
-
     (async () => {
       try {
         setLoadingProjects(true);
-
         const { data, error } = await supabase
           .from("projects")
           .select("id, name, status, priority, client_name, project_manager_id")
           .eq("tenant_id", tenantId)
           .eq("is_archived", false)
           .order("name");
-
         if (!isMounted) return;
-
-        if (error) {
-          console.error(error.message);
-        } else {
-          console.log(data);
-          setProjects(data ?? []);
-        }
+        if (error) console.error(error.message);
+        else setProjects(data ?? []);
       } finally {
         if (isMounted) setLoadingProjects(false);
       }
     })();
-
     return () => {
       isMounted = false;
     };
@@ -191,9 +1187,6 @@ export default function AdminStandupStats() {
     (async () => {
       const start = selectedMonth.startOf("month").format("YYYY-MM-DD");
       const end = selectedMonth.endOf("month").format("YYYY-MM-DD");
-
-      // standup_sessions and project_assignees don't have tenant_id —
-      // they're implicitly scoped via project_id which is already tenant-filtered
       const { data: sessData } = await supabase
         .from("standup_sessions")
         .select("project_id, date, attendance")
@@ -203,7 +1196,6 @@ export default function AdminStandupStats() {
         )
         .gte("date", start)
         .lte("date", end);
-
       const { data: assigneeData } = await supabase
         .from("project_assignees")
         .select("project_id, employee_id")
@@ -211,12 +1203,10 @@ export default function AdminStandupStats() {
           "project_id",
           projects.map((p) => p.id),
         );
-
       const teamSizes = {};
       (assigneeData ?? []).forEach((a) => {
         teamSizes[a.project_id] = (teamSizes[a.project_id] || 0) + 1;
       });
-
       const summaries = {};
       (sessData ?? []).forEach((s) => {
         if (!summaries[s.project_id])
@@ -244,24 +1234,20 @@ export default function AdminStandupStats() {
     setLoadingDetail(true);
     setEmployees([]);
     setSessions([]);
-
     const { data: assigneeRows } = await supabase
       .from("project_assignees")
       .select("employee_id")
       .eq("project_id", project.id);
-    // project_assignees is scoped implicitly via project_id (already tenant-filtered)
-
     const ids = (assigneeRows ?? []).map((r) => r.employee_id);
     if (ids.length) {
       const { data: profiles } = await supabase
         .from("profiles")
         .select("id, full_name, job_title, department, user_photo")
         .in("id", ids)
-        .eq("tenant_id", tenantId) // 👈 tenant filter
+        .eq("tenant_id", tenantId)
         .eq("suspended", false);
       setEmployees(profiles ?? []);
     }
-
     const start = selectedMonth.startOf("month").format("YYYY-MM-DD");
     const end = selectedMonth.endOf("month").format("YYYY-MM-DD");
     const { data: sess } = await supabase
@@ -481,7 +1467,6 @@ export default function AdminStandupStats() {
         const isToday = date === today;
         const sessData = sessionMap[date];
         const hasSummary = !!sessData?.summary?.trim();
-
         return {
           title: (
             <Tooltip
@@ -988,7 +1973,48 @@ export default function AdminStandupStats() {
     },
   ];
 
-  // ── Render ─────────────────────────────────────────────────────────────
+  // ── Plan check ─────────────────────────────────────────────────────────
+  const isFreePlan = orgPlan != null && orgPlan.trim().toLowerCase() === "free";
+
+  // ── Loading state ──────────────────────────────────────────────────────
+  if (planLoading) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#f8fafc",
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <Spin size="large" />
+          <p style={{ marginTop: 16, color: "#94a3b8", fontSize: 13 }}>
+            Loading your workspace…
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Free plan paywall ──────────────────────────────────────────────────
+  if (isFreePlan) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "#f8fafc",
+          fontFamily: "'Outfit', sans-serif",
+        }}
+      >
+        <style>{`@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap'); * { font-family: 'Outfit', sans-serif !important; box-sizing: border-box; }`}</style>
+        <FreeStandupPaywall navigate={navigate} />
+      </div>
+    );
+  }
+
+  // ── Full page (paid) ───────────────────────────────────────────────────
   return (
     <div
       style={{
@@ -1880,7 +2906,6 @@ export default function AdminStandupStats() {
                               : rate >= 60
                                 ? "#d97706"
                                 : "#e11d48";
-
                         return (
                           <div
                             key={sess.id}
@@ -1947,7 +2972,6 @@ export default function AdminStandupStats() {
                                 </span>
                               )}
                             </div>
-
                             <div
                               style={{
                                 flex: 1,
@@ -2028,7 +3052,6 @@ export default function AdminStandupStats() {
                                 </div>
                               )}
                             </div>
-
                             <div
                               style={{
                                 width: 130,

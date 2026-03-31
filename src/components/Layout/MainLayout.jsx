@@ -50,6 +50,7 @@ import {
   IdcardOutlined,
   BankOutlined,
   VideoCameraOutlined,
+  CreditCardOutlined,
   AuditOutlined,
   RadarChartOutlined,
 } from "@ant-design/icons";
@@ -191,6 +192,7 @@ const MainLayout = ({ children }) => {
     "/training-material": { icon: <ReadOutlined />, label: "Training" },
     "/documents": { icon: <FolderOutlined />, label: "Documents" },
     "/communication": { icon: <MessageOutlined />, label: "Communication" },
+    "/subscription": { icon: <CreditCardOutlined />, label: "Subscription" },
     "/settings": { icon: <SettingOutlined />, label: "Settings" },
   };
 
@@ -222,6 +224,7 @@ const MainLayout = ({ children }) => {
         "/training-material",
         "/documents",
         "/communication",
+        "/subscription",
         "/settings",
       ],
     },
@@ -238,11 +241,11 @@ const MainLayout = ({ children }) => {
           { key: "/dashboard", icon: <DashboardOutlined />, label: "Overview" },
           { key: "/tenants", icon: <ApartmentOutlined />, label: "Tenants" },
           {
-            key: "/subscriptions",
+            key: "/subscription-plans",
             icon: <CrownOutlined />,
-            label: "Subscriptions",
+            label: "Subscription Plans",
           },
-          { key: "/billing", icon: <BankOutlined />, label: "Billing" },
+          { key: "/discounts", icon: <BankOutlined />, label: "Discounts" },
         ],
       },
       {
@@ -517,7 +520,7 @@ const MainLayout = ({ children }) => {
     "/settings": "Settings",
     "/tenants": "Tenants",
     "/users": "Users",
-    "/subscriptions": "Subscriptions",
+    "/subscription-plans": "Subscription Plans",
     "/billing": "Billing",
     "/analytics": "Analytics",
     "/usage": "Usage",

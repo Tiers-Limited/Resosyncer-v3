@@ -38,17 +38,23 @@ import AdminTrainingMaterials from "./pages/adminTraining";
 import EmployeeTrainingMaterials from "./pages/employeesTraining";
 import ContractGenerator from "./pages/ContractMaker";
 import Recruitment from "./pages/recruitment";
+import RecruitmentPipeline from "./pages/recruitmentPipeline";
 import AdminStandupStats from "./pages/adminStandups";
 import ApplyPage from "./pages/applyPage";
 import ApplicationTrackingPage from "./pages/applicationStatus";
+import AiInterviewPage from "./pages/aiInterview";
+import InterviewReviewPage from "./pages/InterviewReview";
 import MeetingRoom from "./pages/meetingsroom";
 import MeetingsPage from "./pages/mettingspage";
+import SubscriptionManagement from "./pages/subscriptions";
 import MainLayout from "./components/Layout/MainLayout";
 
 // Super-Admin
 import SuperadminDashboard from "./pages/superadmin/Platform/overview";
 import TenantsPage from "./pages/superadmin/Platform/tenants";
 import TenantDetailPage from "./pages/superadmin/Platform/tenantDetails";
+import AdminPlans from "./pages/superadmin/Platform/plans";
+import DiscountsPage from "./pages/superadmin/Platform/discounts";
 
 const ProtectedRoute = ({
   children,
@@ -114,6 +120,7 @@ function App() {
           <Route path="/admin-setup" element={<AdminSetup />} />
           <Route path="/apply/:jobId" element={<ApplyPage />} />
           <Route path="/signin" element={<SignIn />} />
+          <Route path="/ai-interview/:applicantId" element={<AiInterviewPage />} />
 
           <Route
             path="/track/:applicantId"
@@ -136,6 +143,21 @@ function App() {
           <Route
             path="/tenants"
             element={<ProtectedRoute saComponent={<TenantsPage />} />}
+          />
+
+          <Route
+            path="/subscription-plans"
+            element={<ProtectedRoute saComponent={<AdminPlans />} />}
+          />
+
+          <Route
+            path="/discounts"
+            element={<ProtectedRoute saComponent={<DiscountsPage />} />}
+          />
+
+          <Route
+            path="/subscription"
+            element={<ProtectedRoute adminComponent={<SubscriptionManagement />} />}
           />
 
           <Route
@@ -173,7 +195,7 @@ function App() {
 
           <Route
             path="/meet/:roomId"
-            element={<ProtectedRoute adminComponent={<MeetingsPage />} />}
+            element={<MeetingsPage />}
           />
 
           <Route
@@ -192,6 +214,24 @@ function App() {
               <ProtectedRoute
                 routePath="/recruitment"
                 adminComponent={<Recruitment />}
+              />
+            }
+          />
+          <Route
+            path="/recruitment/pipeline"
+            element={
+              <ProtectedRoute
+                routePath="/recruitment"
+                adminComponent={<RecruitmentPipeline />}
+              />
+            }
+          />
+          <Route
+            path="/recruitment/interviews/:applicantId"
+            element={
+              <ProtectedRoute
+                routePath="/recruitment"
+                adminComponent={<InterviewReviewPage />}
               />
             }
           />

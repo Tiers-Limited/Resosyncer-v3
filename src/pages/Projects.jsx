@@ -48,6 +48,7 @@ import {
   Loader2,
   Mail,
   Zap,
+  Globe,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -880,6 +881,9 @@ const Projects = () => {
   const [projectManagers, setProjectManagers] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [currentTenantId, setCurrentTenantId] = useState(null);
+  const [orgPlan, setOrgPlan] = useState(null);
+  const [maxProjects, setMaxProjects] = useState(null);
+  const [isProjectLimitReached, setIsProjectLimitReached] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -899,6 +903,8 @@ const Projects = () => {
         .single();
       const tid = profile?.tenant_id;
       setCurrentTenantId(tid);
+      // Fetch plan info
+      await fetchPlanInfo(tid);
       // Kick off all fetches; fetchProjects manages loading state
       await Promise.all([
         fetchProjects(tid),
@@ -908,6 +914,30 @@ const Projects = () => {
       ]);
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const fetchPlanInfo = async (tid) => {
+    if (!tid) return;
+    try {
+      const { data: tenant } = await supabase
+        .from("tenants")
+        .select("plan")
+        .eq("id", tid)
+        .single();
+      if (tenant?.plan) {
+        setOrgPlan(tenant.plan);
+        const { data: planDetails } = await supabase
+          .from("plans")
+          .select("max_projects")
+          .eq("name", tenant.plan)
+          .single();
+        if (planDetails?.max_projects) {
+          setMaxProjects(planDetails.max_projects);
+        }
+      }
+    } catch (e) {
+      console.error("Error fetching plan info:", e);
     }
   };
 
@@ -928,9 +958,20 @@ const Projects = () => {
     setFilteredProjects(f);
   }, [projects, searchText, statusFilter]);
 
+  // Refresh projects when tab becomes visible to update limit status
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && currentTenantId) {
+        fetchProjects(currentTenantId);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [currentTenantId]);
+
   const fetchProjects = async (tid) => {
     if (!tid) return;
-    setLoading(true); 
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from("projects")
@@ -952,6 +993,12 @@ const Projects = () => {
         }),
       );
       setProjects(withAssignees);
+      // Check if project limit reached
+      if (maxProjects && withAssignees.length >= maxProjects) {
+        setIsProjectLimitReached(true);
+      } else {
+        setIsProjectLimitReached(false);
+      }
     } catch (e) {
       message.error("Failed to fetch projects");
     } finally {
@@ -1301,8 +1348,10 @@ const Projects = () => {
                         marginBottom: 10,
                       }}
                     >
-                      {project.country_flag && (
+                      {project.country_flag ? (
                         <FlagIcon value={project.country_flag} size={16} />
+                      ) : (
+                        <Globe size={16} color="#94a3b8" />
                       )}
                       <div
                         style={{
@@ -1655,8 +1704,10 @@ const Projects = () => {
                       gap: 8,
                     }}
                   >
-                    {p.country_flag && (
+                    {p.country_flag ? (
                       <FlagIcon value={p.country_flag} size={14} />
+                    ) : (
+                      <Globe size={14} color="#94a3b8" />
                     )}
                     <span
                       style={{
@@ -1846,6 +1897,74 @@ const Projects = () => {
           color: "var(--p-text)",
         }}
       >
+        {/* ── Project Limit Alert ──────────────────────────────────────── */}
+        {isProjectLimitReached && maxProjects && (
+          <div
+            style={{
+              background: dark
+                ? "rgba(239, 68, 68, 0.1)"
+                : "rgba(239, 68, 68, 0.05)",
+              border: "1px solid rgba(239, 68, 68, 0.3)",
+              padding: "12px 20px",
+              borderRadius: 10,
+              margin: "12px 16px 0",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              marginBottom: 12,
+            }}
+          >
+            <AlertCircle size={18} color="#ef4444" strokeWidth={2} />
+            <div style={{ flex: 1 }}>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: "#ef4444",
+                  fontFamily: "'DM Sans',sans-serif",
+                }}
+              >
+                Project Limit Reached
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: dark ? "rgba(239, 68, 68, 0.8)" : "#dc2626",
+                  marginTop: 2,
+                  fontFamily: "'DM Sans',sans-serif",
+                }}
+              >
+                You have reached the maximum of {maxProjects} project
+                {maxProjects !== 1 ? "s" : ""} allowed on your current plan.
+              </div>
+            </div>
+            <button
+              onClick={() => navigate("/subscription")}
+              style={{
+                padding: "6px 14px",
+                borderRadius: 7,
+                border: "1px solid #ef4444",
+                background: "transparent",
+                color: "#ef4444",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                fontFamily: "'DM Sans',sans-serif",
+                whiteSpace: "nowrap",
+                transition: "all 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+            >
+              Upgrade
+            </button>
+          </div>
+        )}
+
         {/* ── Header ──────────────────────────────────────────────────── */}
         <div
           style={{
@@ -1934,27 +2053,47 @@ const Projects = () => {
               </button>
               <button
                 onClick={() => {
+                  if (isProjectLimitReached) {
+                    message.error(
+                      `You've reached the maximum of ${maxProjects} project${maxProjects !== 1 ? "s" : ""} allowed on your current plan`,
+                    );
+                    return;
+                  }
                   setEditingProject(null);
                   setDrawerVisible(true);
                 }}
+                disabled={isProjectLimitReached}
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: 7,
                   padding: "8px 16px",
                   borderRadius: 9,
-                  background: "var(--p-accent)",
-                  color: "#fff",
+                  background: isProjectLimitReached
+                    ? "rgba(30,64,175,0.3)"
+                    : "var(--p-accent)",
+                  color: isProjectLimitReached
+                    ? "rgba(255,255,255,0.5)"
+                    : "#fff",
                   border: "none",
                   fontSize: 13,
                   fontWeight: 700,
-                  cursor: "pointer",
+                  cursor: isProjectLimitReached ? "not-allowed" : "pointer",
                   fontFamily: "'DM Sans',sans-serif",
                   transition: "opacity 0.15s",
-                  boxShadow: "0 2px 8px rgba(30,64,175,0.3)",
+                  boxShadow: isProjectLimitReached
+                    ? "none"
+                    : "0 2px 8px rgba(30,64,175,0.3)",
+                  opacity: isProjectLimitReached ? 0.6 : 1,
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
-                onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+                onMouseEnter={(e) =>
+                  !isProjectLimitReached &&
+                  (e.currentTarget.style.opacity = "0.9")
+                }
+                onMouseLeave={(e) =>
+                  !isProjectLimitReached &&
+                  (e.currentTarget.style.opacity = "1")
+                }
               >
                 <Plus size={14} /> New Project
               </button>
@@ -2742,6 +2881,7 @@ const Projects = () => {
               setEditingProject(null);
               fetchProjects(currentTenantId);
             }}
+            maxProjects={maxProjects}
           />
         </Drawer>
       </div>
@@ -2759,6 +2899,7 @@ const ProjectForm = ({
   tenantId,
   isDark,
   onClose,
+  maxProjects,
 }) => {
   const [form, setForm] = useState({
     name: project?.name || "",
@@ -2981,6 +3122,13 @@ const ProjectForm = ({
   const save = async () => {
     if (!form.name.trim()) {
       message.error("Project name required");
+      return;
+    }
+    // Check project limit when creating new project
+    if (!project && allProjects.length >= maxProjects && maxProjects) {
+      message.error(
+        `You've reached the maximum of ${maxProjects} project${maxProjects !== 1 ? "s" : ""} allowed on your current plan. Please upgrade to create more projects.`,
+      );
       return;
     }
     setSaving(true);

@@ -3,6 +3,12 @@ import { useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { Spin, Result, Input, Select, DatePicker, message } from "antd";
 import { Upload, CheckCircle, Loader2, Clock } from "lucide-react";
+import {
+  analyzeResumeAgainstJob,
+  buildScreeningNote,
+  createAiInterviewLink,
+  extractTextFromUploadedFile,
+} from "../lib/recruitmentAi";
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -45,6 +51,40 @@ const sendApplicationReceivedEmail = async ({
     });
   } catch (err) {
     console.warn("[ApplyPage] Confirmation email failed:", err.message);
+  }
+};
+
+const sendAiInterviewInvite = async ({
+  to,
+  applicantName,
+  jobTitle,
+  companyName,
+  logoUrl,
+  interviewLink,
+}) => {
+  try {
+    await fetch(`${EMAIL_API}/api/email/send`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${EMAIL_KEY}`,
+      },
+      body: JSON.stringify({
+        to,
+        templateType: "interview_scheduled",
+        applicantName,
+        jobTitle,
+        companyName: companyName || "Resosyncer",
+        logoUrl: logoUrl || null,
+        interviewDate: "Complete within 48 hours",
+        interviewTime: "Self-paced",
+        interviewFormat: "Agentic AI interview",
+        interviewerName: `${companyName || "Resosyncer"} AI Interviewer`,
+        meetingLink: interviewLink,
+      }),
+    });
+  } catch (err) {
+    console.warn("[ApplyPage] Interview invite failed:", err.message);
   }
 };
 
@@ -244,6 +284,7 @@ function ApplyForm() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submissionOutcome, setSubmissionOutcome] = useState("submitted");
   const [notFound, setNotFound] = useState(false);
   const [fetchError, setFetchError] = useState(null);
 
@@ -307,10 +348,15 @@ function ApplyForm() {
     try {
       let cvUrl = null;
       const answersWithFiles = { ...answers };
+      let resumeText = "";
+      let screening = null;
 
       for (const field of job.fields || []) {
         if (field.type === "file" && files[field.id]) {
           const file = files[field.id];
+          if (!resumeText) {
+            resumeText = await extractTextFromUploadedFile(file);
+          }
           const ext = file.name.split(".").pop().toLowerCase();
           const safeName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
           const path = `${jobId}/${safeName}`;
@@ -348,6 +394,21 @@ function ApplyForm() {
 
       const applicantName = answers[nameField?.id] || "Unknown";
       const applicantEmail = answers[emailField?.id] || "unknown@email.com";
+      const companyName = job.branding?.company_name || "Resosyncer";
+
+      try {
+        screening = await analyzeResumeAgainstJob({
+          job,
+          answers: answersWithFiles,
+          resumeText,
+        });
+        answersWithFiles.__aiScreening = screening;
+      } catch (screeningError) {
+        console.warn("[ApplyPage] Resume analysis failed:", screeningError.message);
+      }
+
+      const isShortlisted = (screening?.confidenceScore || 0) > 0.7;
+      const screeningNote = buildScreeningNote(screening);
 
       // ── Insert applicant and get back the new row's id ────────────────────
       const { data: inserted, error } = await supabase
@@ -358,9 +419,11 @@ function ApplyForm() {
             name: applicantName,
             email: applicantEmail,
             phone: answers[phoneField?.id] || null,
-            stage: "applied",
+            stage: isShortlisted ? "interview" : "screening",
             answers: answersWithFiles,
             cv_url: cvUrl,
+            score: null,
+            notes: screeningNote || null,
           },
         ])
         .select("id")
@@ -370,18 +433,49 @@ function ApplyForm() {
 
       const sendTracking = job.branding?.sendTrackingLink !== false;
       const applicantId = inserted?.id;
+      const interviewLink = applicantId ? createAiInterviewLink(applicantId) : "";
 
-      sendApplicationReceivedEmail({
-        to: applicantEmail,
-        applicantName,
-        jobTitle: job.title,
-        companyName: job.branding?.company_name || "Resosyncer",
-        logoUrl: job.branding?.logo_url || null,
-        trackingUrl:
-          sendTracking && applicantId
-            ? `${PUBLIC_DOMAIN}/track/${applicantId}`
-            : undefined,
-      });
+      if (isShortlisted && applicantId) {
+        const updatedAnswers = {
+          ...answersWithFiles,
+          __aiInterview: {
+            status: "invited",
+            interviewLink,
+            invitedAt: new Date().toISOString(),
+            generatedQuestions: screening?.screeningQuestions || [],
+          },
+        };
+
+        const { error: interviewUpdateError } = await supabase
+          .from("recruitment_applicants")
+          .update({ answers: updatedAnswers })
+          .eq("id", applicantId);
+
+        if (interviewUpdateError) throw interviewUpdateError;
+
+        await sendAiInterviewInvite({
+          to: applicantEmail,
+          applicantName,
+          jobTitle: job.title,
+          companyName,
+          logoUrl: job.branding?.logo_url || null,
+          interviewLink,
+        });
+        setSubmissionOutcome("shortlisted");
+      } else {
+        sendApplicationReceivedEmail({
+          to: applicantEmail,
+          applicantName,
+          jobTitle: job.title,
+          companyName,
+          logoUrl: job.branding?.logo_url || null,
+          trackingUrl:
+            sendTracking && applicantId
+              ? `${PUBLIC_DOMAIN}/track/${applicantId}`
+              : undefined,
+        });
+        setSubmissionOutcome("submitted");
+      }
 
       setSubmitted(true);
     } catch (err) {
@@ -456,7 +550,9 @@ function ApplyForm() {
 
           <p style={{ color: "#6b7280", fontSize: 15 }}>
             Thank you for applying for <strong>{job.title}</strong>.<br />
-            We'll be in touch soon. A confirmation has been sent to your email.
+            {submissionOutcome === "shortlisted"
+              ? "Your resume matched strongly, so we've sent an AI interview link to your email."
+              : "We'll be in touch soon. A confirmation has been sent to your email."}
           </p>
         </div>
       </div>

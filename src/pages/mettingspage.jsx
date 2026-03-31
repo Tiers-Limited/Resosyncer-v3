@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import {
@@ -144,6 +144,28 @@ function fmtMeetingDate(dt) {
   });
 }
 
+function createGuestProfile(roomId, name = "") {
+  const storageKey = `meeting-guest-${roomId}`;
+  let storedId = "";
+  try {
+    storedId = sessionStorage.getItem(storageKey) || "";
+    if (!storedId) {
+      storedId = `guest-${roomId}-${Math.random().toString(36).slice(2, 10)}`;
+      sessionStorage.setItem(storageKey, storedId);
+    }
+  } catch {
+    storedId = `guest-${roomId}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  return {
+    id: storedId,
+    full_name: name,
+    email: "",
+    user_photo: null,
+    isGuest: true,
+  };
+}
+
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
@@ -238,8 +260,51 @@ const styles = `
   .ctrl-btn-label { font-size: 9px; color: var(--text-3); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
   .ctrl-btn-danger .ctrl-btn-inner { background: var(--red); border-color: var(--red); color: white; width: 50px; height: 50px; border-radius: 14px; box-shadow: 0 4px 16px rgba(220,38,38,0.3); }
   .ctrl-btn-danger .ctrl-btn-inner:hover { background: #b91c1c; box-shadow: 0 8px 24px rgba(220,38,38,0.35); transform: scale(1.06); }
-  .video-grid { flex: 1; padding: 14px; display: grid; gap: 10px; overflow-y: auto; align-content: start; }
+  .video-grid { flex: 1; padding: 14px; display: grid; gap: 10px; overflow-y: auto; align-content: stretch; grid-auto-rows: minmax(0, 1fr); }
   .video-tile { position: relative; border-radius: var(--radius-lg); overflow: hidden; background: #e8e8e4; border: 1.5px solid var(--border); transition: all 0.2s ease; width: 100%; aspect-ratio: 16/9; box-shadow: var(--shadow-sm); }
+  .video-grid.single { grid-template-columns: minmax(0, 1fr) !important; }
+  .video-grid.double { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .video-grid.triple { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .video-grid.quad { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .video-grid.overflow { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  .video-grid.single .video-tile,
+  .video-grid.double .video-tile,
+  .video-grid.triple .video-tile,
+  .video-grid.quad .video-tile,
+  .video-grid.overflow .video-tile,
+  .video-grid.single .video-overflow-tile,
+  .video-grid.double .video-overflow-tile,
+  .video-grid.triple .video-overflow-tile,
+  .video-grid.quad .video-overflow-tile,
+  .video-grid.overflow .video-overflow-tile {
+    height: 100%;
+    aspect-ratio: auto;
+  }
+  .video-overflow-tile {
+    position: relative;
+    border-radius: var(--radius-lg);
+    border: 1.5px dashed var(--border-strong);
+    background:
+      linear-gradient(135deg, rgba(45,110,245,0.08) 0%, rgba(124,58,237,0.08) 100%);
+    aspect-ratio: 16/9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+  .video-overflow-count {
+    font-size: 34px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.04em;
+  }
+  .video-overflow-label {
+    font-size: 12px;
+    color: var(--text-2);
+    margin-top: 6px;
+    text-align: center;
+  }
   .video-tile:hover .tile-overlay { opacity: 1; }
   .video-tile.speaking { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow),var(--shadow); }
   .tile-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 50%); opacity: 0.6; transition: opacity 0.2s; pointer-events: none; }
@@ -855,12 +920,20 @@ function MeetingCreatedModal({ meeting, onJoin, onClose }) {
 }
 
 // ─── Lobby Screen ─────────────────────────────────────────────────────────────
-function LobbyScreen({ meeting, currentUser, isHost, onJoin, onBack }) {
+function LobbyScreen({
+  meeting,
+  currentUser,
+  isHost,
+  onJoin,
+  onBack,
+  onGuestNameChange,
+}) {
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
   const [stream, setStream] = useState(null);
   const [joining, setJoining] = useState(false);
   const videoRef = useRef(null);
+  const isGuest = !!currentUser?.isGuest;
 
   useEffect(() => {
     let s;
@@ -891,6 +964,7 @@ function LobbyScreen({ meeting, currentUser, isHost, onJoin, onBack }) {
     setCamOn((p) => !p);
   };
   const handleJoin = async () => {
+    if (isGuest && !currentUser?.full_name?.trim()) return;
     setJoining(true);
     stream?.getTracks().forEach((t) => t.stop());
     await onJoin({ micOn, camOn });
@@ -1109,6 +1183,38 @@ function LobbyScreen({ meeting, currentUser, isHost, onJoin, onBack }) {
               >
                 {meeting?.title || "Meeting"}
               </div>
+              {isGuest && (
+                <div style={{ marginBottom: 16 }}>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      color: "var(--text-3)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                      marginBottom: 8,
+                    }}
+                  >
+                    Join As Guest
+                  </div>
+                  <input
+                    value={currentUser?.full_name || ""}
+                    onChange={(e) => onGuestNameChange?.(e.target.value)}
+                    placeholder="Write your name"
+                    style={{
+                      width: "100%",
+                      border: "1px solid var(--border)",
+                      borderRadius: 12,
+                      padding: "12px 14px",
+                      fontSize: 14,
+                      fontFamily: "var(--font)",
+                      color: "var(--text)",
+                      background: "var(--bg)",
+                      outline: "none",
+                    }}
+                  />
+                </div>
+              )}
               {meeting?.description && (
                 <div
                   style={{
@@ -1245,7 +1351,7 @@ function LobbyScreen({ meeting, currentUser, isHost, onJoin, onBack }) {
           {canJoin ? (
             <button
               onClick={handleJoin}
-              disabled={joining}
+              disabled={joining || (isGuest && !currentUser?.full_name?.trim())}
               className={`btn ${isHost ? "btn-primary" : "btn-green"} btn-lg`}
             >
               {joining ? (
@@ -1389,12 +1495,23 @@ export default function MeetingRoom() {
   const chatEndRef = useRef(null);
   const chatLogRef = useRef([]);
   const roomSecRef = useRef(0);
+  const meetingStartedAtRef = useRef(null);
   const currentUserRef = useRef(null);
   const isHostRef = useRef(false);
   const micOnRef = useRef(true);
   const camOnRef = useRef(true);
   const screenOnRef = useRef(false);
   const participantRecordRef = useRef(null);
+  const speakingEntriesRef = useRef([]);
+  const speakingTimelineRef = useRef([]);
+  const activeSpeakerSegmentRef = useRef(null);
+  const speakingIdRef = useRef(null);
+  const meetingMixCtxRef = useRef(null);
+  const meetingMixDestRef = useRef(null);
+  const meetingMixNodesRef = useRef([]);
+  const meetingAudioRecorderRef = useRef(null);
+  const meetingAudioChunksRef = useRef([]);
+  const meetingAudioBlobRef = useRef(null);
 
   useEffect(() => {
     loadInitialData();
@@ -1418,18 +1535,42 @@ export default function MeetingRoom() {
     participantRecordRef.current = participantRecord;
   }, [participantRecord]);
 
+  const updateGuestName = useCallback(
+    (name) => {
+      setCurrentUser((prev) => {
+        const next = {
+          ...(prev || createGuestProfile(roomId)),
+          full_name: name,
+          isGuest: true,
+        };
+        currentUserRef.current = next;
+        setProfilesMap((current) => ({ ...current, [next.id]: next }));
+        return next;
+      });
+    },
+    [roomId],
+  );
+
   const loadInitialData = async () => {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single();
+
+    let profile = null;
+    if (user) {
+      const { data } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      profile = data || null;
+    } else {
+      profile = createGuestProfile(roomId);
+    }
+
     setCurrentUser(profile);
     currentUserRef.current = profile;
+
     if (meetingId) {
       const { data: mtg } = await supabase
         .from("meetings")
@@ -1438,7 +1579,7 @@ export default function MeetingRoom() {
         .single();
       setMeeting(mtg);
       const hostId = mtg?.created_by || mtg?.user_id;
-      const host = hostId === user.id;
+      const host = !!user && hostId === user.id;
       setIsHost(host);
       isHostRef.current = host;
       if (mtg?.tenant_id) {
@@ -1451,7 +1592,7 @@ export default function MeetingRoom() {
         (profs || []).forEach((p) => {
           map[p.id] = p;
         });
-        if (profile) map[user.id] = profile;
+        if (profile?.id) map[profile.id] = profile;
         setProfilesMap(map);
       } else {
         if (profile) setProfilesMap({ [profile.id]: profile });
@@ -1468,6 +1609,38 @@ export default function MeetingRoom() {
     try {
       audioCtxRef.current?.close();
     } catch {}
+    try {
+      meetingMixCtxRef.current?.close();
+    } catch {}
+    speakingEntriesRef.current.forEach(({ source, analyser }) => {
+      try {
+        source.disconnect();
+      } catch {}
+      try {
+        analyser.disconnect();
+      } catch {}
+    });
+    meetingMixNodesRef.current.forEach(({ source, gain }) => {
+      try {
+        source.disconnect();
+      } catch {}
+      try {
+        gain.disconnect();
+      } catch {}
+    });
+    if (
+      meetingAudioRecorderRef.current &&
+      meetingAudioRecorderRef.current.state !== "inactive"
+    ) {
+      try {
+        meetingAudioRecorderRef.current.stop();
+      } catch {}
+    }
+    speakingEntriesRef.current = [];
+    meetingMixNodesRef.current = [];
+    meetingMixCtxRef.current = null;
+    meetingMixDestRef.current = null;
+    meetingAudioRecorderRef.current = null;
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     screenStreamRef.current?.getTracks().forEach((t) => t.stop());
     Object.values(peerConnectionsRef.current).forEach((pc) => {
@@ -1880,9 +2053,8 @@ export default function MeetingRoom() {
         setCamOn(initCam);
         micOnRef.current = initMic;
         camOnRef.current = initCam;
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+        const currentProfile = currentUserRef.current || createGuestProfile(roomId);
+        const userId = currentProfile.id;
 
         // Get audio and video together for proper device negotiation
         let stream = new MediaStream();
@@ -1927,11 +2099,12 @@ export default function MeetingRoom() {
         cameraStreamRef.current = stream;
         localStreamRef.current = stream;
 
-        const profile = currentUserRef.current;
+        currentUserRef.current = currentProfile;
+        setCurrentUser(currentProfile);
         setParticipants([
           {
-            peerId: user.id,
-            profile,
+            peerId: userId,
+            profile: currentProfile,
             stream,
             isLocal: true,
             isHost: isHostRef.current,
@@ -1941,25 +2114,33 @@ export default function MeetingRoom() {
           },
         ]);
 
-        startAudioAnalysis(stream, user.id);
-        await setupSignaling(roomId, user.id, profile);
+        await setupSignaling(roomId, userId, currentProfile);
         addSysMsg("You joined the meeting");
+        meetingStartedAtRef.current = Date.now();
+        speakingTimelineRef.current = [];
+        activeSpeakerSegmentRef.current = null;
+        speakingIdRef.current = null;
+        meetingAudioBlobRef.current = null;
 
         if (meetingId) {
-          const { data: rec } = await supabase
-            .from("meeting_participants")
-            .insert({
-              meeting_id: meetingId,
-              user_id: user.id,
-              joined_at: new Date().toISOString(),
-              is_active: true,
-              video_enabled: initCam,
-              audio_enabled: initMic,
-              screen_sharing: false,
-            })
-            .select()
-            .single();
-          setParticipantRecord(rec);
+          if (!currentProfile.isGuest) {
+            const { data: rec } = await supabase
+              .from("meeting_participants")
+              .insert({
+                meeting_id: meetingId,
+                user_id: userId,
+                joined_at: new Date().toISOString(),
+                is_active: true,
+                video_enabled: initCam,
+                audio_enabled: initMic,
+                screen_sharing: false,
+              })
+              .select()
+              .single();
+            setParticipantRecord(rec);
+          } else {
+            setParticipantRecord(null);
+          }
           if (isHostRef.current) {
             await supabase
               .from("meetings")
@@ -1984,24 +2165,324 @@ export default function MeetingRoom() {
     [meetingId, roomId, setupSignaling],
   );
 
-  const startAudioAnalysis = (stream, userId) => {
+  const resolveSpeakerName = useCallback(
+    (speakerId) => {
+      if (!speakerId) return "Unknown";
+      if (speakerId === currentUserRef.current?.id) {
+        return currentUserRef.current?.full_name || "You";
+      }
+      return (
+        profilesMap[speakerId]?.full_name ||
+        participants.find((p) => p.peerId === speakerId)?.profile?.full_name ||
+        "Guest"
+      );
+    },
+    [participants, profilesMap],
+  );
+
+  const finalizeSpeakerSegment = useCallback((endedAt = Date.now()) => {
+    const segment = activeSpeakerSegmentRef.current;
+    if (!segment) return;
+    const durationMs = endedAt - segment.startedAt;
+    if (durationMs >= 1200) {
+      speakingTimelineRef.current.push({
+        speakerId: segment.speakerId,
+        speakerName: segment.speakerName,
+        startSec: Math.max(
+          0,
+          (segment.startedAt - (meetingStartedAtRef.current || segment.startedAt)) /
+            1000,
+        ),
+        endSec: Math.max(
+          0,
+          (endedAt - (meetingStartedAtRef.current || endedAt)) / 1000,
+        ),
+        durationSec: +(durationMs / 1000).toFixed(1),
+      });
+    }
+    activeSpeakerSegmentRef.current = null;
+  }, []);
+
+  const rebuildAudioAnalysis = useCallback(() => {
+    cancelAnimationFrame(rafRef.current);
+    speakingEntriesRef.current.forEach(({ source, analyser }) => {
+      try {
+        source.disconnect();
+      } catch {}
+      try {
+        analyser.disconnect();
+      } catch {}
+    });
+    speakingEntriesRef.current = [];
+
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const src = ctx.createMediaStreamSource(stream);
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 512;
-      src.connect(analyser);
+      const ctx = audioCtxRef.current || new AudioCtx();
       audioCtxRef.current = ctx;
+
+      const entries = [];
+      const localAudioStream = cameraStreamRef.current || localStreamRef.current;
+      const localTracks = localAudioStream?.getAudioTracks() || [];
+      if (localTracks.length) {
+        const source = ctx.createMediaStreamSource(new MediaStream(localTracks));
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 512;
+        source.connect(analyser);
+        entries.push({
+          source,
+          analyser,
+          speakerId: currentUserRef.current?.id,
+          threshold: micOnRef.current ? 15 : Number.POSITIVE_INFINITY,
+        });
+      }
+
+      participants
+        .filter((p) => !p.isLocal && p.stream?.getAudioTracks?.().length)
+        .forEach((participant) => {
+          const source = ctx.createMediaStreamSource(
+            new MediaStream(participant.stream.getAudioTracks()),
+          );
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 512;
+          source.connect(analyser);
+          entries.push({
+            source,
+            analyser,
+            speakerId: participant.peerId,
+            threshold: participant.micOn === false ? Number.POSITIVE_INFINITY : 18,
+          });
+        });
+
+      speakingEntriesRef.current = entries;
+
       const tick = () => {
-        const data = new Uint8Array(analyser.frequencyBinCount);
-        analyser.getByteFrequencyData(data);
-        const avg = data.reduce((a, b) => a + b, 0) / data.length;
-        setSpeakingId(avg > 15 ? userId : null);
+        let loudestSpeaker = null;
+        let loudestLevel = 0;
+
+        entries.forEach((entry) => {
+          const data = new Uint8Array(entry.analyser.frequencyBinCount);
+          entry.analyser.getByteFrequencyData(data);
+          const avg = data.reduce((sum, value) => sum + value, 0) / data.length;
+          if (avg > entry.threshold && avg > loudestLevel) {
+            loudestLevel = avg;
+            loudestSpeaker = entry.speakerId;
+          }
+        });
+
+        setSpeakingId((prev) => (prev === loudestSpeaker ? prev : loudestSpeaker));
         rafRef.current = requestAnimationFrame(tick);
       };
+
       rafRef.current = requestAnimationFrame(tick);
+    } catch (error) {
+      console.warn("Audio analysis unavailable:", error);
+    }
+  }, [participants]);
+
+  const rebuildMeetingAudioMix = useCallback(async () => {
+    if (!isHostRef.current) return;
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+
+    const ctx = meetingMixCtxRef.current || new AudioCtx();
+    meetingMixCtxRef.current = ctx;
+    if (!meetingMixDestRef.current) {
+      meetingMixDestRef.current = ctx.createMediaStreamDestination();
+    }
+
+    meetingMixNodesRef.current.forEach(({ source, gain }) => {
+      try {
+        source.disconnect();
+      } catch {}
+      try {
+        gain.disconnect();
+      } catch {}
+    });
+    meetingMixNodesRef.current = [];
+
+    const streams = [];
+    const localAudioStream = cameraStreamRef.current || localStreamRef.current;
+    if (localAudioStream?.getAudioTracks?.().length) {
+      streams.push(localAudioStream);
+    }
+    participants
+      .filter((p) => !p.isLocal && p.stream?.getAudioTracks?.().length)
+      .forEach((participant) => {
+        streams.push(participant.stream);
+      });
+
+    streams.forEach((stream) => {
+      const source = ctx.createMediaStreamSource(
+        new MediaStream(stream.getAudioTracks()),
+      );
+      const gain = ctx.createGain();
+      gain.gain.value = 1;
+      source.connect(gain);
+      gain.connect(meetingMixDestRef.current);
+      meetingMixNodesRef.current.push({ source, gain });
+    });
+
+    try {
+      await ctx.resume();
     } catch {}
-  };
+  }, [participants]);
+
+  const ensureMeetingAudioRecording = useCallback(async () => {
+    if (!isHostRef.current || meetingAudioRecorderRef.current) return;
+    const mixedStream = meetingMixDestRef.current?.stream;
+    if (!mixedStream?.getAudioTracks?.().length) return;
+
+    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+      ? "audio/webm;codecs=opus"
+      : "audio/webm";
+
+    const recorder = new MediaRecorder(mixedStream, { mimeType });
+    meetingAudioChunksRef.current = [];
+    recorder.ondataavailable = (event) => {
+      if (event.data?.size) {
+        meetingAudioChunksRef.current.push(event.data);
+      }
+    };
+    recorder.onstop = () => {
+      meetingAudioBlobRef.current = meetingAudioChunksRef.current.length
+        ? new Blob(meetingAudioChunksRef.current, {
+            type: recorder.mimeType || "audio/webm",
+          })
+        : null;
+      meetingAudioRecorderRef.current = null;
+    };
+    recorder.start(1000);
+    meetingAudioRecorderRef.current = recorder;
+  }, []);
+
+  const stopMeetingAudioRecording = useCallback(async () => {
+    const recorder = meetingAudioRecorderRef.current;
+    if (!recorder || recorder.state === "inactive") {
+      return meetingAudioBlobRef.current;
+    }
+
+    return await new Promise((resolve) => {
+      const handleStop = () => {
+        recorder.removeEventListener("stop", handleStop);
+        resolve(meetingAudioBlobRef.current);
+      };
+      recorder.addEventListener("stop", handleStop);
+      recorder.stop();
+    });
+  }, []);
+
+  const transcribeMeetingAudio = useCallback(async (audioBlob) => {
+    if (!audioBlob || !GROQ_API_KEY) return null;
+
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new File([audioBlob], "meeting-audio.webm", {
+        type: audioBlob.type || "audio/webm",
+      }),
+    );
+    formData.append("model", "whisper-large-v3-turbo");
+    formData.append("response_format", "verbose_json");
+    formData.append("language", "en");
+    formData.append("temperature", "0");
+    formData.append("timestamp_granularities[]", "segment");
+
+    const response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${GROQ_API_KEY}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error("Meeting transcription failed");
+    }
+
+    return await response.json();
+  }, []);
+
+  const buildAttributedTranscript = useCallback(
+    (transcription) => {
+      const segments = Array.isArray(transcription?.segments)
+        ? transcription.segments
+        : [];
+      if (!segments.length) {
+        return transcription?.text?.trim() || "";
+      }
+
+      const speakerTimeline = speakingTimelineRef.current;
+      const findSpeakerForSegment = (startSec, endSec) => {
+        let bestSpeaker = null;
+        let bestOverlap = 0;
+
+        speakerTimeline.forEach((segment) => {
+          const overlap =
+            Math.min(segment.endSec, endSec) - Math.max(segment.startSec, startSec);
+          if (overlap > bestOverlap) {
+            bestOverlap = overlap;
+            bestSpeaker = segment.speakerName;
+          }
+        });
+
+        return bestSpeaker || "Unknown Speaker";
+      };
+
+      return segments
+        .map((segment) => {
+          const text = segment.text?.trim();
+          if (!text) return null;
+          const speaker = findSpeakerForSegment(
+            Number(segment.start || 0),
+            Number(segment.end || segment.start || 0),
+          );
+          return `[${speaker}] ${text}`;
+        })
+        .filter(Boolean)
+        .join("\n");
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (phase !== "room") return;
+    rebuildAudioAnalysis();
+  }, [phase, participants, micOn, rebuildAudioAnalysis]);
+
+  useEffect(() => {
+    if (phase !== "room" || !isHost) return;
+    rebuildMeetingAudioMix().then(() => {
+      ensureMeetingAudioRecording();
+    });
+  }, [
+    phase,
+    isHost,
+    participants,
+    micOn,
+    rebuildMeetingAudioMix,
+    ensureMeetingAudioRecording,
+  ]);
+
+  useEffect(() => {
+    const now = Date.now();
+    if (speakingIdRef.current === speakingId) return;
+
+    if (speakingIdRef.current) {
+      finalizeSpeakerSegment(now);
+    }
+
+    speakingIdRef.current = speakingId;
+
+    if (speakingId) {
+      activeSpeakerSegmentRef.current = {
+        speakerId: speakingId,
+        speakerName: resolveSpeakerName(speakingId),
+        startedAt: now,
+      };
+    }
+  }, [speakingId, finalizeSpeakerSegment, resolveSpeakerName]);
 
   const addSysMsg = (text) => {
     setChatMessages((prev) => [
@@ -2515,6 +2996,10 @@ export default function MeetingRoom() {
           })
           .eq("id", rec.id);
       }
+      if (asHost) {
+        finalizeSpeakerSegment(Date.now());
+      }
+      const meetingAudioBlob = asHost ? await stopMeetingAudioRecording() : null;
       cleanup();
       const dur = Math.floor(roomSecRef.current / 60);
       if (meetingId && asHost) {
@@ -2526,10 +3011,16 @@ export default function MeetingRoom() {
       setPhase("ended");
       if (asHost) {
         setSummaryLoading(true);
-        await generateAISummary(dur);
+        await generateAISummary(dur, meetingAudioBlob);
       }
     },
-    [meetingId, cleanup, recOn],
+    [
+      meetingId,
+      cleanup,
+      recOn,
+      finalizeSpeakerSegment,
+      stopMeetingAudioRecording,
+    ],
   );
 
   const handleLeave = useCallback(
@@ -2542,7 +3033,7 @@ export default function MeetingRoom() {
   const endMeeting = () => handleLeave(true);
   const leaveMeeting = () => handleLeave(false);
 
-  const generateAISummary = async (dur) => {
+  const generateAISummary = async (dur, meetingAudioBlob) => {
     try {
       const mtg = meeting || {};
       const agendaItems = (() => {
@@ -2562,9 +3053,22 @@ export default function MeetingRoom() {
         )
         .join(", ");
       const chatLog = chatLogRef.current.filter((m) => !m.isSystem);
+      let transcription = null;
+      try {
+        transcription = await transcribeMeetingAudio(meetingAudioBlob);
+      } catch (error) {
+        console.warn("Meeting transcription unavailable:", error);
+      }
+      const attributedTranscript = buildAttributedTranscript(transcription);
+      const speakerTimeline = speakingTimelineRef.current
+        .map(
+          (segment) =>
+            `${segment.speakerName}: ${segment.startSec.toFixed(1)}s-${segment.endSec.toFixed(1)}s (${segment.durationSec}s)`,
+        )
+        .join("\n");
       const contextBlock =
-        `Meeting Title: ${mtg.title || "Team Meeting"}\nDuration: ${dur || "?"} minutes\nParticipants: ${attendeeNames || "Unknown"}\nAgenda: ${agendaItems.map((a, i) => `${i + 1}. ${a.text} (${a.dur} min)`).join("; ") || "None set"}\nChat Log:\n${chatLog.length ? chatLog.map((m) => `[${m.sender}]: ${m.text}`).join("\n") : "No chat messages recorded"}`.trim();
-      const systemPrompt = `You are an expert meeting analyst. Given meeting metadata and a chat log, return ONLY valid JSON (no markdown, no backticks) with this exact shape:\n{\n  "summary": "2-3 sentence summary of what was discussed and accomplished",\n  "actionItems": [{"text": "...", "assignee": "...", "due": "..."}],\n  "decisions": ["decision 1", "decision 2"],\n  "keyTopics": ["topic 1", "topic 2", "topic 3"],\n  "sentiment": {"engagement": 75, "positivity": 70, "resolution": 80}\n}`;
+        `Meeting Title: ${mtg.title || "Team Meeting"}\nDuration: ${dur || "?"} minutes\nParticipants: ${attendeeNames || "Unknown"}\nAgenda: ${agendaItems.map((a, i) => `${i + 1}. ${a.text} (${a.dur} min)`).join("; ") || "None set"}\nSpeaker Timeline:\n${speakerTimeline || "No speaker timeline captured"}\nSpoken Transcript:\n${attributedTranscript || transcription?.text || "No spoken transcript captured"}\nChat Log:\n${chatLog.length ? chatLog.map((m) => `[${m.sender}]: ${m.text}`).join("\n") : "No chat messages recorded"}`.trim();
+      const systemPrompt = `You are an expert meeting analyst. Analyze the full meeting using spoken transcript first, speaker timeline second, and chat log last. Attribute decisions and action items to speakers when the evidence is clear; otherwise use "Unassigned". Return ONLY valid JSON (no markdown, no backticks) with this exact shape:\n{\n  "summary": "2-4 sentence summary of what was discussed and accomplished",\n  "actionItems": [{"text": "...", "assignee": "...", "due": "..."}],\n  "decisions": ["decision 1", "decision 2"],\n  "keyTopics": ["topic 1", "topic 2", "topic 3"],\n  "sentiment": {"engagement": 75, "positivity": 70, "resolution": 80}\n}`;
       const raw = await groq(systemPrompt, contextBlock);
       const clean = raw.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(clean);
@@ -2576,7 +3080,13 @@ export default function MeetingRoom() {
             ai_action_items: parsed.actionItems,
             ai_decisions: parsed.decisions,
             ai_sentiment: parsed.sentiment,
-            transcript: JSON.stringify({ ...parsed, _chatLog: chatLog }),
+            transcript: JSON.stringify({
+              ...parsed,
+              _chatLog: chatLog,
+              _speakerTimeline: speakingTimelineRef.current,
+              _transcription: transcription?.text || "",
+              _attributedTranscript: attributedTranscript || "",
+            }),
           })
           .eq("id", meetingId);
       }
@@ -2619,13 +3129,29 @@ export default function MeetingRoom() {
     );
   };
 
-  const getGridCols = (n) => {
-    if (n === 1) return "1fr";
-    if (n <= 2) return "1fr 1fr";
-    if (n <= 4) return "1fr 1fr";
-    if (n <= 6) return "1fr 1fr 1fr";
-    return "1fr 1fr 1fr 1fr";
-  };
+  const getVisibleParticipants = useCallback((list) => {
+    if (list.length <= 4) {
+      return { visible: list, hiddenCount: 0 };
+    }
+    return { visible: list.slice(0, 4), hiddenCount: list.length - 4 };
+  }, []);
+
+  const visibleGridState = useMemo(() => {
+    const { visible, hiddenCount } = getVisibleParticipants(participants);
+    const visibleCount = visible.length + (hiddenCount > 0 ? 1 : 0);
+    const gridClass =
+      visibleCount <= 1
+        ? "video-grid single"
+        : visibleCount === 2
+          ? "video-grid double"
+          : visibleCount === 3
+            ? "video-grid triple"
+            : visibleCount === 4
+              ? "video-grid quad"
+              : "video-grid overflow";
+
+    return { visible, hiddenCount, gridClass };
+  }, [participants, getVisibleParticipants]);
 
   const screenSharer = participants.find((p) => p.isScreenShare);
   const toggleDrawer = (name) => {
@@ -2680,6 +3206,7 @@ export default function MeetingRoom() {
         currentUser={currentUser}
         isHost={isHost}
         onJoin={handleJoin}
+        onGuestNameChange={updateGuestName}
         onBack={() => window.history.back()}
       />
     );
@@ -3273,10 +3800,10 @@ export default function MeetingRoom() {
             </div>
           ) : (
             <div
-              className="video-grid"
-              style={{ gridTemplateColumns: getGridCols(participants.length) }}
+              className={visibleGridState.gridClass}
+              style={{ minHeight: 0 }}
             >
-              {participants.map((p, i) => {
+              {visibleGridState.visible.map((p, i) => {
                 const isPinned = pinnedId === p.peerId;
                 return (
                   <div
@@ -3305,6 +3832,27 @@ export default function MeetingRoom() {
                   </div>
                 );
               })}
+              {visibleGridState.hiddenCount > 0 && (
+                <div className="video-overflow-tile">
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: 20,
+                    }}
+                  >
+                    <div className="video-overflow-count">
+                      +{visibleGridState.hiddenCount}
+                    </div>
+                    <div className="video-overflow-label">
+                      more participant
+                      {visibleGridState.hiddenCount > 1 ? "s" : ""}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

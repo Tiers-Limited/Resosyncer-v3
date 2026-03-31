@@ -8,7 +8,6 @@ import {
   Upload,
   Modal,
   Tooltip,
-  Badge,
 } from "antd";
 import {
   FileTextOutlined,
@@ -28,19 +27,330 @@ import {
   SignatureOutlined,
   FontSizeOutlined,
   ClearOutlined,
-  ArrowLeftOutlined,
   CheckCircleFilled,
   ClockCircleOutlined,
   LockOutlined,
 } from "@ant-design/icons";
+import {
+  Lock,
+  ArrowRight,
+  Zap,
+  ChevronRight,
+  FileText,
+  Shield,
+  Scroll,
+  Briefcase,
+  Users,
+  FileCheck,
+  Handshake,
+} from "lucide-react";
+import { supabase } from "../lib/supabase";
 
 const { TextArea } = Input;
-const { Text } = Typography;
 const { Dragger } = Upload;
 
 const GROQ_API_KEY = import.meta.env.VITE_GROK_API_KEY;
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const TNR = "'Times New Roman', Times, serif";
+
+// ─── Document Types ─────────────────────────────────────────────────────────
+const DOC_TYPES = [
+  {
+    key: "contract",
+    label: "Service Contract",
+    icon: <FileText size={15} />,
+    desc: "General service or work agreements",
+    color: "#3b82f6",
+    bg: "#eff6ff",
+  },
+  {
+    key: "nda",
+    label: "NDA",
+    icon: <Shield size={15} />,
+    desc: "Non-disclosure agreements",
+    color: "#8b5cf6",
+    bg: "#f5f3ff",
+  },
+  {
+    key: "employment",
+    label: "Employment",
+    icon: <Briefcase size={15} />,
+    desc: "Employment & offer letters",
+    color: "#10b981",
+    bg: "#ecfdf5",
+  },
+  {
+    key: "partnership",
+    label: "Partnership",
+    icon: <Handshake size={15} />,
+    desc: "Business partnership agreements",
+    color: "#f59e0b",
+    bg: "#fffbeb",
+  },
+  {
+    key: "mou",
+    label: "MOU",
+    icon: <FileCheck size={15} />,
+    desc: "Memorandum of understanding",
+    color: "#6366f1",
+    bg: "#eef2ff",
+  },
+  {
+    key: "freelance",
+    label: "Freelance",
+    icon: <Users size={15} />,
+    desc: "Freelancer & consultant agreements",
+    color: "#0ea5e9",
+    bg: "#f0f9ff",
+  },
+  {
+    key: "custom",
+    label: "Custom",
+    icon: <FileTextOutlined style={{ fontSize: 15 }} />,
+    desc: "Any other legal document",
+    color: "#64748b",
+    bg: "#f8fafc",
+  },
+];
+
+const DOC_SYSTEM_PROMPTS = {
+  nda: `You are a professional legal document drafting assistant specializing in Non-Disclosure Agreements. Return ONLY a raw JSON object.
+
+JSON structure:
+{
+  "title": "DOCUMENT TITLE IN CAPS",
+  "parties": [
+    { "label": "Disclosing Party", "name": "[NAME]", "address": "[ADDRESS]", "email": "[EMAIL]" },
+    { "label": "Receiving Party", "name": "[NAME]", "address": "[ADDRESS]", "email": "[EMAIL]" }
+  ],
+  "sections": [
+    { "heading": "1. SECTION HEADING", "paragraphs": ["Legal prose."], "table": null }
+  ]
+}
+
+REQUIRED SECTIONS:
+1. DEFINITIONS
+2. PARTIES AND RECITALS
+3. CONFIDENTIAL INFORMATION
+4. OBLIGATIONS OF RECEIVING PARTY
+5. EXCLUSIONS FROM CONFIDENTIALITY
+6. TERM AND DURATION
+7. RETURN OR DESTRUCTION OF INFORMATION
+8. REMEDIES
+9. GOVERNING LAW AND DISPUTE RESOLUTION
+10. GENERAL PROVISIONS
+
+RULES: paragraphs are plain text arrays, no markdown, return ONLY JSON.`,
+
+  employment: `You are a professional legal document drafting assistant specializing in Employment Agreements. Return ONLY a raw JSON object.
+
+JSON structure:
+{
+  "title": "DOCUMENT TITLE IN CAPS",
+  "parties": [
+    { "label": "Employer", "name": "[NAME]", "address": "[ADDRESS]", "email": "[EMAIL]" },
+    { "label": "Employee", "name": "[NAME]", "address": "[ADDRESS]", "email": "[EMAIL]" }
+  ],
+  "sections": [
+    { "heading": "1. SECTION HEADING", "paragraphs": ["Legal prose."], "table": null }
+  ]
+}
+
+REQUIRED SECTIONS:
+1. DEFINITIONS AND INTERPRETATION
+2. PARTIES AND RECITALS
+3. POSITION AND DUTIES
+4. COMMENCEMENT AND TERM
+5. COMPENSATION AND BENEFITS — use table: Benefit | Details
+6. WORKING HOURS AND LOCATION
+7. LEAVE ENTITLEMENTS
+8. CONFIDENTIALITY AND NON-DISCLOSURE
+9. INTELLECTUAL PROPERTY
+10. NON-COMPETE AND NON-SOLICITATION
+11. TERMINATION
+12. GOVERNING LAW AND DISPUTE RESOLUTION
+13. GENERAL PROVISIONS
+
+RULES: paragraphs are plain text arrays, no markdown, return ONLY JSON.`,
+
+  partnership: `You are a professional legal document drafting assistant specializing in Partnership Agreements. Return ONLY a raw JSON object.
+
+JSON structure:
+{
+  "title": "DOCUMENT TITLE IN CAPS",
+  "parties": [
+    { "label": "Partner A", "name": "[NAME]", "address": "[ADDRESS]", "email": "[EMAIL]" },
+    { "label": "Partner B", "name": "[NAME]", "address": "[ADDRESS]", "email": "[EMAIL]" }
+  ],
+  "sections": [
+    { "heading": "1. SECTION HEADING", "paragraphs": ["Legal prose."], "table": null }
+  ]
+}
+
+REQUIRED SECTIONS:
+1. DEFINITIONS AND INTERPRETATION
+2. PARTIES AND FORMATION
+3. PURPOSE AND SCOPE
+4. CAPITAL CONTRIBUTIONS — use table: Partner | Contribution | Percentage
+5. PROFIT AND LOSS SHARING
+6. MANAGEMENT AND DECISION MAKING
+7. BANKING AND ACCOUNTS
+8. DUTIES AND OBLIGATIONS OF PARTNERS
+9. ADMISSION OF NEW PARTNERS
+10. TRANSFER OF INTEREST
+11. DISSOLUTION AND WINDING UP
+12. GOVERNING LAW AND DISPUTE RESOLUTION
+13. GENERAL PROVISIONS
+
+RULES: paragraphs are plain text arrays, no markdown, return ONLY JSON.`,
+
+  lease: `You are a professional legal document drafting assistant specializing in Lease Agreements. Return ONLY a raw JSON object.
+
+JSON structure:
+{
+  "title": "DOCUMENT TITLE IN CAPS",
+  "parties": [
+    { "label": "Lessor / Landlord", "name": "[NAME]", "address": "[ADDRESS]", "email": "[EMAIL]" },
+    { "label": "Lessee / Tenant", "name": "[NAME]", "address": "[ADDRESS]", "email": "[EMAIL]" }
+  ],
+  "sections": [
+    { "heading": "1. SECTION HEADING", "paragraphs": ["Legal prose."], "table": null }
+  ]
+}
+
+REQUIRED SECTIONS:
+1. DEFINITIONS
+2. PARTIES AND PREMISES
+3. LEASE TERM
+4. RENT AND PAYMENT TERMS — use table: Item | Amount | Due Date
+5. SECURITY DEPOSIT
+6. USE OF PREMISES
+7. MAINTENANCE AND REPAIRS
+8. ALTERATIONS AND IMPROVEMENTS
+9. INSURANCE
+10. SUBLETTING AND ASSIGNMENT
+11. DEFAULT AND REMEDIES
+12. TERMINATION
+13. GOVERNING LAW AND DISPUTE RESOLUTION
+14. GENERAL PROVISIONS
+
+RULES: paragraphs are plain text arrays, no markdown, return ONLY JSON.`,
+
+  mou: `You are a professional legal document drafting assistant specializing in Memoranda of Understanding. Return ONLY a raw JSON object.
+
+JSON structure:
+{
+  "title": "DOCUMENT TITLE IN CAPS",
+  "parties": [
+    { "label": "Party A", "name": "[NAME]", "address": "[ADDRESS]", "email": "[EMAIL]" },
+    { "label": "Party B", "name": "[NAME]", "address": "[ADDRESS]", "email": "[EMAIL]" }
+  ],
+  "sections": [
+    { "heading": "1. SECTION HEADING", "paragraphs": ["Legal prose."], "table": null }
+  ]
+}
+
+REQUIRED SECTIONS:
+1. PURPOSE AND BACKGROUND
+2. PARTIES
+3. SCOPE OF COLLABORATION
+4. ROLES AND RESPONSIBILITIES — use table: Party | Responsibilities
+5. TIMELINE AND MILESTONES — use table: Milestone | Target Date
+6. FINANCIAL ARRANGEMENTS
+7. CONFIDENTIALITY
+8. INTELLECTUAL PROPERTY
+9. TERM AND TERMINATION
+10. NON-BINDING NATURE
+11. GOVERNING LAW
+12. GENERAL PROVISIONS
+
+RULES: paragraphs are plain text arrays, no markdown, return ONLY JSON.`,
+
+  freelance: `You are a professional legal document drafting assistant specializing in Freelance/Consultant Agreements. Return ONLY a raw JSON object.
+
+JSON structure:
+{
+  "title": "DOCUMENT TITLE IN CAPS",
+  "parties": [
+    { "label": "Client", "name": "[NAME]", "address": "[ADDRESS]", "email": "[EMAIL]" },
+    { "label": "Freelancer / Consultant", "name": "[NAME]", "address": "[ADDRESS]", "email": "[EMAIL]" }
+  ],
+  "sections": [
+    { "heading": "1. SECTION HEADING", "paragraphs": ["Legal prose."], "table": null }
+  ]
+}
+
+REQUIRED SECTIONS:
+1. DEFINITIONS AND INTERPRETATION
+2. PARTIES AND RECITALS
+3. SCOPE OF SERVICES
+4. DELIVERABLES AND ACCEPTANCE
+5. PROJECT TIMELINE — use table: Milestone | Deadline | Deliverable
+6. FEES AND PAYMENT — use table: Item | Rate/Amount
+7. INDEPENDENT CONTRACTOR STATUS
+8. INTELLECTUAL PROPERTY
+9. CONFIDENTIALITY
+10. WARRANTIES
+11. LIMITATION OF LIABILITY
+12. TERMINATION
+13. GOVERNING LAW
+14. GENERAL PROVISIONS
+
+RULES: paragraphs are plain text arrays, no markdown, return ONLY JSON.`,
+
+  contract: `You are a professional legal contract drafting assistant. Return ONLY a raw JSON object — no markdown, no code fences, no explanation.
+
+JSON structure:
+{
+  "title": "CONTRACT TITLE IN CAPS",
+  "parties": [
+    { "label": "Service Provider", "name": "[NAME]", "address": "[ADDRESS]", "email": "[EMAIL]" },
+    { "label": "Client", "name": "[NAME]", "address": "[ADDRESS]", "email": "[EMAIL]" }
+  ],
+  "sections": [
+    { "heading": "1. SECTION HEADING", "paragraphs": ["Legal prose paragraph one.", "Paragraph two if needed."], "table": null }
+  ]
+}
+
+REQUIRED SECTIONS:
+1. DEFINITIONS AND INTERPRETATION
+2. PARTIES AND RECITALS
+3. SCOPE OF WORK
+4. DELIVERABLES AND ACCEPTANCE CRITERIA
+5. PROJECT TIMELINE AND MILESTONES — use table: Phase | Duration | Deliverable
+6. PAYMENT TERMS — use table if milestone-based
+7. TECHNOLOGY STACK — use table: Layer | Technology
+8. INTELLECTUAL PROPERTY RIGHTS
+9. CONFIDENTIALITY AND NON-DISCLOSURE
+10. WARRANTIES AND REPRESENTATIONS
+11. LIMITATION OF LIABILITY AND INDEMNIFICATION
+12. TERMINATION
+13. GOVERNING LAW AND DISPUTE RESOLUTION
+14. GENERAL PROVISIONS
+
+RULES: paragraphs are plain text arrays, no markdown, return ONLY JSON.`,
+
+  custom: `You are a professional legal document drafting assistant. The user will describe the document they need. Infer the appropriate document type, parties, and sections. Return ONLY a raw JSON object.
+
+JSON structure:
+{
+  "title": "DOCUMENT TITLE IN CAPS",
+  "parties": [
+    { "label": "Party Label", "name": "[NAME]", "address": "[ADDRESS]", "email": "[EMAIL]" }
+  ],
+  "sections": [
+    { "heading": "1. SECTION HEADING", "paragraphs": ["Legal prose."], "table": null }
+  ]
+}
+
+RULES:
+- Create appropriate sections based on the document type described
+- Use tables where data is tabular/structured
+- paragraphs are plain text arrays
+- No markdown anywhere
+- Minimum 10 sections
+- Return ONLY JSON`,
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function loadScript(src) {
@@ -66,53 +376,12 @@ async function ensureLibraries() {
   );
 }
 
-const SYSTEM_PROMPT = `You are a professional legal contract drafting assistant. Return ONLY a raw JSON object — no markdown, no code fences, no explanation.
+const buildPrompt = (text, extra, docType) =>
+  `Generate a complete professional ${DOC_TYPES.find((d) => d.key === docType)?.label || "legal document"} based on the following:\n\n${text.slice(0, 14000)}${extra ? `\n\nExtra instructions: ${extra}` : ""}`;
 
-JSON structure:
-{
-  "title": "CONTRACT TITLE IN CAPS",
-  "parties": [
-    { "label": "Service Provider", "name": "[NAME]", "address": "[ADDRESS]", "email": "[EMAIL]" },
-    { "label": "Client", "name": "[NAME]", "address": "[ADDRESS]", "email": "[EMAIL]" }
-  ],
-  "sections": [
-    {
-      "heading": "1. SECTION HEADING",
-      "paragraphs": ["Legal prose paragraph one.", "Paragraph two if needed."],
-      "table": null
-    }
-  ]
-}
-
-REQUIRED SECTIONS (numbered, ALL CAPS headings):
-1. DEFINITIONS AND INTERPRETATION
-2. PARTIES AND RECITALS (WHEREAS clauses)
-3. SCOPE OF WORK
-4. DELIVERABLES AND ACCEPTANCE CRITERIA
-5. PROJECT TIMELINE AND MILESTONES — MUST use a table with Phase/Duration/Deliverable
-6. PAYMENT TERMS — use table if milestone-based
-7. TECHNOLOGY STACK — use table: Layer | Technology
-8. INTELLECTUAL PROPERTY RIGHTS
-9. CONFIDENTIALITY AND NON-DISCLOSURE
-10. WARRANTIES AND REPRESENTATIONS
-11. LIMITATION OF LIABILITY AND INDEMNIFICATION
-12. TERMINATION
-13. GOVERNING LAW AND DISPUTE RESOLUTION
-14. GENERAL PROVISIONS AND MISCELLANEOUS
-
-RULES:
-- paragraphs: array of plain text strings, each 2-4 sentences of legal prose
-- table: use whenever section has structured/tabular data
-- NO markdown in any field
-- Total prose: 900-1300 words
-- Do NOT include signatures in sections
-- Return ONLY the JSON`;
-
-const buildPrompt = (text, extra) =>
-  `Extract all project details from this document and generate a complete professional legal contract:\n\n--- DOCUMENT ---\n${text.slice(0, 14000)}\n--- END ---${extra ? `\n\nExtra instructions: ${extra}` : ""}`;
-
-async function callGroq(userContent) {
+async function callGroq(userContent, docType) {
   if (!GROQ_API_KEY) throw new Error("VITE_GROK_API_KEY not set in .env");
+  const systemPrompt = DOC_SYSTEM_PROMPTS[docType] || DOC_SYSTEM_PROMPTS.custom;
   const res = await fetch(GROQ_URL, {
     method: "POST",
     headers: {
@@ -122,7 +391,7 @@ async function callGroq(userContent) {
     body: JSON.stringify({
       model: "llama-3.3-70b-versatile",
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         { role: "user", content: userContent },
       ],
       temperature: 0.25,
@@ -211,7 +480,7 @@ async function extractTextFromFile(file) {
   return "";
 }
 
-async function downloadContractPDF({
+async function downloadDocumentPDF({
   docTitle,
   effectiveDate,
   companyName,
@@ -250,7 +519,7 @@ async function downloadContractPDF({
     doc.setFont("times", "italic");
     doc.setFontSize(7.5);
     doc.setTextColor(...C.light);
-    doc.text((docTitle || "CONTRACT").toUpperCase(), ML, 36);
+    doc.text((docTitle || "DOCUMENT").toUpperCase(), ML, 36);
     doc.text(companyName ? companyName.toUpperCase() : "", PW - MR, 36, {
       align: "right",
     });
@@ -352,7 +621,7 @@ async function downloadContractPDF({
   doc.setFont("times", "bold");
   doc.setFontSize(20);
   doc.setTextColor(...C.black);
-  const titleText = (docTitle || "CONTRACT AGREEMENT").toUpperCase();
+  const titleText = (docTitle || "LEGAL DOCUMENT").toUpperCase();
   const titleLines = doc.splitTextToSize(titleText, CW);
   titleLines.forEach((line) => {
     doc.text(line, PW / 2, y, { align: "center" });
@@ -571,11 +840,694 @@ async function downloadContractPDF({
   }
   drawPageChrome();
   const filename =
-    (docTitle || "Contract").replace(/[^a-zA-Z0-9 _-]/g, "").trim() + ".pdf";
+    (docTitle || "Document").replace(/[^a-zA-Z0-9 _-]/g, "").trim() + ".pdf";
   doc.save(filename);
 }
 
-// ─── Signature Modal ───────────────────────────────────────────────────────────
+// ─── Paywall ──────────────────────────────────────────────────────────────────
+function DocumentGeneratorPaywall() {
+  const features = [
+    {
+      icon: <FileText size={16} />,
+      title: "8 Document Types",
+      desc: "Contracts, NDAs, employment, partnership, lease, MOU, freelance and more.",
+    },
+    {
+      icon: <ThunderboltOutlined style={{ fontSize: 16 }} />,
+      title: "AI-Powered Drafting",
+      desc: "Llama 3.3 generates complete, legally structured documents in seconds.",
+    },
+    {
+      icon: <EditOutlined style={{ fontSize: 16 }} />,
+      title: "Inline Editing",
+      desc: "Click any clause, heading or table cell to edit directly in the document.",
+    },
+    {
+      icon: <SignatureOutlined style={{ fontSize: 16 }} />,
+      title: "Digital Signatures",
+      desc: "Draw, type or upload signatures and embed them directly in the PDF.",
+    },
+    {
+      icon: <DownloadOutlined style={{ fontSize: 16 }} />,
+      title: "PDF Export",
+      desc: "Professional PDF output with headers, tables, page numbers, and your logo.",
+    },
+    {
+      icon: <Shield size={16} />,
+      title: "Confidential Stamp",
+      desc: "Mark documents as confidential with a professional watermark stamp.",
+    },
+  ];
+
+  const mockDocs = [
+    {
+      name: "Service Agreement — Acme Corp",
+      type: "Contract",
+      color: "#3b82f6",
+      date: "Mar 28, 2026",
+    },
+    {
+      name: "Non-Disclosure Agreement",
+      type: "NDA",
+      color: "#8b5cf6",
+      date: "Mar 25, 2026",
+    },
+    {
+      name: "Employment Contract — J. Smith",
+      type: "Employment",
+      color: "#10b981",
+      date: "Mar 20, 2026",
+    },
+    {
+      name: "Partnership Agreement",
+      type: "Partnership",
+      color: "#f59e0b",
+      date: "Mar 15, 2026",
+    },
+  ];
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
+      {/* Header */}
+      <div
+        style={{
+          background: "#fff",
+          borderBottom: "1px solid #e2e8f0",
+          padding: "20px 28px",
+          marginBottom: 24,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 16,
+          }}
+        >
+          <div>
+            <h1
+              style={{
+                margin: "0 0 4px",
+                fontSize: 26,
+                fontWeight: 800,
+                color: "#0f172a",
+                letterSpacing: "-0.04em",
+                lineHeight: 1,
+              }}
+            >
+              Document Generator
+            </h1>
+            <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>
+              AI-powered · 8 document types · PDF export · Digital signatures
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding: "0 28px 40px" }}>
+        {/* Blurred KPI strip */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: 12,
+            marginBottom: 24,
+            filter: "blur(6px)",
+            pointerEvents: "none",
+            userSelect: "none",
+            opacity: 0.45,
+          }}
+        >
+          {[
+            ["#3b82f6", "24", "Documents Created"],
+            ["#8b5cf6", "8", "Document Types"],
+            ["#10b981", "12", "Signed Documents"],
+            ["#f59e0b", "3", "This Week"],
+          ].map(([color, val, label]) => (
+            <div
+              key={label}
+              style={{
+                background: "#fff",
+                border: "1px solid #e2e8f0",
+                borderRadius: 14,
+                padding: "18px 20px",
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+              }}
+            >
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 12,
+                  background: `${color}15`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color,
+                }}
+              >
+                <FileText size={18} />
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 26,
+                    fontWeight: 800,
+                    color: "#0f172a",
+                    lineHeight: 1,
+                  }}
+                >
+                  {val}
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "#94a3b8",
+                    marginTop: 3,
+                    fontWeight: 500,
+                  }}
+                >
+                  {label}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Main paywall card */}
+        <div
+          style={{
+            position: "relative",
+            background: "#fff",
+            border: "1px solid #e2e8f0",
+            borderRadius: 20,
+            overflow: "hidden",
+          }}
+        >
+          {/* Blurred mock + badge wrapper */}
+          <div style={{ position: "relative" }}>
+            {/* Blurred mock UI */}
+            <div
+              style={{
+                filter: "blur(5px)",
+                pointerEvents: "none",
+                userSelect: "none",
+                opacity: 0.3,
+                borderBottom: "1px solid #e2e8f0",
+                overflow: "hidden",
+                padding: "24px 24px 0",
+              }}
+            >
+              {/* Doc type pills */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  marginBottom: 20,
+                  flexWrap: "wrap",
+                }}
+              >
+                {DOC_TYPES.slice(0, 6).map((d) => (
+                  <div
+                    key={d.key}
+                    style={{
+                      padding: "6px 14px",
+                      borderRadius: 20,
+                      background: d.bg,
+                      color: d.color,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      border: `1px solid ${d.color}30`,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    {d.icon} {d.label}
+                  </div>
+                ))}
+              </div>
+              {/* Mock doc list */}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                  paddingBottom: 20,
+                }}
+              >
+                {mockDocs.map((d, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 10,
+                      padding: "12px 16px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      borderLeft: `3px solid ${d.color}`,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 9,
+                        background: `${d.color}15`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: d.color,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <FileText size={16} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          fontSize: 13,
+                          color: "#0f172a",
+                        }}
+                      >
+                        {d.name}
+                      </div>
+                      <div
+                        style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}
+                      >
+                        {d.date}
+                      </div>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: d.color,
+                        background: `${d.color}12`,
+                        padding: "2px 8px",
+                        borderRadius: 5,
+                      }}
+                    >
+                      {d.type}
+                    </span>
+                    <div
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 7,
+                        background: "#f1f5f9",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#94a3b8",
+                      }}
+                    >
+                      <DownloadOutlined style={{ fontSize: 12 }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Pro badge centered on blur */}
+            <div
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                zIndex: 10,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 7,
+                padding: "8px 18px",
+                background: "linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%)",
+                border: "1px solid #ddd6fe",
+                borderRadius: 30,
+                backdropFilter: "blur(2px)",
+                boxShadow: "0 4px 16px rgba(99,102,241,0.15)",
+                whiteSpace: "nowrap",
+                marginTop: -100,
+              }}
+            >
+              <div
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <Lock size={11} color="#fff" />
+              </div>
+              <span
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
+                Pro Feature
+              </span>
+            </div>
+          </div>
+
+          {/* Paywall content */}
+          <div
+            style={{
+              position: "relative",
+              padding: "48px 40px 44px",
+              marginTop: -290,
+              background:
+                "linear-gradient(180deg, rgba(255,255,255,0) 0%, #fff 8%)",
+            }}
+          >
+            {/* Headline */}
+            <div style={{ textAlign: "center", marginBottom: 12 }}>
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: 30,
+                  fontWeight: 900,
+                  color: "#0f172a",
+                  letterSpacing: "-0.04em",
+                  lineHeight: 1.15,
+                }}
+              >
+                Generate any legal document with
+                <br />
+                <span
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  AI in seconds
+                </span>
+              </h2>
+            </div>
+            <p
+              style={{
+                textAlign: "center",
+                fontSize: 15,
+                color: "#64748b",
+                maxWidth: 480,
+                margin: "0 auto 36px",
+                lineHeight: 1.6,
+              }}
+            >
+              From NDAs to employment contracts, lease agreements to
+              partnerships — describe your document and get a complete,
+              professional draft ready to sign and download.
+            </p>
+
+            {/* Doc type grid */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4, 1fr)",
+                gap: 10,
+                maxWidth: 760,
+                margin: "0 auto 28px",
+              }}
+            >
+              {DOC_TYPES.map((d) => (
+                <div
+                  key={d.key}
+                  style={{
+                    padding: "14px 16px",
+                    background: d.bg,
+                    border: `1px solid ${d.color}25`,
+                    borderRadius: 12,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <div style={{ color: d.color, flexShrink: 0 }}>{d.icon}</div>
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "#0f172a",
+                      }}
+                    >
+                      {d.label}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: "#64748b",
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {d.desc}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Feature grid */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gap: 12,
+                maxWidth: 760,
+                margin: "0 auto 36px",
+              }}
+            >
+              {features.map((f, i) => (
+                <div
+                  key={i}
+                  style={{
+                    padding: "16px 18px",
+                    background: "#f8fafc",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 12,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 9,
+                      background: "#fff",
+                      border: "1px solid #e2e8f0",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#3b82f6",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {f.icon}
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: "#0f172a",
+                        marginBottom: 3,
+                      }}
+                    >
+                      {f.title}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#64748b",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {f.desc}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* How it works */}
+            <div
+              style={{
+                maxWidth: 760,
+                margin: "0 auto 36px",
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                borderRadius: 14,
+                padding: "20px 24px",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "#94a3b8",
+                  letterSpacing: "0.07em",
+                  marginBottom: 16,
+                }}
+              >
+                HOW IT WORKS
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                {[
+                  {
+                    label: "Choose Type",
+                    sub: "Pick from 8 document types",
+                    color: "#3b82f6",
+                    icon: <FileText size={14} />,
+                  },
+                  {
+                    label: "Describe It",
+                    sub: "Or upload an existing doc",
+                    color: "#6366f1",
+                    icon: <EditOutlined style={{ fontSize: 14 }} />,
+                  },
+                  {
+                    label: "AI Drafts",
+                    sub: "Full legal document in ~15s",
+                    color: "#8b5cf6",
+                    icon: <ThunderboltOutlined style={{ fontSize: 14 }} />,
+                  },
+                  {
+                    label: "Sign & Export",
+                    sub: "Add signatures, download PDF",
+                    color: "#10b981",
+                    icon: <DownloadOutlined style={{ fontSize: 14 }} />,
+                  },
+                ].map((s, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      flex: 1,
+                      minWidth: 0,
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
+                      <div
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 12,
+                          background: `${s.color}12`,
+                          border: `1.5px solid ${s.color}30`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: s.color,
+                          margin: "0 auto 8px",
+                        }}
+                      >
+                        {s.icon}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color: "#0f172a",
+                          marginBottom: 2,
+                        }}
+                      >
+                        {s.label}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "#94a3b8",
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {s.sub}
+                      </div>
+                    </div>
+                    {i < 3 && (
+                      <div
+                        style={{
+                          flexShrink: 0,
+                          padding: "0 4px",
+                          color: "#d1d5db",
+                        }}
+                      >
+                        <ChevronRight size={16} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* CTA */}
+            <div style={{ textAlign: "center" }}>
+              <a
+                href="/subscription"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "14px 32px",
+                  background:
+                    "linear-gradient(135deg, #1e40af 0%, #7c3aed 100%)",
+                  color: "#fff",
+                  borderRadius: 12,
+                  fontWeight: 800,
+                  fontSize: 15,
+                  textDecoration: "none",
+                  letterSpacing: "-0.01em",
+                  boxShadow:
+                    "0 4px 24px rgba(99,102,241,0.35), 0 1px 3px rgba(0,0,0,0.1)",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                  e.currentTarget.style.boxShadow =
+                    "0 8px 32px rgba(99,102,241,0.45), 0 1px 3px rgba(0,0,0,0.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow =
+                    "0 4px 24px rgba(99,102,241,0.35), 0 1px 3px rgba(0,0,0,0.1)";
+                }}
+              >
+                <Zap size={16} fill="currentColor" />
+                Upgrade to unlock Document Generator
+                <ArrowRight size={16} />
+              </a>
+              <p style={{ margin: "12px 0 0", fontSize: 12, color: "#94a3b8" }}>
+                Upgrade your plan to access AI document generation and all Pro
+                features.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Signature Modal ──────────────────────────────────────────────────────────
 function SignatureModal({ visible, onClose, onSave, signerName }) {
   const [mode, setMode] = useState("draw");
   const [textSig, setTextSig] = useState(signerName || "");
@@ -603,8 +1555,8 @@ function SignatureModal({ visible, onClose, onSave, signerName }) {
 
   const getPos = (e, canvas) => {
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    const scaleX = canvas.width / rect.width,
+      scaleY = canvas.height / rect.height;
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     return {
@@ -612,7 +1564,6 @@ function SignatureModal({ visible, onClose, onSave, signerName }) {
       y: (clientY - rect.top) * scaleY,
     };
   };
-
   const startDraw = (e) => {
     e.preventDefault();
     drawing.current = true;
@@ -684,7 +1635,6 @@ function SignatureModal({ visible, onClose, onSave, signerName }) {
     reader.readAsDataURL(file);
     return false;
   };
-
   const fonts = [
     "Dancing Script",
     "Pacifico",
@@ -724,8 +1674,6 @@ function SignatureModal({ visible, onClose, onSave, signerName }) {
             Draw, type, or upload your signature
           </p>
         </div>
-
-        {/* Mode tabs */}
         <div className="flex rounded-lg bg-gray-50 border border-gray-100 p-0.5 mb-5">
           {[
             ["draw", <SignatureOutlined />, "Draw"],
@@ -741,7 +1689,6 @@ function SignatureModal({ visible, onClose, onSave, signerName }) {
             </button>
           ))}
         </div>
-
         {mode === "draw" && (
           <div>
             <div className="flex justify-between items-center mb-2">
@@ -771,7 +1718,6 @@ function SignatureModal({ visible, onClose, onSave, signerName }) {
             <p className="text-xs text-gray-300 text-center mt-2">Sign above</p>
           </div>
         )}
-
         {mode === "text" && (
           <div className="flex flex-col gap-3">
             <Input
@@ -816,7 +1762,6 @@ function SignatureModal({ visible, onClose, onSave, signerName }) {
             )}
           </div>
         )}
-
         {mode === "upload" && (
           <Dragger
             accept="image/*"
@@ -836,7 +1781,6 @@ function SignatureModal({ visible, onClose, onSave, signerName }) {
             </div>
           </Dragger>
         )}
-
         <div className="flex gap-2 justify-end mt-5 pt-4 border-t border-gray-100">
           <Button onClick={onClose} className="rounded-lg">
             Cancel
@@ -857,7 +1801,7 @@ function SignatureModal({ visible, onClose, onSave, signerName }) {
   );
 }
 
-// ─── Editable Block ─────────────────────────────────────────────────────────────
+// ─── Editable Block ───────────────────────────────────────────────────────────
 function EditableBlock({ value, isHeading, onEdit, onDelete, onAddAfter }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(value);
@@ -969,10 +1913,9 @@ function EditableBlock({ value, isHeading, onEdit, onDelete, onAddAfter }) {
   );
 }
 
-// ─── Signature Card ─────────────────────────────────────────────────────────────
+// ─── Signature Card ───────────────────────────────────────────────────────────
 function SignatureCard({ sig, idx, onChange, onRemove }) {
   const [sigModalOpen, setSigModalOpen] = useState(false);
-
   return (
     <div className="border border-gray-100 rounded-xl p-4 bg-white relative">
       <div className="absolute top-3 right-3">
@@ -1021,7 +1964,6 @@ function SignatureCard({ sig, idx, onChange, onRemove }) {
           />
         ))}
       </div>
-
       {sig.signatureImage ? (
         <div className="border border-gray-100 rounded-lg p-2 bg-gray-50 flex items-center justify-between">
           <img
@@ -1057,7 +1999,6 @@ function SignatureCard({ sig, idx, onChange, onRemove }) {
           <SignatureOutlined style={{ fontSize: 13 }} /> Add Signature
         </button>
       )}
-
       <div className="mt-2.5 flex items-center gap-2">
         <input
           type="checkbox"
@@ -1073,7 +2014,6 @@ function SignatureCard({ sig, idx, onChange, onRemove }) {
           Include witness line
         </label>
       </div>
-
       <SignatureModal
         visible={sigModalOpen}
         onClose={() => setSigModalOpen(false)}
@@ -1084,7 +2024,6 @@ function SignatureCard({ sig, idx, onChange, onRemove }) {
   );
 }
 
-// ─── Sidebar Panel ─────────────────────────────────────────────────────────────
 function SidePanel({ title, children, action }) {
   return (
     <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
@@ -1097,8 +2036,12 @@ function SidePanel({ title, children, action }) {
   );
 }
 
-// ─── Main ──────────────────────────────────────────────────────────────────────
-export default function ContractGenerator() {
+// ─── Main ─────────────────────────────────────────────────────────────────────
+export default function DocumentGenerator() {
+  const [orgPlan, setOrgPlan] = useState(null);
+  const [planLoading, setPlanLoading] = useState(true);
+
+  const [docType, setDocType] = useState("contract");
   const [inputMode, setInputMode] = useState("text");
   const [prompt, setPrompt] = useState("");
   const [uploadedFile, setUploadedFile] = useState(null);
@@ -1119,7 +2062,7 @@ export default function ContractGenerator() {
   const [parties, setParties] = useState([]);
   const [signatures, setSignatures] = useState([
     {
-      role: "Service Provider",
+      role: "Party A",
       name: "",
       title: "",
       date: "",
@@ -1127,7 +2070,7 @@ export default function ContractGenerator() {
       signatureImage: null,
     },
     {
-      role: "Client",
+      role: "Party B",
       name: "",
       title: "",
       date: "",
@@ -1136,6 +2079,39 @@ export default function ContractGenerator() {
     },
   ]);
   const [setupOpen, setSetupOpen] = useState(false);
+
+  // ── Fetch plan ──
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) {
+          setPlanLoading(false);
+          return;
+        }
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("tenant_id")
+          .eq("id", user.id)
+          .single();
+        if (profile?.tenant_id) {
+          const { data: org } = await supabase
+            .from("tenants")
+            .select("plan")
+            .eq("id", profile.tenant_id)
+            .single();
+          setOrgPlan(org?.plan ?? null);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setPlanLoading(false);
+      }
+    };
+    init();
+  }, []);
 
   const handleFileUpload = async (file) => {
     setUploadedFile(file);
@@ -1154,7 +2130,7 @@ export default function ContractGenerator() {
 
   const handleGenerate = async () => {
     if (inputMode === "text" && !prompt.trim()) {
-      setError("Please describe the contract.");
+      setError("Please describe the document.");
       return;
     }
     if (inputMode === "upload" && !uploadedText) {
@@ -1167,17 +2143,34 @@ export default function ContractGenerator() {
     try {
       const userContent =
         inputMode === "upload"
-          ? buildPrompt(uploadedText, prompt)
+          ? buildPrompt(uploadedText, prompt, docType)
           : prompt.trim();
-      const result = await callGroq(userContent);
+      const result = await callGroq(userContent, docType);
       setContractData(result);
       setSections(result.sections || []);
       setParties(result.parties || []);
       setDocTitle(
-        (result.title || "CONTRACT")
+        (
+          result.title ||
+          DOC_TYPES.find((d) => d.key === docType)?.label.toUpperCase() ||
+          "DOCUMENT"
+        )
           .replace(/[^a-zA-Z0-9 &,\-]/g, "")
           .slice(0, 80),
       );
+      // Set default signature roles from parties
+      if (result.parties?.length >= 2) {
+        setSignatures(
+          result.parties.map((p) => ({
+            role: p.label || "Party",
+            name: p.name || "",
+            title: "",
+            date: "",
+            witness: false,
+            signatureImage: null,
+          })),
+        );
+      }
       setGenStep(2);
       setSetupOpen(true);
     } catch (e) {
@@ -1288,7 +2281,7 @@ export default function ContractGenerator() {
     setParties([]);
     setSignatures([
       {
-        role: "Service Provider",
+        role: "Party A",
         name: "",
         title: "",
         date: "",
@@ -1296,7 +2289,7 @@ export default function ContractGenerator() {
         signatureImage: null,
       },
       {
-        role: "Client",
+        role: "Party B",
         name: "",
         title: "",
         date: "",
@@ -1310,7 +2303,7 @@ export default function ContractGenerator() {
     setDownloading(true);
     setError("");
     try {
-      await downloadContractPDF({
+      await downloadDocumentPDF({
         docTitle,
         effectiveDate,
         companyName,
@@ -1327,9 +2320,30 @@ export default function ContractGenerator() {
   };
 
   const canGen = inputMode === "text" ? !!prompt.trim() : !!uploadedText;
-
   const inputLbl =
     "text-[10px] font-semibold uppercase tracking-widest text-gray-400 block mb-1.5";
+  const selectedDocType = DOC_TYPES.find((d) => d.key === docType);
+
+  // ── Loading ──
+  if (planLoading) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "60vh",
+        }}
+      >
+        <Spin size="large" />
+      </div>
+    );
+  }
+
+  // ── Paywall ──
+  if (orgPlan === "Free") {
+    return <DocumentGeneratorPaywall />;
+  }
 
   return (
     <div
@@ -1347,8 +2361,8 @@ export default function ContractGenerator() {
         .paper-scroll::-webkit-scrollbar { width: 6px; }
         .paper-scroll::-webkit-scrollbar-track { background: transparent; }
         .paper-scroll::-webkit-scrollbar-thumb { background: #d4d4d4; border-radius: 99px; }
-        .feature-chip { transition: transform 0.15s; }
-        .feature-chip:hover { transform: translateY(-1px); }
+        .doc-type-btn { transition: all 0.15s; cursor: pointer; border: 1.5px solid transparent; }
+        .doc-type-btn:hover { transform: translateY(-1px); }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
         .fade-up { animation: fadeUp 0.4s ease both; }
         .fade-up-1 { animation-delay: 0.05s; }
@@ -1388,9 +2402,7 @@ export default function ContractGenerator() {
               </p>
             </div>
           </div>
-
           <div className="h-px bg-gray-100 my-5" />
-
           <div className="flex flex-col gap-4">
             <div>
               <label className={inputLbl}>Document Title</label>
@@ -1427,7 +2439,6 @@ export default function ContractGenerator() {
                 />
               </div>
             </div>
-
             <div
               className="flex items-center gap-3 p-3.5 bg-gray-50 rounded-xl border border-gray-100 cursor-pointer select-none"
               onClick={() => setConfidentiality((v) => !v)}
@@ -1449,7 +2460,6 @@ export default function ContractGenerator() {
               </div>
               <LockOutlined className="text-gray-300 ml-auto" />
             </div>
-
             <div>
               <label className={inputLbl}>Logo (optional)</label>
               {logoDataUrl ? (
@@ -1475,7 +2485,7 @@ export default function ContractGenerator() {
                   showUploadList={false}
                   beforeUpload={logoUpload}
                 >
-                  <div className="border-2 border-dashed border-gray-200 rounded-xl p-5 text-center cursor-pointer upload-zone transition-all bg-white">
+                  <div className="border-2 border-dashed border-gray-200 rounded-xl p-5 text-center cursor-pointer transition-all bg-white">
                     <PictureOutlined className="text-2xl text-gray-300 block mb-1" />
                     <span className="text-xs text-gray-400">
                       PNG, JPG or SVG
@@ -1484,7 +2494,6 @@ export default function ContractGenerator() {
                 </Upload>
               )}
             </div>
-
             <Button
               type="primary"
               size="large"
@@ -1503,7 +2512,7 @@ export default function ContractGenerator() {
               }}
               className="mt-1"
             >
-              Open Contract Editor →
+              Open Document Editor →
             </Button>
           </div>
         </div>
@@ -1513,56 +2522,113 @@ export default function ContractGenerator() {
         {/* ── INPUT STEP ── */}
         {step === "input" && (
           <div className="pt-16 pb-8">
-            {/* Hero */}
-            <div className="text-center mb-12 fade-up">
+            <div className="text-center mb-10 fade-up">
               <div className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-full px-4 py-1.5 mb-8 text-xs font-medium text-gray-500 shadow-sm">
                 <ThunderboltOutlined
                   className="text-amber-500"
                   style={{ fontSize: 11 }}
                 />
-                Powered by Llama 3.3 · Legal grade output
+                Powered by Llama 3.3 · 8 document types · Legal grade output
               </div>
-
               <h1
                 className="text-5xl font-extrabold text-gray-950 tracking-tight leading-none mb-4 fade-up fade-up-1"
                 style={{ letterSpacing: "-2px" }}
               >
-                Contracts,
+                Legal documents,
                 <br />
                 <span className="text-gray-400">drafted in seconds</span>
               </h1>
               <p className="text-base text-gray-500 max-w-sm mx-auto leading-relaxed fade-up fade-up-2">
-                Describe your agreement or upload a brief — get a complete,
-                professional contract ready to sign.
+                Choose your document type, describe your agreement, and get a
+                complete professional document ready to sign.
               </p>
             </div>
 
-            {/* Feature chips */}
-            <div className="flex flex-wrap gap-2 justify-center mb-10 fade-up fade-up-2">
-              {[
-                [FileTextOutlined, "14 legal sections", "#f0fdf4", "#166534"],
-                [EditOutlined, "Inline editing", "#eff6ff", "#1d4ed8"],
-                [SignatureOutlined, "Digital signatures", "#fdf4ff", "#7e22ce"],
-                [DownloadOutlined, "PDF export", "#fff7ed", "#c2410c"],
-              ].map(([Icon, label, bg, color], i) => (
-                <div
-                  key={i}
-                  className="feature-chip flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold border border-gray-100 shadow-sm bg-white"
-                  style={{ color }}
-                >
-                  <Icon style={{ fontSize: 11 }} />
-                  {label}
-                </div>
-              ))}
+            {/* Doc Type Selector */}
+            <div className="max-w-2xl mx-auto mb-6 fade-up fade-up-2">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 text-center">
+                Choose Document Type
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                {DOC_TYPES.map((d) => (
+                  <button
+                    key={d.key}
+                    onClick={() => setDocType(d.key)}
+                    className="doc-type-btn rounded-xl p-3 text-left bg-white"
+                    style={{
+                      border:
+                        docType === d.key
+                          ? `1.5px solid ${d.color}`
+                          : "1.5px solid #e2e8f0",
+                      background: docType === d.key ? d.bg : "#fff",
+                      boxShadow:
+                        docType === d.key ? `0 0 0 3px ${d.color}15` : "none",
+                    }}
+                  >
+                    <div style={{ color: d.color, marginBottom: 6 }}>
+                      {d.icon}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "#0f172a",
+                      }}
+                    >
+                      {d.label}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: "#94a3b8",
+                        lineHeight: 1.4,
+                        marginTop: 2,
+                      }}
+                    >
+                      {d.desc}
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Main card */}
             <div className="max-w-2xl mx-auto fade-up fade-up-3">
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                {/* Selected doc type indicator */}
+                <div
+                  style={{
+                    background: selectedDocType?.bg,
+                    borderBottom: `1px solid ${selectedDocType?.color}20`,
+                    padding: "10px 20px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <span style={{ color: selectedDocType?.color }}>
+                    {selectedDocType?.icon}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: selectedDocType?.color,
+                    }}
+                  >
+                    {selectedDocType?.label}
+                  </span>
+                  <span
+                    style={{ fontSize: 12, color: "#94a3b8", marginLeft: 4 }}
+                  >
+                    — {selectedDocType?.desc}
+                  </span>
+                </div>
+
                 {/* Tab switcher */}
                 <div className="flex bg-gray-50 border-b border-gray-100 p-1 gap-1">
                   {[
-                    ["text", <EditOutlined />, "Describe Contract"],
+                    ["text", <EditOutlined />, "Describe Document"],
                     ["upload", <InboxOutlined />, "Upload Document"],
                   ].map(([mode, icon, label]) => (
                     <button
@@ -1585,7 +2651,15 @@ export default function ContractGenerator() {
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
                         rows={6}
-                        placeholder="e.g. Web development contract for a booking marketplace — 60 days, $5,500 in 3 milestones, React/Node.js, full IP transfer, NDA included…"
+                        placeholder={`Describe your ${selectedDocType?.label.toLowerCase()}… e.g. ${
+                          docType === "nda"
+                            ? "mutual NDA between two software companies, 2-year term, covers source code and client data…"
+                            : docType === "employment"
+                              ? "full-time frontend engineer, $85k salary, 3-month probation, remote work, London governing law…"
+                              : docType === "lease"
+                                ? "office space lease, 12 months, $3,500/month, tenant responsible for utilities…"
+                                : "web development contract, 60 days, $5,500 in 3 milestones, React/Node.js, full IP transfer…"
+                        }`}
                         style={{
                           fontSize: 14,
                           lineHeight: 1.7,
@@ -1623,7 +2697,6 @@ export default function ContractGenerator() {
                             borderRadius: 14,
                             background: "#fafafa",
                           }}
-                          className="upload-zone"
                         >
                           <div className="py-6">
                             <InboxOutlined className="text-4xl text-gray-300 block mb-3" />
@@ -1631,7 +2704,7 @@ export default function ContractGenerator() {
                               Drop your document here
                             </p>
                             <p className="text-xs text-gray-300">
-                              PDF, DOCX, TXT — proposals, SOWs, RFPs
+                              PDF, DOCX, TXT — proposals, briefs, SOWs
                             </p>
                           </div>
                         </Dragger>
@@ -1718,7 +2791,7 @@ export default function ContractGenerator() {
                     icon={loading ? null : <ThunderboltOutlined />}
                     style={{
                       height: 52,
-                      background: "#111",
+                      background: selectedDocType?.color || "#111",
                       border: "none",
                       borderRadius: 14,
                       fontSize: 15,
@@ -1727,10 +2800,8 @@ export default function ContractGenerator() {
                     }}
                   >
                     {loading
-                      ? "Drafting your contract…"
-                      : inputMode === "upload"
-                        ? "Generate from Document"
-                        : "Generate Contract"}
+                      ? `Drafting your ${selectedDocType?.label}…`
+                      : `Generate ${selectedDocType?.label}`}
                   </Button>
 
                   {loading && (
@@ -1771,7 +2842,6 @@ export default function ContractGenerator() {
                 </div>
               </div>
 
-              {/* Trust badges */}
               <div className="flex items-center justify-center gap-6 mt-6">
                 {[
                   [LockOutlined, "End-to-end encrypted"],
@@ -1797,16 +2867,36 @@ export default function ContractGenerator() {
               className="grid gap-6"
               style={{ gridTemplateColumns: "1fr 296px" }}
             >
-              {/* ── Left: Document Preview ── */}
+              {/* Left: Document */}
               <div>
-                {/* Top bar */}
                 <div className="flex items-center justify-between mb-4">
                   <div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={handleReset}
+                        className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-700 border-0 bg-transparent cursor-pointer transition-colors"
+                      >
+                        ← New Document
+                      </button>
+                      <span style={{ fontSize: 10, color: "#94a3b8" }}>·</span>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: selectedDocType?.color,
+                          background: selectedDocType?.bg,
+                          padding: "2px 8px",
+                          borderRadius: 5,
+                        }}
+                      >
+                        {selectedDocType?.label}
+                      </span>
+                    </div>
                     <h2
-                      className="text-lg font-bold text-gray-900 leading-none"
+                      className="text-lg font-bold text-gray-900 leading-none mt-1"
                       style={{ letterSpacing: "-0.5px" }}
                     >
-                      {docTitle || "Contract"}
+                      {docTitle || "Document"}
                     </h2>
                     <p className="text-xs text-gray-400 mt-1">
                       {new Date().toLocaleDateString("en-US", {
@@ -1836,7 +2926,6 @@ export default function ContractGenerator() {
                   </Button>
                 </div>
 
-                {/* Edit hint */}
                 <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-xl px-4 py-2.5 mb-4">
                   <EditOutlined
                     className="text-amber-500 flex-shrink-0"
@@ -1847,9 +2936,7 @@ export default function ContractGenerator() {
                   </span>
                 </div>
 
-                {/* Paper shell */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                  {/* Window chrome */}
                   <div className="bg-gray-50 border-b border-gray-100 px-4 py-2.5 flex items-center gap-2">
                     {["#fc5f57", "#febc2e", "#28c840"].map((c) => (
                       <div
@@ -1859,7 +2946,7 @@ export default function ContractGenerator() {
                       />
                     ))}
                     <span className="text-xs text-gray-400 ml-2 font-medium">
-                      {docTitle || "Contract"}.pdf
+                      {docTitle || "Document"}.pdf
                     </span>
                   </div>
 
@@ -1875,10 +2962,7 @@ export default function ContractGenerator() {
                         minHeight: 900,
                       }}
                     >
-                      {/* Inner border */}
                       <div className="absolute inset-3 border border-gray-100 pointer-events-none rounded" />
-
-                      {/* Logo */}
                       {logoDataUrl && (
                         <div className="text-center mb-3">
                           <img
@@ -1921,7 +3005,6 @@ export default function ContractGenerator() {
                         </div>
                       )}
 
-                      {/* Title */}
                       <div
                         style={{
                           borderTop: "2.5px solid #111",
@@ -1951,7 +3034,7 @@ export default function ContractGenerator() {
                             display: "inline-block",
                           }}
                         >
-                          {docTitle || "CONTRACT AGREEMENT"}
+                          {docTitle || "LEGAL DOCUMENT"}
                         </div>
                         {effectiveDate && (
                           <div
@@ -1975,7 +3058,6 @@ export default function ContractGenerator() {
                         )}
                       </div>
 
-                      {/* Parties */}
                       {parties.length > 0 && (
                         <div className="relative mb-6 px-4 py-3 bg-gray-50 border border-gray-100 rounded">
                           <div
@@ -2037,7 +3119,6 @@ export default function ContractGenerator() {
                         </div>
                       )}
 
-                      {/* Sections */}
                       {sections.map((section, si) => (
                         <div key={si} className="mb-5">
                           <EditableBlock
@@ -2132,7 +3213,6 @@ export default function ContractGenerator() {
                         </div>
                       ))}
 
-                      {/* Signatures preview */}
                       {signatures.length > 0 && (
                         <div
                           className="mt-10 pt-4"
@@ -2255,26 +3335,6 @@ export default function ContractGenerator() {
                                     </div>
                                   </div>
                                 ))}
-                                {sig.witness && (
-                                  <div className="mt-3 pt-2 border-t border-dashed border-gray-200">
-                                    <div
-                                      style={{
-                                        borderBottom: "0.5px solid #ccc",
-                                        height: 22,
-                                        marginBottom: 3,
-                                      }}
-                                    />
-                                    <div
-                                      style={{
-                                        fontSize: 7.5,
-                                        color: "#bbb",
-                                        fontFamily: TNR,
-                                      }}
-                                    >
-                                      Witness Signature & Name
-                                    </div>
-                                  </div>
-                                )}
                               </div>
                             ))}
                           </div>
@@ -2285,9 +3345,8 @@ export default function ContractGenerator() {
                 </div>
               </div>
 
-              {/* ── Right: Control Panel ── */}
+              {/* Right: Controls */}
               <div className="flex flex-col gap-4 sticky top-20">
-                {/* Document */}
                 <SidePanel title="Document">
                   <div className="flex flex-col gap-3">
                     <div>
@@ -2295,7 +3354,7 @@ export default function ContractGenerator() {
                       <Input
                         value={docTitle}
                         onChange={(e) => setDocTitle(e.target.value)}
-                        placeholder="CONTRACT TITLE"
+                        placeholder="DOCUMENT TITLE"
                         className="rounded-xl"
                         style={{ fontSize: 13 }}
                       />
@@ -2340,7 +3399,6 @@ export default function ContractGenerator() {
                   </div>
                 </SidePanel>
 
-                {/* Logo */}
                 <SidePanel title="Logo">
                   {logoDataUrl ? (
                     <div>
@@ -2383,7 +3441,7 @@ export default function ContractGenerator() {
                       showUploadList={false}
                       beforeUpload={logoUpload}
                     >
-                      <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center cursor-pointer upload-zone transition-all">
+                      <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center cursor-pointer transition-all">
                         <PictureOutlined className="text-xl text-gray-300 block mb-1" />
                         <span className="text-xs text-gray-400">
                           Upload logo
@@ -2393,7 +3451,6 @@ export default function ContractGenerator() {
                   )}
                 </SidePanel>
 
-                {/* Signatures */}
                 <SidePanel
                   title="Signatures"
                   action={
