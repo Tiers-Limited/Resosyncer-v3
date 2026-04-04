@@ -8,6 +8,30 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import BirthdayWidget from '../components/BirthdayWidget';
 
+const getBreakSeconds = (log, nowMs) => {
+  if (!Array.isArray(log?.breaks) || log.breaks.length === 0) return 0;
+  return log.breaks.reduce((acc, br) => {
+    if (!br?.pause_time) return acc;
+    const st = new Date(br.pause_time).getTime();
+    if (!Number.isFinite(st)) return acc;
+    const en = br.resume_time ? new Date(br.resume_time).getTime() : nowMs;
+    if (!Number.isFinite(en) || en <= st) return acc;
+    return acc + Math.floor((en - st) / 1000);
+  }, 0);
+};
+
+const getNetSessionSeconds = (log, nowMs = Date.now()) => {
+  const fromTotal = Math.floor((parseFloat(log?.total_hours) || 0) * 3600);
+  if (!log?.start_time) return fromTotal;
+  const st = new Date(log.start_time).getTime();
+  if (!Number.isFinite(st)) return fromTotal;
+  const derived = Math.max(
+    0,
+    Math.floor((nowMs - st) / 1000) - getBreakSeconds(log, nowMs),
+  );
+  return Math.max(fromTotal, derived);
+};
+
 const EmployeeDashboard = () => {
   const [todayTimeLogs, setTodayTimeLogs] = useState([]);
   const [activeTimeLog, setActiveTimeLog] = useState(null);
@@ -56,7 +80,11 @@ const EmployeeDashboard = () => {
       setTodayTimeLogs(timeLogs || []);
 
       const completed = timeLogs?.filter(l => l.status === 'completed').length || 0;
-      const hasActiveOrPaused = timeLogs?.some(l => l.status === 'active' || l.status === 'paused') ? 1 : 0;
+      const hasActiveOrPaused = timeLogs?.some(
+        l => l.status === 'active' || l.status === 'paused' || l.status === 'break',
+      )
+        ? 1
+        : 0;
       setTotalSessions(completed + hasActiveOrPaused);
 
       const allBreaks = timeLogs?.reduce((s, l) => s + (l.breaks?.length || 0), 0) || 0;
@@ -65,17 +93,17 @@ const EmployeeDashboard = () => {
       const activeLog = timeLogs?.find(l => l.status === 'active');
       if (activeLog) {
         setActiveTimeLog(activeLog);
-        const elapsed = Math.floor((new Date() - new Date(activeLog.start_time)) / 1000);
+        const elapsed = getNetSessionSeconds(activeLog);
         setCurrentSessionTime(elapsed);
         setIsRunning(true);
         setIsPaused(false);
       } else {
-        const pausedLog = timeLogs?.find(l => l.status === 'paused');
+        const pausedLog = timeLogs?.find(l => l.status === 'paused' || l.status === 'break');
         if (pausedLog) {
           setActiveTimeLog(pausedLog);
           setIsRunning(false);
           setIsPaused(true);
-          setCurrentSessionTime(0);
+          setCurrentSessionTime(getNetSessionSeconds(pausedLog));
         } else {
           setActiveTimeLog(null);
           setIsRunning(false);
@@ -126,7 +154,7 @@ const EmployeeDashboard = () => {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
-  const totalLiveHours = totalDayHours + (parseFloat(activeTimeLog?.total_hours) || 0) + (currentSessionTime / 3600);
+  const totalLiveHours = totalDayHours + (currentSessionTime / 3600);
 
   const statusTag = isRunning
     ? { color: '#10b981', bg: '#d1fae5', text: '● Active' }

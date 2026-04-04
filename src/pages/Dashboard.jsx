@@ -90,6 +90,54 @@ if (!document.getElementById("dash-css")) {
     .banner-cta       { transition: background 0.15s, transform 0.15s; }
     .banner-close:hover { opacity:0.6; }
     .banner-close     { transition: opacity 0.15s; }
+
+    .d-dark .ant-modal-content,
+    .d-dark .ant-modal-header,
+    .d-dark .ant-modal-footer {
+      background: var(--d-card) !important;
+      border-color: var(--d-border) !important;
+      color: var(--d-text) !important;
+    }
+    .d-dark .ant-modal-title {
+      color: var(--d-text) !important;
+    }
+    .d-dark .ant-input,
+    .d-dark .ant-input-affix-wrapper,
+    .d-dark .ant-select-selector,
+    .d-dark .ant-picker,
+    .d-dark .ant-input-textarea textarea {
+      background: var(--d-card2) !important;
+      border-color: var(--d-border) !important;
+      color: var(--d-text) !important;
+    }
+    .d-dark .ant-input::placeholder,
+    .d-dark .ant-input-textarea textarea::placeholder,
+    .d-dark .ant-select-selection-placeholder,
+    .d-dark .ant-select-arrow,
+    .d-dark .ant-picker-suffix,
+    .d-dark .ant-picker-clear {
+      color: var(--d-muted) !important;
+    }
+    .d-popup-dark.ant-select-dropdown,
+    .d-popup-dark.ant-picker-dropdown .ant-picker-panel-container {
+      background: var(--d-card) !important;
+      border: 1px solid var(--d-border) !important;
+    }
+    .d-popup-dark.ant-select-dropdown .ant-select-item {
+      color: var(--d-text) !important;
+    }
+    .d-popup-dark.ant-select-dropdown .ant-select-item-option-active,
+    .d-popup-dark.ant-select-dropdown .ant-select-item-option-selected {
+      background: var(--d-hover) !important;
+    }
+    .d-popup-dark.ant-picker-dropdown .ant-picker-header,
+    .d-popup-dark.ant-picker-dropdown .ant-picker-content th {
+      color: var(--d-muted) !important;
+      border-color: var(--d-border) !important;
+    }
+    .d-popup-dark.ant-picker-dropdown .ant-picker-cell-inner {
+      color: var(--d-text) !important;
+    }
   `;
   document.head.appendChild(s);
 }
@@ -101,10 +149,36 @@ const fmtTime = (s) => {
     sec = s % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 };
+const getBreakSeconds = (log, nowMs) => {
+  if (!Array.isArray(log?.breaks) || log.breaks.length === 0) return 0;
+  return log.breaks.reduce((acc, br) => {
+    if (!br?.pause_time) return acc;
+    const st = new Date(br.pause_time).getTime();
+    if (!Number.isFinite(st)) return acc;
+    const en = br.resume_time ? new Date(br.resume_time).getTime() : nowMs;
+    if (!Number.isFinite(en) || en <= st) return acc;
+    return acc + Math.floor((en - st) / 1000);
+  }, 0);
+};
 const getElapsed = (log) => {
-  if (log.status === "active")
-    return Math.floor((Date.now() - new Date(log.start_time)) / 1000);
-  if (log.status === "paused") return Math.floor((log.total_hours || 0) * 3600);
+  const nowMs = Date.now();
+  if (log.status === "active" || log.status === "break" || log.status === "paused") {
+    const startMs = new Date(log.start_time).getTime();
+    const derived = Number.isFinite(startMs)
+      ? Math.max(
+          0,
+          Math.floor((nowMs - startMs) / 1000) - getBreakSeconds(log, nowMs),
+        )
+      : 0;
+    if (log.status === "paused") {
+      const fromTotal = Math.floor((log.total_hours || 0) * 3600);
+      return Math.max(fromTotal, derived);
+    }
+    return Math.max(
+      0,
+      Math.floor((nowMs - startMs) / 1000) - getBreakSeconds(log, nowMs),
+    );
+  }
   return 0;
 };
 const initials = (name = "") => {
@@ -173,6 +247,9 @@ const Ava = ({ name = "", photo, size = 34 }) => {
 /* ── Live Timer ───────────────────────────────────────────────────────────── */
 const LiveTimer = ({ log }) => {
   const [elapsed, setElapsed] = useState(() => getElapsed(log));
+  useEffect(() => {
+    setElapsed(getElapsed(log));
+  }, [log]);
   useEffect(() => {
     if (log.status !== "active") return;
     const id = setInterval(() => setElapsed(getElapsed(log)), 1000);
@@ -1149,17 +1226,19 @@ const Dashboard = () => {
   useEffect(() => {
     const r = document.documentElement;
     if (dark) {
-      r.style.setProperty("--d-card", "#161b27");
-      r.style.setProperty("--d-card2", "#0f1420");
-      r.style.setProperty("--d-border", "#242d3e");
-      r.style.setProperty("--d-text", "#e8edf5");
-      r.style.setProperty("--d-sub", "#7a8aaa");
-      r.style.setProperty("--d-muted", "#4a5568");
-      r.style.setProperty("--d-hover", "#1e2535");
+      r.style.setProperty("--d-bg", "#141416");
+      r.style.setProperty("--d-card", "#1a1b1f");
+      r.style.setProperty("--d-card2", "#17181c");
+      r.style.setProperty("--d-border", "#2a2b31");
+      r.style.setProperty("--d-text", "#f3f4f6");
+      r.style.setProperty("--d-sub", "#d1d5db");
+      r.style.setProperty("--d-muted", "#9ca3af");
+      r.style.setProperty("--d-hover", "#202127");
       r.style.setProperty("--d-accent", "#3b82f6");
-      r.style.setProperty("--d-skel-base", "#1e2535");
-      r.style.setProperty("--d-skel-shine", "#252e42");
+      r.style.setProperty("--d-skel-base", "#202127");
+      r.style.setProperty("--d-skel-shine", "#2a2b31");
     } else {
+      r.style.setProperty("--d-bg", "#f8fafc");
       r.style.setProperty("--d-card", "#ffffff");
       r.style.setProperty("--d-card2", "#f8fafc");
       r.style.setProperty("--d-border", "#e8ecf0");
@@ -1323,7 +1402,7 @@ const Dashboard = () => {
         .from("time_logs")
         .select("*, profiles(full_name,email,user_photo,tenant_id)")
         .eq("date", today)
-        .in("status", ["active", "paused"]);
+        .in("status", ["active", "break", "paused"]);
       setEmployees(
         (data || []).filter(
           (l) => !tenantId || l.profiles?.tenant_id === tenantId,
@@ -1504,7 +1583,15 @@ const Dashboard = () => {
 
   /* ════════════════════════════════════════════════════════════════════════ */
   return (
-    <div style={{ fontFamily: "'DM Sans',sans-serif", color: "var(--d-text)" }}>
+    <div
+      className={dark ? "d-dark" : "d-light"}
+      style={{
+        fontFamily: "'DM Sans',sans-serif",
+        color: "var(--d-text)",
+        background: "var(--d-bg)",
+        minHeight: "100vh",
+      }}
+    >
       {/* ── Page title ── */}
       <div
         className="d-fade"
@@ -2273,6 +2360,7 @@ const Dashboard = () => {
           </div>
         }
         open={standupModal}
+        wrapClassName={dark ? "d-dark" : undefined}
         onCancel={() => setStandupModal(false)}
         footer={null}
       >
@@ -2365,6 +2453,7 @@ const Dashboard = () => {
           </span>
         }
         open={todoModal}
+        wrapClassName={dark ? "d-dark" : undefined}
         onCancel={() => {
           setTodoModal(false);
           setNewTodo({
@@ -2406,6 +2495,7 @@ const Dashboard = () => {
               <Select
                 value={newTodo.priority}
                 onChange={(v) => setNewTodo({ ...newTodo, priority: v })}
+                popupClassName={dark ? "d-popup-dark" : undefined}
                 style={{ width: "100%" }}
                 options={[
                   { label: "High", value: "high" },
@@ -2424,6 +2514,7 @@ const Dashboard = () => {
                     due_date: d ? d.format("YYYY-MM-DD") : null,
                   })
                 }
+                popupClassName={dark ? "d-popup-dark" : undefined}
                 style={{ width: "100%" }}
                 format="MMM DD, YYYY"
               />
@@ -2451,6 +2542,7 @@ const Dashboard = () => {
           </span>
         }
         open={meetModal}
+        wrapClassName={dark ? "d-dark" : undefined}
         onCancel={() => {
           setMeetModal(false);
           setNewMeet({
@@ -2497,6 +2589,7 @@ const Dashboard = () => {
                   meeting_date: d ? d.toISOString() : null,
                 })
               }
+              popupClassName={dark ? "d-popup-dark" : undefined}
               style={{ width: "100%" }}
               format="MMM DD, YYYY h:mm A"
             />
@@ -2517,9 +2610,10 @@ const Dashboard = () => {
                         ? []
                         : currentUser?.email
                           ? [currentUser.email]
-                          : [],
+                      : [],
                   })
                 }
+                popupClassName={dark ? "d-popup-dark" : undefined}
                 style={{ width: "100%" }}
                 options={[
                   { label: "Only Me", value: "individual" },
@@ -2534,6 +2628,7 @@ const Dashboard = () => {
                 placeholder="Select times"
                 value={newMeet.email_reminders}
                 onChange={(v) => setNewMeet({ ...newMeet, email_reminders: v })}
+                popupClassName={dark ? "d-popup-dark" : undefined}
                 style={{ width: "100%" }}
                 options={[
                   { label: "30 min", value: "30min" },
@@ -2563,6 +2658,7 @@ const Dashboard = () => {
                       : v,
                   })
                 }
+                popupClassName={dark ? "d-popup-dark" : undefined}
                 style={{ width: "100%" }}
                 options={admins
                   .filter((a) => a.email !== currentUser?.email)

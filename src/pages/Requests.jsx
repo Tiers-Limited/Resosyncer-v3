@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Table, Button, Tag, message, Modal, Input, Select } from "antd";
+import { useState, useEffect, useMemo } from "react";
+import { Table, Button, message, Modal, Input, Select } from "antd";
 import {
   PlusOutlined,
   SendOutlined,
@@ -9,54 +9,264 @@ import {
   InboxOutlined,
   MessageOutlined,
   FileTextOutlined,
-  UserOutlined,
 } from "@ant-design/icons";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
 const { TextArea } = Input;
 
-const STATUS_CONFIG = {
+// ─── Theme styles (CSS variables) ────────────────────────────────────────────
+const THEME_STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
+
+  .rq-root {
+    /* Backgrounds */
+    --bg-page:       #f8fafc;
+    --bg-card:       #ffffff;
+    --bg-card-alt:   #f9fafb;
+    --bg-card-hover: #f8fafc;
+    --bg-subtle:     #f1f5f9;
+    --bg-input:      #f8fafc;
+    --bg-input-focus:#ffffff;
+
+    /* Borders */
+    --border:        #e2e8f0;
+    --border-subtle: #f1f5f9;
+    --border-faint:  #f9fafb;
+
+    /* Text */
+    --text-primary:  #0f172a;
+    --text-secondary:#1e293b;
+    --text-tertiary: #475569;
+    --text-muted:    #64748b;
+    --text-faint:    #94a3b8;
+
+    /* Semantic status */
+    --pending-color:  #d97706; --pending-bg:  #fffbeb; --pending-border:  #fde68a;
+    --approved-color: #059669; --approved-bg: #ecfdf5; --approved-border: #a7f3d0;
+    --rejected-color: #e11d48; --rejected-bg: #fff1f2; --rejected-border: #fecdd3;
+
+    /* Request type */
+    --type-advance-color: #7c3aed; --type-advance-bg: #f5f3ff; --type-advance-border: #ddd6fe;
+    --type-leave-color:   #0369a1; --type-leave-bg:   #f0f9ff; --type-leave-border:   #bae6fd;
+    --type-other-color:   #475569; --type-other-bg:   #f8fafc; --type-other-border:   #e2e8f0;
+
+    /* Misc */
+    --accent:        #6366f1;
+    --shadow-card:   0 1px 3px rgba(15,23,42,0.04);
+    --shadow-btn:    0 4px 12px rgba(15,23,42,0.25);
+  }
+
+  /* ══ DARK ══ */
+  .rq-root.dark {
+    --bg-page:       #141416;
+    --bg-card:       #141416;
+    --bg-card-alt:   #18181c;
+    --bg-card-hover: #18181c;
+    --bg-subtle:     #1c1c22;
+    --bg-input:      #1c1c22;
+    --bg-input-focus:#141416;
+
+    --border:        #2a2a31;
+    --border-subtle: #2a2a31;
+    --border-faint:  #23232b;
+
+    --text-primary:  #f1f5f9;
+    --text-secondary:#e2e8f0;
+    --text-tertiary: #cbd5e1;
+    --text-muted:    #94a3b8;
+    --text-faint:    #64748b;
+
+    --pending-color:  #fbbf24; --pending-bg:  rgba(217,119,6,0.16);  --pending-border:  rgba(251,191,36,0.35);
+    --approved-color: #4ade80; --approved-bg: rgba(34,197,94,0.16);  --approved-border: rgba(74,222,128,0.35);
+    --rejected-color: #fb7185; --rejected-bg: rgba(225,29,72,0.16);  --rejected-border: rgba(251,113,133,0.35);
+
+    --type-advance-color: #c4b5fd; --type-advance-bg: rgba(124,58,237,0.16); --type-advance-border: rgba(196,181,253,0.35);
+    --type-leave-color:   #7dd3fc; --type-leave-bg:   rgba(3,105,161,0.16);  --type-leave-border:   rgba(125,211,252,0.35);
+    --type-other-color:   #94a3b8; --type-other-bg:   rgba(148,163,184,0.14);--type-other-border:   rgba(148,163,184,0.28);
+
+    --shadow-card:   0 1px 3px rgba(0,0,0,0.3);
+    --shadow-btn:    0 4px 12px rgba(0,0,0,0.4);
+  }
+
+  /* ── Font reset ── */
+  .rq-root * { font-family: 'Outfit', sans-serif !important; box-sizing: border-box; }
+
+  /* ── Table ── */
+  .rq-root .req-table .ant-table { background: transparent !important; }
+  .rq-root .req-table .ant-table-thead > tr > th {
+    background: var(--bg-card-alt) !important;
+    color: var(--text-faint) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--border) !important;
+    padding: 11px 16px !important;
+  }
+  .rq-root .req-table .ant-table-tbody > tr > td {
+    background: var(--bg-card) !important;
+    border-bottom: 1px solid var(--border-faint) !important;
+    padding: 14px 16px !important;
+    vertical-align: middle;
+  }
+  .rq-root .req-table .ant-table-tbody > tr:last-child > td { border-bottom: none !important; }
+  .rq-root .req-table .ant-table-tbody > tr:hover > td { background: var(--bg-card-hover) !important; }
+  .rq-root .req-table .ant-table-row { cursor: pointer; }
+  .rq-root .req-table .ant-table-expanded-row > td {
+    background: var(--bg-card-alt) !important;
+    padding: 0 !important;
+  }
+  .rq-root .req-table .ant-pagination-item { border-color: var(--border) !important; background: var(--bg-card) !important; }
+  .rq-root .req-table .ant-pagination-item a { color: var(--text-tertiary) !important; }
+  .rq-root .req-table .ant-pagination-item-active { border-color: var(--text-primary) !important; }
+  .rq-root .req-table .ant-pagination-item-active a { color: var(--text-primary) !important; }
+  .rq-root .req-table .ant-pagination-prev button,
+  .rq-root .req-table .ant-pagination-next button { color: var(--text-tertiary) !important; border-color: var(--border) !important; background: var(--bg-card) !important; }
+  .rq-root .req-table .ant-spin-dot-item { background: var(--accent) !important; }
+
+  /* ── Inputs ── */
+  .rq-root .req-input .ant-input,
+  .rq-root .req-input textarea,
+  .rq-root .req-select .ant-select-selector {
+    border-radius: 9px !important;
+    border-color: var(--border) !important;
+    font-size: 13px !important;
+    padding: 9px 13px !important;
+    background: var(--bg-input) !important;
+    color: var(--text-primary) !important;
+    transition: all 0.15s;
+  }
+  .rq-root .req-input .ant-input:focus,
+  .rq-root .req-input textarea:focus {
+    border-color: var(--accent) !important;
+    background: var(--bg-input-focus) !important;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.08) !important;
+  }
+  .rq-root .req-input .ant-input::placeholder,
+  .rq-root .req-input textarea::placeholder { color: var(--text-faint) !important; }
+  .rq-root .req-select .ant-select-selector { height: auto !important; padding: 6px 13px !important; }
+  .rq-root .req-select .ant-select-selection-placeholder { color: var(--text-faint) !important; }
+  .rq-root .req-select .ant-select-selection-item { color: var(--text-primary) !important; }
+  .rq-root .req-select .ant-select-arrow { color: var(--text-faint) !important; }
+
+  /* ── Modal ── */
+  .rq-root .req-modal .ant-modal-content {
+    border-radius: 18px !important;
+    overflow: hidden;
+    padding: 0 !important;
+    background: var(--bg-card) !important;
+  }
+  .rq-root .req-modal .ant-modal-header {
+    padding: 22px 28px 18px !important;
+    border-bottom: 1px solid var(--border) !important;
+    margin: 0 !important;
+    background: var(--bg-card) !important;
+  }
+  .rq-root .req-modal .ant-modal-body  { padding: 24px 28px !important; background: var(--bg-card) !important; }
+  .rq-root .req-modal .ant-modal-footer {
+    padding: 16px 28px !important;
+    border-top: 1px solid var(--border) !important;
+    margin: 0 !important;
+    background: var(--bg-card) !important;
+  }
+  .rq-root .req-modal .ant-modal-footer .ant-btn { border-radius: 9px !important; height: 38px !important; font-weight: 600 !important; font-size: 13px !important; }
+  .rq-root .req-modal .ant-modal-footer .ant-btn-default { border-color: var(--border) !important; background: var(--bg-card) !important; color: var(--text-primary) !important; }
+  .rq-root .req-modal .ant-modal-footer .ant-btn-primary { background: var(--text-primary) !important; border-color: var(--text-primary) !important; color: var(--bg-page) !important; }
+  .rq-root .req-modal .ant-modal-close-x { color: var(--text-faint) !important; }
+  .rq-root .req-modal .ant-modal-title { color: var(--text-primary) !important; }
+
+  /* ── Stat card hover ── */
+  .rq-root .stat-card { transition: transform 0.15s, box-shadow 0.15s; }
+  .rq-root .stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(15,23,42,0.08) !important; }
+`;
+
+// ─── Token accessors ─────────────────────────────────────────────────────────
+const STATUS_KEYS = ["pending", "approved", "rejected"];
+const TYPE_KEYS = ["advance_salary", "leave", "other"];
+
+const VAR_MAP = {
   pending: {
-    color: "#d97706",
-    bg: "#fffbeb",
-    border: "#fde68a",
-    icon: <ClockCircleOutlined />,
-    label: "Pending",
+    color: "--pending-color",
+    bg: "--pending-bg",
+    border: "--pending-border",
   },
   approved: {
-    color: "#059669",
-    bg: "#ecfdf5",
-    border: "#a7f3d0",
-    icon: <CheckCircleOutlined />,
-    label: "Approved",
+    color: "--approved-color",
+    bg: "--approved-bg",
+    border: "--approved-border",
   },
   rejected: {
-    color: "#e11d48",
-    bg: "#fff1f2",
-    border: "#fecdd3",
-    icon: <CloseCircleOutlined />,
-    label: "Rejected",
+    color: "--rejected-color",
+    bg: "--rejected-bg",
+    border: "--rejected-border",
   },
-};
-
-const TYPE_CONFIG = {
   advance_salary: {
-    label: "Advance Salary",
-    color: "#7c3aed",
-    bg: "#f5f3ff",
-    border: "#ddd6fe",
+    color: "--type-advance-color",
+    bg: "--type-advance-bg",
+    border: "--type-advance-border",
   },
   leave: {
-    label: "Leave Request",
-    color: "#0369a1",
-    bg: "#f0f9ff",
-    border: "#bae6fd",
+    color: "--type-leave-color",
+    bg: "--type-leave-bg",
+    border: "--type-leave-border",
   },
-  other: { label: "Other", color: "#475569", bg: "#f8fafc", border: "#e2e8f0" },
+  other: {
+    color: "--type-other-color",
+    bg: "--type-other-bg",
+    border: "--type-other-border",
+  },
 };
 
+const STATUS_META = {
+  pending: { label: "Pending", icon: <ClockCircleOutlined /> },
+  approved: { label: "Approved", icon: <CheckCircleOutlined /> },
+  rejected: { label: "Rejected", icon: <CloseCircleOutlined /> },
+};
+
+const TYPE_META = {
+  advance_salary: { label: "Advance Salary" },
+  leave: { label: "Leave Request" },
+  other: { label: "Other" },
+};
+
+const readTokens = (el, keys) => {
+  const cs = el ? getComputedStyle(el) : { getPropertyValue: () => "" };
+  const g = (v) => cs.getPropertyValue(v).trim();
+  return Object.fromEntries(
+    keys.map((k) => [
+      k,
+      {
+        color: g(VAR_MAP[k].color),
+        bg: g(VAR_MAP[k].bg),
+        border: g(VAR_MAP[k].border),
+        ...(STATUS_META[k] || TYPE_META[k] || {}),
+      },
+    ]),
+  );
+};
+
+const getIsDarkTheme = () => {
+  const mode = localStorage.getItem("themeMode") || "system";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
 const Requests = () => {
+  const [dark, setDark] = useState(getIsDarkTheme);
+  const [rootEl, setRootEl] = useState(null);
+
+  const statusConfig = useMemo(
+    () => readTokens(rootEl, STATUS_KEYS),
+    [rootEl, dark],
+  );
+  const typeConfig = useMemo(
+    () => readTokens(rootEl, TYPE_KEYS),
+    [rootEl, dark],
+  );
+
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [responseModal, setResponseModal] = useState(false);
@@ -70,27 +280,39 @@ const Requests = () => {
     subject: "",
     description: "",
   });
+
   const { profile } = useAuth();
 
-  // ── Fetch tenant_id from auth ──────────────────────────────────────────
+  // Theme listener
   useEffect(() => {
-    const init = async () => {
+    const sync = () => setDark(getIsDarkTheme());
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    window.addEventListener("themeModeChanged", sync);
+    mq.addEventListener("change", sync);
+    return () => {
+      window.removeEventListener("themeModeChanged", sync);
+      mq.removeEventListener("change", sync);
+    };
+  }, []);
+
+  // Auth init
+  useEffect(() => {
+    (async () => {
       try {
         const {
           data: { user },
         } = await supabase.auth.getUser();
         if (!user) return;
-        const { data: profile } = await supabase
+        const { data: p } = await supabase
           .from("profiles")
           .select("tenant_id")
           .eq("id", user.id)
           .single();
-        setTenantId(profile?.tenant_id ?? null);
+        setTenantId(p?.tenant_id ?? null);
       } catch (e) {
         console.error(e);
       }
-    };
-    init();
+    })();
   }, []);
 
   useEffect(() => {
@@ -103,14 +325,11 @@ const Requests = () => {
       let query = supabase
         .from("requests")
         .select(
-          `*, profiles!requests_user_id_fkey (full_name, email, user_photo)`,
+          "*, profiles!requests_user_id_fkey (full_name, email, user_photo)",
         )
-        .eq("tenant_id", tenantId); // 👈 tenant filter
-
-      if (profile?.role === "project_manager") {
+        .eq("tenant_id", tenantId);
+      if (profile?.role === "project_manager")
         query = query.eq("user_id", profile.id);
-      }
-
       const { data, error } = await query.order("created_at", {
         ascending: false,
       });
@@ -138,16 +357,18 @@ const Requests = () => {
     }
     setLoading(true);
     try {
-      const { error } = await supabase.from("requests").insert([
-        {
-          user_id: profile.id,
-          tenant_id: tenantId, // 👈 tenant_id on insert
-          request_type: createFormData.request_type,
-          subject: createFormData.subject,
-          description: createFormData.description,
-          status: "pending",
-        },
-      ]);
+      const { error } = await supabase
+        .from("requests")
+        .insert([
+          {
+            user_id: profile.id,
+            tenant_id: tenantId,
+            request_type: createFormData.request_type,
+            subject: createFormData.subject,
+            description: createFormData.description,
+            status: "pending",
+          },
+        ]);
       if (error) throw error;
       message.success("Request submitted successfully");
       setCreateModal(false);
@@ -188,7 +409,6 @@ const Requests = () => {
     }
   };
 
-  // ── Stats ──────────────────────────────────────────────────────────────
   const stats = {
     total: requests.length,
     pending: requests.filter((r) => r.status === "pending").length,
@@ -208,7 +428,7 @@ const Requests = () => {
               width: 34,
               height: 34,
               borderRadius: "50%",
-              background: "linear-gradient(135deg, #6366f1, #0ea5e9)",
+              background: "linear-gradient(135deg,#6366f1,#0ea5e9)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -234,13 +454,13 @@ const Requests = () => {
               style={{
                 fontWeight: 600,
                 fontSize: 13,
-                color: "#0f172a",
+                color: "var(--text-primary)",
                 lineHeight: 1.2,
               }}
             >
               {rec.profiles?.full_name || "—"}
             </div>
-            <div style={{ fontSize: 11, color: "#94a3b8" }}>
+            <div style={{ fontSize: 11, color: "var(--text-faint)" }}>
               {rec.profiles?.email || ""}
             </div>
           </div>
@@ -252,7 +472,7 @@ const Requests = () => {
       dataIndex: "request_type",
       key: "request_type",
       render: (type) => {
-        const cfg = TYPE_CONFIG[type] || TYPE_CONFIG.other;
+        const cfg = typeConfig[type] || typeConfig.other;
         return (
           <span
             style={{
@@ -277,7 +497,13 @@ const Requests = () => {
       dataIndex: "subject",
       key: "subject",
       render: (text) => (
-        <span style={{ fontWeight: 500, fontSize: 13, color: "#1e293b" }}>
+        <span
+          style={{
+            fontWeight: 500,
+            fontSize: 13,
+            color: "var(--text-secondary)",
+          }}
+        >
           {text}
         </span>
       ),
@@ -287,7 +513,7 @@ const Requests = () => {
       dataIndex: "status",
       key: "status",
       render: (status) => {
-        const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+        const cfg = statusConfig[status] || statusConfig.pending;
         return (
           <span
             style={{
@@ -313,7 +539,7 @@ const Requests = () => {
       dataIndex: "created_at",
       key: "created_at",
       render: (date) => (
-        <span style={{ fontSize: 12, color: "#64748b" }}>
+        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
           {new Date(date).toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
@@ -332,7 +558,8 @@ const Requests = () => {
           return (
             <Button
               icon={<MessageOutlined />}
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 setSelectedRequest(record);
                 setResponseModal(true);
               }}
@@ -342,9 +569,9 @@ const Requests = () => {
                 paddingInline: 14,
                 fontWeight: 600,
                 fontSize: 12,
-                background: "#0f172a",
+                background: "var(--text-primary)",
                 border: "none",
-                color: "#fff",
+                color: "var(--bg-page)",
                 boxShadow: "0 2px 6px rgba(15,23,42,0.2)",
               }}
             >
@@ -360,7 +587,7 @@ const Requests = () => {
               gap: 4,
               fontSize: 11,
               fontWeight: 600,
-              color: "#94a3b8",
+              color: "var(--text-faint)",
             }}
           >
             <CheckCircleOutlined style={{ fontSize: 10 }} /> Done
@@ -370,69 +597,33 @@ const Requests = () => {
     },
   ];
 
-  return (
-    <div
+  // ── Shared label helper ────────────────────────────────────────────────
+  const FieldLabel = ({ children, required }) => (
+    <label
       style={{
-        minHeight: "100vh",
-        background: "#f8fafc",
-        padding: "28px 32px",
-        fontFamily: "'Outfit', sans-serif",
+        display: "block",
+        marginBottom: 6,
+        fontSize: 12,
+        fontWeight: 600,
+        color: "var(--text-tertiary)",
       }}
     >
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
-        * { font-family: 'Outfit', sans-serif !important; box-sizing: border-box; }
+      {children}{" "}
+      {required && <span style={{ color: "var(--rejected-color)" }}>*</span>}
+    </label>
+  );
 
-        .req-table .ant-table { background: transparent !important; }
-        .req-table .ant-table-thead > tr > th {
-          background: #f9fafb !important; color: #94a3b8 !important;
-          font-size: 11px !important; font-weight: 700 !important;
-          text-transform: uppercase; letter-spacing: 0.06em;
-          border-bottom: 1px solid #f1f5f9 !important;
-          padding: 11px 16px !important;
-        }
-        .req-table .ant-table-tbody > tr > td {
-          border-bottom: 1px solid #f9fafb !important;
-          padding: 14px 16px !important;
-          vertical-align: middle;
-        }
-        .req-table .ant-table-tbody > tr:last-child > td { border-bottom: none !important; }
-        .req-table .ant-table-tbody > tr:hover > td { background: #f8fafc !important; }
-        .req-table .ant-table-row { cursor: pointer; }
-        .req-table .ant-table-expanded-row > td { background: #fafafa !important; padding: 0 !important; }
-        .req-table .ant-pagination-item-active { border-color: #0f172a !important; }
-        .req-table .ant-pagination-item-active a { color: #0f172a !important; }
-
-        .req-input .ant-input,
-        .req-input textarea,
-        .req-select .ant-select-selector {
-          border-radius: 9px !important;
-          border-color: #e2e8f0 !important;
-          font-size: 13px !important;
-          padding: 9px 13px !important;
-          background: #f8fafc !important;
-          transition: all 0.15s;
-        }
-        .req-input .ant-input:focus,
-        .req-input textarea:focus,
-        .req-select .ant-select-focused .ant-select-selector {
-          border-color: #6366f1 !important;
-          background: #fff !important;
-          box-shadow: 0 0 0 3px rgba(99,102,241,0.08) !important;
-        }
-        .req-select .ant-select-selector { height: auto !important; padding: 6px 13px !important; }
-
-        .stat-card { transition: transform 0.15s, box-shadow 0.15s; }
-        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(15,23,42,0.08) !important; }
-
-        .req-modal .ant-modal-content { border-radius: 18px !important; overflow: hidden; padding: 0 !important; }
-        .req-modal .ant-modal-header { padding: 22px 28px 18px !important; border-bottom: 1px solid #f1f5f9 !important; margin: 0 !important; }
-        .req-modal .ant-modal-body { padding: 24px 28px !important; }
-        .req-modal .ant-modal-footer { padding: 16px 28px !important; border-top: 1px solid #f1f5f9 !important; margin: 0 !important; }
-        .req-modal .ant-modal-footer .ant-btn { border-radius: 9px !important; height: 38px !important; font-weight: 600 !important; font-size: 13px !important; }
-        .req-modal .ant-modal-footer .ant-btn-primary { background: #0f172a !important; border-color: #0f172a !important; }
-        .req-modal .ant-modal-footer .ant-btn-primary:hover { background: #1e293b !important; }
-      `}</style>
+  return (
+    <div
+      ref={setRootEl}
+      className={`rq-root${dark ? " dark" : ""}`}
+      style={{
+        minHeight: "100vh",
+        background: "var(--bg-page)",
+        padding: "28px 32px",
+      }}
+    >
+      <style>{THEME_STYLES}</style>
 
       {/* ── Header ── */}
       <div
@@ -459,14 +650,14 @@ const Requests = () => {
                 width: 7,
                 height: 7,
                 borderRadius: "50%",
-                background: "#0f172a",
+                background: "var(--text-primary)",
               }}
             />
             <span
               style={{
                 fontSize: 11,
                 fontWeight: 700,
-                color: "#94a3b8",
+                color: "var(--text-faint)",
                 textTransform: "uppercase",
                 letterSpacing: "0.08em",
               }}
@@ -479,7 +670,7 @@ const Requests = () => {
               margin: 0,
               fontSize: 26,
               fontWeight: 800,
-              color: "#0f172a",
+              color: "var(--text-primary)",
               letterSpacing: -0.5,
             }}
           >
@@ -494,12 +685,12 @@ const Requests = () => {
               height: 40,
               paddingInline: 20,
               borderRadius: 10,
-              background: "#0f172a",
+              background: "var(--text-primary)",
               border: "none",
-              color: "#fff",
+              color: "var(--bg-page)",
               fontWeight: 700,
               fontSize: 13,
-              boxShadow: "0 4px 12px rgba(15,23,42,0.25)",
+              boxShadow: "var(--shadow-btn)",
             }}
           >
             New Request
@@ -515,27 +706,33 @@ const Requests = () => {
           {
             label: "Total",
             value: stats.total,
-            color: "#0f172a",
-            bg: "#f8fafc",
-            border: "#e2e8f0",
+            color: "var(--text-primary)",
+            bg: "var(--bg-card-alt)",
+            border: "var(--border)",
             icon: <InboxOutlined />,
           },
           {
             label: "Pending",
             value: stats.pending,
-            ...STATUS_CONFIG.pending,
+            color: statusConfig.pending?.color,
+            bg: statusConfig.pending?.bg,
+            border: statusConfig.pending?.border,
             icon: <ClockCircleOutlined />,
           },
           {
             label: "Approved",
             value: stats.approved,
-            ...STATUS_CONFIG.approved,
+            color: statusConfig.approved?.color,
+            bg: statusConfig.approved?.bg,
+            border: statusConfig.approved?.border,
             icon: <CheckCircleOutlined />,
           },
           {
             label: "Rejected",
             value: stats.rejected,
-            ...STATUS_CONFIG.rejected,
+            color: statusConfig.rejected?.color,
+            bg: statusConfig.rejected?.bg,
+            border: statusConfig.rejected?.border,
             icon: <CloseCircleOutlined />,
           },
         ].map(({ label, value, color, bg, border, icon }) => (
@@ -549,7 +746,7 @@ const Requests = () => {
               borderRadius: 14,
               border: `1px solid ${border}`,
               background: bg,
-              boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
+              boxShadow: "var(--shadow-card)",
             }}
           >
             <div
@@ -565,7 +762,7 @@ const Requests = () => {
                 style={{
                   fontSize: 10,
                   fontWeight: 700,
-                  color: "#94a3b8",
+                  color: "var(--text-faint)",
                   textTransform: "uppercase",
                   letterSpacing: "0.06em",
                 }}
@@ -582,36 +779,44 @@ const Requests = () => {
         ))}
       </div>
 
-      {/* ── Table ── */}
+      {/* ── Table card ── */}
       <div
         style={{
-          background: "#fff",
+          background: "var(--bg-card)",
           borderRadius: 16,
-          border: "1px solid #f1f5f9",
-          boxShadow: "0 1px 4px rgba(15,23,42,0.04)",
+          border: "1px solid var(--border)",
+          boxShadow: "var(--shadow-card)",
           overflow: "hidden",
         }}
       >
         <div
           style={{
             padding: "16px 20px",
-            borderBottom: "1px solid #f9fafb",
+            borderBottom: "1px solid var(--border-faint)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <FileTextOutlined style={{ color: "#94a3b8", fontSize: 14 }} />
-            <span style={{ fontWeight: 700, fontSize: 14, color: "#0f172a" }}>
+            <FileTextOutlined
+              style={{ color: "var(--text-faint)", fontSize: 14 }}
+            />
+            <span
+              style={{
+                fontWeight: 700,
+                fontSize: 14,
+                color: "var(--text-primary)",
+              }}
+            >
               All Requests
             </span>
             <span
               style={{
                 fontSize: 12,
                 fontWeight: 700,
-                color: "#64748b",
-                background: "#f1f5f9",
+                color: "var(--text-muted)",
+                background: "var(--bg-subtle)",
                 borderRadius: 20,
                 padding: "1px 10px",
               }}
@@ -619,7 +824,7 @@ const Requests = () => {
               {requests.length}
             </span>
           </div>
-          <span style={{ fontSize: 12, color: "#94a3b8" }}>
+          <span style={{ fontSize: 12, color: "var(--text-faint)" }}>
             Click a row to expand details
           </span>
         </div>
@@ -638,14 +843,13 @@ const Requests = () => {
             expandedRowKeys: expandedRow ? [expandedRow] : [],
             showExpandColumn: false,
             expandedRowRender: (record) => {
-              const statusCfg =
-                STATUS_CONFIG[record.status] || STATUS_CONFIG.pending;
+              const sCfg = statusConfig[record.status] || statusConfig.pending;
               return (
                 <div
                   style={{
                     padding: "20px 24px 20px 70px",
-                    background: "#fafafa",
-                    borderTop: "1px solid #f1f5f9",
+                    background: "var(--bg-card-alt)",
+                    borderTop: "1px solid var(--border-subtle)",
                   }}
                 >
                   <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
@@ -654,7 +858,7 @@ const Requests = () => {
                         style={{
                           fontSize: 10,
                           fontWeight: 700,
-                          color: "#94a3b8",
+                          color: "var(--text-faint)",
                           textTransform: "uppercase",
                           letterSpacing: "0.06em",
                           marginBottom: 6,
@@ -666,7 +870,7 @@ const Requests = () => {
                         style={{
                           margin: 0,
                           fontSize: 13,
-                          color: "#1e293b",
+                          color: "var(--text-secondary)",
                           lineHeight: 1.7,
                         }}
                       >
@@ -679,7 +883,7 @@ const Requests = () => {
                           style={{
                             fontSize: 10,
                             fontWeight: 700,
-                            color: "#94a3b8",
+                            color: "var(--text-faint)",
                             textTransform: "uppercase",
                             letterSpacing: "0.06em",
                             marginBottom: 6,
@@ -691,7 +895,7 @@ const Requests = () => {
                           style={{
                             margin: 0,
                             fontSize: 13,
-                            color: "#1e293b",
+                            color: "var(--text-secondary)",
                             lineHeight: 1.7,
                           }}
                         >
@@ -704,7 +908,7 @@ const Requests = () => {
                         style={{
                           fontSize: 10,
                           fontWeight: 700,
-                          color: "#94a3b8",
+                          color: "var(--text-faint)",
                           textTransform: "uppercase",
                           letterSpacing: "0.06em",
                           marginBottom: 6,
@@ -719,20 +923,20 @@ const Requests = () => {
                           gap: 6,
                           padding: "6px 14px",
                           borderRadius: 20,
-                          border: `1px solid ${statusCfg.border}`,
-                          background: statusCfg.bg,
+                          border: `1px solid ${sCfg.border}`,
+                          background: sCfg.bg,
                           fontSize: 12,
                           fontWeight: 700,
-                          color: statusCfg.color,
+                          color: sCfg.color,
                         }}
                       >
-                        {statusCfg.icon} {statusCfg.label}
+                        {sCfg.icon} {sCfg.label}
                       </span>
                       {record.responded_at && (
                         <div
                           style={{
                             fontSize: 11,
-                            color: "#94a3b8",
+                            color: "var(--text-faint)",
                             marginTop: 6,
                           }}
                         >
@@ -751,7 +955,7 @@ const Requests = () => {
           pagination={{
             pageSize: 10,
             showTotal: (total) => (
-              <span style={{ fontSize: 12, color: "#94a3b8" }}>
+              <span style={{ fontSize: 12, color: "var(--text-faint)" }}>
                 {total} requests
               </span>
             ),
@@ -770,27 +974,35 @@ const Requests = () => {
                 width: 38,
                 height: 38,
                 borderRadius: 10,
-                background: "#f1f5f9",
+                background: "var(--bg-subtle)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <PlusOutlined style={{ color: "#475569", fontSize: 16 }} />
+              <PlusOutlined
+                style={{ color: "var(--text-tertiary)", fontSize: 16 }}
+              />
             </div>
             <div>
               <div
                 style={{
                   fontSize: 10,
                   fontWeight: 700,
-                  color: "#94a3b8",
+                  color: "var(--text-faint)",
                   textTransform: "uppercase",
                   letterSpacing: "0.08em",
                 }}
               >
                 New
               </div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>
+              <div
+                style={{
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: "var(--text-primary)",
+                }}
+              >
                 Submit a Request
               </div>
             </div>
@@ -814,17 +1026,7 @@ const Requests = () => {
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <div className="req-select">
-            <label
-              style={{
-                display: "block",
-                marginBottom: 6,
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#475569",
-              }}
-            >
-              Request Type <span style={{ color: "#e11d48" }}>*</span>
-            </label>
+            <FieldLabel required>Request Type</FieldLabel>
             <Select
               value={createFormData.request_type || undefined}
               onChange={(v) =>
@@ -840,19 +1042,8 @@ const Requests = () => {
               <Select.Option value="other">📋 Other</Select.Option>
             </Select>
           </div>
-
           <div className="req-input">
-            <label
-              style={{
-                display: "block",
-                marginBottom: 6,
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#475569",
-              }}
-            >
-              Subject <span style={{ color: "#e11d48" }}>*</span>
-            </label>
+            <FieldLabel required>Subject</FieldLabel>
             <Input
               value={createFormData.subject}
               onChange={(e) =>
@@ -864,19 +1055,8 @@ const Requests = () => {
               placeholder="Brief subject line…"
             />
           </div>
-
           <div className="req-input">
-            <label
-              style={{
-                display: "block",
-                marginBottom: 6,
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#475569",
-              }}
-            >
-              Description <span style={{ color: "#e11d48" }}>*</span>
-            </label>
+            <FieldLabel required>Description</FieldLabel>
             <TextArea
               value={createFormData.description}
               onChange={(e) =>
@@ -903,27 +1083,35 @@ const Requests = () => {
                 width: 38,
                 height: 38,
                 borderRadius: 10,
-                background: "#f0f9ff",
+                background: "var(--type-leave-bg)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <MessageOutlined style={{ color: "#0369a1", fontSize: 16 }} />
+              <MessageOutlined
+                style={{ color: "var(--type-leave-color)", fontSize: 16 }}
+              />
             </div>
             <div>
               <div
                 style={{
                   fontSize: 10,
                   fontWeight: 700,
-                  color: "#94a3b8",
+                  color: "var(--text-faint)",
                   textTransform: "uppercase",
                   letterSpacing: "0.08em",
                 }}
               >
                 Review
               </div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>
+              <div
+                style={{
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: "var(--text-primary)",
+                }}
+              >
                 Respond to Request
               </div>
             </div>
@@ -948,9 +1136,9 @@ const Requests = () => {
         {selectedRequest && (
           <div
             style={{
-              background: "#f8fafc",
+              background: "var(--bg-input)",
               borderRadius: 10,
-              border: "1px solid #e2e8f0",
+              border: "1px solid var(--border)",
               padding: "14px 16px",
               marginBottom: 20,
             }}
@@ -959,7 +1147,7 @@ const Requests = () => {
               style={{
                 fontSize: 11,
                 fontWeight: 700,
-                color: "#94a3b8",
+                color: "var(--text-faint)",
                 textTransform: "uppercase",
                 letterSpacing: "0.06em",
                 marginBottom: 6,
@@ -971,32 +1159,21 @@ const Requests = () => {
               style={{
                 fontWeight: 700,
                 fontSize: 14,
-                color: "#0f172a",
+                color: "var(--text-primary)",
                 marginBottom: 2,
               }}
             >
               {selectedRequest.subject}
             </div>
-            <div style={{ fontSize: 12, color: "#64748b" }}>
+            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
               {selectedRequest.profiles?.full_name} ·{" "}
-              {TYPE_CONFIG[selectedRequest.request_type]?.label}
+              {typeConfig[selectedRequest.request_type]?.label}
             </div>
           </div>
         )}
-
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <div className="req-select">
-            <label
-              style={{
-                display: "block",
-                marginBottom: 6,
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#475569",
-              }}
-            >
-              Decision <span style={{ color: "#e11d48" }}>*</span>
-            </label>
+            <FieldLabel required>Decision</FieldLabel>
             <Select
               value={formData.status || undefined}
               onChange={(v) => setFormData({ ...formData, status: v })}
@@ -1004,30 +1181,23 @@ const Requests = () => {
               style={{ width: "100%" }}
             >
               <Select.Option value="approved">
-                <span style={{ color: "#059669", fontWeight: 600 }}>
+                <span
+                  style={{ color: "var(--approved-color)", fontWeight: 600 }}
+                >
                   ✓ Approve
                 </span>
               </Select.Option>
               <Select.Option value="rejected">
-                <span style={{ color: "#e11d48", fontWeight: 600 }}>
+                <span
+                  style={{ color: "var(--rejected-color)", fontWeight: 600 }}
+                >
                   ✕ Reject
                 </span>
               </Select.Option>
             </Select>
           </div>
-
           <div className="req-input">
-            <label
-              style={{
-                display: "block",
-                marginBottom: 6,
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#475569",
-              }}
-            >
-              Response Message <span style={{ color: "#e11d48" }}>*</span>
-            </label>
+            <FieldLabel required>Response Message</FieldLabel>
             <TextArea
               value={formData.response}
               onChange={(e) =>

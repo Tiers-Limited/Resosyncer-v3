@@ -28,6 +28,7 @@ import {
   useElements,
 } from "@stripe/react-stripe-js";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
@@ -227,6 +228,14 @@ const getDaysLeft = (dateStr) => {
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 };
 
+const getIsDarkTheme = () => {
+  if (typeof window === "undefined") return false;
+  const mode = localStorage.getItem("themeMode") || "system";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
+
 // ─── Parse edge-function errors robustly ─────────────────────────────────────
 const parseEdgeFnError = async (error, fallback = "Operation failed.") => {
   if (!error) return fallback;
@@ -244,7 +253,7 @@ const parseEdgeFnError = async (error, fallback = "Operation failed.") => {
 };
 
 // ─── Stripe card form ─────────────────────────────────────────────────────────
-const NewCardForm = ({ onTokenReady, loading }) => {
+const NewCardForm = ({ onTokenReady, loading, dark = false }) => {
   const stripe = useStripe();
   const elements = useElements();
 
@@ -263,15 +272,21 @@ const NewCardForm = ({ onTokenReady, loading }) => {
 
   return (
     <div>
-      <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 mb-2">
+      <div
+        className="rounded-xl border px-4 py-3 mb-2"
+        style={{
+          borderColor: dark ? "#2b2f38" : "#e2e8f0",
+          background: dark ? "#1b1c21" : "#f8fafc",
+        }}
+      >
         <CardElement
           options={{
             style: {
               base: {
                 fontSize: "15px",
-                color: "#1e293b",
+                color: dark ? "#e5e7eb" : "#1e293b",
                 fontFamily: "inherit",
-                "::placeholder": { color: "#94a3b8" },
+                "::placeholder": { color: dark ? "#6b7280" : "#94a3b8" },
               },
               invalid: { color: "#ef4444" },
             },
@@ -296,10 +311,13 @@ const NewCardForm = ({ onTokenReady, loading }) => {
 };
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
-const StatCard = ({ icon, label, value, sub, color = "#6366f1" }) => (
+const StatCard = ({ icon, label, value, sub, color = "#6366f1", dark = false }) => (
   <div
-    className="bg-white rounded-2xl p-5 flex items-center gap-4"
-    style={{ border: "1.5px solid #e2e8f0" }}
+    className="rounded-2xl p-5 flex items-center gap-4"
+    style={{
+      background: dark ? "#16171b" : "#fff",
+      border: `1.5px solid ${dark ? "#2b2f38" : "#e2e8f0"}`,
+    }}
   >
     <div
       className="w-11 h-11 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
@@ -308,29 +326,54 @@ const StatCard = ({ icon, label, value, sub, color = "#6366f1" }) => (
       {icon}
     </div>
     <div className="min-w-0">
-      <div className="text-xs text-slate-400 mb-0.5">{label}</div>
-      <div className="font-bold text-slate-900 text-lg leading-tight truncate">
+      <div
+        className="text-xs mb-0.5"
+        style={{ color: dark ? "#9ca3af" : "#94a3b8" }}
+      >
+        {label}
+      </div>
+      <div
+        className="font-bold text-lg leading-tight truncate"
+        style={{ color: dark ? "#f3f4f6" : "#0f172a" }}
+      >
         {value}
       </div>
-      {sub && <div className="text-xs text-slate-400 mt-0.5">{sub}</div>}
+      {sub && (
+        <div
+          className="text-xs mt-0.5"
+          style={{ color: dark ? "#9ca3af" : "#94a3b8" }}
+        >
+          {sub}
+        </div>
+      )}
     </div>
   </div>
 );
 
 // ─── Plan card ────────────────────────────────────────────────────────────────
-const PlanCard = ({ plan, currentPlanName, onSelect, isDowngrade }) => {
+const PlanCard = ({ plan, currentPlanName, onSelect, isDowngrade, dark = false }) => {
   const isCurrent = plan.name.toLowerCase() === currentPlanName?.toLowerCase();
   return (
     <div
       onClick={() => !isCurrent && onSelect(plan)}
       className="relative flex flex-col rounded-2xl transition-all duration-200"
       style={{
-        background: isCurrent ? "#f0fdf4" : plan.popular ? "#faf5ff" : "#fff",
+        background: isCurrent
+          ? dark
+            ? "rgba(16,185,129,0.16)"
+            : "#f0fdf4"
+          : plan.popular
+            ? dark
+              ? "rgba(139,92,246,0.14)"
+              : "#faf5ff"
+            : dark
+              ? "#16171b"
+              : "#fff",
         border: isCurrent
           ? "2px solid #10b981"
           : plan.popular
             ? "2px solid #8b5cf6"
-            : "1.5px solid #e2e8f0",
+            : `1.5px solid ${dark ? "#2b2f38" : "#e2e8f0"}`,
         cursor: isCurrent ? "default" : "pointer",
       }}
     >
@@ -359,36 +402,58 @@ const PlanCard = ({ plan, currentPlanName, onSelect, isDowngrade }) => {
             {plan.icon}
           </div>
           <div>
-            <div className="font-bold text-slate-900 text-sm">{plan.name}</div>
-            <div className="text-xs text-slate-400">{plan.tagline}</div>
+            <div
+              className="font-bold text-sm"
+              style={{ color: dark ? "#f3f4f6" : "#0f172a" }}
+            >
+              {plan.name}
+            </div>
+            <div className="text-xs" style={{ color: dark ? "#9ca3af" : "#94a3b8" }}>
+              {plan.tagline}
+            </div>
           </div>
         </div>
         <div className="mb-3">
-          <span className="text-3xl font-black text-slate-900">
+          <span
+            className="text-3xl font-black"
+            style={{ color: dark ? "#f3f4f6" : "#0f172a" }}
+          >
             {plan.priceLabel}
           </span>
-          <span className="text-xs text-slate-400 ml-1">{plan.period}</span>
+          <span className="text-xs ml-1" style={{ color: dark ? "#9ca3af" : "#94a3b8" }}>
+            {plan.period}
+          </span>
         </div>
-        <div className="h-px bg-slate-100 mb-3" />
+        <div
+          className="h-px mb-3"
+          style={{ background: dark ? "#2b2f38" : "#f1f5f9" }}
+        />
         <ul className="flex flex-col gap-1.5 flex-1 mb-4">
           {plan.features.slice(0, 4).map((f) => (
             <li
               key={f}
-              className="flex items-center gap-2 text-xs text-slate-600"
+              className="flex items-center gap-2 text-xs"
+              style={{ color: dark ? "#d1d5db" : "#475569" }}
             >
               <CheckOutlined style={{ color: plan.color, fontSize: 9 }} />
               {f}
             </li>
           ))}
           {plan.features.length > 4 && (
-            <li className="text-xs text-slate-400">
+            <li className="text-xs" style={{ color: dark ? "#9ca3af" : "#94a3b8" }}>
               +{plan.features.length - 4} more
             </li>
           )}
         </ul>
         {isCurrent ? (
-          <div className="w-full py-2.5 rounded-xl text-xs font-bold text-center bg-emerald-50 text-emerald-600">
-            ✓ Active Plan
+          <div
+            className="w-full py-2.5 rounded-xl text-xs font-bold text-center"
+            style={{
+              background: dark ? "rgba(16,185,129,0.15)" : "#ecfdf5",
+              color: "#10b981",
+            }}
+          >
+            Active Plan
           </div>
         ) : (
           <div
@@ -411,6 +476,8 @@ const PlanCard = ({ plan, currentPlanName, onSelect, isDowngrade }) => {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 const SubscriptionManagement = () => {
+  const { user, profile } = useAuth();
+  const [dark, setDark] = useState(getIsDarkTheme);
   const [tenant, setTenant] = useState(null);
   const [loadingTenant, setLoadingTenant] = useState(true);
   const [storageData, setStorageData] = useState(null);
@@ -425,27 +492,61 @@ const SubscriptionManagement = () => {
   const [liveUserCount, setLiveUserCount] = useState(null);
 
   useEffect(() => {
-    fetchTenant();
-    setTimeout(() => setMounted(true), 30);
+    const syncTheme = () => setDark(getIsDarkTheme());
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    window.addEventListener("storage", syncTheme);
+    window.addEventListener("themeModeChanged", syncTheme);
+    mediaQuery.addEventListener("change", syncTheme);
+    return () => {
+      window.removeEventListener("storage", syncTheme);
+      window.removeEventListener("themeModeChanged", syncTheme);
+      mediaQuery.removeEventListener("change", syncTheme);
+    };
   }, []);
+
+  useEffect(() => {
+    if (user?.id || profile?.tenant_id) {
+      fetchTenant();
+    }
+    setTimeout(() => setMounted(true), 30);
+  }, [user?.id, profile?.tenant_id]);
 
   const fetchTenant = async () => {
     setLoadingTenant(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data, error } = await supabase
-        .from("tenants")
-        .select("*")
-        .eq("owner_id", user.id)
-        .single();
-      if (error) throw error;
-      setTenant(data);
-      fetchLiveUserCount(data.id);
-      fetchStorage(data.id);
-    } catch {
+      let tenantData = null;
+      let resolvedProfile = profile || null;
+
+      if (!resolvedProfile && user?.id) {
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (profileError) throw profileError;
+        resolvedProfile = profileData;
+      }
+
+      if (resolvedProfile?.tenant_id) {
+        const { data, error } = await supabase
+          .from("tenants")
+          .select("*")
+          .eq("id", resolvedProfile?.tenant_id)
+          .maybeSingle();
+        if (error) throw error;
+        tenantData = data;
+        console.log("tenantData", tenantData);
+      }
+
+      if (!tenantData) {
+        throw new Error("Tenant subscription not found for this admin.");
+      }
+
+      setTenant(tenantData);
+      fetchLiveUserCount(tenantData.id);
+      fetchStorage(tenantData.id);
+    } catch (error) {
+      console.error("Failed to load subscription info:", error);
       message.error("Failed to load subscription info.");
     } finally {
       setLoadingTenant(false);
@@ -641,19 +742,28 @@ const SubscriptionManagement = () => {
 
   if (loadingTenant)
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div
+        className="flex items-center justify-center min-h-[400px]"
+        style={{ background: dark ? "#101114" : "transparent" }}
+      >
         <div className="text-center">
-          <ReloadOutlined spin className="text-3xl text-slate-400 mb-3" />
-          <p className="text-slate-400 text-sm">Loading subscription…</p>
+          <ReloadOutlined
+            spin
+            className="text-3xl mb-3"
+            style={{ color: dark ? "#9ca3af" : "#94a3b8" }}
+          />
+          <p className="text-sm" style={{ color: dark ? "#9ca3af" : "#94a3b8" }}>
+            Loading subscription...
+          </p>
         </div>
       </div>
     );
 
   return (
     <div
-      className="min-h-screen p-6 sm:p-10"
+      className={`min-h-screen p-6 sm:p-10 ${dark ? "sub-dark" : ""}`}
       style={{
-        background: "#f8fafc",
+        background: dark ? "#141416" : "#f8fafc",
         fontFamily: "'Instrument Sans', system-ui, sans-serif",
       }}
     >
@@ -662,6 +772,38 @@ const SubscriptionManagement = () => {
         * { font-family: 'Instrument Sans', system-ui, sans-serif; }
         @keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
         .sub-modal .ant-modal-content { border-radius: 20px !important; }
+        .sub-dark .bg-white { background-color: #16171b !important; }
+        .sub-dark .bg-slate-50 { background-color: #1b1c21 !important; }
+        .sub-dark .bg-slate-100 { background-color: #252830 !important; }
+        .sub-dark .border-slate-100,
+        .sub-dark .border-slate-200 { border-color: #2b2f38 !important; }
+        .sub-dark .text-slate-900,
+        .sub-dark .text-slate-800,
+        .sub-dark .text-slate-700 { color: #f3f4f6 !important; }
+        .sub-dark .text-slate-600,
+        .sub-dark .text-slate-500 { color: #d1d5db !important; }
+        .sub-dark .text-slate-400 { color: #9ca3af !important; }
+        .sub-dark-modal .ant-modal-content {
+          background: #16171b !important;
+          border: 1.5px solid #2b2f38 !important;
+          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45) !important;
+        }
+        .sub-dark-modal .ant-modal-header { background: transparent !important; }
+        .sub-dark-modal .ant-modal-title { color: #f3f4f6 !important; }
+        .sub-dark-modal .ant-modal-close { color: #9ca3af !important; }
+        .sub-dark-modal .ant-modal-close:hover { color: #f3f4f6 !important; }
+        .sub-dark-modal .ant-modal-body { color: #d1d5db !important; }
+        .sub-dark-modal .bg-white { background-color: #16171b !important; }
+        .sub-dark-modal .bg-slate-50 { background-color: #1b1c21 !important; }
+        .sub-dark-modal .bg-slate-100 { background-color: #252830 !important; }
+        .sub-dark-modal .border-slate-100,
+        .sub-dark-modal .border-slate-200 { border-color: #2b2f38 !important; }
+        .sub-dark-modal .text-slate-900,
+        .sub-dark-modal .text-slate-800,
+        .sub-dark-modal .text-slate-700 { color: #f3f4f6 !important; }
+        .sub-dark-modal .text-slate-600,
+        .sub-dark-modal .text-slate-500 { color: #d1d5db !important; }
+        .sub-dark-modal .text-slate-400 { color: #9ca3af !important; }
       `}</style>
 
       <div className="mx-auto">
@@ -770,6 +912,7 @@ const SubscriptionManagement = () => {
                 : "No charge"
             }
             color={currentPlan.color}
+            dark={dark}
           />
           <StatCard
             icon={<TeamOutlined />}
@@ -777,6 +920,7 @@ const SubscriptionManagement = () => {
             value={seatLabel}
             sub="seats used"
             color="#3b82f6"
+            dark={dark}
           />
           <StatCard
             icon={<DatabaseOutlined />}
@@ -790,6 +934,7 @@ const SubscriptionManagement = () => {
                 : `of ${storageLimitGB} GB limit`
             }
             color="#10b981"
+            dark={dark}
           />
           <StatCard
             icon={<CreditCardOutlined />}
@@ -797,6 +942,7 @@ const SubscriptionManagement = () => {
             value={`$${tenant?.mrr ?? 0}`}
             sub="billed monthly"
             color="#f59e0b"
+            dark={dark}
           />
         </div>
 
@@ -859,8 +1005,8 @@ const SubscriptionManagement = () => {
                   <div
                     className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold"
                     style={{
-                      background: "#f8fafc",
-                      border: "1.5px solid #e2e8f0",
+                      background: dark ? "#1b1c21" : "#f8fafc",
+                      border: `1.5px solid ${dark ? "#2b2f38" : "#e2e8f0"}`,
                     }}
                   >
                     <SyncOutlined
@@ -945,7 +1091,7 @@ const SubscriptionManagement = () => {
           {/* Billing details */}
           <div
             className="bg-white rounded-2xl p-6"
-            style={{ border: "1.5px solid #e2e8f0" }}
+            style={{ border: `1.5px solid ${dark ? "#2b2f38" : "#e2e8f0"}` }}
           >
             <div className="flex items-center justify-between mb-4">
               <div className="font-bold text-slate-900 text-sm">
@@ -1012,7 +1158,9 @@ const SubscriptionManagement = () => {
                             ? "#10b981"
                             : r.highlight === "red"
                               ? "#ef4444"
-                              : "#334155",
+                              : dark
+                                ? "#e5e7eb"
+                                : "#334155",
                       }}
                     >
                       {r.value || "—"}
@@ -1031,7 +1179,7 @@ const SubscriptionManagement = () => {
           {/* Usage overview */}
           <div
             className="bg-white rounded-2xl p-6"
-            style={{ border: "1.5px solid #e2e8f0" }}
+            style={{ border: `1.5px solid ${dark ? "#2b2f38" : "#e2e8f0"}` }}
           >
             <div className="flex items-center justify-between mb-5">
               <div className="font-bold text-slate-900 text-sm">
@@ -1051,7 +1199,9 @@ const SubscriptionManagement = () => {
                   <span className="text-slate-500">Team seats</span>
                   <span
                     className="font-semibold"
-                    style={{ color: seatDanger ? "#ef4444" : "#1e293b" }}
+                    style={{
+                      color: seatDanger ? "#ef4444" : dark ? "#e5e7eb" : "#1e293b",
+                    }}
                   >
                     {seatLabel}
                   </span>
@@ -1090,7 +1240,10 @@ const SubscriptionManagement = () => {
                   <span className="text-slate-500">Storage</span>
                   <span
                     className="font-semibold"
-                    style={{ color: storageDanger ? "#ef4444" : "#1e293b" }}
+                    style={{
+                      color:
+                        storageDanger ? "#ef4444" : dark ? "#e5e7eb" : "#1e293b",
+                    }}
                   >
                     {loadingStorage ? "Calculating…" : storageLabel}
                   </span>
@@ -1202,7 +1355,7 @@ const SubscriptionManagement = () => {
         footer={null}
         width={880}
         centered
-        className="sub-modal"
+        className={`sub-modal ${dark ? "sub-dark-modal" : ""}`}
         title={
           <div>
             <div className="font-bold text-slate-900 text-lg">
@@ -1231,6 +1384,7 @@ const SubscriptionManagement = () => {
                     currentPlanName={tenant?.plan}
                     onSelect={setSelectedPlan}
                     isDowngrade={pi < ci}
+                    dark={dark}
                   />
                 );
               })}
@@ -1251,7 +1405,10 @@ const SubscriptionManagement = () => {
               {/* Summary */}
               <div
                 className="rounded-2xl p-5"
-                style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0" }}
+                style={{
+                  background: dark ? "#1b1c21" : "#f8fafc",
+                  border: `1.5px solid ${dark ? "#2b2f38" : "#e2e8f0"}`,
+                }}
               >
                 <div className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">
                   Change Summary
@@ -1327,7 +1484,9 @@ const SubscriptionManagement = () => {
                       <span className="text-slate-400">{r.label}</span>
                       <span
                         className="font-semibold"
-                        style={{ color: r.green ? "#10b981" : "#1e293b" }}
+                        style={{
+                          color: r.green ? "#10b981" : dark ? "#e5e7eb" : "#1e293b",
+                        }}
                       >
                         {r.value}
                       </span>
@@ -1374,6 +1533,7 @@ const SubscriptionManagement = () => {
                     <NewCardForm
                       onTokenReady={(pmId) => handleUpgrade(pmId)}
                       loading={actionLoading}
+                      dark={dark}
                     />
                   </Elements>
                 )}
@@ -1390,7 +1550,7 @@ const SubscriptionManagement = () => {
         footer={null}
         width={460}
         centered
-        className="sub-modal"
+        className={`sub-modal ${dark ? "sub-dark-modal" : ""}`}
         title={
           <div className="flex items-center gap-2 text-red-600">
             <ExclamationCircleOutlined />
@@ -1469,7 +1629,7 @@ const SubscriptionManagement = () => {
         footer={null}
         width={440}
         centered
-        className="sub-modal"
+        className={`sub-modal ${dark ? "sub-dark-modal" : ""}`}
         title={
           <div className="flex items-center gap-2 text-emerald-600">
             <PlayCircleOutlined />

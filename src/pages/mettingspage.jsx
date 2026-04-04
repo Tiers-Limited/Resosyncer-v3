@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import {
   Mic,
@@ -105,10 +105,26 @@ const AVATAR_COLORS = [
   ["#fed7aa", "#c2410c"],
   ["#dbeafe", "#1d4ed8"],
 ];
+const TILE_GRADIENTS = [
+  ["#0f2a5a", "#1f4b8e"],
+  ["#12324f", "#1f6a74"],
+  ["#2b2255", "#5b3d91"],
+  ["#3a203d", "#7a2e63"],
+  ["#1f3d2b", "#2f7a55"],
+  ["#3a2f1a", "#8a5c22"],
+  ["#1f2d4d", "#3b6ecf"],
+  ["#3a2530", "#6b3e56"],
+];
 function avatarColor(str = "") {
   let h = 0;
   for (let c of str) h = (h * 31 + c.charCodeAt(0)) % AVATAR_COLORS.length;
   return AVATAR_COLORS[h];
+}
+function profileGradient(str = "") {
+  let h = 0;
+  for (let c of str) h = (h * 31 + c.charCodeAt(0)) % TILE_GRADIENTS.length;
+  const [from, to] = TILE_GRADIENTS[h];
+  return `radial-gradient(120% 120% at 20% 10%, ${to} 0%, ${from} 58%, #0b1220 100%)`;
 }
 function initials(name = "") {
   return (
@@ -142,6 +158,13 @@ function fmtMeetingDate(dt) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function getIsDarkTheme() {
+  const mode = localStorage.getItem("themeMode") || "system";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
 function createGuestProfile(roomId, name = "") {
@@ -187,6 +210,25 @@ const styles = `
     --radius: 10px; --radius-lg: 14px; --radius-xl: 20px;
     --font: 'DM Sans', sans-serif; --font-mono: 'DM Mono', monospace;
     --transition: 0.15s cubic-bezier(0.4,0,0.2,1);
+    --tile-label-bg: rgba(255,255,255,0.92);
+    --tile-label-border: rgba(0,0,0,0.08);
+  }
+  .meet-root.dark {
+    --bg: #0c0c0e; --bg-2: #141416; --bg-3: #1c1c1f;
+    --surface: rgba(255,255,255,0.035); --surface-2: rgba(255,255,255,0.06); --surface-3: rgba(255,255,255,0.09);
+    --border: #242428; --border-strong: #2f2f36;
+    --text: #f2f2f5; --text-2: #b6b6c1; --text-3: #8a8a96;
+    --accent: #5e6ad2; --accent-2: #7b86e8; --accent-glow: rgba(94,106,210,0.2); --accent-subtle: rgba(94,106,210,0.12);
+    --green: #22c55e; --green-subtle: rgba(34,197,94,0.12);
+    --red: #ef4444; --red-subtle: rgba(239,68,68,0.12);
+    --amber: #f59e0b; --amber-subtle: rgba(245,158,11,0.12);
+    --purple: #8b5cf6; --purple-subtle: rgba(139,92,246,0.12);
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.35),0 1px 2px rgba(0,0,0,0.28);
+    --shadow: 0 6px 18px rgba(0,0,0,0.35),0 2px 6px rgba(0,0,0,0.28);
+    --shadow-lg: 0 14px 36px rgba(0,0,0,0.4),0 6px 14px rgba(0,0,0,0.28);
+    --shadow-xl: 0 28px 72px rgba(0,0,0,0.48),0 10px 28px rgba(0,0,0,0.34);
+    --tile-label-bg: rgba(20,20,22,0.9);
+    --tile-label-border: rgba(255,255,255,0.08);
   }
   .meet-root { font-family: var(--font); color: var(--text); background: var(--bg); }
   .lobby-wrap {
@@ -308,7 +350,7 @@ const styles = `
   .video-tile:hover .tile-overlay { opacity: 1; }
   .video-tile.speaking { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow),var(--shadow); }
   .tile-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 50%); opacity: 0.6; transition: opacity 0.2s; pointer-events: none; }
-  .video-tile-label { position: absolute; bottom: 10px; left: 10px; padding: 5px 11px; border-radius: 9px; background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); font-size: 11px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 5px; border: 1px solid rgba(0,0,0,0.08); box-shadow: var(--shadow-sm); }
+  .video-tile-label { position: absolute; bottom: 10px; left: 10px; padding: 5px 11px; border-radius: 9px; background: var(--tile-label-bg); backdrop-filter: blur(12px); font-size: 11px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 5px; border: 1px solid var(--tile-label-border); box-shadow: var(--shadow-sm); }
   .chat-bubble-me { background: var(--accent); color: white; border-radius: 14px 14px 4px 14px; padding: 9px 13px; font-size: 13px; max-width: 210px; word-break: break-word; line-height: 1.55; box-shadow: 0 2px 8px var(--accent-glow); }
   .chat-bubble-other { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 14px 14px 14px 4px; padding: 9px 13px; font-size: 13px; max-width: 210px; word-break: break-word; line-height: 1.55; }
   .chat-input-wrap { padding: 12px; border-top: 1px solid var(--border); display: flex; gap: 8px; background: var(--bg-2); }
@@ -454,6 +496,13 @@ function VideoTile({
   const videoRef = useRef(null);
   const resolvedProfile =
     profilesMap?.[participant.peerId] || participant.profile;
+  const fallbackBg = profileGradient(
+    resolvedProfile?.id ||
+      resolvedProfile?.email ||
+      resolvedProfile?.full_name ||
+      participant.peerId ||
+      "guest",
+  );
 
   // Determine if we should show video
   // For local: check isCamOn state. For remote: check participant.camOn flag AND that stream has live video tracks
@@ -524,7 +573,7 @@ function VideoTile({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            background: "linear-gradient(135deg,#eeede8 0%,#e6e5e0 100%)",
+            background: fallbackBg,
             flexDirection: "column",
             gap: 12,
             position: "absolute",
@@ -743,7 +792,7 @@ const BG_OPTIONS = [
 // ─── Meeting Created Modal ────────────────────────────────────────────────────
 function MeetingCreatedModal({ meeting, onJoin, onClose }) {
   const [copied, setCopied] = useState(false);
-  const link = `${window.location.origin}/meet/${meeting.room_id || meeting.id}?meetingId=${meeting.id}`;
+  const link = `${window.location.origin}/meet/${meeting.room_id || meeting.id}`;
   const copyLink = () => {
     navigator.clipboard?.writeText(link);
     setCopied(true);
@@ -927,6 +976,8 @@ function LobbyScreen({
   onJoin,
   onBack,
   onGuestNameChange,
+  dark = false,
+  guestJoinStatus = "idle",
 }) {
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
@@ -968,6 +1019,7 @@ function LobbyScreen({
     setJoining(true);
     stream?.getTracks().forEach((t) => t.stop());
     await onJoin({ micOn, camOn });
+    setJoining(false);
   };
 
   const agendaItems = (() => {
@@ -982,7 +1034,7 @@ function LobbyScreen({
   const canJoin = isHost || meeting?.status === "live";
 
   return (
-    <div className="meet-root lobby-wrap">
+    <div className={`meet-root lobby-wrap${dark ? " dark" : ""}`}>
       <style>{styles}</style>
       <div className="lobby-grid-bg" />
       <div className="lobby-inner">
@@ -1044,7 +1096,9 @@ function LobbyScreen({
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
-                  background: "linear-gradient(135deg,#eeede8 0%,#e6e5e0 100%)",
+                  background: dark
+                    ? "linear-gradient(135deg, #1c1c1f 0%, #141416 100%)"
+                    : "linear-gradient(135deg,#eeede8 0%,#e6e5e0 100%)",
                   gap: 14,
                 }}
               >
@@ -1087,7 +1141,9 @@ function LobbyScreen({
                 left: 14,
                 padding: "6px 13px",
                 borderRadius: 10,
-                background: "rgba(255,255,255,0.92)",
+                background: dark
+                  ? "rgba(20,20,22,0.92)"
+                  : "rgba(255,255,255,0.92)",
                 backdropFilter: "blur(12px)",
                 fontSize: 12,
                 fontWeight: 700,
@@ -1351,7 +1407,11 @@ function LobbyScreen({
           {canJoin ? (
             <button
               onClick={handleJoin}
-              disabled={joining || (isGuest && !currentUser?.full_name?.trim())}
+              disabled={
+                joining ||
+                guestJoinStatus === "pending" ||
+                (isGuest && !currentUser?.full_name?.trim())
+              }
               className={`btn ${isHost ? "btn-primary" : "btn-green"} btn-lg`}
             >
               {joining ? (
@@ -1372,9 +1432,13 @@ function LobbyScreen({
               )}
               {joining
                 ? "Connecting…"
-                : isHost
-                  ? "Start Meeting"
-                  : "Join Meeting"}
+                : guestJoinStatus === "pending"
+                  ? "Waiting For Host Approval…"
+                  : isHost
+                    ? "Start Meeting"
+                    : guestJoinStatus === "rejected"
+                      ? "Request Access Again"
+                      : "Join Meeting"}
             </button>
           ) : (
             <div>
@@ -1416,6 +1480,30 @@ function LobbyScreen({
               </div>
             </div>
           )}
+          {isGuest && guestJoinStatus === "pending" && (
+            <div
+              style={{
+                marginTop: 10,
+                fontSize: 12,
+                color: "var(--text-2)",
+                textAlign: "center",
+              }}
+            >
+              Your join request has been sent to the host.
+            </div>
+          )}
+          {isGuest && guestJoinStatus === "rejected" && (
+            <div
+              style={{
+                marginTop: 10,
+                fontSize: 12,
+                color: "var(--red)",
+                textAlign: "center",
+              }}
+            >
+              The host declined your request.
+            </div>
+          )}
           <button
             onClick={onBack}
             style={{
@@ -1451,8 +1539,8 @@ function LobbyScreen({
 // ─── Main Room ────────────────────────────────────────────────────────────────
 export default function MeetingRoom() {
   const { roomId } = useParams();
-  const [searchParams] = useSearchParams();
-  const meetingId = searchParams.get("meetingId");
+  const [dark, setDark] = useState(getIsDarkTheme);
+  const [meetingDbId, setMeetingDbId] = useState(null);
 
   const [phase, setPhase] = useState("lobby");
   const [currentUser, setCurrentUser] = useState(null);
@@ -1480,6 +1568,8 @@ export default function MeetingRoom() {
   const [summaryData, setSummaryData] = useState(null);
   const [unreadChat, setUnreadChat] = useState(0);
   const [selectedBg, setSelectedBg] = useState("none");
+  const [guestJoinRequests, setGuestJoinRequests] = useState([]);
+  const [guestJoinStatus, setGuestJoinStatus] = useState("idle");
 
   const recordingChunksRef = useRef([]);
   const mediaRecorderRef = useRef(null);
@@ -1506,15 +1596,30 @@ export default function MeetingRoom() {
   const speakingTimelineRef = useRef([]);
   const activeSpeakerSegmentRef = useRef(null);
   const speakingIdRef = useRef(null);
+  const approvalChannelRef = useRef(null);
+  const pendingJoinPrefsRef = useRef(null);
   const meetingMixCtxRef = useRef(null);
   const meetingMixDestRef = useRef(null);
   const meetingMixNodesRef = useRef([]);
   const meetingAudioRecorderRef = useRef(null);
   const meetingAudioChunksRef = useRef([]);
   const meetingAudioBlobRef = useRef(null);
+  const approvalSoundCtxRef = useRef(null);
 
   useEffect(() => {
     loadInitialData();
+  }, []);
+  useEffect(() => {
+    const syncTheme = () => setDark(getIsDarkTheme());
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    window.addEventListener("storage", syncTheme);
+    window.addEventListener("themeModeChanged", syncTheme);
+    mediaQuery.addEventListener("change", syncTheme);
+    return () => {
+      window.removeEventListener("storage", syncTheme);
+      window.removeEventListener("themeModeChanged", syncTheme);
+      mediaQuery.removeEventListener("change", syncTheme);
+    };
   }, []);
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1571,18 +1676,30 @@ export default function MeetingRoom() {
     setCurrentUser(profile);
     currentUserRef.current = profile;
 
-    if (meetingId) {
-      const { data: mtg } = await supabase
+    let mtg = null;
+    const meetingByRoom = await supabase
+      .from("meetings")
+      .select("*")
+      .eq("meeting_room_id", roomId)
+      .maybeSingle();
+    mtg = meetingByRoom.data || null;
+    if (!mtg) {
+      const meetingById = await supabase
         .from("meetings")
         .select("*")
-        .eq("id", meetingId)
-        .single();
+        .eq("id", roomId)
+        .maybeSingle();
+      mtg = meetingById.data || null;
+    }
+
+    if (mtg) {
       setMeeting(mtg);
-      const hostId = mtg?.created_by || mtg?.user_id;
+      setMeetingDbId(mtg.id);
+      const hostId = mtg.created_by || mtg.user_id;
       const host = !!user && hostId === user.id;
       setIsHost(host);
       isHostRef.current = host;
-      if (mtg?.tenant_id) {
+      if (mtg.tenant_id) {
         const { data: profs } = await supabase
           .from("profiles")
           .select("id,full_name,email,job_title,user_photo")
@@ -1594,8 +1711,8 @@ export default function MeetingRoom() {
         });
         if (profile?.id) map[profile.id] = profile;
         setProfilesMap(map);
-      } else {
-        if (profile) setProfilesMap({ [profile.id]: profile });
+      } else if (profile) {
+        setProfilesMap({ [profile.id]: profile });
       }
     } else {
       setIsHost(true);
@@ -1611,6 +1728,9 @@ export default function MeetingRoom() {
     } catch {}
     try {
       meetingMixCtxRef.current?.close();
+    } catch {}
+    try {
+      approvalSoundCtxRef.current?.close();
     } catch {}
     speakingEntriesRef.current.forEach(({ source, analyser }) => {
       try {
@@ -1641,6 +1761,7 @@ export default function MeetingRoom() {
     meetingMixCtxRef.current = null;
     meetingMixDestRef.current = null;
     meetingAudioRecorderRef.current = null;
+    approvalSoundCtxRef.current = null;
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     screenStreamRef.current?.getTracks().forEach((t) => t.stop());
     Object.values(peerConnectionsRef.current).forEach((pc) => {
@@ -1650,8 +1771,125 @@ export default function MeetingRoom() {
     });
     peerConnectionsRef.current = {};
     if (signalingRef.current) supabase.removeChannel(signalingRef.current);
+    if (approvalChannelRef.current) supabase.removeChannel(approvalChannelRef.current);
     clearInterval(timerRef.current);
   }, []);
+
+  const playApprovalRequestSound = useCallback(() => {
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+
+      let ctx = approvalSoundCtxRef.current;
+      if (!ctx || ctx.state === "closed") {
+        ctx = new Ctx();
+        approvalSoundCtxRef.current = ctx;
+      }
+      if (ctx.state === "suspended") ctx.resume();
+
+      const now = ctx.currentTime;
+      const notes = [
+        { freq: 880, at: 0 },
+        { freq: 1174, at: 0.2 },
+      ];
+      notes.forEach(({ freq, at }) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, now + at);
+        gain.gain.setValueAtTime(0.0001, now + at);
+        gain.gain.exponentialRampToValueAtTime(0.08, now + at + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + at + 0.16);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + at);
+        osc.stop(now + at + 0.18);
+      });
+    } catch (e) {
+      console.warn("Approval sound failed:", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    const unlockAudio = async () => {
+      try {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        if (!approvalSoundCtxRef.current || approvalSoundCtxRef.current.state === "closed") {
+          approvalSoundCtxRef.current = new Ctx();
+        }
+        if (approvalSoundCtxRef.current.state === "suspended") {
+          await approvalSoundCtxRef.current.resume();
+        }
+      } catch {}
+    };
+    window.addEventListener("pointerdown", unlockAudio, { passive: true });
+    window.addEventListener("keydown", unlockAudio);
+    return () => {
+      window.removeEventListener("pointerdown", unlockAudio);
+      window.removeEventListener("keydown", unlockAudio);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!roomId || !currentUser?.id) return;
+    let active = true;
+
+    const setupApprovalChannel = async () => {
+      if (approvalChannelRef.current) {
+        await supabase.removeChannel(approvalChannelRef.current);
+      }
+      const ch = supabase.channel(`room-approval-${roomId}`, {
+        config: { broadcast: { self: false } },
+      });
+
+      ch.on("broadcast", { event: "guest-join-request" }, ({ payload }) => {
+        if (!isHostRef.current || phase !== "room") return;
+        if (!payload?.userId) return;
+        setGuestJoinRequests((prev) => {
+          if (prev.find((r) => r.userId === payload.userId)) return prev;
+          setTimeout(() => {
+            playApprovalRequestSound();
+          }, 0);
+          return [
+            ...prev,
+            {
+              userId: payload.userId,
+              name: payload.name || "Guest",
+              requestedAt: payload.requestedAt || new Date().toISOString(),
+            },
+          ];
+        });
+      });
+
+      ch.on("broadcast", { event: "guest-join-response" }, async ({ payload }) => {
+        if (payload?.to !== currentUserRef.current?.id) return;
+        if (payload?.approved) {
+          setGuestJoinStatus("approved");
+          const prefs = pendingJoinPrefsRef.current || { micOn: true, camOn: true };
+          pendingJoinPrefsRef.current = null;
+          await handleJoinInternal(prefs);
+        } else {
+          setGuestJoinStatus("rejected");
+        }
+      });
+
+      ch.subscribe((status) => {
+        if (status === "SUBSCRIBED" && active) {
+          approvalChannelRef.current = ch;
+        }
+      });
+    };
+
+    setupApprovalChannel();
+    return () => {
+      active = false;
+      if (approvalChannelRef.current) {
+        supabase.removeChannel(approvalChannelRef.current);
+        approvalChannelRef.current = null;
+      }
+    };
+  }, [roomId, phase, currentUser?.id]);
 
   // ─── createPC: clean peer connection setup ────────────────────────────────
   const createPC = useCallback((peerId, userId) => {
@@ -2046,7 +2284,7 @@ export default function MeetingRoom() {
     [createPC, profilesMap],
   );
 
-  const handleJoin = useCallback(
+  const handleJoinInternal = useCallback(
     async ({ micOn: initMic, camOn: initCam }) => {
       try {
         setMicOn(initMic);
@@ -2122,12 +2360,12 @@ export default function MeetingRoom() {
         speakingIdRef.current = null;
         meetingAudioBlobRef.current = null;
 
-        if (meetingId) {
+        if (meetingDbId) {
           if (!currentProfile.isGuest) {
             const { data: rec } = await supabase
               .from("meeting_participants")
               .insert({
-                meeting_id: meetingId,
+                meeting_id: meetingDbId,
                 user_id: userId,
                 joined_at: new Date().toISOString(),
                 is_active: true,
@@ -2145,7 +2383,7 @@ export default function MeetingRoom() {
             await supabase
               .from("meetings")
               .update({ status: "live" })
-              .eq("id", meetingId);
+              .eq("id", meetingDbId);
             setMeeting((m) => ({ ...m, status: "live" }));
           }
         }
@@ -2162,8 +2400,50 @@ export default function MeetingRoom() {
         console.error("handleJoin:", e);
       }
     },
-    [meetingId, roomId, setupSignaling],
+    [meetingDbId, roomId, setupSignaling],
   );
+
+  const sendGuestJoinRequest = useCallback(() => {
+    const currentProfile = currentUserRef.current || createGuestProfile(roomId);
+    if (!approvalChannelRef.current) return false;
+    approvalChannelRef.current.send({
+      type: "broadcast",
+      event: "guest-join-request",
+      payload: {
+        userId: currentProfile.id,
+        name: currentProfile.full_name || "Guest",
+        requestedAt: new Date().toISOString(),
+      },
+    });
+    return true;
+  }, [roomId]);
+
+  const handleJoin = useCallback(
+    async ({ micOn: initMic, camOn: initCam }) => {
+      const currentProfile = currentUserRef.current || createGuestProfile(roomId);
+      if (currentProfile.isGuest && !isHostRef.current) {
+        pendingJoinPrefsRef.current = { micOn: initMic, camOn: initCam };
+        const sent = sendGuestJoinRequest();
+        if (sent) setGuestJoinStatus("pending");
+        return;
+      }
+      await handleJoinInternal({ micOn: initMic, camOn: initCam });
+    },
+    [handleJoinInternal, roomId, sendGuestJoinRequest],
+  );
+
+  const respondToGuestJoin = useCallback((req, approved) => {
+    if (!approvalChannelRef.current || !req?.userId) return;
+    approvalChannelRef.current.send({
+      type: "broadcast",
+      event: "guest-join-response",
+      payload: {
+        to: req.userId,
+        approved,
+      },
+    });
+    setGuestJoinRequests((prev) => prev.filter((r) => r.userId !== req.userId));
+  }, []);
 
   const resolveSpeakerName = useCallback(
     (speakerId) => {
@@ -2967,7 +3247,7 @@ export default function MeetingRoom() {
   };
 
   const copyLink = () => {
-    const link = `${window.location.origin}/meet/${roomId}${meetingId ? `?meetingId=${meetingId}` : ""}`;
+    const link = `${window.location.origin}/meet/${roomId}`;
     navigator.clipboard?.writeText(link);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
@@ -3002,11 +3282,11 @@ export default function MeetingRoom() {
       const meetingAudioBlob = asHost ? await stopMeetingAudioRecording() : null;
       cleanup();
       const dur = Math.floor(roomSecRef.current / 60);
-      if (meetingId && asHost) {
+      if (meetingDbId && asHost) {
         await supabase
           .from("meetings")
           .update({ status: "ended", duration: dur })
-          .eq("id", meetingId);
+          .eq("id", meetingDbId);
       }
       setPhase("ended");
       if (asHost) {
@@ -3015,7 +3295,7 @@ export default function MeetingRoom() {
       }
     },
     [
-      meetingId,
+      meetingDbId,
       cleanup,
       recOn,
       finalizeSpeakerSegment,
@@ -3072,7 +3352,7 @@ export default function MeetingRoom() {
       const raw = await groq(systemPrompt, contextBlock);
       const clean = raw.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(clean);
-      if (meetingId) {
+      if (meetingDbId) {
         await supabase
           .from("meetings")
           .update({
@@ -3088,7 +3368,7 @@ export default function MeetingRoom() {
               _attributedTranscript: attributedTranscript || "",
             }),
           })
-          .eq("id", meetingId);
+          .eq("id", meetingDbId);
       }
       setSummaryData(parsed);
       if (attendeeEmails.length)
@@ -3163,7 +3443,7 @@ export default function MeetingRoom() {
     if (!currentUser || !meeting) {
       return (
         <div
-          className="meet-root"
+          className={`meet-root${dark ? " dark" : ""}`}
           style={{
             minHeight: "100vh",
             background: "var(--bg)",
@@ -3208,6 +3488,8 @@ export default function MeetingRoom() {
         onJoin={handleJoin}
         onGuestNameChange={updateGuestName}
         onBack={() => window.history.back()}
+        dark={dark}
+        guestJoinStatus={guestJoinStatus}
       />
     );
   }
@@ -3215,7 +3497,7 @@ export default function MeetingRoom() {
   // ─── PHASE: ENDED ──────────────────────────────────────────────────────────
   if (phase === "ended") {
     return (
-      <div className="meet-root ended-root">
+      <div className={`meet-root ended-root${dark ? " dark" : ""}`}>
         <style>{styles}</style>
         <div style={{ width: "100%", maxWidth: 580, textAlign: "center" }}>
           {summaryLoading ? (
@@ -3559,7 +3841,7 @@ export default function MeetingRoom() {
 
   // ─── PHASE: ROOM ────────────────────────────────────────────────────────────
   return (
-    <div className="meet-root room-root">
+    <div className={`meet-root room-root${dark ? " dark" : ""}`}>
       <style>{styles}</style>
 
       {/* Hidden audio elements for all remote participants */}
@@ -3574,7 +3856,7 @@ export default function MeetingRoom() {
           meeting={createdMeeting}
           onJoin={(mtg) => {
             setCreatedMeeting(null);
-            window.location.href = `/meet/${mtg.room_id || mtg.id}?meetingId=${mtg.id}`;
+            window.location.href = `/meet/${mtg.room_id || mtg.id}`;
           }}
           onClose={() => setCreatedMeeting(null)}
         />
@@ -3640,9 +3922,6 @@ export default function MeetingRoom() {
               <Shield size={9} /> Host
             </span>
           )}
-          <span className="pill pill-gray">
-            <Users size={9} /> {participants.length}
-          </span>
         </div>
         <div
           style={{
@@ -3692,40 +3971,80 @@ export default function MeetingRoom() {
             )}
           </button>
         </div>
+      </div>
+
+      {isHost && guestJoinRequests.length > 0 && (
         <div
           style={{
-            marginLeft: "auto",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
+            position: "fixed",
+            top: 66,
+            right: 16,
+            zIndex: 35,
+            width: 320,
+            background: "var(--bg-2)",
+            border: "1px solid var(--border)",
+            borderRadius: 12,
+            boxShadow: "var(--shadow-lg)",
+            overflow: "hidden",
           }}
         >
-          <button
-            onClick={copyLink}
-            className="btn btn-ghost btn-sm"
-            style={{ gap: 6 }}
+          <div
+            style={{
+              padding: "10px 12px",
+              borderBottom: "1px solid var(--border)",
+              fontSize: 12,
+              fontWeight: 700,
+              color: "var(--text)",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
           >
-            <Link2 size={12} /> Share
-          </button>
-          {isHost ? (
-            <button
-              onClick={endMeeting}
-              className="btn btn-danger btn-sm"
-              style={{ gap: 6 }}
-            >
-              <PhoneOff size={12} /> End for Everyone
-            </button>
-          ) : (
-            <button
-              onClick={leaveMeeting}
-              className="btn btn-danger btn-sm"
-              style={{ gap: 6 }}
-            >
-              <PhoneOff size={12} /> Leave
-            </button>
-          )}
+            <AlertCircle size={13} style={{ color: "var(--amber)" }} />
+            Guest waiting for approval
+          </div>
+          <div style={{ padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+            {guestJoinRequests.slice(0, 3).map((req) => (
+              <div
+                key={req.userId}
+                style={{
+                  border: "1px solid var(--border)",
+                  borderRadius: 10,
+                  padding: "10px 10px 8px",
+                  background: "var(--surface)",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    color: "var(--text)",
+                    marginBottom: 8,
+                  }}
+                >
+                  {req.name || "Guest"}
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    className="btn btn-green btn-sm"
+                    style={{ flex: 1 }}
+                    onClick={() => respondToGuestJoin(req, true)}
+                  >
+                    <Check size={11} /> Approve
+                  </button>
+                  <button
+                    className="btn btn-danger btn-sm"
+                    style={{ flex: 1 }}
+                    onClick={() => respondToGuestJoin(req, false)}
+                  >
+                    <X size={11} /> Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── Content ── */}
       <div className="room-content">

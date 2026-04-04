@@ -52,6 +52,13 @@ const { Dragger } = Upload;
 const GROQ_API_KEY = import.meta.env.VITE_GROK_API_KEY;
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const TNR = "'Times New Roman', Times, serif";
+const MIN_PROMPT_CHARS = 300;
+const getIsDarkTheme = () => {
+  const mode = localStorage.getItem("themeMode") || "system";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
 
 // ─── Document Types ─────────────────────────────────────────────────────────
 const DOC_TYPES = [
@@ -845,7 +852,38 @@ async function downloadDocumentPDF({
 }
 
 // ─── Paywall ──────────────────────────────────────────────────────────────────
-function DocumentGeneratorPaywall() {
+function DocumentGeneratorPaywall({ dark = false }) {
+  const colors = dark
+    ? {
+        page: "#141416",
+        header: "#1a1b1f",
+        panel: "#1a1b1f",
+        panelAlt: "#17181c",
+        panelMuted: "#202127",
+        border: "#2a2b31",
+        text: "#f3f4f6",
+        textMuted: "#9ca3af",
+        textSubtle: "#818897",
+        overlay: "linear-gradient(180deg, rgba(20,20,22,0) 0%, #1a1b1f 8%)",
+        proBadgeBg:
+          "linear-gradient(135deg, rgba(59,130,246,0.2) 0%, rgba(139,92,246,0.2) 100%)",
+        proBadgeBorder: "#4b4f61",
+      }
+    : {
+        page: "#f8fafc",
+        header: "#fff",
+        panel: "#fff",
+        panelAlt: "#f8fafc",
+        panelMuted: "#f1f5f9",
+        border: "#e2e8f0",
+        text: "#0f172a",
+        textMuted: "#64748b",
+        textSubtle: "#94a3b8",
+        overlay: "linear-gradient(180deg, rgba(255,255,255,0) 0%, #fff 8%)",
+        proBadgeBg: "linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%)",
+        proBadgeBorder: "#ddd6fe",
+      };
+
   const features = [
     {
       icon: <FileText size={16} />,
@@ -907,12 +945,17 @@ function DocumentGeneratorPaywall() {
   ];
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: colors.page,
+      }}
+    >
       {/* Header */}
       <div
         style={{
-          background: "#fff",
-          borderBottom: "1px solid #e2e8f0",
+          background: colors.header,
+          borderBottom: `1px solid ${colors.border}`,
           padding: "20px 28px",
           marginBottom: 24,
         }}
@@ -932,14 +975,14 @@ function DocumentGeneratorPaywall() {
                 margin: "0 0 4px",
                 fontSize: 26,
                 fontWeight: 800,
-                color: "#0f172a",
+                color: colors.text,
                 letterSpacing: "-0.04em",
                 lineHeight: 1,
               }}
             >
               Document Generator
             </h1>
-            <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>
+            <p style={{ margin: 0, color: colors.textMuted, fontSize: 13 }}>
               AI-powered · 8 document types · PDF export · Digital signatures
             </p>
           </div>
@@ -969,8 +1012,8 @@ function DocumentGeneratorPaywall() {
             <div
               key={label}
               style={{
-                background: "#fff",
-                border: "1px solid #e2e8f0",
+                background: colors.panel,
+                border: `1px solid ${colors.border}`,
                 borderRadius: 14,
                 padding: "18px 20px",
                 display: "flex",
@@ -997,7 +1040,7 @@ function DocumentGeneratorPaywall() {
                   style={{
                     fontSize: 26,
                     fontWeight: 800,
-                    color: "#0f172a",
+                    color: colors.text,
                     lineHeight: 1,
                   }}
                 >
@@ -1006,7 +1049,7 @@ function DocumentGeneratorPaywall() {
                 <div
                   style={{
                     fontSize: 12,
-                    color: "#94a3b8",
+                    color: colors.textSubtle,
                     marginTop: 3,
                     fontWeight: 500,
                   }}
@@ -1022,8 +1065,8 @@ function DocumentGeneratorPaywall() {
         <div
           style={{
             position: "relative",
-            background: "#fff",
-            border: "1px solid #e2e8f0",
+            background: colors.panel,
+            border: `1px solid ${colors.border}`,
             borderRadius: 20,
             overflow: "hidden",
           }}
@@ -1037,7 +1080,7 @@ function DocumentGeneratorPaywall() {
                 pointerEvents: "none",
                 userSelect: "none",
                 opacity: 0.3,
-                borderBottom: "1px solid #e2e8f0",
+                borderBottom: `1px solid ${colors.border}`,
                 overflow: "hidden",
                 padding: "24px 24px 0",
               }}
@@ -1084,8 +1127,8 @@ function DocumentGeneratorPaywall() {
                   <div
                     key={i}
                     style={{
-                      background: "#f8fafc",
-                      border: "1px solid #e2e8f0",
+                      background: colors.panelAlt,
+                      border: `1px solid ${colors.border}`,
                       borderRadius: 10,
                       padding: "12px 16px",
                       display: "flex",
@@ -1114,13 +1157,17 @@ function DocumentGeneratorPaywall() {
                         style={{
                           fontWeight: 700,
                           fontSize: 13,
-                          color: "#0f172a",
+                          color: colors.text,
                         }}
                       >
                         {d.name}
                       </div>
                       <div
-                        style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}
+                        style={{
+                          fontSize: 11,
+                          color: colors.textSubtle,
+                          marginTop: 2,
+                        }}
                       >
                         {d.date}
                       </div>
@@ -1142,11 +1189,11 @@ function DocumentGeneratorPaywall() {
                         width: 28,
                         height: 28,
                         borderRadius: 7,
-                        background: "#f1f5f9",
+                        background: colors.panelMuted,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        color: "#94a3b8",
+                        color: colors.textSubtle,
                       }}
                     >
                       <DownloadOutlined style={{ fontSize: 12 }} />
@@ -1168,8 +1215,8 @@ function DocumentGeneratorPaywall() {
                 alignItems: "center",
                 gap: 7,
                 padding: "8px 18px",
-                background: "linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%)",
-                border: "1px solid #ddd6fe",
+                background: colors.proBadgeBg,
+                border: `1px solid ${colors.proBadgeBorder}`,
                 borderRadius: 30,
                 backdropFilter: "blur(2px)",
                 boxShadow: "0 4px 16px rgba(99,102,241,0.15)",
@@ -1211,8 +1258,7 @@ function DocumentGeneratorPaywall() {
               position: "relative",
               padding: "48px 40px 44px",
               marginTop: -290,
-              background:
-                "linear-gradient(180deg, rgba(255,255,255,0) 0%, #fff 8%)",
+              background: colors.overlay,
             }}
           >
             {/* Headline */}
@@ -1222,7 +1268,7 @@ function DocumentGeneratorPaywall() {
                   margin: 0,
                   fontSize: 30,
                   fontWeight: 900,
-                  color: "#0f172a",
+                  color: colors.text,
                   letterSpacing: "-0.04em",
                   lineHeight: 1.15,
                 }}
@@ -1245,7 +1291,7 @@ function DocumentGeneratorPaywall() {
               style={{
                 textAlign: "center",
                 fontSize: 15,
-                color: "#64748b",
+                color: colors.textMuted,
                 maxWidth: 480,
                 margin: "0 auto 36px",
                 lineHeight: 1.6,
@@ -1271,12 +1317,13 @@ function DocumentGeneratorPaywall() {
                   key={d.key}
                   style={{
                     padding: "14px 16px",
-                    background: d.bg,
-                    border: `1px solid ${d.color}25`,
+                    background: dark ? `${d.color}1a` : d.bg,
+                    border: `1px solid ${dark ? `${d.color}55` : `${d.color}25`}`,
                     borderRadius: 12,
                     display: "flex",
                     alignItems: "center",
                     gap: 10,
+                    boxShadow: dark ? "inset 0 1px 0 rgba(255,255,255,0.03)" : "none",
                   }}
                 >
                   <div style={{ color: d.color, flexShrink: 0 }}>{d.icon}</div>
@@ -1285,7 +1332,7 @@ function DocumentGeneratorPaywall() {
                       style={{
                         fontSize: 12,
                         fontWeight: 700,
-                        color: "#0f172a",
+                        color: colors.text,
                       }}
                     >
                       {d.label}
@@ -1293,7 +1340,7 @@ function DocumentGeneratorPaywall() {
                     <div
                       style={{
                         fontSize: 10,
-                        color: "#64748b",
+                        color: colors.textMuted,
                         lineHeight: 1.4,
                       }}
                     >
@@ -1319,8 +1366,8 @@ function DocumentGeneratorPaywall() {
                   key={i}
                   style={{
                     padding: "16px 18px",
-                    background: "#f8fafc",
-                    border: "1px solid #e2e8f0",
+                    background: colors.panelAlt,
+                    border: `1px solid ${colors.border}`,
                     borderRadius: 12,
                     display: "flex",
                     flexDirection: "column",
@@ -1332,8 +1379,8 @@ function DocumentGeneratorPaywall() {
                       width: 34,
                       height: 34,
                       borderRadius: 9,
-                      background: "#fff",
-                      border: "1px solid #e2e8f0",
+                      background: colors.panel,
+                      border: `1px solid ${colors.border}`,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -1348,7 +1395,7 @@ function DocumentGeneratorPaywall() {
                       style={{
                         fontSize: 13,
                         fontWeight: 700,
-                        color: "#0f172a",
+                        color: colors.text,
                         marginBottom: 3,
                       }}
                     >
@@ -1357,7 +1404,7 @@ function DocumentGeneratorPaywall() {
                     <div
                       style={{
                         fontSize: 12,
-                        color: "#64748b",
+                        color: colors.textMuted,
                         lineHeight: 1.5,
                       }}
                     >
@@ -1373,8 +1420,8 @@ function DocumentGeneratorPaywall() {
               style={{
                 maxWidth: 760,
                 margin: "0 auto 36px",
-                background: "#f8fafc",
-                border: "1px solid #e2e8f0",
+                background: colors.panelAlt,
+                border: `1px solid ${colors.border}`,
                 borderRadius: 14,
                 padding: "20px 24px",
               }}
@@ -1383,7 +1430,7 @@ function DocumentGeneratorPaywall() {
                 style={{
                   fontSize: 11,
                   fontWeight: 700,
-                  color: "#94a3b8",
+                  color: colors.textSubtle,
                   letterSpacing: "0.07em",
                   marginBottom: 16,
                 }}
@@ -1447,7 +1494,7 @@ function DocumentGeneratorPaywall() {
                         style={{
                           fontSize: 12,
                           fontWeight: 700,
-                          color: "#0f172a",
+                          color: colors.text,
                           marginBottom: 2,
                         }}
                       >
@@ -1456,7 +1503,7 @@ function DocumentGeneratorPaywall() {
                       <div
                         style={{
                           fontSize: 11,
-                          color: "#94a3b8",
+                          color: colors.textSubtle,
                           lineHeight: 1.4,
                         }}
                       >
@@ -1468,7 +1515,7 @@ function DocumentGeneratorPaywall() {
                         style={{
                           flexShrink: 0,
                           padding: "0 4px",
-                          color: "#d1d5db",
+                          color: dark ? "#4b5563" : "#d1d5db",
                         }}
                       >
                         <ChevronRight size={16} />
@@ -1515,7 +1562,13 @@ function DocumentGeneratorPaywall() {
                 Upgrade to unlock Document Generator
                 <ArrowRight size={16} />
               </a>
-              <p style={{ margin: "12px 0 0", fontSize: 12, color: "#94a3b8" }}>
+              <p
+                style={{
+                  margin: "12px 0 0",
+                  fontSize: 12,
+                  color: colors.textSubtle,
+                }}
+              >
                 Upgrade your plan to access AI document generation and all Pro
                 features.
               </p>
@@ -1917,7 +1970,7 @@ function EditableBlock({ value, isHeading, onEdit, onDelete, onAddAfter }) {
 function SignatureCard({ sig, idx, onChange, onRemove }) {
   const [sigModalOpen, setSigModalOpen] = useState(false);
   return (
-    <div className="border border-gray-100 rounded-xl p-4 bg-white relative">
+    <div className="cm-card border border-gray-100 rounded-xl p-4 bg-white relative">
       <div className="absolute top-3 right-3">
         <button
           onClick={() => onRemove(idx)}
@@ -2026,7 +2079,7 @@ function SignatureCard({ sig, idx, onChange, onRemove }) {
 
 function SidePanel({ title, children, action }) {
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+    <div className="cm-card bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
       <div className="px-4 py-3.5 border-b border-gray-50 flex items-center justify-between">
         <span className="text-sm font-semibold text-gray-800">{title}</span>
         {action}
@@ -2038,6 +2091,7 @@ function SidePanel({ title, children, action }) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function DocumentGenerator() {
+  const [dark, setDark] = useState(getIsDarkTheme);
   const [orgPlan, setOrgPlan] = useState(null);
   const [planLoading, setPlanLoading] = useState(true);
 
@@ -2131,6 +2185,12 @@ export default function DocumentGenerator() {
   const handleGenerate = async () => {
     if (inputMode === "text" && !prompt.trim()) {
       setError("Please describe the document.");
+      return;
+    }
+    if (inputMode === "text" && prompt.trim().length < MIN_PROMPT_CHARS) {
+      setError(
+        `Please enter at least ${MIN_PROMPT_CHARS} characters in the description.`,
+      );
       return;
     }
     if (inputMode === "upload" && !uploadedText) {
@@ -2319,10 +2379,27 @@ export default function DocumentGenerator() {
     }
   };
 
-  const canGen = inputMode === "text" ? !!prompt.trim() : !!uploadedText;
+  const promptLength = prompt.trim().length;
+  const canGen =
+    inputMode === "text"
+      ? promptLength >= MIN_PROMPT_CHARS
+      : !!uploadedText;
   const inputLbl =
     "text-[10px] font-semibold uppercase tracking-widest text-gray-400 block mb-1.5";
   const selectedDocType = DOC_TYPES.find((d) => d.key === docType);
+
+  useEffect(() => {
+    const syncTheme = () => setDark(getIsDarkTheme());
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    window.addEventListener("storage", syncTheme);
+    window.addEventListener("themeModeChanged", syncTheme);
+    mediaQuery.addEventListener("change", syncTheme);
+    return () => {
+      window.removeEventListener("storage", syncTheme);
+      window.removeEventListener("themeModeChanged", syncTheme);
+      mediaQuery.removeEventListener("change", syncTheme);
+    };
+  }, []);
 
   // ── Loading ──
   if (planLoading) {
@@ -2342,12 +2419,12 @@ export default function DocumentGenerator() {
 
   // ── Paywall ──
   if (orgPlan === "Free") {
-    return <DocumentGeneratorPaywall />;
+    return <DocumentGeneratorPaywall dark={dark} />;
   }
 
   return (
     <div
-      className="min-h-screen bg-[#f8fafc]"
+      className={`contract-root min-h-screen ${dark ? "dark bg-[#141416]" : "bg-[#f8fafc]"}`}
       style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}
     >
       <style>{`
@@ -2368,6 +2445,58 @@ export default function DocumentGenerator() {
         .fade-up-1 { animation-delay: 0.05s; }
         .fade-up-2 { animation-delay: 0.12s; }
         .fade-up-3 { animation-delay: 0.2s; }
+
+        .contract-root.dark { color: #f3f4f6; }
+        .contract-root.dark .bg-white { background: #1a1b1f !important; }
+        .contract-root.dark .bg-gray-50 { background: #17181c !important; }
+        .contract-root.dark .bg-gray-100 { background: #202127 !important; }
+        .contract-root.dark .border-gray-50,
+        .contract-root.dark .border-gray-100,
+        .contract-root.dark .border-gray-200,
+        .contract-root.dark .border-gray-300 { border-color: #2a2b31 !important; }
+        .contract-root.dark .text-gray-950,
+        .contract-root.dark .text-gray-900,
+        .contract-root.dark .text-gray-800,
+        .contract-root.dark .text-gray-700,
+        .contract-root.dark .text-gray-600,
+        .contract-root.dark .text-gray-500,
+        .contract-root.dark .text-gray-400,
+        .contract-root.dark .text-gray-300 { color: #d1d5db !important; }
+        .contract-root.dark .tab-pill.active { background: #202127 !important; box-shadow: none; color: #f3f4f6 !important; }
+        .contract-root.dark .paper-scroll::-webkit-scrollbar-thumb { background: #2a2b31; }
+        .contract-root.dark .cm-card { border-color: transparent !important; box-shadow: none !important; }
+
+        .contract-root.dark .ant-input,
+        .contract-root.dark .ant-input-affix-wrapper,
+        .contract-root.dark .ant-select-selector,
+        .contract-root.dark .ant-picker,
+        .contract-root.dark .ant-input-textarea textarea {
+          background: #17181c !important;
+          border-color: #2a2b31 !important;
+          color: #f3f4f6 !important;
+        }
+        .contract-root.dark .ant-input::placeholder,
+        .contract-root.dark .ant-input-textarea textarea::placeholder,
+        .contract-root.dark .ant-select-selection-placeholder,
+        .contract-root.dark .ant-select-arrow,
+        .contract-root.dark .ant-picker-suffix,
+        .contract-root.dark .ant-picker-clear { color: #9ca3af !important; }
+        .contract-root.dark .ant-modal-content,
+        .contract-root.dark .ant-modal-header,
+        .contract-root.dark .ant-modal-footer {
+          background: #1a1b1f !important;
+          border-color: #2a2b31 !important;
+          color: #f3f4f6 !important;
+        }
+        .contract-root.dark .ant-modal-title { color: #f3f4f6 !important; }
+
+        /* Keep legal paper preview white for real-document editing */
+        .contract-root.dark .contract-paper,
+        .contract-root.dark .contract-paper * {
+          color-scheme: light;
+        }
+        .contract-root.dark .contract-paper { background: #ffffff !important; color: #111111 !important; }
+        .contract-root.dark .contract-paper .bg-white { background: #ffffff !important; }
       `}</style>
 
       {/* Setup Modal */}
@@ -2383,7 +2512,7 @@ export default function DocumentGenerator() {
             borderRadius: 20,
             padding: 0,
             overflow: "hidden",
-            border: "1px solid #e8e8e8",
+            border: dark ? "1px solid #2a2b31" : "1px solid #e8e8e8",
           },
           mask: { backdropFilter: "blur(6px)" },
         }}
@@ -2523,7 +2652,14 @@ export default function DocumentGenerator() {
         {step === "input" && (
           <div className="pt-16 pb-8">
             <div className="text-center mb-10 fade-up">
-              <div className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-full px-4 py-1.5 mb-8 text-xs font-medium text-gray-500 shadow-sm">
+              <div
+                className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-8 text-xs font-medium shadow-sm"
+                style={{
+                  background: dark ? "#1a1b1f" : "#ffffff",
+                  border: dark ? "1px solid #2a2b31" : "1px solid #e5e7eb",
+                  color: dark ? "#d1d5db" : "#6b7280",
+                }}
+              >
                 <ThunderboltOutlined
                   className="text-amber-500"
                   style={{ fontSize: 11 }}
@@ -2559,10 +2695,23 @@ export default function DocumentGenerator() {
                       border:
                         docType === d.key
                           ? `1.5px solid ${d.color}`
-                          : "1.5px solid #e2e8f0",
-                      background: docType === d.key ? d.bg : "#fff",
+                          : dark
+                            ? "1.5px solid #2a2b31"
+                            : "1.5px solid #e2e8f0",
+                      background:
+                        docType === d.key
+                          ? dark
+                            ? "#17181c"
+                            : d.bg
+                          : dark
+                            ? "#1a1b1f"
+                            : "#fff",
                       boxShadow:
-                        docType === d.key ? `0 0 0 3px ${d.color}15` : "none",
+                        docType === d.key
+                          ? dark
+                            ? `0 0 0 2px ${d.color}30`
+                            : `0 0 0 3px ${d.color}15`
+                          : "none",
                     }}
                   >
                     <div style={{ color: d.color, marginBottom: 6 }}>
@@ -2572,7 +2721,7 @@ export default function DocumentGenerator() {
                       style={{
                         fontSize: 12,
                         fontWeight: 700,
-                        color: "#0f172a",
+                        color: dark ? "#f3f4f6" : "#0f172a",
                       }}
                     >
                       {d.label}
@@ -2580,7 +2729,7 @@ export default function DocumentGenerator() {
                     <div
                       style={{
                         fontSize: 10,
-                        color: "#94a3b8",
+                        color: dark ? "#9ca3af" : "#94a3b8",
                         lineHeight: 1.4,
                         marginTop: 2,
                       }}
@@ -2594,12 +2743,14 @@ export default function DocumentGenerator() {
 
             {/* Main card */}
             <div className="max-w-2xl mx-auto fade-up fade-up-3">
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="cm-card bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                 {/* Selected doc type indicator */}
                 <div
                   style={{
-                    background: selectedDocType?.bg,
-                    borderBottom: `1px solid ${selectedDocType?.color}20`,
+                    background: dark ? "#17181c" : selectedDocType?.bg,
+                    borderBottom: dark
+                      ? "1px solid #2a2b31"
+                      : `1px solid ${selectedDocType?.color}20`,
                     padding: "10px 20px",
                     display: "flex",
                     alignItems: "center",
@@ -2675,8 +2826,10 @@ export default function DocumentGenerator() {
                         }}
                       />
                       <div className="flex justify-between mt-2">
-                        <span className="text-xs text-gray-300">
-                          {prompt.length} characters
+                        <span
+                          className={`text-xs ${promptLength >= MIN_PROMPT_CHARS ? "text-gray-300" : "text-amber-500"}`}
+                        >
+                          {promptLength}/{MIN_PROMPT_CHARS} characters minimum
                         </span>
                         <span className="text-xs text-gray-300">
                           ⌘ Enter to generate
@@ -2693,9 +2846,7 @@ export default function DocumentGenerator() {
                           showUploadList={false}
                           beforeUpload={handleFileUpload}
                           style={{
-                            borderColor: "#e0e0e0",
                             borderRadius: 14,
-                            background: "#fafafa",
                           }}
                         >
                           <div className="py-6">
@@ -2936,7 +3087,7 @@ export default function DocumentGenerator() {
                   </span>
                 </div>
 
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="cm-card bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                   <div className="bg-gray-50 border-b border-gray-100 px-4 py-2.5 flex items-center gap-2">
                     {["#fc5f57", "#febc2e", "#28c840"].map((c) => (
                       <div
@@ -2955,7 +3106,7 @@ export default function DocumentGenerator() {
                     style={{ maxHeight: "72vh", overflowY: "auto" }}
                   >
                     <div
-                      className="bg-white mx-auto shadow-lg relative"
+                      className="contract-paper bg-white mx-auto shadow-lg relative"
                       style={{
                         maxWidth: 640,
                         padding: "52px 56px 60px",

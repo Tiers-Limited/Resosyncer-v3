@@ -283,14 +283,14 @@ const Stepper = ({ currentStage, isRejected }) => {
    MAIN PAGE
 ══════════════════════════════════════════════════════════════════════════ */
 export default function ApplicationTrackingPage() {
-  const { applicantId } = useParams();
+  const { applicantId: accessToken } = useParams();
   const [applicant, setApplicant] = useState(null);
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!applicantId) {
+    if (!accessToken) {
       setError("No application ID provided.");
       setLoading(false);
       return;
@@ -299,19 +299,15 @@ export default function ApplicationTrackingPage() {
       setLoading(true);
       try {
         const { data: appRow, error: appErr } = await supabase
-          .from("recruitment_applicants")
-          .select("*")
-          .eq("id", applicantId)
-          .single();
+          .rpc("get_public_recruitment_context", {
+            p_access_token: accessToken,
+          });
         if (appErr) throw appErr;
+        const applicantRow = appRow?.applicant || null;
+        const jobRow = appRow?.job || null;
+        if (!applicantRow) throw new Error("Application not found.");
 
-        setApplicant(mapApplicant(appRow));
-
-        const { data: jobRow } = await supabase
-          .from("recruitment_jobs")
-          .select("*")
-          .eq("id", appRow.job_id)
-          .single();
+        setApplicant(mapApplicant(applicantRow));
         if (jobRow) setJob(mapJob(jobRow));
       } catch {
         setError(
@@ -321,29 +317,27 @@ export default function ApplicationTrackingPage() {
         setLoading(false);
       }
     })();
-  }, [applicantId]);
+  }, [accessToken]);
 
-  /* Realtime stage updates */
+  /* Public polling updates */
   useEffect(() => {
-    if (!applicantId) return;
-    const ch = supabase
-      .channel(`tracking-${applicantId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "recruitment_applicants",
-          filter: `id=eq.${applicantId}`,
-        },
-        (p) =>
-          setApplicant((prev) =>
-            prev ? { ...prev, ...mapApplicant(p.new) } : mapApplicant(p.new),
-          ),
-      )
-      .subscribe();
-    return () => supabase.removeChannel(ch);
-  }, [applicantId]);
+    if (!accessToken) return undefined;
+
+    const refresh = async () => {
+      const { data, error } = await supabase.rpc("get_public_recruitment_context", {
+        p_access_token: accessToken,
+      });
+      if (!error && data?.applicant) {
+        setApplicant((prev) =>
+          prev ? { ...prev, ...mapApplicant(data.applicant) } : mapApplicant(data.applicant),
+        );
+        if (data?.job) setJob(mapJob(data.job));
+      }
+    };
+
+    const intervalId = window.setInterval(refresh, 15000);
+    return () => window.clearInterval(intervalId);
+  }, [accessToken]);
 
   /* ── Loading ── */
   if (loading)

@@ -162,6 +162,13 @@ function getStatusColor(status) {
   return { dot: "#94a3b8", bg: "#f8fafc", border: "#e2e8f0", text: "#64748b" };
 }
 
+function getIsDarkTheme() {
+  const mode = localStorage.getItem("themeMode") || "system";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 function UserAvatar({ profile, size = 32 }) {
   const [bg, fg] = avatarColor(profile?.full_name || profile?.email || "");
@@ -203,7 +210,7 @@ function UserAvatar({ profile, size = 32 }) {
 }
 
 // ─── FREE PLAN PAYWALL ────────────────────────────────────────────────────────
-function FreePlanPaywall({ navigate }) {
+function FreePlanPaywall({ navigate, dark = false }) {
   const features = [
     {
       icon: <Video size={16} />,
@@ -275,13 +282,49 @@ function FreePlanPaywall({ navigate }) {
     },
   ];
 
+  const ui = dark
+    ? {
+        pageBg: "#141416",
+        headerBg: "#1a1b1f",
+        headerBorder: "#2a2b31",
+        title: "#f3f4f6",
+        sub: "#9ca3af",
+        softBg: "#202127",
+        softBorder: "#2a2b31",
+        cardBg: "#1a1b1f",
+        cardBorder: "#2a2b31",
+        cardAltBg: "#17181c",
+        rowAltBg: "#1e1f25",
+        rowEvenBg: "#1a1b1f",
+        disabledBtnBg: "#2a2b31",
+        disabledBtnText: "#6b7280",
+        flowArrow: "#4b5563",
+      }
+    : {
+        pageBg: "#f8fafc",
+        headerBg: "#fff",
+        headerBorder: "#e2e8f0",
+        title: "#0f172a",
+        sub: "#64748b",
+        softBg: "#f8fafc",
+        softBorder: "#e2e8f0",
+        cardBg: "#fff",
+        cardBorder: "#e2e8f0",
+        cardAltBg: "#fafafa",
+        rowAltBg: "#fafafa",
+        rowEvenBg: "#fff",
+        disabledBtnBg: "#e2e8f0",
+        disabledBtnText: "#94a3b8",
+        flowArrow: "#d1d5db",
+      };
+
   return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
+    <div style={{ minHeight: "100vh", background: ui.pageBg }}>
       {/* ── Header — mirrors the real Meetings page header ── */}
       <div
         style={{
-          background: "#fff",
-          borderBottom: "1px solid #e2e8f0",
+          background: ui.headerBg,
+          borderBottom: `1px solid ${ui.headerBorder}`,
           padding: "20px 28px",
           marginBottom: 24,
         }}
@@ -301,14 +344,14 @@ function FreePlanPaywall({ navigate }) {
                 margin: "0 0 4px",
                 fontSize: 26,
                 fontWeight: 800,
-                color: "#0f172a",
+                color: ui.title,
                 letterSpacing: "-0.04em",
                 lineHeight: 1,
               }}
             >
               Meetings
             </h1>
-            <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>
+            <p style={{ margin: 0, color: ui.sub, fontSize: 13 }}>
               Schedule · Join · Summarise — all in one place
             </p>
           </div>
@@ -322,12 +365,12 @@ function FreePlanPaywall({ navigate }) {
                 alignItems: "center",
                 gap: 6,
                 padding: "9px 18px",
-                background: "#e2e8f0",
+                background: ui.disabledBtnBg,
                 border: "none",
                 borderRadius: 9,
                 fontWeight: 700,
                 fontSize: 13,
-                color: "#94a3b8",
+                color: ui.disabledBtnText,
                 cursor: "not-allowed",
                 opacity: 0.6,
               }}
@@ -361,8 +404,8 @@ function FreePlanPaywall({ navigate }) {
             <div
               key={label}
               style={{
-                background: "#fff",
-                border: "1px solid #e2e8f0",
+                background: ui.cardBg,
+                border: `1px solid ${ui.cardBorder}`,
                 borderRadius: 14,
                 padding: "18px 20px",
                 display: "flex",
@@ -389,7 +432,7 @@ function FreePlanPaywall({ navigate }) {
                   style={{
                     fontSize: 26,
                     fontWeight: 800,
-                    color: "#0f172a",
+                    color: ui.title,
                     lineHeight: 1,
                   }}
                 >
@@ -398,7 +441,7 @@ function FreePlanPaywall({ navigate }) {
                 <div
                   style={{
                     fontSize: 12,
-                    color: "#94a3b8",
+                    color: ui.sub,
                     marginTop: 3,
                     fontWeight: 500,
                   }}
@@ -414,8 +457,8 @@ function FreePlanPaywall({ navigate }) {
         <div
           style={{
             position: "relative",
-            background: "#fff",
-            border: "1px solid #e2e8f0",
+            background: ui.cardBg,
+            border: `1px solid ${ui.cardBorder}`,
             borderRadius: 20,
             overflow: "hidden",
           }}
@@ -428,14 +471,14 @@ function FreePlanPaywall({ navigate }) {
               userSelect: "none",
               opacity: 0.3,
               padding: "24px 24px 0",
-              borderBottom: "1px solid #e2e8f0",
+              borderBottom: `1px solid ${ui.cardBorder}`,
             }}
           >
             <div
               style={{
-                background: "#f8fafc",
+                background: ui.softBg,
                 borderRadius: 12,
-                border: "1px solid #e2e8f0",
+                border: `1px solid ${ui.softBorder}`,
                 overflow: "hidden",
                 marginBottom: 0,
               }}
@@ -445,8 +488,8 @@ function FreePlanPaywall({ navigate }) {
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(7,1fr)",
-                  borderBottom: "1px solid #e2e8f0",
-                  background: "#fff",
+                  borderBottom: `1px solid ${ui.softBorder}`,
+                  background: ui.cardBg,
                 }}
               >
                 {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
@@ -457,7 +500,7 @@ function FreePlanPaywall({ navigate }) {
                       textAlign: "center",
                       fontSize: 11,
                       fontWeight: 700,
-                      color: "#94a3b8",
+                      color: ui.sub,
                     }}
                   >
                     {d}
@@ -471,27 +514,27 @@ function FreePlanPaywall({ navigate }) {
                   style={{
                     display: "grid",
                     gridTemplateColumns: "repeat(7,1fr)",
-                    borderBottom: wi < 2 ? "1px solid #f1f5f9" : "none",
+                    borderBottom: wi < 2 ? `1px solid ${ui.softBorder}` : "none",
                   }}
                 >
                   {[...Array(7)].map((_, di) => (
                     <div
                       key={di}
                       style={{
-                        minHeight: 80,
-                        padding: "8px 10px",
-                        borderLeft: di > 0 ? "1px solid #f8fafc" : "none",
-                      }}
-                    >
+                          minHeight: 80,
+                          padding: "8px 10px",
+                          borderLeft: di > 0 ? `1px solid ${ui.softBorder}` : "none",
+                        }}
+                      >
                       <div
                         style={{
-                          width: 24,
-                          height: 24,
-                          borderRadius: "50%",
-                          background: "#f1f5f9",
-                          marginBottom: 6,
-                        }}
-                      />
+                            width: 24,
+                            height: 24,
+                            borderRadius: "50%",
+                            background: ui.softBg,
+                            marginBottom: 6,
+                          }}
+                        />
                       {(wi + di) % 3 === 0 && (
                         <div
                           style={{
@@ -525,7 +568,9 @@ function FreePlanPaywall({ navigate }) {
               padding: "48px 40px 44px",
               marginTop: -300,
               background:
-                "linear-gradient(180deg, rgba(255,255,255,0) 0%, #fff 8%)",
+                dark
+                  ? "linear-gradient(180deg, rgba(20,20,22,0) 0%, #1a1b1f 10%)"
+                  : "linear-gradient(180deg, rgba(255,255,255,0) 0%, #fff 8%)",
             }}
           >
             {/* Pro badge */}
@@ -543,8 +588,10 @@ function FreePlanPaywall({ navigate }) {
                   gap: 7,
                   padding: "6px 14px",
                   background:
-                    "linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%)",
-                  border: "1px solid #ddd6fe",
+                    dark
+                      ? "linear-gradient(135deg, #1f2937 0%, #312e81 100%)"
+                      : "linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%)",
+                  border: dark ? "1px solid #4338ca" : "1px solid #ddd6fe",
                   borderRadius: 30,
                 }}
               >
@@ -582,7 +629,7 @@ function FreePlanPaywall({ navigate }) {
                   margin: 0,
                   fontSize: 30,
                   fontWeight: 900,
-                  color: "#0f172a",
+                  color: ui.title,
                   letterSpacing: "-0.04em",
                   lineHeight: 1.15,
                 }}
@@ -605,7 +652,7 @@ function FreePlanPaywall({ navigate }) {
               style={{
                 textAlign: "center",
                 fontSize: 15,
-                color: "#64748b",
+                color: ui.sub,
                 maxWidth: 480,
                 margin: "0 auto 36px",
                 lineHeight: 1.6,
@@ -632,8 +679,8 @@ function FreePlanPaywall({ navigate }) {
                   key={i}
                   style={{
                     padding: "16px 18px",
-                    background: "#f8fafc",
-                    border: "1px solid #e2e8f0",
+                    background: ui.softBg,
+                    border: `1px solid ${ui.softBorder}`,
                     borderRadius: 12,
                     display: "flex",
                     flexDirection: "column",
@@ -645,8 +692,8 @@ function FreePlanPaywall({ navigate }) {
                       width: 34,
                       height: 34,
                       borderRadius: 9,
-                      background: "#fff",
-                      border: "1px solid #e2e8f0",
+                      background: ui.cardBg,
+                      border: `1px solid ${ui.softBorder}`,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -659,20 +706,20 @@ function FreePlanPaywall({ navigate }) {
                   <div>
                     <div
                       style={{
-                        fontSize: 13,
-                        fontWeight: 700,
-                        color: "#0f172a",
-                        marginBottom: 3,
-                      }}
+                          fontSize: 13,
+                          fontWeight: 700,
+                          color: ui.title,
+                          marginBottom: 3,
+                        }}
                     >
                       {f.title}
                     </div>
                     <div
                       style={{
-                        fontSize: 12,
-                        color: "#64748b",
-                        lineHeight: 1.5,
-                      }}
+                          fontSize: 12,
+                          color: ui.sub,
+                          lineHeight: 1.5,
+                        }}
                     >
                       {f.desc}
                     </div>
@@ -686,8 +733,8 @@ function FreePlanPaywall({ navigate }) {
               style={{
                 maxWidth: 760,
                 margin: "0 auto 36px",
-                background: "#f8fafc",
-                border: "1px solid #e2e8f0",
+                background: ui.softBg,
+                border: `1px solid ${ui.softBorder}`,
                 borderRadius: 14,
                 padding: "20px 24px",
               }}
@@ -696,7 +743,7 @@ function FreePlanPaywall({ navigate }) {
                 style={{
                   fontSize: 11,
                   fontWeight: 700,
-                  color: "#94a3b8",
+                  color: ui.sub,
                   letterSpacing: "0.07em",
                   marginBottom: 16,
                 }}
@@ -760,7 +807,7 @@ function FreePlanPaywall({ navigate }) {
                         style={{
                           fontSize: 12,
                           fontWeight: 700,
-                          color: "#0f172a",
+                          color: ui.title,
                           marginBottom: 2,
                         }}
                       >
@@ -769,7 +816,7 @@ function FreePlanPaywall({ navigate }) {
                       <div
                         style={{
                           fontSize: 11,
-                          color: "#94a3b8",
+                          color: ui.sub,
                           lineHeight: 1.4,
                         }}
                       >
@@ -781,7 +828,7 @@ function FreePlanPaywall({ navigate }) {
                         style={{
                           flexShrink: 0,
                           padding: "0 4px",
-                          color: "#d1d5db",
+                          color: ui.flowArrow,
                         }}
                       >
                         <ChevronRight size={16} />
@@ -797,7 +844,7 @@ function FreePlanPaywall({ navigate }) {
               style={{
                 maxWidth: 760,
                 margin: "0 auto 36px",
-                border: "1px solid #e2e8f0",
+                border: `1px solid ${ui.softBorder}`,
                 borderRadius: 12,
                 overflow: "hidden",
               }}
@@ -805,26 +852,27 @@ function FreePlanPaywall({ navigate }) {
               <div
                 style={{
                   padding: "12px 16px",
-                  borderBottom: "1px solid #f1f5f9",
-                  background: "#f8fafc",
+                  borderBottom: `1px solid ${ui.softBorder}`,
+                  background: ui.softBg,
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
                 }}
               >
                 <span
-                  style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}
+                  style={{ fontSize: 12, fontWeight: 700, color: ui.title }}
                 >
                   Sample Meetings
                 </span>
                 <span
                   style={{
                     fontSize: 11,
-                    color: "#64748b",
-                    background: "#e2e8f0",
+                    color: ui.sub,
+                    background: ui.cardBg,
                     padding: "1px 7px",
                     borderRadius: 5,
                     fontWeight: 600,
+                    border: `1px solid ${ui.softBorder}`,
                   }}
                 >
                   Preview
@@ -843,9 +891,9 @@ function FreePlanPaywall({ navigate }) {
                       padding: "12px 16px",
                       borderBottom:
                         i < fakeMeetings.length - 1
-                          ? "1px solid #f1f5f9"
+                          ? `1px solid ${ui.softBorder}`
                           : "none",
-                      background: i % 2 === 0 ? "#fff" : "#fafafa",
+                      background: i % 2 === 0 ? ui.rowEvenBg : ui.rowAltBg,
                     }}
                   >
                     <div
@@ -862,7 +910,7 @@ function FreePlanPaywall({ navigate }) {
                         style={{
                           fontSize: 13,
                           fontWeight: 700,
-                          color: "#0f172a",
+                          color: ui.title,
                           marginBottom: 2,
                         }}
                       >
@@ -871,7 +919,7 @@ function FreePlanPaywall({ navigate }) {
                       <div
                         style={{
                           fontSize: 11,
-                          color: "#94a3b8",
+                          color: ui.sub,
                           display: "flex",
                           gap: 8,
                         }}
@@ -910,11 +958,12 @@ function FreePlanPaywall({ navigate }) {
                             width: 26,
                             height: 26,
                             borderRadius: 6,
-                            background: "#f1f5f9",
+                            background: ui.softBg,
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            color: "#94a3b8",
+                            color: ui.sub,
+                            border: `1px solid ${ui.softBorder}`,
                           }}
                         >
                           <Icon size={11} />
@@ -962,7 +1011,7 @@ function FreePlanPaywall({ navigate }) {
                 Upgrade to unlock Meetings
                 <ArrowRight size={16} />
               </a>
-              <p style={{ margin: "12px 0 0", fontSize: 12, color: "#94a3b8" }}>
+              <p style={{ margin: "12px 0 0", fontSize: 12, color: ui.sub }}>
                 Upgrade your plan to access the full Meetings module and all Pro
                 features.
               </p>
@@ -981,6 +1030,7 @@ function CalendarView({
   onDayClick,
   selectedDay,
   onMeetingClick,
+  dark = false,
 }) {
   const startOfMonth = currentMonth.startOf("month");
   const endOfMonth = currentMonth.endOf("month");
@@ -1009,12 +1059,44 @@ function CalendarView({
   const weeks = [];
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
 
+  const ui = dark
+    ? {
+        panelBg: "#1a1b1f",
+        panelBorder: "#2a2b31",
+        headerBorder: "#2a2b31",
+        weekBorder: "#2a2b31",
+        cellBase: "#1a1b1f",
+        cellWeekend: "#17181c",
+        cellSelected: "#1d4d8f",
+        cellBorder: "#2a2b31",
+        dayText: "#e5e7eb",
+        dayMuted: "#94a3b8",
+        todayBg: "#cbd5e1",
+        todayText: "#1a1b1f",
+        moreText: "#94a3b8",
+      }
+    : {
+        panelBg: "#fff",
+        panelBorder: "#f1f5f9",
+        headerBorder: "#f1f5f9",
+        weekBorder: "#f8fafc",
+        cellBase: "#fff",
+        cellWeekend: "#fafbfc",
+        cellSelected: "#eff6ff",
+        cellBorder: "#f8fafc",
+        dayText: "#1e293b",
+        dayMuted: "#94a3b8",
+        todayBg: "#0f172a",
+        todayText: "#fff",
+        moreText: "#94a3b8",
+      };
+
   return (
     <div
       style={{
-        background: "#fff",
+        background: ui.panelBg,
         borderRadius: 16,
-        border: "1px solid #f1f5f9",
+        border: `1px solid ${ui.panelBorder}`,
         overflow: "hidden",
       }}
     >
@@ -1022,7 +1104,7 @@ function CalendarView({
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(7,1fr)",
-          borderBottom: "1px solid #f1f5f9",
+          borderBottom: `1px solid ${ui.headerBorder}`,
         }}
       >
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
@@ -1033,7 +1115,7 @@ function CalendarView({
               textAlign: "center",
               fontSize: 11,
               fontWeight: 700,
-              color: "#94a3b8",
+              color: ui.dayMuted,
               letterSpacing: "0.06em",
               textTransform: "uppercase",
             }}
@@ -1048,7 +1130,8 @@ function CalendarView({
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(7,1fr)",
-            borderBottom: wi < weeks.length - 1 ? "1px solid #f8fafc" : "none",
+            borderBottom:
+              wi < weeks.length - 1 ? `1px solid ${ui.weekBorder}` : "none",
           }}
         >
           {week.map((day, di) => {
@@ -1071,11 +1154,11 @@ function CalendarView({
                   padding: "8px 10px",
                   cursor: day ? "pointer" : "default",
                   background: isSelected
-                    ? "#eff6ff"
+                    ? ui.cellSelected
                     : isWeekend && day
-                      ? "#fafbfc"
-                      : "#fff",
-                  borderLeft: di > 0 ? "1px solid #f8fafc" : "none",
+                      ? ui.cellWeekend
+                      : ui.cellBase,
+                  borderLeft: di > 0 ? `1px solid ${ui.cellBorder}` : "none",
                   transition: "background 0.15s",
                   position: "relative",
                 }}
@@ -1092,12 +1175,12 @@ function CalendarView({
                         justifyContent: "center",
                         fontSize: 13,
                         fontWeight: isToday ? 700 : 500,
-                        background: isToday ? "#0f172a" : "transparent",
+                        background: isToday ? ui.todayBg : "transparent",
                         color: isToday
-                          ? "#fff"
+                          ? ui.todayText
                           : isWeekend
-                            ? "#94a3b8"
-                            : "#1e293b",
+                            ? ui.dayMuted
+                            : ui.dayText,
                         marginBottom: 4,
                       }}
                     >
@@ -1162,7 +1245,7 @@ function CalendarView({
                         <div
                           style={{
                             fontSize: 10,
-                            color: "#94a3b8",
+                            color: ui.moreText,
                             fontWeight: 600,
                             paddingLeft: 4,
                           }}
@@ -1225,7 +1308,7 @@ function MeetingDetailPanel({
         background: "#fff",
         borderLeft: "1px solid #f1f5f9",
         boxShadow: "-8px 0 32px rgba(0,0,0,0.06)",
-        zIndex: 50,
+        zIndex: 1060,
         display: "flex",
         flexDirection: "column",
         animation: "slideIn 0.2s ease",
@@ -1429,7 +1512,6 @@ function MeetingDetailPanel({
                     padding: "8px 12px",
                     background: "#f8fafc",
                     borderRadius: 10,
-                    border: "1px solid #f1f5f9",
                   }}
                 >
                   <div
@@ -1482,7 +1564,6 @@ function MeetingDetailPanel({
               gap: 8,
               padding: "10px 14px",
               background: "#f8fafc",
-              border: "1px solid #f1f5f9",
               borderRadius: 10,
             }}
           >
@@ -1677,6 +1758,7 @@ function DayAgendaList({
   onJoin,
   onCopyLink,
   copiedLink,
+  dark = false,
 }) {
   const filtered = (() => {
     if (!selectedDay) {
@@ -1700,16 +1782,53 @@ function DayAgendaList({
     ? currentMonth.date(selectedDay).format("ddd, MMM D")
     : "Upcoming";
 
+  const ui = dark
+    ? {
+        headerBorder: "#2a2b31",
+        heading: "#e5e7eb",
+        muted: "#94a3b8",
+        empty: "#64748b",
+        cardBg: "#1a1b1f",
+        cardBorder: "transparent",
+        cardTitle: "#e5e7eb",
+        cardMeta: "#94a3b8",
+        avatarRing: "#17181c",
+        overflowBg: "#2a2b31",
+        overflowText: "#cbd5e1",
+        copyBtnBg: "#17181c",
+        copyBtnBorder: "#2a2b31",
+        copyBtnText: "#94a3b8",
+      }
+    : {
+        headerBorder: "#f8fafc",
+        heading: "#0f172a",
+        muted: "#94a3b8",
+        empty: "#cbd5e1",
+        cardBg: "#fff",
+        cardBorder: "#f1f5f9",
+        cardTitle: "#0f172a",
+        cardMeta: "#64748b",
+        avatarRing: "#fff",
+        overflowBg: "#e2e8f0",
+        overflowText: "#64748b",
+        copyBtnBg: "#fff",
+        copyBtnBorder: "#e2e8f0",
+        copyBtnText: "#64748b",
+      };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <div
-        style={{ padding: "20px 20px 12px", borderBottom: "1px solid #f8fafc" }}
+        style={{
+          padding: "20px 20px 12px",
+          borderBottom: `1px solid ${ui.headerBorder}`,
+        }}
       >
         <div
           style={{
             fontSize: 11,
             fontWeight: 700,
-            color: "#94a3b8",
+            color: ui.muted,
             textTransform: "uppercase",
             letterSpacing: "0.06em",
           }}
@@ -1720,7 +1839,7 @@ function DayAgendaList({
           style={{
             fontSize: 18,
             fontWeight: 700,
-            color: "#0f172a",
+            color: ui.heading,
             marginTop: 2,
           }}
         >
@@ -1733,7 +1852,7 @@ function DayAgendaList({
             style={{
               textAlign: "center",
               padding: "40px 20px",
-              color: "#cbd5e1",
+              color: ui.empty,
             }}
           >
             <Calendar
@@ -1768,11 +1887,11 @@ function DayAgendaList({
                   style={{
                     padding: "12px 14px",
                     borderRadius: 12,
-                    border: `1px solid ${c.border}`,
-                    background: c.bg,
+                    border: `1px solid ${dark ? ui.cardBorder : c.border}`,
+                    background: dark ? ui.cardBg : c.bg,
                     cursor: "pointer",
                     transition: "all 0.15s",
-                    borderLeft: `3px solid ${c.dot}`,
+                    borderLeft: dark ? "none" : `3px solid ${c.dot}`,
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = "translateX(2px)";
@@ -1794,7 +1913,7 @@ function DayAgendaList({
                         style={{
                           fontSize: 13,
                           fontWeight: 700,
-                          color: "#0f172a",
+                          color: ui.cardTitle,
                           marginBottom: 3,
                           overflow: "hidden",
                           textOverflow: "ellipsis",
@@ -1826,7 +1945,7 @@ function DayAgendaList({
                       <div
                         style={{
                           fontSize: 11,
-                          color: "#64748b",
+                          color: ui.cardMeta,
                           display: "flex",
                           alignItems: "center",
                           gap: 8,
@@ -1858,7 +1977,7 @@ function DayAgendaList({
                           key={i}
                           style={{
                             marginLeft: i > 0 ? -6 : 0,
-                            border: "2px solid #fff",
+                            border: `2px solid ${ui.avatarRing}`,
                             borderRadius: "50%",
                             zIndex: atProfiles.length - i,
                           }}
@@ -1872,14 +1991,14 @@ function DayAgendaList({
                             width: 22,
                             height: 22,
                             borderRadius: "50%",
-                            background: "#e2e8f0",
-                            border: "2px solid #fff",
+                            background: ui.overflowBg,
+                            border: `2px solid ${ui.avatarRing}`,
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
                             fontSize: 8,
                             fontWeight: 700,
-                            color: "#64748b",
+                            color: ui.overflowText,
                             marginLeft: -6,
                           }}
                         >
@@ -1925,10 +2044,10 @@ function DayAgendaList({
                       style={{
                         padding: "6px 10px",
                         borderRadius: 8,
-                        border: "1px solid #e2e8f0",
+                        border: `1px solid ${ui.copyBtnBorder}`,
                         cursor: "pointer",
-                        background: "#fff",
-                        color: copiedLink === m.id ? "#22c55e" : "#64748b",
+                        background: ui.copyBtnBg,
+                        color: copiedLink === m.id ? "#22c55e" : ui.copyBtnText,
                         fontSize: 10,
                         display: "flex",
                         alignItems: "center",
@@ -1957,6 +2076,7 @@ function DayAgendaList({
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function MeetingsPage() {
   const navigate = useNavigate();
+  const [dark, setDark] = useState(getIsDarkTheme);
 
   const [tenantId, setTenantId] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
@@ -2046,6 +2166,19 @@ export default function MeetingsPage() {
     };
   }, [tenantId, userId]);
 
+  useEffect(() => {
+    const syncTheme = () => setDark(getIsDarkTheme());
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    window.addEventListener("storage", syncTheme);
+    window.addEventListener("themeModeChanged", syncTheme);
+    mediaQuery.addEventListener("change", syncTheme);
+    return () => {
+      window.removeEventListener("storage", syncTheme);
+      window.removeEventListener("themeModeChanged", syncTheme);
+      mediaQuery.removeEventListener("change", syncTheme);
+    };
+  }, []);
+
   const fetchProfiles = async () => {
     const { data } = await supabase
       .from("profiles")
@@ -2120,7 +2253,7 @@ export default function MeetingsPage() {
         .eq("id", meeting.id);
     }
     window.open(
-      `/meet/${meeting.meeting_room_id}?meetingId=${meeting.id}`,
+      `/meet/${meeting.meeting_room_id}`,
       "_blank",
       "noopener,noreferrer",
     );
@@ -2351,12 +2484,13 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
   if (!currentUser || planLoading) {
     return (
       <div
+        className={`meetings-page${dark ? " dark" : ""}`}
         style={{
           minHeight: "100vh",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#f8fafc",
+          background: dark ? "#141416" : "#f8fafc",
         }}
       >
         <div style={{ textAlign: "center" }}>
@@ -2373,13 +2507,14 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
   if (isFreePlan) {
     return (
       <div
+        className={`meetings-page${dark ? " dark" : ""}`}
         style={{
           minHeight: "100vh",
-          background: "#f8fafc",
+          background: dark ? "#141416" : "#f8fafc",
           fontFamily: "'Inter', -apple-system, sans-serif",
         }}
       >
-        <FreePlanPaywall navigate={navigate} />
+        <FreePlanPaywall navigate={navigate} dark={dark} />
         <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } } * { box-sizing: border-box; }`}</style>
       </div>
     );
@@ -2388,9 +2523,10 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
   // ── FULL PAGE (paid plans) ────────────────────────────────────────────────
   return (
     <div
+      className={`meetings-page${dark ? " dark" : ""}`}
       style={{
         minHeight: "100vh",
-        background: "#f8fafc",
+        background: dark ? "#141416" : "#f8fafc",
         fontFamily: "'Inter', -apple-system, sans-serif",
       }}
     >
@@ -2516,6 +2652,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
         </div>
         {currentUser?.role !== "employee" && (
           <button
+            className="new-meeting-btn"
             onClick={openCreate}
             style={{
               display: "flex",
@@ -2525,11 +2662,15 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
               borderRadius: 10,
               border: "none",
               cursor: "pointer",
-              background: "linear-gradient(135deg, #0f172a, #0f172a)",
-              color: "#fff",
+              background: dark
+                ? "#ffffff"
+                : "linear-gradient(135deg, #0f172a, #0f172a)",
+              color: dark ? "#111111" : "#fff",
               fontSize: 13,
               fontWeight: 700,
-              boxShadow: "0 4px 12px rgba(59,130,246,0.35)",
+              boxShadow: dark
+                ? "0 2px 10px rgba(0,0,0,0.28)"
+                : "0 4px 12px rgba(59,130,246,0.35)",
             }}
           >
             <Plus size={14} /> New Meeting
@@ -2607,9 +2748,17 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
             display: "flex",
             height: "calc(100vh - 60px)",
             overflow: "hidden",
+            background: dark ? "#141416" : "transparent",
           }}
         >
-          <div style={{ flex: 1, overflowY: "auto", padding: 28 }}>
+          <div
+            style={{
+              flex: 1,
+              overflowY: "auto",
+              padding: 28,
+              background: dark ? "#141416" : "transparent",
+            }}
+          >
             <div
               style={{
                 display: "flex",
@@ -2689,6 +2838,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
               }
               selectedDay={selectedDay}
               onMeetingClick={(m) => setSelectedMeeting(m)}
+              dark={dark}
             />
           </div>
           <div
@@ -2709,6 +2859,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
               onJoin={openMeetingRoom}
               onCopyLink={copyMeetingLink}
               copiedLink={copiedLink}
+              dark={dark}
             />
           </div>
         </div>
@@ -2790,11 +2941,13 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                         style={{
                           background: "#fff",
                           borderRadius: 14,
-                          border: `1px solid ${status === "live" ? c.border : "#f1f5f9"}`,
+                          border: dark
+                            ? "none"
+                            : `1px solid ${status === "live" ? c.border : "#f1f5f9"}`,
                           padding: "16px 20px",
                           cursor: "pointer",
                           transition: "all 0.15s",
-                          borderLeft: `3px solid ${c.dot}`,
+                          borderLeft: dark ? "none" : `3px solid ${c.dot}`,
                         }}
                         onMouseEnter={(e) => {
                           e.currentTarget.style.boxShadow =
@@ -2921,7 +3074,9 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                                   key={i}
                                   style={{
                                     marginLeft: i > 0 ? -6 : 0,
-                                    border: "2px solid #fff",
+                                    border: dark
+                                      ? "2px solid #0f172a"
+                                      : "2px solid #fff",
                                     borderRadius: "50%",
                                   }}
                                 >
@@ -2935,7 +3090,9 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                                     height: 26,
                                     borderRadius: "50%",
                                     background: "#f1f5f9",
-                                    border: "2px solid #fff",
+                                    border: dark
+                                      ? "2px solid #0f172a"
+                                      : "2px solid #fff",
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
@@ -3044,7 +3201,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
               position: "fixed",
               inset: 0,
               background: "rgba(0,0,0,0.15)",
-              zIndex: 49,
+              zIndex: 1059,
             }}
           />
           <MeetingDetailPanel
@@ -3070,6 +3227,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
         width={580}
         centered
         destroyOnClose
+        wrapClassName={dark ? "meetings-dark-modal" : undefined}
         styles={{ body: { padding: 0 } }}
         closeIcon={<X size={16} style={{ color: "#94a3b8" }} />}
       >
@@ -3083,8 +3241,6 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
           <div
             style={{
               padding: "24px 28px 18px",
-              borderBottom: "1px solid #f1f5f9",
-              background: "linear-gradient(135deg, #f8fafc, #f0f7ff)",
             }}
           >
             <div
@@ -3112,7 +3268,6 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                 style={{
                   fontSize: 16,
                   fontWeight: 800,
-                  color: "#0f172a",
                   margin: 0,
                 }}
               >
@@ -3226,12 +3381,28 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                       gap: 8,
                       padding: "12px 0",
                       borderRadius: 10,
-                      border: `2px solid ${form.type === t.key ? "#3b82f6" : "#e2e8f0"}`,
-                      background: form.type === t.key ? "#eff6ff" : "#f8fafc",
-                      color: form.type === t.key ? "#2563eb" : "#64748b",
+                      border:
+                        form.type === t.key
+                          ? "2px solid #3b82f6"
+                          : `2px solid ${dark ? "rgba(255,255,255,0.08)" : "#e2e8f0"}`,
+                      background:
+                        form.type === t.key
+                          ? dark
+                            ? "rgba(59,130,246,0.15)"
+                            : "#eff6ff"
+                          : dark
+                            ? "rgba(255,255,255,0.04)"
+                            : "#f8fafc",
+                      color:
+                        form.type === t.key
+                          ? "#3b82f6"
+                          : dark
+                            ? "rgba(255,255,255,0.45)"
+                            : "#64748b",
                       fontSize: 13,
-                      fontWeight: 700,
+                      fontWeight: 500,
                       cursor: "pointer",
+                      transition: "all 0.15s",
                     }}
                   >
                     {t.icon} {t.label}
@@ -3277,8 +3448,6 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                 <div
                   style={{
                     marginTop: 6,
-                    background: "#fff",
-                    border: "1px solid #e2e8f0",
                     borderRadius: 12,
                     boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
                     maxHeight: 180,
@@ -3300,12 +3469,12 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                         cursor: "pointer",
                         transition: "background 0.1s",
                       }}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.background = "#f8fafc")
-                      }
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.background = "transparent")
-                      }
+                      // onMouseEnter={(e) =>
+                      //   (e.currentTarget.style.background = "#f8fafc")
+                      // }
+                      // onMouseLeave={(e) =>
+                      //   (e.currentTarget.style.background = "transparent")
+                      // }
                     >
                       <UserAvatar profile={p} size={30} />
                       <div>
@@ -3313,7 +3482,6 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                           style={{
                             fontSize: 13,
                             fontWeight: 600,
-                            color: "#1e293b",
                           }}
                         >
                           {p.full_name}
@@ -3404,6 +3572,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                 <DatePicker
                   value={form.date}
                   onChange={(val) => setForm((f) => ({ ...f, date: val }))}
+                  popupClassName={dark ? "meetings-dark-popup" : undefined}
                   style={{ width: "100%", borderRadius: 10 }}
                   format="MMM D, YYYY"
                 />
@@ -3425,6 +3594,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                 <TimePicker
                   value={form.time}
                   onChange={(val) => setForm((f) => ({ ...f, time: val }))}
+                  popupClassName={dark ? "meetings-dark-popup" : undefined}
                   style={{ width: "100%", borderRadius: 10 }}
                   format="h:mm A"
                   use12Hours
@@ -3447,6 +3617,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                 <Select
                   value={form.duration}
                   onChange={(val) => setForm((f) => ({ ...f, duration: val }))}
+                  popupClassName={dark ? "meetings-dark-popup" : undefined}
                   style={{ width: "100%" }}
                 >
                   {[15, 30, 45, 60, 90, 120].map((d) => (
@@ -3474,6 +3645,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
               <Select
                 value={form.recurrence}
                 onChange={(val) => setForm((f) => ({ ...f, recurrence: val }))}
+                popupClassName={dark ? "meetings-dark-popup" : undefined}
                 style={{ width: "100%" }}
                 placeholder="One-time (no recurrence)"
               >
@@ -3502,7 +3674,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                 style={{
                   display: "flex",
                   flexDirection: "column",
-                  gap: 6,
+                  gap: 4,
                   marginBottom: 8,
                 }}
               >
@@ -3513,21 +3685,32 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                       display: "flex",
                       alignItems: "center",
                       gap: 8,
-                      padding: "8px 12px",
-                      background: "#f8fafc",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: 10,
+                      padding: "7px 10px",
+                      borderRadius: 8,
+                      border: `0.5px solid ${dark ? "rgba(255,255,255,0.06)" : "#f1f5f9"}`,
+                      background: dark ? "rgba(255,255,255,0.03)" : "#f8fafc",
+                      transition: "background 0.15s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = dark
+                        ? "rgba(255,255,255,0.06)"
+                        : "#f1f5f9";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = dark
+                        ? "rgba(255,255,255,0.03)"
+                        : "#f8fafc";
                     }}
                   >
                     <div
                       style={{
-                        width: 20,
-                        height: 20,
+                        width: 18,
+                        height: 18,
                         borderRadius: "50%",
-                        background: "#e0e7ff",
-                        color: "#4f46e5",
-                        fontSize: 10,
-                        fontWeight: 700,
+                        background: dark ? "rgba(99,102,241,0.2)" : "#ede9fe",
+                        color: "#6366f1",
+                        fontSize: 9,
+                        fontWeight: 600,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -3536,6 +3719,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                     >
                       {i + 1}
                     </div>
+
                     <input
                       value={a.text}
                       onChange={(e) =>
@@ -3552,32 +3736,55 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                         border: "none",
                         outline: "none",
                         fontSize: 13,
-                        color: "#374151",
+                        color: dark ? "rgba(255,255,255,0.85)" : "#0f172a",
+                        caretColor: "#6366f1",
                       }}
                     />
-                    <input
-                      type="number"
-                      value={a.dur}
-                      min={1}
-                      onChange={(e) =>
-                        setAgendaItems((prev) =>
-                          prev.map((x, j) =>
-                            j === i ? { ...x, dur: +e.target.value } : x,
-                          ),
-                        )
-                      }
+
+                    <div
                       style={{
-                        width: 44,
-                        background: "#fff",
-                        border: "1px solid #e2e8f0",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        background: dark ? "rgba(255,255,255,0.06)" : "#fff",
+                        border: `0.5px solid ${dark ? "rgba(255,255,255,0.1)" : "#e2e8f0"}`,
                         borderRadius: 6,
                         padding: "2px 6px",
-                        fontSize: 11,
-                        textAlign: "center",
-                        outline: "none",
                       }}
-                    />
-                    <span style={{ fontSize: 10, color: "#94a3b8" }}>min</span>
+                    >
+                      <input
+                        type="number"
+                        value={a.dur}
+                        min={1}
+                        onChange={(e) =>
+                          setAgendaItems((prev) =>
+                            prev.map((x, j) =>
+                              j === i ? { ...x, dur: +e.target.value } : x,
+                            ),
+                          )
+                        }
+                        style={{
+                          width: 28,
+                          background: "transparent",
+                          border: "none",
+                          outline: "none",
+                          fontSize: 11,
+                          fontWeight: 500,
+                          textAlign: "center",
+                          color: dark ? "rgba(255,255,255,0.7)" : "#334155",
+                        }}
+                      />
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 500,
+                          color: dark ? "rgba(255,255,255,0.3)" : "#94a3b8",
+                        }}
+                      >
+                        min
+                      </span>
+                    </div>
+
                     <button
                       onClick={() =>
                         setAgendaItems((prev) => prev.filter((_, j) => j !== i))
@@ -3586,9 +3793,20 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                         border: "none",
                         background: "none",
                         cursor: "pointer",
-                        color: "#cbd5e1",
+                        color: dark ? "rgba(255,255,255,0.2)" : "#cbd5e1",
                         display: "flex",
+                        alignItems: "center",
                         padding: 2,
+                        borderRadius: 4,
+                        transition: "color 0.15s",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = "#ef4444";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = dark
+                          ? "rgba(255,255,255,0.2)"
+                          : "#cbd5e1";
                       }}
                     >
                       <Trash2 size={12} />
@@ -3624,8 +3842,6 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
           <div
             style={{
               padding: "14px 28px",
-              borderTop: "1px solid #f1f5f9",
-              background: "#fafafa",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
@@ -3642,8 +3858,6 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                   padding: "8px 18px",
                   borderRadius: 10,
                   border: "1px solid #e2e8f0",
-                  background: "#fff",
-                  color: "#374151",
                   fontSize: 13,
                   fontWeight: 600,
                   cursor: "pointer",
@@ -3691,7 +3905,11 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
         width={600}
         centered
         destroyOnClose
-        styles={{ body: { padding: 0 } }}
+        wrapClassName={dark ? "meetings-dark-modal" : undefined}
+        styles={{
+          body: { padding: 0, background: dark ? "#17181c" : "#ffffff" },
+          content: { background: dark ? "#17181c" : "#ffffff" },
+        }}
         closeIcon={<X size={16} style={{ color: "#94a3b8" }} />}
       >
         {summaryMeeting && (
@@ -3700,13 +3918,18 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
               display: "flex",
               flexDirection: "column",
               maxHeight: "90vh",
+              background: dark ? "#17181c" : "#ffffff",
             }}
           >
             <div
               style={{
                 padding: "24px 28px 18px",
-                background: "linear-gradient(135deg, #f5f3ff, #ede9fe)",
-                borderBottom: "1px solid #ddd6fe",
+                background: dark
+                  ? "linear-gradient(135deg, #1a1b1f, #17181c)"
+                  : "linear-gradient(135deg, #f5f3ff, #ede9fe)",
+                borderBottom: dark
+                  ? "1px solid #2a2b31"
+                  : "1px solid #ddd6fe",
                 borderRadius: "12px 12px 0 0",
               }}
             >
@@ -3722,9 +3945,13 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                   marginBottom: 10,
                 }}
               >
-                <Sparkles size={11} color="#0f172a" />
+                <Sparkles size={11} color={dark ? "#cbd5e1" : "#0f172a"} />
                 <span
-                  style={{ fontSize: 11, fontWeight: 700, color: "#0f172a" }}
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: dark ? "#cbd5e1" : "#0f172a",
+                  }}
                 >
                   AI Summary
                 </span>
@@ -3733,7 +3960,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                 style={{
                   fontSize: 17,
                   fontWeight: 800,
-                  color: "#1e1b4b",
+                  color: dark ? "#e5e7eb" : "#1e1b4b",
                   margin: "0 0 6px",
                 }}
               >
@@ -3744,7 +3971,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                   display: "flex",
                   gap: 16,
                   fontSize: 12,
-                  color: "#7c3aed",
+                  color: dark ? "#a78bfa" : "#7c3aed",
                 }}
               >
                 <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -3761,7 +3988,14 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                 </span>
               </div>
             </div>
-            <div style={{ overflowY: "auto", padding: "20px 28px", flex: 1 }}>
+            <div
+              style={{
+                overflowY: "auto",
+                padding: "20px 28px",
+                flex: 1,
+                background: dark ? "#17181c" : "#ffffff",
+              }}
+            >
               {summaryLoading ? (
                 <div
                   style={{
@@ -3769,8 +4003,8 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                     alignItems: "center",
                     gap: 14,
                     padding: 20,
-                    background: "#f5f3ff",
-                    border: "1px solid #ddd6fe",
+                    background: dark ? "#1a1b1f" : "#f5f3ff",
+                    border: dark ? "1px solid #2a2b31" : "1px solid #ddd6fe",
                     borderRadius: 14,
                   }}
                 >
@@ -3780,13 +4014,17 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                       style={{
                         fontSize: 14,
                         fontWeight: 700,
-                        color: "#4c1d95",
+                        color: dark ? "#c4b5fd" : "#4c1d95",
                       }}
                     >
                       Analyzing meeting…
                     </div>
                     <div
-                      style={{ fontSize: 12, color: "#8b5cf6", marginTop: 2 }}
+                      style={{
+                        fontSize: 12,
+                        color: dark ? "#a78bfa" : "#8b5cf6",
+                        marginTop: 2,
+                      }}
                     >
                       Generating insights with Groq AI
                     </div>
@@ -3817,13 +4055,15 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                       <p
                         style={{
                           fontSize: 13,
-                          color: "#374151",
+                          color: dark ? "#e5e7eb" : "#374151",
                           lineHeight: 1.7,
-                          background: "#f9fafb",
+                          background: dark ? "#1a1b1f" : "#f9fafb",
                           borderRadius: 12,
                           padding: "14px 16px",
                           margin: 0,
-                          border: "1px solid #f1f5f9",
+                          border: dark
+                            ? "1px solid #2a2b31"
+                            : "1px solid #f1f5f9",
                         }}
                       >
                         {summaryData.summary}
@@ -3852,9 +4092,11 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                               style={{
                                 padding: "4px 12px",
                                 borderRadius: 999,
-                                background: "#ede9fe",
-                                border: "1px solid #ddd6fe",
-                                color: "#6d28d9",
+                                background: dark ? "#202127" : "#ede9fe",
+                                border: dark
+                                  ? "1px solid #383a43"
+                                  : "1px solid #ddd6fe",
+                                color: dark ? "#c4b5fd" : "#6d28d9",
                                 fontSize: 12,
                                 fontWeight: 600,
                               }}
@@ -3893,8 +4135,10 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                                 display: "flex",
                                 gap: 12,
                                 padding: "12px 14px",
-                                background: "#fff",
-                                border: "1px solid #f1f5f9",
+                                background: dark ? "#1a1b1f" : "#fff",
+                                border: dark
+                                  ? "1px solid #2a2b31"
+                                  : "1px solid #f1f5f9",
                                 borderRadius: 10,
                               }}
                             >
@@ -3968,7 +4212,12 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                                 color="#22c55e"
                                 style={{ flexShrink: 0, marginTop: 1 }}
                               />
-                              <div style={{ fontSize: 13, color: "#1e293b" }}>
+                              <div
+                                style={{
+                                  fontSize: 13,
+                                  color: dark ? "#e5e7eb" : "#1e293b",
+                                }}
+                              >
                                 {d}
                               </div>
                             </div>
@@ -3992,8 +4241,10 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                         </div>
                         <div
                           style={{
-                            background: "#f9fafb",
-                            border: "1px solid #f1f5f9",
+                            background: dark ? "#1a1b1f" : "#f9fafb",
+                            border: dark
+                              ? "1px solid #2a2b31"
+                              : "1px solid #f1f5f9",
                             borderRadius: 12,
                             padding: 16,
                             display: "flex",
@@ -4029,7 +4280,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                               <span
                                 style={{
                                   fontSize: 12,
-                                  color: "#64748b",
+                                  color: dark ? "#94a3b8" : "#64748b",
                                   width: 76,
                                   flexShrink: 0,
                                 }}
@@ -4040,7 +4291,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                                 style={{
                                   flex: 1,
                                   height: 6,
-                                  background: "#e2e8f0",
+                                  background: dark ? "#2a2b31" : "#e2e8f0",
                                   borderRadius: 999,
                                   overflow: "hidden",
                                 }}
@@ -4059,7 +4310,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                                 style={{
                                   fontSize: 12,
                                   fontWeight: 700,
-                                  color: "#374151",
+                                  color: dark ? "#cbd5e1" : "#374151",
                                   width: 32,
                                   textAlign: "right",
                                 }}
@@ -4078,12 +4329,12 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
             <div
               style={{
                 padding: "14px 28px",
-                borderTop: "1px solid #f1f5f9",
+                borderTop: dark ? "1px solid #2a2b31" : "1px solid #f1f5f9",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
                 borderRadius: "0 0 12px 12px",
-                background: "#fafafa",
+                background: dark ? "#1a1b1f" : "#fafafa",
               }}
             >
               <span style={{ fontSize: 11, color: "#94a3b8" }}>
@@ -4098,9 +4349,9 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                   style={{
                     padding: "7px 16px",
                     borderRadius: 8,
-                    border: "1px solid #e2e8f0",
-                    background: "#fff",
-                    color: "#374151",
+                    border: dark ? "1px solid #2a2b31" : "1px solid #e2e8f0",
+                    background: dark ? "#17181c" : "#fff",
+                    color: dark ? "#e5e7eb" : "#374151",
                     fontSize: 12,
                     fontWeight: 600,
                     cursor: "pointer",
@@ -4143,7 +4394,107 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
         * { box-sizing: border-box; }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 2px; }
+        ::-webkit-scrollbar-thumb { background: ${dark ? "#242428" : "#e2e8f0"}; border-radius: 2px; }
+
+        .meetings-page.dark { color: #e5e7eb; }
+        .meetings-page.dark [style*="background: #f8fafc"],
+        .meetings-page.dark [style*="background: rgb(248, 250, 252)"] { background: #141416 !important; }
+        .meetings-page.dark [style*="background: #fff"],
+        .meetings-page.dark [style*="background: rgb(255, 255, 255)"] { background: #1a1b1f !important; }
+        .meetings-page.dark [style*="background: #fafafa"],
+        .meetings-page.dark [style*="background: rgb(250, 250, 250)"] { background: #17181c !important; }
+        .meetings-page.dark [style*="background: #f1f5f9"],
+        .meetings-page.dark [style*="background: rgb(241, 245, 249)"] { background: #202127 !important; }
+        .meetings-page.dark [style*="background: #e2e8f0"],
+        .meetings-page.dark [style*="background: rgb(226, 232, 240)"] { background: #2a2b31 !important; }
+        .meetings-page.dark [style*="background: rgba(255,255,255,0.92)"],
+        .meetings-page.dark [style*="background: rgba(255, 255, 255, 0.92)"] { background: rgba(20,20,22,0.92) !important; }
+
+        .meetings-page.dark [style*="color: #0f172a"],
+        .meetings-page.dark [style*="color: #1e293b"],
+        .meetings-page.dark [style*="color: #374151"],
+        .meetings-page.dark [style*="color: rgb(15, 23, 42)"],
+        .meetings-page.dark [style*="color: rgb(30, 41, 59)"],
+        .meetings-page.dark [style*="color: rgb(55, 65, 81)"] { color: #e5e7eb !important; }
+        .meetings-page.dark [style*="color: #64748b"],
+        .meetings-page.dark [style*="color: #94a3b8"],
+        .meetings-page.dark [style*="color: rgb(100, 116, 139)"],
+        .meetings-page.dark [style*="color: rgb(148, 163, 184)"] { color: #94a3b8 !important; }
+
+        .meetings-page.dark [style*="border: 1px solid #e2e8f0"],
+        .meetings-page.dark [style*="border: 1px solid rgb(226, 232, 240)"] { border: 1px solid #2a2b31 !important; }
+        .meetings-page.dark [style*="border-bottom: 1px solid #f1f5f9"],
+        .meetings-page.dark [style*="border-bottom: 1px solid #e2e8f0"],
+        .meetings-page.dark [style*="border-bottom: 1px solid #f8fafc"],
+        .meetings-page.dark [style*="border-bottom: 1px solid rgb(241, 245, 249)"],
+        .meetings-page.dark [style*="border-bottom: 1px solid rgb(248, 250, 252)"] { border-bottom: 1px solid #2a2b31 !important; }
+        .meetings-page.dark [style*="border-top: 1px solid #f1f5f9"],
+        .meetings-page.dark [style*="border-top: 1px solid #f8fafc"],
+        .meetings-page.dark [style*="border-top: 1px solid rgb(241, 245, 249)"],
+        .meetings-page.dark [style*="border-top: 1px solid rgb(248, 250, 252)"] { border-top: 1px solid #2a2b31 !important; }
+        .meetings-page.dark [style*="border-left: 1px solid #f1f5f9"],
+        .meetings-page.dark [style*="border-left: 1px solid #f8fafc"],
+        .meetings-page.dark [style*="border-left: 1px solid #e2e8f0"],
+        .meetings-page.dark [style*="border-left: 1px solid rgb(241, 245, 249)"],
+        .meetings-page.dark [style*="border-left: 1px solid rgb(248, 250, 252)"],
+        .meetings-page.dark [style*="border-left: 1px solid rgb(226, 232, 240)"] { border-left: 1px solid #2a2b31 !important; }
+        .meetings-page.dark [style*="border-right: 1px solid #f1f5f9"],
+        .meetings-page.dark [style*="border-right: 1px solid #f8fafc"],
+        .meetings-page.dark [style*="border-right: 1px solid #e2e8f0"],
+        .meetings-page.dark [style*="border-right: 1px solid rgb(241, 245, 249)"],
+        .meetings-page.dark [style*="border-right: 1px solid rgb(248, 250, 252)"],
+        .meetings-page.dark [style*="border-right: 1px solid rgb(226, 232, 240)"] { border-right: 1px solid #2a2b31 !important; }
+        .meetings-page.dark ::-webkit-scrollbar-thumb { background: #242428; }
+        .meetings-page.dark .new-meeting-btn {
+          background: #ffffff !important;
+          color: #111111 !important;
+        }
+
+        .meetings-dark-modal .ant-modal-content,
+        .meetings-dark-modal .ant-modal-header {
+          background: #1a1b1f !important;
+          border-color: #2a2b31 !important;
+        }
+        .meetings-dark-modal .ant-modal-title {
+          color: #f3f4f6 !important;
+        }
+        .meetings-dark-modal .ant-input,
+        .meetings-dark-modal .ant-input-affix-wrapper,
+        .meetings-dark-modal .ant-select-selector,
+        .meetings-dark-modal .ant-picker {
+          background: #17181c !important;
+          border-color: #2a2b31 !important;
+          color: #f3f4f6 !important;
+        }
+        .meetings-dark-modal .ant-input::placeholder,
+        .meetings-dark-modal .ant-input-affix-wrapper input::placeholder {
+          color: #9ca3af !important;
+        }
+        .meetings-dark-modal .ant-select-arrow,
+        .meetings-dark-modal .ant-picker-suffix {
+          color: #9ca3af !important;
+        }
+        .meetings-dark-popup .ant-picker-panel-container,
+        .meetings-dark-popup .ant-select-dropdown,
+        .meetings-dark-popup.ant-select-dropdown {
+          background: #1a1b1f !important;
+          border: 1px solid #2a2b31 !important;
+        }
+        .meetings-dark-popup .ant-picker-header,
+        .meetings-dark-popup .ant-picker-content th {
+          color: #9ca3af !important;
+          border-color: #2a2b31 !important;
+        }
+        .meetings-dark-popup .ant-picker-cell-inner,
+        .meetings-dark-popup .ant-select-item {
+          color: #f3f4f6 !important;
+        }
+        .meetings-dark-popup .ant-select-item-option-active,
+        .meetings-dark-popup .ant-select-item-option-selected,
+        .meetings-dark-popup .ant-picker-cell-in-view.ant-picker-cell-selected .ant-picker-cell-inner {
+          background: #202127 !important;
+        }
+
       `}</style>
     </div>
   );

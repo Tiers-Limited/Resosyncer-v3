@@ -172,15 +172,15 @@ const ClientWorldMap = ({ countries }) => {
 
   const dark = (() => {
     try {
-      const bg = getComputedStyle(document.documentElement)
-        .getPropertyValue("--d-card")
+      const root = document.documentElement;
+      const mode = localStorage.getItem("themeMode") || "system";
+      if (mode === "dark") return true;
+      if (mode === "light") return false;
+      const bg = getComputedStyle(root)
+        .getPropertyValue("--d-bg")
         .trim();
-      return (
-        bg.startsWith("#1") ||
-        bg.startsWith("#0") ||
-        bg.startsWith("rgb(1") ||
-        bg.startsWith("rgb(0")
-      );
+      if (bg) return bg === "#141416" || bg.includes("20, 20, 22");
+      return window.matchMedia("(prefers-color-scheme: dark)").matches;
     } catch {
       return false;
     }
@@ -241,13 +241,13 @@ const ClientWorldMap = ({ countries }) => {
   /* Color scale */
   const getColor = (code) => {
     const count = countryData[code];
-    if (!count) return dark ? "#1e2535" : "#e8ecf4";
+    if (!count) return dark ? "#202127" : "#e8ecf4";
     const t = count / maxCount;
     if (dark) {
-      if (t > 0.75) return "#3b82f6";
-      if (t > 0.5) return "#2563eb";
-      if (t > 0.25) return "#1d4ed8";
-      return "#1e3a8a";
+      if (t > 0.75) return "#60a5fa";
+      if (t > 0.5) return "#3b82f6";
+      if (t > 0.25) return "#2563eb";
+      return "#1d4ed8";
     } else {
       if (t > 0.75) return "#1d4ed8";
       if (t > 0.5) return "#2563eb";
@@ -256,10 +256,10 @@ const ClientWorldMap = ({ countries }) => {
     }
   };
 
-  const accentColor = dark ? "#22d3ee" : "#3b82f6";
-  const markerColor = dark ? "#f97316" : "#ef4444";
-  const strokeColor = dark ? "#2a3550" : "#ffffff";
-  const hoverEmpty = dark ? "#2a3550" : "#d1d5db";
+  const accentColor = dark ? "#93c5fd" : "#3b82f6";
+  const markerColor = dark ? "#f59e0b" : "#ef4444";
+  const strokeColor = dark ? "#2a2b31" : "#ffffff";
+  const hoverEmpty = dark ? "#2a2b31" : "#d1d5db";
 
   const total = displayList.reduce((s, c) => s + c.count, 0);
 
@@ -270,7 +270,7 @@ const ClientWorldMap = ({ countries }) => {
         style={{
           borderRadius: 12,
           overflow: "hidden",
-          background: dark ? "#0a1020" : "#f0f4f8",
+          background: dark ? "#17181c" : "#f0f4f8",
           border: "1px solid var(--d-border)",
           position: "relative",
         }}
@@ -299,7 +299,7 @@ const ClientWorldMap = ({ countries }) => {
                 width: 28,
                 height: 28,
                 borderRadius: 7,
-                background: dark ? "#1e2535" : "#ffffff",
+                background: dark ? "#202127" : "#ffffff",
                 border: "1px solid var(--d-border)",
                 color: "var(--d-sub)",
                 fontSize: label === "⌂" ? 13 : 16,
@@ -315,7 +315,7 @@ const ClientWorldMap = ({ countries }) => {
               }
               onMouseLeave={(e) =>
                 (e.currentTarget.style.background = dark
-                  ? "#1e2535"
+                  ? "#202127"
                   : "#ffffff")
               }
             >
@@ -423,7 +423,7 @@ const ClientWorldMap = ({ countries }) => {
             position: "fixed",
             left: tooltip.x + 12,
             top: tooltip.y + 12,
-            background: dark ? "#0f1829" : "#0f172a",
+            background: dark ? "#1a1b1f" : "#0f172a",
             color: "#fff",
             padding: "6px 12px",
             borderRadius: 8,
@@ -579,7 +579,7 @@ const ClientWorldMap = ({ countries }) => {
                     style={{
                       height: 3,
                       borderRadius: 2,
-                      background: dark ? "#1e2535" : "#e2e8f0",
+                      background: dark ? "#202127" : "#e2e8f0",
                       overflow: "hidden",
                     }}
                   >

@@ -46,6 +46,7 @@ import {
   FileTextOutlined,
   BarChartOutlined,
   CustomerServiceOutlined,
+  AlertOutlined,
   DollarOutlined,
   UserAddOutlined,
   FileProtectOutlined,
@@ -186,6 +187,16 @@ const PAGE_GROUPS = [
         label: "Communication",
         icon: <MessageOutlined />,
       },
+      {
+        key: "/support",
+        label: "Customer Support",
+        icon: <CustomerServiceOutlined />,
+      },
+      {
+        key: "/report-problem",
+        label: "Report a Problem",
+        icon: <AlertOutlined />,
+      },
       { key: "/subscription", label: "Subscription", icon: <CreditCardOutlined /> },
       { key: "/settings", label: "Settings", icon: <SettingOutlined /> },
     ],
@@ -194,10 +205,18 @@ const PAGE_GROUPS = [
 
 const ALL_PAGE_KEYS = PAGE_GROUPS.flatMap((g) => g.pages.map((p) => p.key));
 
+const getIsDarkTheme = () => {
+  if (typeof window === "undefined") return false;
+  const mode = localStorage.getItem("themeMode") || "system";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
+
 /* ─────────────────────────────────────────────────────────
    Admin Permissions Modal
 ───────────────────────────────────────────────────────── */
-const AdminPermissionsModal = ({ admin, visible, onClose, onSave }) => {
+const AdminPermissionsModal = ({ admin, visible, onClose, onSave, dark = false }) => {
   const [permissions, setPermissions] = useState([]);
   const [saving, setSaving] = useState(false);
 
@@ -262,6 +281,7 @@ const AdminPermissionsModal = ({ admin, visible, onClose, onSave }) => {
         },
       }}
       width={520}
+      className={dark ? "settings-dark-modal" : ""}
     >
       <div className="mt-4 space-y-5">
         {PAGE_GROUPS.map((group) => {
@@ -329,7 +349,7 @@ const AdminPermissionsModal = ({ admin, visible, onClose, onSave }) => {
 /* ─────────────────────────────────────────────────────────
    2FA Section Component
 ───────────────────────────────────────────────────────── */
-const TwoFactorSection = ({ profile }) => {
+const TwoFactorSection = ({ profile, dark = false }) => {
   const [emailOtpEnabled, setEmailOtpEnabled] = useState(false);
   const [totpEnabled, setTotpEnabled] = useState(false);
   const [totpSetupVisible, setTotpSetupVisible] = useState(false);
@@ -430,6 +450,7 @@ const TwoFactorSection = ({ profile }) => {
       content: "You will no longer need your authenticator app to sign in.",
       okText: "Disable",
       okButtonProps: { danger: true },
+      className: dark ? "settings-dark-modal" : "",
       onOk: async () => {
         try {
           const factors = await supabase.auth.mfa.listFactors();
@@ -527,6 +548,7 @@ const TwoFactorSection = ({ profile }) => {
       content: "You will no longer receive an OTP code on your email at login.",
       okText: "Disable",
       okButtonProps: { danger: true },
+      className: dark ? "settings-dark-modal" : "",
       onOk: async () => {
         await supabase
           .from("profiles")
@@ -679,6 +701,7 @@ const TwoFactorSection = ({ profile }) => {
         }}
         footer={null}
         width={420}
+        className={dark ? "settings-dark-modal" : ""}
       >
         <Steps
           current={totpStep}
@@ -787,6 +810,7 @@ const TwoFactorSection = ({ profile }) => {
         }}
         footer={null}
         width={380}
+        className={dark ? "settings-dark-modal" : ""}
       >
         <div className="py-2">
           <div className="rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 mb-5">
@@ -825,7 +849,7 @@ const TwoFactorSection = ({ profile }) => {
               onClick={handleResendEmailOtp}
               disabled={resendCooldown > 0 || loadingEmailOtp}
               style={{
-                color: resendCooldown > 0 ? "#94a3b8" : "#001529",
+                color: resendCooldown > 0 ? "#94a3b8" : dark ? "#93c5fd" : "#001529",
                 background: "none",
                 border: "none",
                 cursor: resendCooldown > 0 ? "default" : "pointer",
@@ -850,6 +874,7 @@ const TwoFactorSection = ({ profile }) => {
 ───────────────────────────────────────────────────────── */
 const Settings = () => {
   const { profile } = useAuth();
+  const [dark, setDark] = useState(getIsDarkTheme);
   const [profileForm] = Form.useForm();
   const [passwordForm] = Form.useForm();
   const [adminForm] = Form.useForm();
@@ -1150,6 +1175,19 @@ const Settings = () => {
     }
   }, [profile]);
 
+  useEffect(() => {
+    const syncTheme = () => setDark(getIsDarkTheme());
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    window.addEventListener("storage", syncTheme);
+    window.addEventListener("themeModeChanged", syncTheme);
+    mediaQuery.addEventListener("change", syncTheme);
+    return () => {
+      window.removeEventListener("storage", syncTheme);
+      window.removeEventListener("themeModeChanged", syncTheme);
+      mediaQuery.removeEventListener("change", syncTheme);
+    };
+  }, []);
+
   /* ── Columns ── */
   const adminColumns = [
     {
@@ -1238,6 +1276,7 @@ const Settings = () => {
                     content: `Remove ${r.full_name} as admin?`,
                     okText: "Remove",
                     okButtonProps: { danger: true },
+                    className: dark ? "settings-dark-modal" : "",
                     onOk: () => handleDeleteAdmin(r.id),
                   })
                 }
@@ -1302,6 +1341,7 @@ const Settings = () => {
                 content: `Remove "${r.name}" from public holidays?`,
                 okText: "Delete",
                 okButtonProps: { danger: true },
+                className: dark ? "settings-dark-modal" : "",
                 onOk: () => handleDeleteHoliday(r.id),
               })
             }
@@ -1632,7 +1672,7 @@ const Settings = () => {
           </div>
 
           {/* 2FA Section */}
-          <TwoFactorSection profile={profile} />
+          <TwoFactorSection profile={profile} dark={dark} />
         </div>
       ),
     },
@@ -1879,6 +1919,7 @@ const Settings = () => {
               setPermissionsAdmin(null);
             }}
             onSave={handleSavePermissions}
+            dark={dark}
           />
 
           {/* Add Admin Modal */}
@@ -1898,6 +1939,7 @@ const Settings = () => {
             okButtonProps={{ style: primaryBtn }}
             confirmLoading={loadingAdmins}
             width={460}
+            className={dark ? "settings-dark-modal" : ""}
           >
             <Form
               form={adminForm}
@@ -2039,6 +2081,7 @@ const Settings = () => {
             okButtonProps={{ style: primaryBtn }}
             confirmLoading={loadingHolidays}
             width={400}
+            className={dark ? "settings-dark-modal" : ""}
           >
             <Form
               form={holidayForm}
@@ -2084,7 +2127,106 @@ const Settings = () => {
   }
 
   return (
-    <div className="p-6 bg-white min-h-screen">
+    <div
+      className={`p-6 min-h-screen settings-page ${dark ? "settings-dark" : ""}`}
+      style={{ background: dark ? "#141416" : "#ffffff" }}
+    >
+      <style>{`
+        .settings-dark .bg-white { background-color: #16171b !important; }
+        .settings-dark .bg-slate-50,
+        .settings-dark .bg-slate-50\\/50 { background-color: #1b1c21 !important; }
+        .settings-dark .bg-slate-100 { background-color: #252830 !important; }
+        .settings-dark .border-slate-100,
+        .settings-dark .border-slate-200 { border-color: #2b2f38 !important; }
+        .settings-dark .text-slate-900,
+        .settings-dark .text-slate-800,
+        .settings-dark .text-slate-700 { color: #f3f4f6 !important; }
+        .settings-dark .text-slate-600,
+        .settings-dark .text-slate-500 { color: #d1d5db !important; }
+        .settings-dark .text-slate-400,
+        .settings-dark .text-slate-300 { color: #9ca3af !important; }
+        .settings-dark .ant-divider { border-color: #2b2f38 !important; }
+        .settings-dark .ant-tabs-nav::before { border-bottom-color: #2b2f38 !important; }
+        .settings-dark .ant-tabs-tab { color: #9ca3af !important; }
+        .settings-dark .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn { color: #f3f4f6 !important; }
+        .settings-dark .ant-tabs-ink-bar { background: #60a5fa !important; }
+        .settings-dark .ant-input,
+        .settings-dark .ant-input-affix-wrapper,
+        .settings-dark .ant-input-number,
+        .settings-dark .ant-input-number-group-addon,
+        .settings-dark .ant-picker,
+        .settings-dark .ant-select-selector,
+        .settings-dark .ant-select-selection-search-input {
+          background: #1b1c21 !important;
+          border-color: #2b2f38 !important;
+          color: #f3f4f6 !important;
+        }
+        .settings-dark .ant-input::placeholder,
+        .settings-dark .ant-input-number input::placeholder,
+        .settings-dark .ant-picker-input > input::placeholder { color: #6b7280 !important; }
+        .settings-dark .ant-input-prefix,
+        .settings-dark .ant-picker-suffix,
+        .settings-dark .ant-select-arrow,
+        .settings-dark .ant-input-password-icon { color: #9ca3af !important; }
+        .settings-dark .ant-picker-input > input,
+        .settings-dark .ant-input-number input,
+        .settings-dark .ant-select-selection-item { color: #f3f4f6 !important; }
+        .settings-dark .ant-table { background: #16171b !important; color: #e5e7eb !important; }
+        .settings-dark .ant-table-container table > thead > tr > th {
+          background: #1b1c21 !important;
+          color: #d1d5db !important;
+          border-bottom: 1px solid #2b2f38 !important;
+        }
+        .settings-dark .ant-table-tbody > tr > td {
+          background: #16171b !important;
+          color: #e5e7eb !important;
+          border-bottom-color: #2b2f38 !important;
+        }
+        .settings-dark .ant-table-tbody > tr:hover > td { background: #1b1c21 !important; }
+        .settings-dark .ant-pagination .ant-pagination-item,
+        .settings-dark .ant-pagination .ant-pagination-prev .ant-pagination-item-link,
+        .settings-dark .ant-pagination .ant-pagination-next .ant-pagination-item-link {
+          background: #1b1c21 !important;
+          border-color: #2b2f38 !important;
+        }
+        .settings-dark .ant-pagination .ant-pagination-item a,
+        .settings-dark .ant-pagination .ant-pagination-prev .ant-pagination-item-link,
+        .settings-dark .ant-pagination .ant-pagination-next .ant-pagination-item-link {
+          color: #d1d5db !important;
+        }
+        .settings-dark .ant-pagination .ant-pagination-item-active { border-color: #3b82f6 !important; }
+        .settings-dark .ant-empty-description { color: #9ca3af !important; }
+        .settings-dark-modal .ant-modal-content {
+          background: #16171b !important;
+          border: 1.5px solid #2b2f38 !important;
+          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45) !important;
+        }
+        .settings-dark-modal .ant-modal-header { background: transparent !important; }
+        .settings-dark-modal .ant-modal-title,
+        .settings-dark-modal .ant-modal-confirm-title { color: #f3f4f6 !important; }
+        .settings-dark-modal .ant-modal-confirm-content,
+        .settings-dark-modal .ant-modal-body { color: #d1d5db !important; }
+        .settings-dark-modal .ant-modal-close,
+        .settings-dark-modal .ant-modal-confirm-btns .ant-btn-default { color: #d1d5db !important; }
+        .settings-dark-modal .ant-modal-close:hover { color: #f3f4f6 !important; }
+        .settings-dark-modal .bg-white { background-color: #16171b !important; }
+        .settings-dark-modal .bg-slate-100 { background-color: #252830 !important; }
+        .settings-dark-modal .text-slate-900,
+        .settings-dark-modal .text-slate-800,
+        .settings-dark-modal .text-slate-700 { color: #f3f4f6 !important; }
+        .settings-dark-modal .text-slate-600,
+        .settings-dark-modal .text-slate-500 { color: #d1d5db !important; }
+        .settings-dark-modal .text-slate-400,
+        .settings-dark-modal .text-slate-300 { color: #9ca3af !important; }
+        .settings-dark-modal .border-slate-100,
+        .settings-dark-modal .border-slate-200 { border-color: #2b2f38 !important; }
+        .settings-dark-modal .ant-steps-item-title,
+        .settings-dark-modal .ant-steps-item-description { color: #d1d5db !important; }
+        .settings-dark-modal .ant-steps-item-wait .ant-steps-item-icon {
+          background: #1b1c21 !important;
+          border-color: #2b2f38 !important;
+        }
+      `}</style>
       <div className="mb-5">
         <h1 className="text-xl font-bold text-slate-900 tracking-tight">
           Settings
@@ -2096,7 +2238,10 @@ const Settings = () => {
 
       <Tabs
         items={tabItems}
-        tabBarStyle={{ marginBottom: 24, borderBottom: "1px solid #f1f5f9" }}
+        tabBarStyle={{
+          marginBottom: 24,
+          borderBottom: `1px solid ${dark ? "#2b2f38" : "#f1f5f9"}`,
+        }}
         tabBarGutter={32}
       />
     </div>

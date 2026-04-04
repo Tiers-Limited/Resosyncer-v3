@@ -37,8 +37,7 @@ import {
   ChevronRight,
   Users,
   Eye,
-  MoreHorizontal,
-  ArrowUpRight,
+  AlertTriangle,
   Sparkles,
   Brain,
   Upload,
@@ -143,6 +142,58 @@ if (!document.getElementById("proj-css")) {
     .p-ai-glow { animation: pGlow 2s ease-in-out infinite; }
     .p-upload-zone { transition: border-color 0.15s, background 0.15s; }
     .p-upload-zone:hover { border-color: #8b5cf6 !important; background: rgba(139,92,246,0.04) !important; }
+    .p-dark .ant-select-selector,
+    .p-dark .ant-picker,
+    .p-dark .ant-input,
+    .p-dark .ant-input-affix-wrapper,
+    .p-dark .ant-input-textarea textarea {
+      background: var(--p-card2) !important;
+      border-color: var(--p-border) !important;
+      color: var(--p-text) !important;
+    }
+    .p-dark .ant-input::placeholder,
+    .p-dark .ant-input-textarea textarea::placeholder,
+    .p-dark .ant-select-selection-placeholder,
+    .p-dark .ant-select-arrow,
+    .p-dark .ant-picker-suffix,
+    .p-dark .ant-picker-clear {
+      color: var(--p-muted) !important;
+    }
+    .p-popup-dark.ant-select-dropdown,
+    .p-popup-dark.ant-picker-dropdown .ant-picker-panel-container {
+      background: var(--p-card) !important;
+      border: 1px solid var(--p-border) !important;
+    }
+    .p-popup-dark.ant-select-dropdown .ant-select-item {
+      color: var(--p-text) !important;
+    }
+    .p-popup-dark.ant-select-dropdown .ant-select-item-option-active,
+    .p-popup-dark.ant-select-dropdown .ant-select-item-option-selected {
+      background: var(--p-hover) !important;
+    }
+    .p-popup-dark.ant-picker-dropdown .ant-picker-header,
+    .p-popup-dark.ant-picker-dropdown .ant-picker-content th {
+      color: var(--p-muted) !important;
+      border-color: var(--p-border) !important;
+    }
+    .p-popup-dark.ant-picker-dropdown .ant-picker-cell-inner {
+      color: var(--p-text) !important;
+    }
+    .p-dark-drawer .ant-drawer-content,
+    .p-dark-drawer .ant-drawer-header,
+    .p-dark-drawer .ant-drawer-body {
+      background: var(--p-card) !important;
+      color: var(--p-text) !important;
+      border-color: var(--p-border) !important;
+    }
+    .p-dark .ant-skeleton.ant-skeleton-element .ant-skeleton-input,
+    .p-dark .ant-skeleton.ant-skeleton-element .ant-skeleton-avatar,
+    .p-dark .ant-skeleton.ant-skeleton-element .ant-skeleton-button,
+    .p-dark .ant-skeleton.ant-skeleton-element .ant-skeleton-image,
+    .p-dark .ant-skeleton .ant-skeleton-paragraph > li {
+      background: linear-gradient(90deg, #202127 25%, #2a2b31 50%, #202127 75%) !important;
+      background-size: 400% 100% !important;
+    }
   `;
   document.head.appendChild(s);
 }
@@ -151,47 +202,62 @@ if (!document.getElementById("proj-css")) {
 const ThemeCtx = createContext();
 const useTheme = () => useContext(ThemeCtx);
 
+const getIsDarkTheme = () => {
+  const mode = localStorage.getItem("themeMode") || "system";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
+
 /* ── Status config ───────────────────────────────────────────────────────── */
 const ST = {
   not_started: {
     label: "Not Started",
     color: "#64748b",
+    darkText: "#cbd5e1",
     bg: { l: "#f1f5f9", d: "#1e293b" },
   },
   planning: {
     label: "Planning",
     color: "#8b5cf6",
+    darkText: "#c4b5fd",
     bg: { l: "#f5f3ff", d: "#2e1065" },
   },
   in_progress: {
     label: "In Progress",
     color: "#1e40af",
+    darkText: "#93c5fd",
     bg: { l: "#dbeafe", d: "#1e3a5f" },
   },
   testing: {
     label: "Testing",
     color: "#0891b2",
+    darkText: "#67e8f9",
     bg: { l: "#ecfeff", d: "#0c4a6e" },
   },
   revision: {
     label: "Revision",
     color: "#d97706",
+    darkText: "#fdba74",
     bg: { l: "#fffbeb", d: "#451a03" },
   },
   completed: {
     label: "Completed",
     color: "#16a34a",
+    darkText: "#86efac",
     bg: { l: "#dcfce7", d: "#052e16" },
   },
   on_hold: {
     label: "On Hold",
     color: "#dc2626",
+    darkText: "#fca5a5",
     bg: { l: "#fef2f2", d: "#3b0a0a" },
   },
 };
 
 const StatusChip = ({ status, isDark, sm }) => {
   const s = ST[status] || ST.not_started;
+  const chipText = isDark ? s.darkText || s.color : s.color;
   return (
     <span
       style={{
@@ -203,7 +269,7 @@ const StatusChip = ({ status, isDark, sm }) => {
         padding: sm ? "2px 7px" : "3px 9px",
         borderRadius: 99,
         background: isDark ? s.bg.d : s.bg.l,
-        color: s.color,
+        color: chipText,
         whiteSpace: "nowrap",
         fontFamily: "'DM Sans',sans-serif",
         letterSpacing: "0.02em",
@@ -214,7 +280,7 @@ const StatusChip = ({ status, isDark, sm }) => {
           width: 5,
           height: 5,
           borderRadius: "50%",
-          background: s.color,
+          background: chipText,
           display: "inline-block",
           flexShrink: 0,
         }}
@@ -824,35 +890,33 @@ ${JSON.stringify(empContext, null, 2)}`;
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
 const Projects = () => {
-  const [dark, setDark] = useState(() => {
-    const v = getComputedStyle(document.documentElement)
-      .getPropertyValue("--d-card")
-      .trim();
-    return v.startsWith("#1") || v.startsWith("#0");
-  });
+  const [dark, setDark] = useState(getIsDarkTheme);
   useEffect(() => {
-    const iv = setInterval(() => {
-      const v = getComputedStyle(document.documentElement)
-        .getPropertyValue("--d-card")
-        .trim();
-      setDark(v.startsWith("#1") || v.startsWith("#0"));
-    }, 400);
-    return () => clearInterval(iv);
+    const syncTheme = () => setDark(getIsDarkTheme());
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    window.addEventListener("storage", syncTheme);
+    window.addEventListener("themeModeChanged", syncTheme);
+    mediaQuery.addEventListener("change", syncTheme);
+    return () => {
+      window.removeEventListener("storage", syncTheme);
+      window.removeEventListener("themeModeChanged", syncTheme);
+      mediaQuery.removeEventListener("change", syncTheme);
+    };
   }, []);
 
   useEffect(() => {
     const r = document.documentElement;
     if (dark) {
-      r.style.setProperty("--p-bg", "#0a0f1e");
-      r.style.setProperty("--p-card", "#111827");
-      r.style.setProperty("--p-card2", "#0d1220");
-      r.style.setProperty("--p-border", "#1e2a3e");
-      r.style.setProperty("--p-text", "#e8edf5");
-      r.style.setProperty("--p-sub", "#7a8aaa");
-      r.style.setProperty("--p-muted", "#3d4f68");
-      r.style.setProperty("--p-hover", "#161f30");
+      r.style.setProperty("--p-bg", "#141416");
+      r.style.setProperty("--p-card", "#1a1b1f");
+      r.style.setProperty("--p-card2", "#17181c");
+      r.style.setProperty("--p-border", "#2a2b31");
+      r.style.setProperty("--p-text", "#f3f4f6");
+      r.style.setProperty("--p-sub", "#d1d5db");
+      r.style.setProperty("--p-muted", "#9ca3af");
+      r.style.setProperty("--p-hover", "#202127");
       r.style.setProperty("--p-accent", "#1e40af");
-      r.style.setProperty("--p-thead", "#0d1220");
+      r.style.setProperty("--p-thead", "#17181c");
     } else {
       r.style.setProperty("--p-bg", "#f8fafc");
       r.style.setProperty("--p-card", "#ffffff");
@@ -883,6 +947,7 @@ const Projects = () => {
   const [currentTenantId, setCurrentTenantId] = useState(null);
   const [orgPlan, setOrgPlan] = useState(null);
   const [maxProjects, setMaxProjects] = useState(null);
+  const [activeProjectsCount, setActiveProjectsCount] = useState(0);
   const [isProjectLimitReached, setIsProjectLimitReached] = useState(false);
   const navigate = useNavigate();
 
@@ -932,8 +997,13 @@ const Projects = () => {
           .select("max_projects")
           .eq("name", tenant.plan)
           .single();
-        if (planDetails?.max_projects) {
-          setMaxProjects(planDetails.max_projects);
+        if (
+          planDetails &&
+          planDetails.max_projects !== null &&
+          planDetails.max_projects !== undefined
+        ) {
+          const parsedMax = Number(planDetails.max_projects);
+          if (!Number.isNaN(parsedMax)) setMaxProjects(parsedMax);
         }
       }
     } catch (e) {
@@ -944,6 +1014,14 @@ const Projects = () => {
   useEffect(() => {
     if (currentTenantId) fetchProjects(currentTenantId);
   }, [showArchived]);
+
+  useEffect(() => {
+    if (maxProjects === null || maxProjects === undefined) {
+      setIsProjectLimitReached(false);
+      return;
+    }
+    setIsProjectLimitReached(activeProjectsCount >= maxProjects);
+  }, [activeProjectsCount, maxProjects]);
 
   useEffect(() => {
     let f = [...projects];
@@ -965,24 +1043,34 @@ const Projects = () => {
         fetchProjects(currentTenantId);
       }
     };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [currentTenantId]);
 
   const fetchProjects = async (tid) => {
     if (!tid) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("projects")
-        .select(
-          "*, teams(id,name), project_manager:project_manager_id(id,full_name,user_photo)",
-        )
-        .eq("tenant_id", tid)
-        .eq("is_archived", showArchived)
-        .order("created_at", { ascending: false })
-        .order("position", { ascending: true });
+      const [{ data, error }, { count: activeCount, error: countError }] =
+        await Promise.all([
+          supabase
+            .from("projects")
+            .select(
+              "*, teams(id,name), project_manager:project_manager_id(id,full_name,user_photo)",
+            )
+            .eq("tenant_id", tid)
+            .eq("is_archived", showArchived)
+            .order("created_at", { ascending: false })
+            .order("position", { ascending: true }),
+          supabase
+            .from("projects")
+            .select("id", { count: "exact", head: true })
+            .eq("tenant_id", tid)
+            .eq("is_archived", false),
+        ]);
       if (error) throw error;
+      if (countError) console.error("Failed to fetch active project count");
       const withAssignees = await Promise.all(
         (data || []).map(async (p) => {
           const { data: a } = await supabase
@@ -993,17 +1081,23 @@ const Projects = () => {
         }),
       );
       setProjects(withAssignees);
-      // Check if project limit reached
-      if (maxProjects && withAssignees.length >= maxProjects) {
-        setIsProjectLimitReached(true);
-      } else {
-        setIsProjectLimitReached(false);
-      }
+      setActiveProjectsCount(activeCount || 0);
     } catch (e) {
       message.error("Failed to fetch projects");
     } finally {
       setLoading(false); // only set false after fetch completes
     }
+  };
+
+  const openNewProjectDrawer = () => {
+    if (isProjectLimitReached) {
+      message.error(
+        `You've reached the maximum of ${maxProjects} project${maxProjects !== 1 ? "s" : ""} allowed on your current plan`,
+      );
+      return;
+    }
+    setEditingProject(null);
+    setDrawerVisible(true);
   };
 
   const fetchTeams = async (tid) => {
@@ -1475,32 +1569,35 @@ const Projects = () => {
                   </div>
                 ))}
                 <button
-                  onClick={() => {
-                    setEditingProject(null);
-                    setDrawerVisible(true);
-                  }}
+                  onClick={openNewProjectDrawer}
+                  disabled={isProjectLimitReached}
                   style={{
                     width: "100%",
                     padding: "9px 0",
                     borderRadius: 8,
                     border: "1px dashed var(--p-border)",
                     background: "transparent",
-                    color: "var(--p-muted)",
+                    color: isProjectLimitReached
+                      ? "rgba(148,163,184,0.7)"
+                      : "var(--p-muted)",
                     fontSize: 12,
                     fontWeight: 600,
-                    cursor: "pointer",
+                    cursor: isProjectLimitReached ? "not-allowed" : "pointer",
                     fontFamily: "'DM Sans',sans-serif",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     gap: 5,
                     transition: "border-color 0.15s, color 0.15s",
+                    opacity: isProjectLimitReached ? 0.7 : 1,
                   }}
                   onMouseEnter={(e) => {
+                    if (isProjectLimitReached) return;
                     e.currentTarget.style.borderColor = col.color;
                     e.currentTarget.style.color = col.color;
                   }}
                   onMouseLeave={(e) => {
+                    if (isProjectLimitReached) return;
                     e.currentTarget.style.borderColor = "var(--p-border)";
                     e.currentTarget.style.color = "var(--p-muted)";
                   }}
@@ -1890,6 +1987,7 @@ const Projects = () => {
   return (
     <ThemeCtx.Provider value={{ isDark: dark }}>
       <div
+        className={dark ? "p-dark" : "p-light"}
         style={{
           fontFamily: "'DM Sans',sans-serif",
           background: "var(--p-bg)",
@@ -1898,72 +1996,130 @@ const Projects = () => {
         }}
       >
         {/* ── Project Limit Alert ──────────────────────────────────────── */}
-        {isProjectLimitReached && maxProjects && (
-          <div
-            style={{
-              background: dark
-                ? "rgba(239, 68, 68, 0.1)"
-                : "rgba(239, 68, 68, 0.05)",
-              border: "1px solid rgba(239, 68, 68, 0.3)",
-              padding: "12px 20px",
-              borderRadius: 10,
-              margin: "12px 16px 0",
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              marginBottom: 12,
-            }}
-          >
-            <AlertCircle size={18} color="#ef4444" strokeWidth={2} />
-            <div style={{ flex: 1 }}>
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 700,
-                  color: "#ef4444",
-                  fontFamily: "'DM Sans',sans-serif",
-                }}
-              >
-                Project Limit Reached
-              </div>
-              <div
-                style={{
-                  fontSize: 12,
-                  color: dark ? "rgba(239, 68, 68, 0.8)" : "#dc2626",
-                  marginTop: 2,
-                  fontFamily: "'DM Sans',sans-serif",
-                }}
-              >
-                You have reached the maximum of {maxProjects} project
-                {maxProjects !== 1 ? "s" : ""} allowed on your current plan.
-              </div>
-            </div>
-            <button
-              onClick={() => navigate("/subscription")}
+        {isProjectLimitReached &&
+          maxProjects !== null &&
+          maxProjects !== undefined && (
+            <div
               style={{
-                padding: "6px 14px",
-                borderRadius: 7,
-                border: "1px solid #ef4444",
-                background: "transparent",
-                color: "#ef4444",
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: "pointer",
-                fontFamily: "'DM Sans',sans-serif",
-                whiteSpace: "nowrap",
-                transition: "all 0.2s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "transparent";
+                background: "var(--color-background-primary)",
+                border: "0.5px solid var(--color-border-tertiary)",
+                borderRadius: 12,
+                padding: "16px 20px",
+                display: "flex",
+                gap: 16,
+                alignItems: "flex-start",
+                margin: "12px 16px",
               }}
             >
-              Upgrade
-            </button>
-          </div>
-        )}
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: "50%",
+                  background: "#FCEBEB",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  marginTop: 2,
+                }}
+              >
+                <AlertTriangle size={16} color="#E24B4A" strokeWidth={2} />
+              </div>
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 4,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color: "var(--color-text-primary)",
+                      fontFamily: "'DM Sans', sans-serif",
+                    }}
+                  >
+                    Project limit reached
+                  </div>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 500,
+                      color: "#A32D2D",
+                      background: "#FCEBEB",
+                      padding: "2px 8px",
+                      borderRadius: 20,
+                      fontFamily: "'DM Sans', sans-serif",
+                    }}
+                  >
+                    {maxProjects} / {maxProjects} used
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "var(--color-text-secondary)",
+                    marginBottom: 10,
+                    lineHeight: 1.4,
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}
+                >
+                  Your current plan includes {maxProjects} project
+                  {maxProjects !== 1 ? "s" : ""}. Upgrade to Pro for unlimited
+                  projects and more.
+                </div>
+
+                <div
+                  style={{
+                    height: 4,
+                    background: "#F7C1C1",
+                    borderRadius: 4,
+                    overflow: "hidden",
+                    marginBottom: 12,
+                  }}
+                >
+                  <div
+                    style={{
+                      height: "100%",
+                      width: "100%",
+                      background: "#E24B4A",
+                      borderRadius: 4,
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={() => navigate("/subscription")}
+                    style={{
+                      padding: "7px 16px",
+                      borderRadius: 8,
+                      border: "none",
+                      background: "#E24B4A",
+                      color: "#fff",
+                      fontSize: 12,
+                      fontWeight: 500,
+                      cursor: "pointer",
+                      fontFamily: "'DM Sans', sans-serif",
+                      transition: "opacity 0.15s",
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.opacity = "0.85")
+                    }
+                    onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+                  >
+                    Upgrade to Pro
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
         {/* ── Header ──────────────────────────────────────────────────── */}
         <div
@@ -2052,16 +2208,7 @@ const Projects = () => {
                 {showArchived ? "Active" : "Archived"}
               </button>
               <button
-                onClick={() => {
-                  if (isProjectLimitReached) {
-                    message.error(
-                      `You've reached the maximum of ${maxProjects} project${maxProjects !== 1 ? "s" : ""} allowed on your current plan`,
-                    );
-                    return;
-                  }
-                  setEditingProject(null);
-                  setDrawerVisible(true);
-                }}
+                onClick={openNewProjectDrawer}
                 disabled={isProjectLimitReached}
                 style={{
                   display: "flex",
@@ -2070,11 +2217,19 @@ const Projects = () => {
                   padding: "8px 16px",
                   borderRadius: 9,
                   background: isProjectLimitReached
-                    ? "rgba(30,64,175,0.3)"
-                    : "var(--p-accent)",
+                    ? dark
+                      ? "#4b5563"
+                      : "rgba(30,64,175,0.3)"
+                    : dark
+                      ? "#ffffff"
+                      : "var(--p-accent)",
                   color: isProjectLimitReached
-                    ? "rgba(255,255,255,0.5)"
-                    : "#fff",
+                    ? dark
+                      ? "rgba(255,255,255,0.7)"
+                      : "rgba(255,255,255,0.5)"
+                    : dark
+                      ? "#111111"
+                      : "#fff",
                   border: "none",
                   fontSize: 13,
                   fontWeight: 700,
@@ -2083,7 +2238,9 @@ const Projects = () => {
                   transition: "opacity 0.15s",
                   boxShadow: isProjectLimitReached
                     ? "none"
-                    : "0 2px 8px rgba(30,64,175,0.3)",
+                    : dark
+                      ? "0 2px 10px rgba(0,0,0,0.28)"
+                      : "0 2px 8px rgba(30,64,175,0.3)",
                   opacity: isProjectLimitReached ? 0.6 : 1,
                 }}
                 onMouseEnter={(e) =>
@@ -2181,6 +2338,7 @@ const Projects = () => {
                 mode="multiple"
                 value={statusFilter}
                 onChange={setStatusFilter}
+                popupClassName={dark ? "p-popup-dark" : undefined}
                 placeholder="Filter status"
                 size="middle"
                 maxTagCount="responsive"
@@ -2374,6 +2532,7 @@ const Projects = () => {
                               v,
                             )
                           }
+                          popupClassName={dark ? "p-popup-dark" : undefined}
                           bordered={false}
                           suffixIcon={null}
                           style={{
@@ -2454,6 +2613,7 @@ const Projects = () => {
                           mode="multiple"
                           value={project.assignees?.map((a) => a.id) || []}
                           onChange={(v) => handleAssigneeChange(project.id, v)}
+                          popupClassName={dark ? "p-popup-dark" : undefined}
                           bordered={false}
                           suffixIcon={null}
                           placeholder={
@@ -2623,6 +2783,7 @@ const Projects = () => {
                           onChange={(v) =>
                             handleInlineEdit(project.id, "status", v)
                           }
+                          popupClassName={dark ? "p-popup-dark" : undefined}
                           bordered={false}
                           suffixIcon={null}
                           style={{ marginLeft: -8, minWidth: 130 }}
@@ -2710,6 +2871,7 @@ const Projects = () => {
                               d ? d.format("YYYY-MM-DD") : null,
                             )
                           }
+                          popupClassName={dark ? "p-popup-dark" : undefined}
                           bordered={false}
                           suffixIcon={null}
                           format="MMM D, YY"
@@ -2737,6 +2899,7 @@ const Projects = () => {
                               d ? d.format("YYYY-MM-DD") : null,
                             )
                           }
+                          popupClassName={dark ? "p-popup-dark" : undefined}
                           bordered={false}
                           suffixIcon={null}
                           format="MMM D, YY"
@@ -2856,6 +3019,7 @@ const Projects = () => {
             fetchProjects(currentTenantId);
           }}
           open={drawerVisible}
+          rootClassName={dark ? "p-dark-drawer" : undefined}
           width={620}
           destroyOnClose
           closeIcon={<X size={16} color="var(--p-muted)" />}
@@ -2876,6 +3040,7 @@ const Projects = () => {
             allProjects={projects}
             tenantId={currentTenantId}
             isDark={dark}
+            orgPlan={orgPlan}
             onClose={() => {
               setDrawerVisible(false);
               setEditingProject(null);
@@ -2898,9 +3063,11 @@ const ProjectForm = ({
   allProjects,
   tenantId,
   isDark,
+  orgPlan,
   onClose,
   maxProjects,
 }) => {
+  const navigate = useNavigate();
   const [form, setForm] = useState({
     name: project?.name || "",
     project_type: project?.project_type || "single",
@@ -2930,6 +3097,8 @@ const ProjectForm = ({
     project?.client_name ? "existing" : "new",
   );
   const fileInputRef = useRef(null);
+  const normalizedPlan = (orgPlan || "").toString().trim().toLowerCase();
+  const isAiLockedForFreePlan = normalizedPlan.includes("free");
 
   const set = (k, v) => setForm((prev) => ({ ...prev, [k]: v }));
 
@@ -3125,7 +3294,12 @@ const ProjectForm = ({
       return;
     }
     // Check project limit when creating new project
-    if (!project && allProjects.length >= maxProjects && maxProjects) {
+    if (
+      !project &&
+      maxProjects !== null &&
+      maxProjects !== undefined &&
+      allProjects.length >= maxProjects
+    ) {
       message.error(
         `You've reached the maximum of ${maxProjects} project${maxProjects !== 1 ? "s" : ""} allowed on your current plan. Please upgrade to create more projects.`,
       );
@@ -3215,7 +3389,10 @@ const ProjectForm = ({
     {
       key: "ai",
       label: "AI Match",
-      icon: <Sparkles size={11} color="#8b5cf6" />,
+      icon: (
+        <Sparkles size={11} color={isAiLockedForFreePlan ? "#f59e0b" : "#8b5cf6"} />
+      ),
+      locked: isAiLockedForFreePlan,
     },
     { key: "details", label: "Details" },
   ];
@@ -3251,14 +3428,16 @@ const ProjectForm = ({
               color:
                 section === t.key
                   ? t.key === "ai"
-                    ? "#8b5cf6"
+                    ? t.locked
+                      ? "#f59e0b"
+                      : "#8b5cf6"
                     : "var(--p-accent)"
                   : "var(--p-muted)",
               cursor: "pointer",
               fontFamily: "'DM Sans',sans-serif",
               borderBottom:
                 section === t.key
-                  ? `2px solid ${t.key === "ai" ? "#8b5cf6" : "var(--p-accent)"}`
+                  ? `2px solid ${t.key === "ai" ? (t.locked ? "#f59e0b" : "#8b5cf6") : "var(--p-accent)"}`
                   : "2px solid transparent",
               transition: "color 0.15s",
               display: "flex",
@@ -3268,6 +3447,23 @@ const ProjectForm = ({
           >
             {t.icon}
             {t.label}
+            {t.locked && (
+              <span
+                style={{
+                  fontSize: 9.5,
+                  fontWeight: 800,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  color: "#f59e0b",
+                  border: "1px solid rgba(245,158,11,0.45)",
+                  borderRadius: 99,
+                  padding: "1px 6px",
+                  marginLeft: 2,
+                }}
+              >
+                Locked
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -3300,6 +3496,7 @@ const ProjectForm = ({
                 <Select
                   value={form.project_type}
                   onChange={(v) => set("project_type", v)}
+                  popupClassName={isDark ? "p-popup-dark" : undefined}
                   size="large"
                   style={{ width: "100%" }}
                   options={[
@@ -3313,6 +3510,7 @@ const ProjectForm = ({
                 <Select
                   value={form.status}
                   onChange={(v) => set("status", v)}
+                  popupClassName={isDark ? "p-popup-dark" : undefined}
                   size="large"
                   style={{ width: "100%" }}
                   options={Object.entries(ST).map(([k, v]) => ({
@@ -3327,6 +3525,7 @@ const ProjectForm = ({
               <Select
                 value={form.project_manager_id}
                 onChange={(v) => set("project_manager_id", v)}
+                popupClassName={isDark ? "p-popup-dark" : undefined}
                 size="large"
                 style={{ width: "100%" }}
                 placeholder="Select manager"
@@ -3392,6 +3591,7 @@ const ProjectForm = ({
                 mode="multiple"
                 value={assignees}
                 onChange={setAssignees}
+                popupClassName={isDark ? "p-popup-dark" : undefined}
                 size="large"
                 style={{ width: "100%" }}
                 placeholder="Assign employees"
@@ -3445,39 +3645,85 @@ const ProjectForm = ({
                 }))}
               />
               {/* Quick hint to go to AI tab */}
-              <div
-                style={{
-                  marginTop: 6,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 5,
-                }}
-              >
-                <button
-                  onClick={() => setSection("ai")}
+              {!isAiLockedForFreePlan ? (
+                <div
                   style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    fontSize: 11.5,
-                    color: "#8b5cf6",
-                    fontWeight: 700,
-                    fontFamily: "'DM Sans',sans-serif",
-                    padding: 0,
+                    marginTop: 6,
                     display: "flex",
                     alignItems: "center",
-                    gap: 4,
+                    gap: 5,
                   }}
                 >
-                  <Sparkles size={11} /> Use AI to suggest employees
-                </button>
-              </div>
+                  <button
+                    onClick={() => setSection("ai")}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: 11.5,
+                      color: "#8b5cf6",
+                      fontWeight: 700,
+                      fontFamily: "'DM Sans',sans-serif",
+                      padding: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <Sparkles size={11} /> Use AI to suggest employees
+                  </button>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    marginTop: 8,
+                    padding: "8px 10px",
+                    borderRadius: 8,
+                    border: "1px dashed var(--p-border)",
+                    background: isDark
+                      ? "rgba(245,158,11,0.08)"
+                      : "rgba(245,158,11,0.08)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 11.5,
+                      color: "var(--p-sub)",
+                      fontFamily: "'DM Sans',sans-serif",
+                      fontWeight: 600,
+                    }}
+                  >
+                    AI Match is not available on the Free plan.
+                  </span>
+                  <button
+                    onClick={() => navigate("/subscription")}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "#8b5cf6",
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      fontFamily: "'DM Sans',sans-serif",
+                      padding: 0,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Upgrade
+                  </button>
+                </div>
+              )}
             </div>
             <div style={FIELD}>
               <LBL>Team</LBL>
               <Select
                 value={form.team_id}
                 onChange={(v) => set("team_id", v)}
+                popupClassName={isDark ? "p-popup-dark" : undefined}
                 size="large"
                 style={{ width: "100%" }}
                 placeholder="Assign to team"
@@ -3499,6 +3745,7 @@ const ProjectForm = ({
                   onChange={(d) =>
                     set("start_date", d ? d.format("YYYY-MM-DD") : null)
                   }
+                  popupClassName={isDark ? "p-popup-dark" : undefined}
                   size="large"
                   format="MMM D, YYYY"
                   style={{ width: "100%" }}
@@ -3511,6 +3758,7 @@ const ProjectForm = ({
                   onChange={(d) =>
                     set("end_date", d ? d.format("YYYY-MM-DD") : null)
                   }
+                  popupClassName={isDark ? "p-popup-dark" : undefined}
                   size="large"
                   format="MMM D, YYYY"
                   style={{ width: "100%" }}
@@ -3523,6 +3771,70 @@ const ProjectForm = ({
         {/* ── AI Match Tab ── */}
         {section === "ai" && (
           <div>
+            {isAiLockedForFreePlan ? (
+              <div
+                style={{
+                  border: "1px dashed var(--p-border)",
+                  borderRadius: 12,
+                  padding: "20px 18px",
+                  background: isDark
+                    ? "rgba(245,158,11,0.08)"
+                    : "rgba(245,158,11,0.08)",
+                  marginBottom: 14,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 10,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 800,
+                        color: "var(--p-text)",
+                        fontFamily: "'DM Sans',sans-serif",
+                        marginBottom: 4,
+                      }}
+                    >
+                      AI Match is locked on Free plan
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12.5,
+                        color: "var(--p-sub)",
+                        fontFamily: "'DM Sans',sans-serif",
+                      }}
+                    >
+                      Upgrade your plan to unlock AI employee matching and suggestions.
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => navigate("/subscription")}
+                    style={{
+                      border: "none",
+                      borderRadius: 8,
+                      padding: "8px 14px",
+                      background: "linear-gradient(135deg,#8b5cf6,#6366f1)",
+                      color: "#fff",
+                      fontSize: 12.5,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      fontFamily: "'DM Sans',sans-serif",
+                      boxShadow: "0 4px 12px rgba(99,102,241,0.25)",
+                    }}
+                  >
+                    Upgrade Plan
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
             {/* Requirements input */}
             <div style={FIELD}>
               <LBL>Project Requirements</LBL>
@@ -3711,6 +4023,8 @@ const ProjectForm = ({
                 </div>
               </div>
             )}
+              </>
+            )}
           </div>
         )}
 
@@ -3795,6 +4109,7 @@ const ProjectForm = ({
                     <Select
                       showSearch
                       value={form.client_name || undefined}
+                      popupClassName={isDark ? "p-popup-dark" : undefined}
                       placeholder="Search or pick a client…"
                       size="large"
                       style={{ width: "100%" }}

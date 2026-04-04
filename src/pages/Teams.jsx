@@ -39,6 +39,13 @@ const getInit = (name = "") =>
     .toUpperCase()
     .slice(0, 2);
 
+const getIsDarkTheme = () => {
+  const mode = localStorage.getItem("themeMode") || "system";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
+
 /* ── MemberAvatar ─────────────────────────────────────────────── */
 const MemberAvatar = ({ member, size = 24, radius = 8 }) =>
   member.user_photo ? (
@@ -144,10 +151,61 @@ const CSS = `
 .tm-sk-btn { height:30px; border-radius:8px; background:linear-gradient(90deg,#f2f2f2 25%,#e8e8e8 50%,#f2f2f2 75%); background-size:200% 100%; animation:tm-sweep 1.5s ease-in-out infinite; }
 
 .tm-modal-sec { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:#c8c8c8; margin:18px 0 10px; padding-bottom:7px; border-bottom:1px solid #f5f5f5; }
+
+.tm.dark { background:#141416; min-height:100vh; color:#f3f4f6; }
+.tm.dark .tm-title { color:#e8edf5; }
+.tm.dark .tm-sub,.tm.dark .tm-count,.tm.dark .tm-card-desc,.tm.dark .tm-chip-role,.tm.dark .tm-card-date,.tm.dark .tm-stat-l,.tm.dark .tm-members-label { color:#9ca3af; }
+.tm.dark .tm-stat,.tm.dark .tm-card,.tm.dark .tm-sk { background:#1a1b1f; box-shadow:0 2px 12px rgba(0,0,0,.28); }
+.tm.dark .tm-search input { background:#17181c; color:#f3f4f6; }
+.tm.dark .tm-search input:focus { background:#1a1b1f; box-shadow:0 0 0 3px rgba(59,91,219,.22); }
+.tm.dark .tm-count-pill,.tm.dark .tm-show-more { background:#202127; color:#d1d5db; }
+.tm.dark .tm-chip { background:#202127; }
+.tm.dark .tm-chip-name { color:#f3f4f6; }
+.tm.dark .tm-no-members,.tm.dark .tm-empty-hint { color:#9ca3af; }
+.tm.dark .tm-empty-text { color:#d1d5db; }
+.tm.dark .tm-card-name { color:#f3f4f6; }
+.tm.dark .tm-card-footer,.tm.dark .tm-sk-footer { background:#17181c; }
+.tm.dark .tm-btn { color:#9ca3af; }
+.tm.dark .tm-btn:hover { background:#202127; color:#f3f4f6; }
+.tm.dark .tm-btn.edit:hover { background:#3f2d0e; color:#facc15; }
+.tm.dark .tm-btn.del:hover { background:#3b1010; color:#fca5a5; }
+.tm.dark .tm-add-btn { background:#e2e8f0 !important; border-color:#e2e8f0 !important; color:#111111 !important; }
+.tm.dark .tm-add-btn:hover { background:#cbd5e1 !important; border-color:#cbd5e1 !important; }
+.tm.dark .tm-sk-line,.tm.dark .tm-sk-chip,.tm.dark .tm-sk-btn { background:linear-gradient(90deg,#202127 25%,#2a2b31 50%,#202127 75%); background-size:200% 100%; }
+
+.tm-dark-modal .ant-modal-content,
+.tm-dark-modal .ant-modal-header {
+  background:#1a1b1f !important;
+  border-color:#2a2b31 !important;
+}
+.tm-dark-modal .ant-modal-title { color:#f3f4f6 !important; }
+.tm-dark-modal .ant-form-item-label > label,
+.tm-dark-modal .tm-modal-sec { color:#9ca3af !important; }
+.tm-dark-modal .ant-input,
+.tm-dark-modal .ant-input-affix-wrapper,
+.tm-dark-modal .ant-select-selector {
+  background:#17181c !important;
+  border-color:#2a2b31 !important;
+  color:#f3f4f6 !important;
+}
+.tm-dark-modal .ant-input::placeholder { color:#9ca3af !important; }
+.tm-dark-modal .ant-select-selection-placeholder,
+.tm-dark-modal .ant-select-arrow { color:#9ca3af !important; }
+
+.tm-dark-popup.ant-select-dropdown {
+  background:#1a1b1f !important;
+  border:1px solid #2a2b31 !important;
+}
+.tm-dark-popup .ant-select-item { color:#f3f4f6 !important; }
+.tm-dark-popup .ant-select-item-option-active,
+.tm-dark-popup .ant-select-item-option-selected {
+  background:#202127 !important;
+}
 `;
 
 /* ════════════════════════════════════════════════════════════ */
 const Teams = () => {
+  const [dark, setDark] = useState(getIsDarkTheme);
   const [teams, setTeams] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -161,6 +219,19 @@ const Teams = () => {
 
   useEffect(() => {
     fetchCurrentTenant();
+  }, []);
+
+  useEffect(() => {
+    const syncTheme = () => setDark(getIsDarkTheme());
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    window.addEventListener("storage", syncTheme);
+    window.addEventListener("themeModeChanged", syncTheme);
+    mediaQuery.addEventListener("change", syncTheme);
+    return () => {
+      window.removeEventListener("storage", syncTheme);
+      window.removeEventListener("themeModeChanged", syncTheme);
+      mediaQuery.removeEventListener("change", syncTheme);
+    };
   }, []);
 
   const fetchCurrentTenant = async () => {
@@ -190,7 +261,7 @@ const Teams = () => {
     try {
       const { data, error } = await supabase
         .from("teams")
-        .select("*, profiles:profiles(id,full_name,email,role,user_photo)")
+        .select("*, profiles:profiles(id,full_name,email,role,user_photo,job_title)")
         .eq("tenant_id", tid)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -207,7 +278,7 @@ const Teams = () => {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id,full_name,email,role,user_photo")
+        .select("id,full_name,email,role,user_photo,job_title")
         .eq("tenant_id", tid)
         .in("role", ["employee", "project_manager"]);
       if (error) throw error;
@@ -371,8 +442,10 @@ const Teams = () => {
                   <div key={m.id} className="tm-chip">
                     <MemberAvatar member={m} size={22} radius={6} />
                     <span className="tm-chip-name">{m.full_name}</span>
-                    {m.role === "project_manager" && (
-                      <span className="tm-chip-role">PM</span>
+                    {(m.job_title || m.role === "project_manager") && (
+                      <span className="tm-chip-role">
+                        {m.job_title || "PM"}
+                      </span>
                     )}
                   </div>
                 ))}
@@ -467,7 +540,7 @@ const Teams = () => {
 
   /* ══════════════════ RENDER ════════════════════════════════ */
   return (
-    <div className="tm">
+    <div className={`tm${dark ? " dark" : ""}`}>
       <style>{CSS}</style>
 
       {/* Header */}
@@ -483,8 +556,8 @@ const Teams = () => {
             display: "inline-flex",
             alignItems: "center",
             gap: 7,
-            background: "#0d0d0d",
-            color: "#fff",
+            background: dark ? "#e2e8f0" : "#0d0d0d",
+            color: dark ? "#111111" : "#fff",
             border: "none",
             borderRadius: 10,
             height: 38,
@@ -495,8 +568,12 @@ const Teams = () => {
             cursor: "pointer",
             transition: "background .15s",
           }}
-          onMouseOver={(e) => (e.currentTarget.style.background = "#2a2a2a")}
-          onMouseOut={(e) => (e.currentTarget.style.background = "#0d0d0d")}
+          onMouseOver={(e) =>
+            (e.currentTarget.style.background = dark ? "#cbd5e1" : "#2a2a2a")
+          }
+          onMouseOut={(e) =>
+            (e.currentTarget.style.background = dark ? "#e2e8f0" : "#0d0d0d")
+          }
         >
           <Plus size={15} strokeWidth={2.5} /> Create Team
         </button>
@@ -505,7 +582,11 @@ const Teams = () => {
       {/* Stats */}
       <div className="tm-stats">
         {[
-          { n: stats.total, label: "Total Teams", color: "#0d0d0d" },
+          {
+            n: stats.total,
+            label: "Total Teams",
+            color: dark ? "#e8edf5" : "#0d0d0d",
+          },
           { n: stats.members, label: "Total Members", color: "#3b5bdb" },
           { n: stats.empty, label: "Empty Teams", color: "#e67700" },
         ].map((s) => (
@@ -572,6 +653,7 @@ const Teams = () => {
           </span>
         }
         open={modalVisible}
+        wrapClassName={dark ? "tm-dark-modal" : undefined}
         onCancel={closeModal}
         onOk={() => form.submit()}
         confirmLoading={loading}
@@ -579,8 +661,9 @@ const Teams = () => {
         okText={editingTeam ? "Update" : "Create"}
         okButtonProps={{
           style: {
-            background: "#0d0d0d",
-            borderColor: "#0d0d0d",
+            background: dark ? "#e2e8f0" : "#0d0d0d",
+            borderColor: dark ? "#e2e8f0" : "#0d0d0d",
+            color: dark ? "#111111" : "#ffffff",
             borderRadius: 8,
             fontWeight: 600,
           },
@@ -611,9 +694,10 @@ const Teams = () => {
               placeholder="Search and select employees…"
               showSearch
               optionFilterProp="label"
+              popupClassName={dark ? "tm-dark-popup" : undefined}
               style={{ width: "100%" }}
               options={employees.map((e) => ({
-                label: `${e.full_name} — ${e.role === "project_manager" ? "PM" : "Employee"}`,
+                label: `${e.full_name} - ${e.job_title || (e.role === "project_manager" ? "PM" : "Employee")}`,
                 value: e.id,
               }))}
               optionRender={(opt) => {
@@ -629,15 +713,18 @@ const Teams = () => {
                         style={{
                           fontWeight: 600,
                           fontSize: 13,
-                          color: "#0d0d0d",
+                          color: dark ? "#e8edf5" : "#0d0d0d",
                         }}
                       >
                         {emp.full_name}
                       </div>
-                      <div style={{ fontSize: 11, color: "#9a9a9a" }}>
-                        {emp.role === "project_manager"
-                          ? "Project Manager"
-                          : "Employee"}
+                      <div
+                        style={{ fontSize: 11, color: dark ? "#9ca3af" : "#9a9a9a" }}
+                      >
+                        {emp.job_title ||
+                          (emp.role === "project_manager"
+                            ? "Project Manager"
+                            : "Employee")}
                       </div>
                     </div>
                   </div>
@@ -652,3 +739,4 @@ const Teams = () => {
 };
 
 export default Teams;
+

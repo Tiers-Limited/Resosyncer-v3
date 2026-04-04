@@ -42,10 +42,10 @@ if (!document.getElementById("asp-css")) {
 
 /* ── Detect dark ────────────────────────────────────────────────────────── */
 const isDark = () => {
-  const v = getComputedStyle(document.documentElement)
-    .getPropertyValue("--d-card")
-    .trim();
-  return v.startsWith("#1") || v.startsWith("#0");
+  const mode = localStorage.getItem("themeMode") || "system";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
 };
 
 /* ── Constants ──────────────────────────────────────────────────────────── */
@@ -112,7 +112,7 @@ const STATS = [
     key: "notLogged",
     label: "No Login",
     color: "#64748b",
-    darkBg: "#1e293b",
+    darkBg: "#1c1c22",
     lightBg: "#f1f5f9",
     icon: <HelpCircle size={14} />,
   },
@@ -257,8 +257,8 @@ const HeatCalendar = ({
     let ring = "none";
 
     if (isWeekOff) {
-      bg = dark ? "#111827" : "#f8fafc";
-      tc = dark ? "#1e2a3e" : "#e2e8f0";
+      bg = dark ? "#18181c" : "#f8fafc";
+      tc = dark ? "#34343d" : "#e2e8f0";
     } else if (rec && DAY_COLOR[rec]) {
       bg = DAY_COLOR[rec].fill;
       tc = DAY_COLOR[rec].text;
@@ -266,8 +266,8 @@ const HeatCalendar = ({
       bg = DAY_COLOR.holiday.fill;
       tc = DAY_COLOR.holiday.text;
     } else if (isPast && !isFut) {
-      bg = dark ? "#1e2535" : "#f1f5f9";
-      tc = dark ? "#3d4f68" : "#94a3b8";
+      bg = dark ? "#1c1c22" : "#f1f5f9";
+      tc = dark ? "#64748b" : "#94a3b8";
     }
 
     if (isToday)
@@ -365,9 +365,9 @@ const HeatCalendar = ({
           { color: "#f59e0b", label: "Leave" },
           { color: "#8b5cf6", label: "Holiday" },
           {
-            color: dark ? "#1e2535" : "#f1f5f9",
+            color: dark ? "#1c1c22" : "#f1f5f9",
             label: "No login",
-            text: dark ? "#3d4f68" : "#94a3b8",
+            text: dark ? "#64748b" : "#94a3b8",
           },
         ].map((l) => (
           <div
@@ -510,7 +510,7 @@ const EmpCard = ({
       <Progress
         percent={pct}
         strokeColor={rc}
-        trailColor={dark ? "#1e2535" : "#f1f5f9"}
+        trailColor={dark ? "#1c1c22" : "#f1f5f9"}
         showInfo={false}
         size="small"
         strokeLinecap="round"
@@ -623,19 +623,19 @@ export default function EmployeeStatsPage() {
 
   /* ── Dark mode sync ─────────────────────────────────────────────────── */
   useEffect(() => {
-    const iv = setInterval(() => {
+    const applyTheme = () => {
       const d = isDark();
       setDark(d);
       const r = document.documentElement;
       if (d) {
-        r.style.setProperty("--asp-bg", "#0a0f1e");
-        r.style.setProperty("--asp-card", "#111827");
-        r.style.setProperty("--asp-border", "#1e2a3e");
+        r.style.setProperty("--asp-bg", "#141416");
+        r.style.setProperty("--asp-card", "#141416");
+        r.style.setProperty("--asp-border", "#2a2a31");
         r.style.setProperty("--asp-text", "#e8edf5");
-        r.style.setProperty("--asp-sub", "#7a8aaa");
-        r.style.setProperty("--asp-muted", "#3d4f68");
-        r.style.setProperty("--asp-hover", "#161f30");
-        r.style.setProperty("--asp-thead", "#0d1220");
+        r.style.setProperty("--asp-sub", "#cbd5e1");
+        r.style.setProperty("--asp-muted", "#64748b");
+        r.style.setProperty("--asp-hover", "#18181c");
+        r.style.setProperty("--asp-thead", "#18181c");
       } else {
         r.style.setProperty("--asp-bg", "#f8fafc");
         r.style.setProperty("--asp-card", "#ffffff");
@@ -646,8 +646,18 @@ export default function EmployeeStatsPage() {
         r.style.setProperty("--asp-hover", "#f1f5f9");
         r.style.setProperty("--asp-thead", "#f8fafc");
       }
-    }, 400);
-    return () => clearInterval(iv);
+    };
+
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+
+    applyTheme();
+    window.addEventListener("themeModeChanged", applyTheme);
+    mq.addEventListener("change", applyTheme);
+
+    return () => {
+      window.removeEventListener("themeModeChanged", applyTheme);
+      mq.removeEventListener("change", applyTheme);
+    };
   }, []);
 
   /* ── Step 1: get tenant ID ──────────────────────────────────────────── */
@@ -1072,14 +1082,14 @@ export default function EmployeeStatsPage() {
             { color: "#f59e0b", label: "On Leave" },
             { color: "#8b5cf6", label: "Holiday" },
             {
-              color: dark ? "#1e2535" : "#f1f5f9",
+              color: dark ? "#1c1c22" : "#f1f5f9",
               label: "No Login",
-              text: dark ? "#3d4f68" : "#94a3b8",
+              text: dark ? "#64748b" : "#94a3b8",
             },
             {
-              color: dark ? "#0d1220" : "#f8fafc",
+              color: dark ? "#18181c" : "#f8fafc",
               label: "Week Off",
-              text: dark ? "#1e2a3e" : "#e2e8f0",
+              text: dark ? "#34343d" : "#e2e8f0",
             },
           ].map((l) => (
             <div

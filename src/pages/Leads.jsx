@@ -99,7 +99,6 @@ const sendEmail = async ({ to, subject, body, companyName }) => {
   }
 };
 
-// ── Simple clean followup email template ─────────────────────────────────
 const followupEmailTemplate = ({
   leadName,
   message,
@@ -193,6 +192,9 @@ const STATUS_CFG = {
     color: "#2563eb",
     bg: "#eff6ff",
     border: "#bfdbfe",
+    darkBg: "#1e3a5f",
+    darkBorder: "#2563eb",
+    darkColor: "#60a5fa",
     icon: <SyncOutlined style={{ fontSize: 10 }} />,
   },
   closed: {
@@ -200,6 +202,9 @@ const STATUS_CFG = {
     color: "#059669",
     bg: "#ecfdf5",
     border: "#a7f3d0",
+    darkBg: "#064e3b",
+    darkBorder: "#059669",
+    darkColor: "#34d399",
     icon: <CheckCircleFilled style={{ fontSize: 10 }} />,
   },
   not_closed: {
@@ -207,9 +212,13 @@ const STATUS_CFG = {
     color: "#64748b",
     bg: "#f8fafc",
     border: "#e2e8f0",
+    darkBg: "#1e293b",
+    darkBorder: "#475569",
+    darkColor: "#94a3b8",
     icon: <CloseCircleFilled style={{ fontSize: 10 }} />,
   },
 };
+
 const SOURCE_CFG = {
   website: { label: "Website", icon: <Globe size={13} /> },
   referral: { label: "Referral", icon: <Users size={13} /> },
@@ -225,10 +234,507 @@ const SOURCE_CFG = {
 const pctColor = (v) => (v >= 75 ? "#059669" : v >= 40 ? "#d97706" : "#e11d48");
 const pctBg = (v) => (v >= 75 ? "#ecfdf5" : v >= 40 ? "#fffbeb" : "#fff1f2");
 const pctBord = (v) => (v >= 75 ? "#a7f3d0" : v >= 40 ? "#fde68a" : "#fecdd3");
+const pctDarkBg = (v) =>
+  v >= 75 ? "#064e3b" : v >= 40 ? "#451a03" : "#4c0519";
+const pctDarkBd = (v) =>
+  v >= 75 ? "#059669" : v >= 40 ? "#d97706" : "#e11d48";
+
+const getIsDarkTheme = () => {
+  const mode = localStorage.getItem("themeMode") || "system";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
+
+// ── CSS Variables approach ─────────────────────────────────────────────────
+// All colours come from CSS vars set on .leads-page / .leads-page.dark
+const GLOBAL_CSS = `
+  /* ── Light tokens ── */
+  .leads-page,
+  .ld-drawer {
+    --bg-page:        #f8fafc;
+    --bg-card:        #ffffff;
+    --bg-subtle:      #f9fafb;
+    --bg-muted:       #f1f5f9;
+    --bg-hover:       #f8fafc;
+    --border:         #f1f5f9;
+    --border-strong:  #e2e8f0;
+    --text-primary:   #0f172a;
+    --text-secondary: #475569;
+    --text-muted:     #94a3b8;
+    --text-faint:     #cbd5e1;
+    --accent:         #0f172a;
+    --accent-fg:      #ffffff;
+    --danger-bg:      #fff1f2;
+    --danger-border:  #fecdd3;
+    --danger-text:    #e11d48;
+    --ai-bg:          #f8faff;
+    --ai-border:      #c7d2fe;
+    --ai-text:        #4338ca;
+    --ai-num-bg:      #e0e7ff;
+    --followup-bg:    #ffffff;
+    --input-bg:       #f8fafc;
+    --input-focus-bg: #ffffff;
+  }
+
+  /* ── Dark tokens ── */
+  .leads-page.dark,
+  .ld-drawer.dark {
+    --bg-page:        #141416;
+    --bg-card:        #141416;
+    --bg-subtle:      #18181c;
+    --bg-muted:       #1c1c22;
+    --bg-hover:       #18181c;
+    --border:         #2a2a31;
+    --border-strong:  #34343d;
+    --text-primary:   #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --text-muted:     #94a3b8;
+    --text-faint:     #64748b;
+    --accent:         #f1f5f9;
+    --accent-fg:      #141416;
+    --danger-bg:      #4c0519;
+    --danger-border:  #9f1239;
+    --danger-text:    #fb7185;
+    --ai-bg:          #1b1b24;
+    --ai-border:      #3f3f56;
+    --ai-text:        #a5b4fc;
+    --ai-num-bg:      #2b2b3c;
+    --followup-bg:    #18181c;
+    --input-bg:       #1c1c22;
+    --input-focus-bg: #141416;
+  }
+
+  /* ── Base resets using vars ── */
+  .leads-page { background: var(--bg-page); color: var(--text-primary); }
+
+  /* ── Ant overrides scoped to .leads-page ── */
+  .leads-page .ant-input,
+  .leads-page .ant-input-affix-wrapper,
+  .leads-page .ant-select-selector,
+  .leads-page textarea.ant-input {
+    background: var(--input-bg) !important;
+    border-color: var(--border-strong) !important;
+    color: var(--text-primary) !important;
+  }
+  .leads-page .ant-input::placeholder,
+  .leads-page textarea.ant-input::placeholder { color: var(--text-muted) !important; }
+  .leads-page .ant-input:focus,
+  .leads-page .ant-input-affix-wrapper:focus-within {
+    background: var(--input-focus-bg) !important;
+    border-color: var(--text-primary) !important;
+    box-shadow: 0 0 0 3px rgba(15,23,42,0.06) !important;
+  }
+  .leads-page.dark .ant-input:focus,
+  .leads-page.dark .ant-input-affix-wrapper:focus-within {
+    box-shadow: 0 0 0 3px rgba(241,245,249,0.06) !important;
+  }
+  .leads-page .ant-select-selector { border-radius: 10px !important; }
+  .leads-page .ant-select-arrow,
+  .leads-page .ant-select-clear { color: var(--text-muted) !important; }
+  .leads-page .ant-select-dropdown {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-strong) !important;
+    border-radius: 10px !important;
+  }
+  .leads-page .ant-select-item { color: var(--text-primary) !important; }
+  .leads-page .ant-select-item-option-active,
+  .leads-page .ant-select-item-option-selected { background: var(--bg-muted) !important; }
+  .leads-page .ant-select-selection-item { color: var(--text-primary) !important; }
+
+  .leads-page .ant-btn {
+    color: var(--text-secondary);
+    border-color: var(--border-strong);
+    background: var(--bg-card);
+  }
+  .leads-page .ant-btn:hover {
+    border-color: var(--text-primary) !important;
+    color: var(--text-primary) !important;
+  }
+
+  .leads-page .ant-switch { background: var(--border-strong); }
+  .leads-page .ant-switch-checked { background: var(--text-primary) !important; }
+
+  /* Drawer */
+  .ld-drawer .ant-drawer-content,
+  .ld-drawer .ant-drawer-header,
+  .ld-drawer .ant-drawer-body {
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+  }
+  .ld-drawer .ant-drawer-header {
+    border-bottom: 1px solid var(--border) !important;
+    padding: 20px 26px 16px !important;
+  }
+  .ld-drawer .ant-drawer-body { padding: 22px 26px !important; }
+  .ld-drawer .ant-drawer-title { color: var(--text-primary) !important; }
+  .ld-drawer .ant-drawer-close { color: var(--text-muted) !important; }
+  .ld-drawer .ant-drawer-close:hover { color: var(--text-primary) !important; }
+
+  /* Modal */
+  .ant-modal-content { background: var(--bg-card) !important; color: var(--text-primary) !important; }
+  .ant-modal-header { background: var(--bg-card) !important; border-bottom: 1px solid var(--border) !important; }
+  .ant-modal-title { color: var(--text-primary) !important; }
+  .ant-modal-close { color: var(--text-muted) !important; }
+
+  /* Popover */
+  .ant-popover-content .ant-popover-inner { background: var(--bg-card) !important; border: 1px solid var(--border-strong) !important; }
+  .ant-popover-content .ant-popover-title { color: var(--text-primary) !important; border-bottom: 1px solid var(--border) !important; }
+  .ant-popover-content .ant-popover-inner-content { color: var(--text-primary) !important; }
+
+  /* ── Component styles ── */
+  @keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+  .fade-up { animation: fadeUp 0.2s ease forwards; }
+
+  .leads-header {
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 32px;
+  }
+  .leads-title { font-size: 24px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.5px; margin: 0; }
+  .leads-subtitle { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+  .stat-tile {
+    flex: 1 1 110px;
+    min-width: 100px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: var(--bg-card);
+    box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+    transition: transform 0.12s, box-shadow 0.12s;
+    cursor: default;
+  }
+  .stat-tile:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(15,23,42,0.08); }
+  .leads-page.dark .stat-tile:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+
+  .table-wrap {
+    background: var(--bg-card);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(15,23,42,0.04);
+  }
+  .leads-page.dark .table-wrap { box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+
+  .table-head { background: var(--bg-subtle); border-bottom: 1px solid var(--border); }
+  .table-head th {
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    white-space: nowrap;
+  }
+
+  .lead-row { transition: background 0.1s; }
+  .lead-row:hover td { background: var(--bg-hover); }
+  .lead-row td { vertical-align: middle; border-bottom: 1px solid var(--border); }
+  .lead-row:last-child td { border-bottom: none; }
+
+  /* Ghost inputs — no border, blends into table */
+  .ghost-input .ant-input {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 4px 6px !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    color: var(--text-primary) !important;
+    border-radius: 6px !important;
+    transition: background 0.1s;
+  }
+  .ghost-input .ant-input:hover,
+  .ghost-input .ant-input:focus { background: var(--bg-muted) !important; }
+  .ghost-input .ant-input-affix-wrapper {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 4px 6px !important;
+    border-radius: 6px !important;
+    transition: background 0.1s;
+  }
+  .ghost-input .ant-input-affix-wrapper:hover,
+  .ghost-input .ant-input-affix-wrapper:focus-within { background: var(--bg-muted) !important; }
+  .ghost-input .ant-input-affix-wrapper .ant-input {
+    background: transparent !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    color: var(--text-primary) !important;
+  }
+
+  .ghost-textarea {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 4px 6px !important;
+    font-size: 12px !important;
+    color: var(--text-secondary) !important;
+    border-radius: 6px !important;
+    resize: none !important;
+    transition: background 0.1s;
+  }
+  .ghost-textarea:hover, .ghost-textarea:focus { background: var(--bg-muted) !important; }
+
+  .ghost-select .ant-select-selector {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+  .ghost-select:hover .ant-select-selector { background: var(--bg-muted) !important; border-radius: 6px !important; }
+  .ghost-select .ant-select-selection-item { color: var(--text-primary) !important; }
+
+  /* Styled form inputs inside drawer */
+  .form-field .ant-input,
+  .form-field textarea.ant-input,
+  .form-field .ant-input-affix-wrapper {
+    border-radius: 9px !important;
+    border: 1.5px solid var(--border-strong) !important;
+    background: var(--input-bg) !important;
+    color: var(--text-primary) !important;
+    font-size: 13px !important;
+    transition: all 0.15s;
+  }
+  .form-field .ant-input:focus,
+  .form-field textarea.ant-input:focus,
+  .form-field .ant-input-affix-wrapper:focus-within {
+    border-color: var(--text-primary) !important;
+    background: var(--input-focus-bg) !important;
+    box-shadow: 0 0 0 3px rgba(15,23,42,0.05) !important;
+  }
+  .leads-page.dark .form-field .ant-input:focus,
+  .leads-page.dark .form-field .ant-input-affix-wrapper:focus-within {
+    box-shadow: 0 0 0 3px rgba(241,245,249,0.05) !important;
+  }
+
+  .form-select .ant-select-selector {
+    border-radius: 9px !important;
+    border: 1.5px solid var(--border-strong) !important;
+    background: var(--input-bg) !important;
+    height: auto !important;
+    padding: 7px 12px !important;
+  }
+
+  .search-wrap .ant-input-affix-wrapper {
+    border-radius: 10px !important;
+    border: 1.5px solid var(--border-strong) !important;
+    background: var(--bg-card) !important;
+    padding: 8px 14px !important;
+    font-size: 13px !important;
+  }
+  .search-wrap .ant-input-affix-wrapper .ant-input { background: transparent !important; color: var(--text-primary) !important; }
+  .search-wrap .ant-input-affix-wrapper:focus-within {
+    border-color: var(--text-primary) !important;
+    box-shadow: 0 0 0 3px rgba(15,23,42,0.05) !important;
+  }
+
+  .filter-sel .ant-select-selector {
+    border-radius: 10px !important;
+    border: 1.5px solid var(--border-strong) !important;
+    background: var(--bg-card) !important;
+    height: auto !important;
+    padding: 7px 12px !important;
+  }
+
+  /* Percent bar */
+  .pct-bar { height: 3px; background: var(--bg-muted); border-radius: 99px; margin-top: 3px; overflow: hidden; }
+  .pct-fill { height: 100%; border-radius: 99px; transition: width 0.4s ease; }
+
+  /* Eye / delete action buttons */
+  .row-action-btn {
+    border-radius: 7px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-card);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    transition: all 0.1s;
+  }
+  .row-action-btn:hover { background: var(--text-primary); color: var(--bg-card); border-color: var(--text-primary); }
+  .row-action-btn.danger { border-color: transparent; background: transparent; color: var(--text-faint); }
+  .row-action-btn.danger:hover { background: var(--danger-bg); color: var(--danger-text); border-color: var(--danger-border); }
+
+  /* Date input in rows */
+  .date-input-row {
+    border: none;
+    background: transparent;
+    font-size: 12px;
+    cursor: text;
+    outline: none;
+    border-radius: 6px;
+    padding: 3px 6px;
+    transition: background 0.1s;
+    width: 100%;
+    color: var(--text-secondary);
+    color-scheme: light;
+  }
+  .leads-page.dark .date-input-row { color-scheme: dark; }
+  .date-input-row:focus { background: var(--bg-muted); }
+  .date-input-row::-webkit-calendar-picker-indicator { opacity: 0.5; cursor: pointer; }
+
+  /* AI panel */
+  @keyframes shimmer { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .ai-shimmer { animation: shimmer 1.4s ease infinite; }
+
+  .ai-panel {
+    background: var(--ai-bg);
+    border: 1.5px solid var(--ai-border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 4px;
+  }
+  .ai-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 9px;
+    border: 1.5px solid var(--ai-border);
+    background: var(--bg-card);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ai-text);
+    transition: all 0.15s;
+  }
+  .ai-action-btn:hover:not(:disabled) { background: var(--ai-text); color: #fff; border-color: var(--ai-text); }
+  .leads-page.dark .ai-action-btn:hover:not(:disabled) { background: var(--ai-text); color: var(--bg-page); }
+  .ai-action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .ai-action-btn.secondary {
+    color: var(--text-secondary);
+    border-color: var(--border-strong);
+    background: var(--bg-subtle);
+  }
+  .ai-action-btn.secondary:hover:not(:disabled) { background: var(--text-primary); color: var(--bg-card); border-color: var(--text-primary); }
+
+  .followup-box {
+    background: var(--followup-bg);
+    border: 1.5px solid var(--border-strong);
+    border-radius: 10px;
+    padding: 14px;
+    font-size: 13px;
+    color: var(--text-primary);
+    line-height: 1.75;
+    white-space: pre-wrap;
+    position: relative;
+    margin-top: 10px;
+  }
+  .copy-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-subtle);
+    border-radius: 7px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.1s;
+  }
+  .copy-btn:hover { background: var(--text-primary); color: var(--bg-card); border-color: var(--text-primary); }
+
+  .insight-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  /* Settings drawer */
+  .settings-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-section-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .settings-action-box {
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+
+  /* Pagination */
+  .pagination-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-card);
+    border-radius: 0 0 16px 16px;
+  }
+  .page-btn {
+    min-width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1.5px solid var(--border-strong);
+    background: var(--bg-card);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    padding: 0 6px;
+    transition: all 0.12s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .page-btn:hover:not(:disabled):not(.active) { background: var(--bg-muted); }
+  .page-btn.active { background: var(--text-primary); color: var(--bg-card); border-color: var(--text-primary); font-weight: 700; }
+  .page-btn:disabled { cursor: not-allowed; color: var(--text-faint); }
+
+  /* icon picker inside popover */
+  .icon-pick-btn {
+    width: 28px; height: 28px; border-radius: 6px;
+    border: none; background: transparent;
+    cursor: pointer; font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .icon-pick-btn:hover { background: var(--bg-muted); }
+  .icon-pick-btn.selected { background: var(--bg-muted); }
+  .icon-pick-btn.clear {
+    border: 1px dashed var(--border-strong) !important;
+    color: var(--text-muted);
+  }
+
+  /* Lead avatar */
+  .lead-avatar {
+    width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 17px;
+    border: 1.5px solid var(--border-strong);
+    transition: border-color 0.1s;
+  }
+  .lead-avatar:hover { border-color: var(--text-primary); }
+`;
 
 // ── Main Component ────────────────────────────────────────────────────────
 const Leads = () => {
   const { profile } = useAuth();
+  const [dark, setDark] = useState(getIsDarkTheme);
   const [tenantId, setTenantId] = useState(null);
   const [leads, setLeads] = useState([]);
   const [filtered, setFiltered] = useState([]);
@@ -242,9 +748,19 @@ const Leads = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 15;
 
-  // Local optimistic state for inline edits — keyed by lead.id
   const [localEdits, setLocalEdits] = useState({});
   const saveTimers = useRef({});
+
+  useEffect(() => {
+    const syncTheme = () => setDark(getIsDarkTheme());
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    window.addEventListener("themeModeChanged", syncTheme);
+    mq.addEventListener("change", syncTheme);
+    return () => {
+      window.removeEventListener("themeModeChanged", syncTheme);
+      mq.removeEventListener("change", syncTheme);
+    };
+  }, []);
 
   useEffect(() => {
     const init = async () => {
@@ -284,7 +800,7 @@ const Leads = () => {
     if (statusFilter !== "all")
       res = res.filter((l) => l.status === statusFilter);
     setFiltered(res);
-    setCurrentPage(1); // reset to page 1 on any filter change
+    setCurrentPage(1);
   }, [leads, localEdits, search, statusFilter]);
 
   const fetchLeads = async () => {
@@ -299,7 +815,7 @@ const Leads = () => {
         .order("created_at", { ascending: false });
       if (error) throw error;
       setLeads(data || []);
-      setLocalEdits({}); // clear local overrides on fresh fetch
+      setLocalEdits({});
     } catch {
       message.error("Failed to fetch leads");
     } finally {
@@ -307,15 +823,11 @@ const Leads = () => {
     }
   };
 
-  // Optimistic inline edit — updates UI immediately, debounces DB write per field per lead
   const handleInlineEdit = (id, field, value) => {
-    // 1. Update local optimistic state immediately (instant UI)
     setLocalEdits((prev) => ({
       ...prev,
       [id]: { ...(prev[id] || {}), [field]: value },
     }));
-
-    // 2. Debounce the actual DB save (300ms per lead+field combo)
     const key = `${id}__${field}`;
     if (saveTimers.current[key]) clearTimeout(saveTimers.current[key]);
     saveTimers.current[key] = setTimeout(async () => {
@@ -325,7 +837,6 @@ const Leads = () => {
         .eq("id", id);
       if (error) {
         message.error("Failed to save");
-        // Roll back on error
         setLocalEdits((prev) => {
           const next = { ...prev };
           if (next[id]) {
@@ -377,7 +888,6 @@ const Leads = () => {
     });
   };
 
-  // Get merged lead value (local edit takes priority)
   const getVal = (lead, field) =>
     localEdits[lead.id]?.[field] !== undefined
       ? localEdits[lead.id][field]
@@ -396,58 +906,90 @@ const Leads = () => {
     hot: filtered.filter((l) => (l.closing_percentage || 0) >= 75).length,
   };
 
-  return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
-      <style>{`
-        @keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
-        .fade-up { animation: fadeUp 0.2s ease forwards; }
-        .lead-row { transition: background 0.1s; }
-        .lead-row:hover { background: #f8fafc !important; }
-        .lead-row td { vertical-align:middle; border-bottom:1px solid #f1f5f9; }
-        .lead-row:last-child td { border-bottom:none; }
-        .ghost-input { border:none!important;background:transparent!important;box-shadow:none!important;padding:4px 6px!important;font-size:13px!important;color:#0f172a!important;border-radius:6px!important;transition:background 0.1s; }
-        .ghost-input:hover,.ghost-input:focus { background:#f1f5f9!important; }
-        .ghost-textarea { border:none!important;background:transparent!important;box-shadow:none!important;padding:4px 6px!important;font-size:12px!important;color:#475569!important;border-radius:6px!important;resize:none!important;transition:background 0.1s; }
-        .ghost-textarea:hover,.ghost-textarea:focus { background:#f1f5f9!important; }
-        .ghost-select .ant-select-selector { border:none!important;background:transparent!important;box-shadow:none!important;padding:0!important; }
-        .ghost-select:hover .ant-select-selector { background:#f1f5f9!important;border-radius:6px!important; }
-        .stat-tile { transition:transform 0.12s,box-shadow 0.12s; }
-        .stat-tile:hover { transform:translateY(-2px);box-shadow:0 6px 20px rgba(15,23,42,0.08)!important; }
-        .ld-drawer .ant-drawer-content { border-radius:20px 0 0 20px!important; }
-        .ld-drawer .ant-drawer-header { padding:20px 26px 16px!important;border-bottom:1px solid #f1f5f9!important; }
-        .ld-drawer .ant-drawer-body { padding:22px 26px!important; }
-        .form-field .ant-input,.form-field textarea,.form-select .ant-select-selector { border-radius:9px!important;border:1.5px solid #e2e8f0!important;background:#f8fafc!important;font-size:13px!important;transition:all 0.15s; }
-        .form-field .ant-input:focus,.form-field textarea:focus { border-color:#0f172a!important;background:#fff!important;box-shadow:0 0 0 3px rgba(15,23,42,0.05)!important; }
-        .form-select .ant-select-selector { height:auto!important;padding:7px 12px!important; }
-        .search-wrap .ant-input-affix-wrapper { border-radius:10px!important;border:1.5px solid #e2e8f0!important;background:#fff!important;padding:8px 14px!important;font-size:13px!important; }
-        .search-wrap .ant-input-affix-wrapper:focus-within { border-color:#0f172a!important;box-shadow:0 0 0 3px rgba(15,23,42,0.05)!important; }
-        .filter-sel .ant-select-selector { border-radius:10px!important;border:1.5px solid #e2e8f0!important;background:#fff!important;height:auto!important;padding:7px 12px!important; }
-        .pct-bar { height:3px;background:#e2e8f0;border-radius:99px;margin-top:3px;overflow:hidden; }
-        .pct-fill { height:100%;border-radius:99px;transition:width 0.4s ease; }
-        @keyframes shimmer { 0%,100%{opacity:1} 50%{opacity:0.4} }
-        .ai-shimmer { animation:shimmer 1.4s ease infinite; }
-        .ai-panel { background:#f8faff;border:1.5px solid #c7d2fe;border-radius:12px;padding:16px;margin-top:4px; }
-        .ai-action-btn { display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:9px;border:1.5px solid #c7d2fe;background:#fff;cursor:pointer;font-size:12px;font-weight:700;color:#4338ca;transition:all 0.15s; }
-        .ai-action-btn:hover { background:#4338ca;color:#fff;border-color:#4338ca; }
-        .ai-action-btn:disabled { opacity:0.5;cursor:not-allowed; }
-        .ai-action-btn.secondary { color:#64748b;border-color:#e2e8f0;background:#f8fafc; }
-        .ai-action-btn.secondary:hover { background:#0f172a;color:#fff;border-color:#0f172a; }
-        .followup-box { background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;padding:14px;font-size:13px;color:#1e293b;line-height:1.75;white-space:pre-wrap;position:relative;margin-top:10px; }
-        .copy-btn { position:absolute;top:10px;right:10px;border:1px solid #e2e8f0;background:#f8fafc;border-radius:7px;padding:4px 10px;font-size:11px;font-weight:700;color:#64748b;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.1s; }
-        .copy-btn:hover { background:#0f172a;color:#fff;border-color:#0f172a; }
-        .insight-chip { display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700; }
-        .settings-row { display:flex;align-items:flex-start;justify-content:space-between;padding:18px 0;border-bottom:1px solid #f1f5f9; }
-        .settings-row:last-child { border-bottom:none; }
-      `}</style>
+  // Stat tile colour tokens — use dark-aware values
+  const statTiles = [
+    {
+      label: "Total",
+      value: stats.total,
+      colorVar: "var(--text-primary)",
+      borderVar: "var(--border-strong)",
+      icon: <GlobalOutlined />,
+    },
+    {
+      label: "In Progress",
+      value: stats.inProgress,
+      colorVar: dark
+        ? STATUS_CFG.in_progress.darkColor
+        : STATUS_CFG.in_progress.color,
+      borderVar: dark
+        ? STATUS_CFG.in_progress.darkBorder
+        : STATUS_CFG.in_progress.border,
+      bgVar: dark ? STATUS_CFG.in_progress.darkBg : STATUS_CFG.in_progress.bg,
+      icon: <SyncOutlined />,
+    },
+    {
+      label: "Closed",
+      value: stats.closed,
+      colorVar: dark ? STATUS_CFG.closed.darkColor : STATUS_CFG.closed.color,
+      borderVar: dark ? STATUS_CFG.closed.darkBorder : STATUS_CFG.closed.border,
+      bgVar: dark ? STATUS_CFG.closed.darkBg : STATUS_CFG.closed.bg,
+      icon: <CheckCircleFilled />,
+    },
+    {
+      label: "Hot Leads",
+      value: stats.hot,
+      colorVar: dark ? "#fb7185" : "#dc2626",
+      borderVar: dark ? "#9f1239" : "#fecdd3",
+      bgVar: dark ? "#4c0519" : "#fff1f2",
+      icon: <FireOutlined />,
+    },
+    {
+      label: "Avg Close %",
+      value: `${stats.avgPct}%`,
+      colorVar: pctColor(stats.avgPct),
+      borderVar: dark ? pctDarkBd(stats.avgPct) : pctBord(stats.avgPct),
+      bgVar: dark ? pctDarkBg(stats.avgPct) : pctBg(stats.avgPct),
+      icon: <RiseOutlined />,
+    },
+  ];
 
-      {/* Header */}
-      <div
+  const statusBadge = (status) => {
+    const cfg = STATUS_CFG[status] || STATUS_CFG.not_closed;
+    return (
+      <span
         style={{
-          background: "#fff",
-          borderBottom: "1px solid #f1f5f9",
-          padding: "20px 32px",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          padding: "3px 9px",
+          borderRadius: 20,
+          border: `1px solid ${dark ? cfg.darkBorder : cfg.border}`,
+          background: dark ? cfg.darkBg : cfg.bg,
+          fontSize: 11,
+          fontWeight: 700,
+          color: dark ? cfg.darkColor : cfg.color,
         }}
       >
+        {cfg.icon} {cfg.label}
+      </span>
+    );
+  };
+
+  const pctBadgeProps = (pct) => ({
+    color: pctColor(pct),
+    bg: dark ? pctDarkBg(pct) : pctBg(pct),
+    border: dark ? pctDarkBd(pct) : pctBord(pct),
+  });
+
+  return (
+    <div
+      className={`leads-page${dark ? " dark" : ""}`}
+      style={{ minHeight: "100vh" }}
+    >
+      <style>{GLOBAL_CSS}</style>
+
+      {/* Header */}
+      <div className="leads-header">
         <div
           style={{
             display: "flex",
@@ -472,32 +1014,12 @@ const Leads = () => {
                   width: 7,
                   height: 7,
                   borderRadius: "50%",
-                  background: "#0f172a",
+                  background: "var(--text-primary)",
                 }}
               />
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: "#94a3b8",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                }}
-              >
-                Sales
-              </span>
+              <span className="leads-subtitle">Sales</span>
             </div>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: 24,
-                fontWeight: 800,
-                color: "#0f172a",
-                letterSpacing: -0.5,
-              }}
-            >
-              Leads Pipeline
-            </h1>
+            <h1 className="leads-title">Leads Pipeline</h1>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             {profile?.role === "admin" && (
@@ -509,9 +1031,6 @@ const Leads = () => {
                   borderRadius: 10,
                   fontWeight: 600,
                   fontSize: 13,
-                  border: "1.5px solid #e2e8f0",
-                  background: "#fff",
-                  color: "#475569",
                 }}
               >
                 Settings
@@ -525,9 +1044,13 @@ const Leads = () => {
                 borderRadius: 10,
                 fontWeight: 600,
                 fontSize: 13,
-                border: "1.5px solid #e2e8f0",
-                background: showArchived ? "#0f172a" : "#fff",
-                color: showArchived ? "#fff" : "#475569",
+                background: showArchived
+                  ? "var(--text-primary)"
+                  : "var(--bg-card)",
+                color: showArchived
+                  ? "var(--bg-card)"
+                  : "var(--text-secondary)",
+                border: `1.5px solid ${showArchived ? "var(--text-primary)" : "var(--border-strong)"}`,
               }}
             >
               {showArchived ? "Active" : "Archived"}
@@ -542,9 +1065,9 @@ const Leads = () => {
                 height: 38,
                 paddingInline: 20,
                 borderRadius: 10,
-                background: "#0f172a",
+                background: "var(--text-primary)",
                 border: "none",
-                color: "#fff",
+                color: "var(--bg-card)",
                 fontWeight: 700,
                 fontSize: 13,
                 boxShadow: "0 4px 14px rgba(15,23,42,0.22)",
@@ -564,85 +1087,50 @@ const Leads = () => {
             flexWrap: "wrap",
           }}
         >
-          {[
-            {
-              label: "Total",
-              value: stats.total,
-              color: "#0f172a",
-              bg: "#f8fafc",
-              border: "#e2e8f0",
-              icon: <GlobalOutlined />,
-            },
-            {
-              label: "In Progress",
-              value: stats.inProgress,
-              ...STATUS_CFG.in_progress,
-              icon: <SyncOutlined />,
-            },
-            {
-              label: "Closed",
-              value: stats.closed,
-              ...STATUS_CFG.closed,
-              icon: <CheckCircleFilled />,
-            },
-            {
-              label: "Hot Leads",
-              value: stats.hot,
-              color: "#dc2626",
-              bg: "#fff1f2",
-              border: "#fecdd3",
-              icon: <FireOutlined />,
-            },
-            {
-              label: "Avg Close %",
-              value: `${stats.avgPct}%`,
-              color: pctColor(stats.avgPct),
-              bg: pctBg(stats.avgPct),
-              border: pctBord(stats.avgPct),
-              icon: <RiseOutlined />,
-            },
-          ].map(({ label, value, color, bg, border, icon }) => (
-            <div
-              key={label}
-              className="stat-tile"
-              style={{
-                flex: "1 1 110px",
-                minWidth: 100,
-                padding: "12px 16px",
-                borderRadius: 12,
-                border: `1px solid ${border}`,
-                background: bg,
-                boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
-              }}
-            >
+          {statTiles.map(
+            ({ label, value, colorVar, borderVar, bgVar, icon }) => (
               <div
+                key={label}
+                className="stat-tile"
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 5,
-                  marginBottom: 6,
+                  border: `1px solid ${borderVar}`,
+                  background: bgVar || "var(--bg-card)",
                 }}
               >
-                <span style={{ color, fontSize: 11 }}>{icon}</span>
-                <span
+                <div
                   style={{
-                    fontSize: 10,
-                    fontWeight: 700,
-                    color: "#94a3b8",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    marginBottom: 6,
                   }}
                 >
-                  {label}
-                </span>
+                  <span style={{ color: colorVar, fontSize: 11 }}>{icon}</span>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: "var(--text-muted)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                    }}
+                  >
+                    {label}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 700,
+                    color: colorVar,
+                    lineHeight: 1,
+                  }}
+                >
+                  {value}
+                </div>
               </div>
-              <div
-                style={{ fontSize: 22, fontWeight: 700, color, lineHeight: 1 }}
-              >
-                {value}
-              </div>
-            </div>
-          ))}
+            ),
+          )}
         </div>
 
         {/* Search + filter */}
@@ -656,7 +1144,7 @@ const Leads = () => {
         >
           <div className="search-wrap" style={{ flex: 1, minWidth: 200 }}>
             <Input
-              prefix={<SearchOutlined style={{ color: "#94a3b8" }} />}
+              prefix={<SearchOutlined style={{ color: "var(--text-muted)" }} />}
               placeholder="Search leads…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -678,7 +1166,7 @@ const Leads = () => {
           <span
             style={{
               fontSize: 12,
-              color: "#94a3b8",
+              color: "var(--text-muted)",
               fontWeight: 600,
               whiteSpace: "nowrap",
             }}
@@ -690,15 +1178,7 @@ const Leads = () => {
 
       {/* Table */}
       <div style={{ padding: "20px 32px" }}>
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: 16,
-            border: "1px solid #f1f5f9",
-            overflow: "hidden",
-            boxShadow: "0 1px 4px rgba(15,23,42,0.04)",
-          }}
-        >
+        <div className="table-wrap">
           {loading ? (
             <div style={{ padding: 28 }}>
               {[1, 2, 3, 4, 5].map((i) => (
@@ -725,25 +1205,20 @@ const Leads = () => {
               <GlobalOutlined
                 style={{
                   fontSize: 30,
-                  color: "#e2e8f0",
+                  color: "var(--text-faint)",
                   display: "block",
                   margin: "0 auto 10px",
                 }}
               />
-              <span style={{ color: "#94a3b8", fontSize: 14 }}>
+              <span style={{ color: "var(--text-muted)", fontSize: 14 }}>
                 No leads found
               </span>
             </div>
           ) : (
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr
-                    style={{
-                      background: "#f9fafb",
-                      borderBottom: "1px solid #f1f5f9",
-                    }}
-                  >
+                <thead className="table-head">
+                  <tr>
                     {[
                       "",
                       "Lead",
@@ -755,21 +1230,7 @@ const Leads = () => {
                       "Added",
                       "",
                     ].map((h, i) => (
-                      <th
-                        key={i}
-                        style={{
-                          padding: "10px 14px",
-                          textAlign: "left",
-                          fontSize: 10,
-                          fontWeight: 700,
-                          color: "#94a3b8",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.07em",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {h}
-                      </th>
+                      <th key={i}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -786,6 +1247,8 @@ const Leads = () => {
                       const src =
                         SOURCE_CFG[getVal(lead, "source")] || SOURCE_CFG.other;
                       const pct = getVal(lead, "closing_percentage") || 0;
+                      const pb = pctBadgeProps(pct);
+
                       return (
                         <tr
                           key={lead.id}
@@ -797,32 +1260,11 @@ const Leads = () => {
                             style={{ padding: "10px 8px 10px 14px", width: 36 }}
                           >
                             <button
+                              className="row-action-btn"
+                              style={{ width: 28, height: 28 }}
                               onClick={() => {
                                 setEditingLead(lead);
                                 setDrawerOpen(true);
-                              }}
-                              style={{
-                                width: 28,
-                                height: 28,
-                                borderRadius: 7,
-                                border: "1px solid #e2e8f0",
-                                background: "#fff",
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                color: "#94a3b8",
-                                transition: "all 0.1s",
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background = "#0f172a";
-                                e.currentTarget.style.color = "#fff";
-                                e.currentTarget.style.borderColor = "#0f172a";
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background = "#fff";
-                                e.currentTarget.style.color = "#94a3b8";
-                                e.currentTarget.style.borderColor = "#e2e8f0";
                               }}
                             >
                               <EyeOutlined style={{ fontSize: 11 }} />
@@ -842,7 +1284,11 @@ const Leads = () => {
                                 trigger="click"
                                 title={
                                   <span
-                                    style={{ fontSize: 12, fontWeight: 700 }}
+                                    style={{
+                                      fontSize: 12,
+                                      fontWeight: 700,
+                                      color: "var(--text-primary)",
+                                    }}
                                   >
                                     Pick Icon
                                   </span>
@@ -859,45 +1305,20 @@ const Leads = () => {
                                     {AVAILABLE_ICONS.map((ic) => (
                                       <button
                                         key={ic}
+                                        className={`icon-pick-btn${getVal(lead, "icon") === ic ? " selected" : ""}`}
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           handleInlineEdit(lead.id, "icon", ic);
-                                        }}
-                                        style={{
-                                          width: 28,
-                                          height: 28,
-                                          borderRadius: 6,
-                                          border: "none",
-                                          background:
-                                            getVal(lead, "icon") === ic
-                                              ? "#f1f5f9"
-                                              : "transparent",
-                                          cursor: "pointer",
-                                          fontSize: 16,
-                                          display: "flex",
-                                          alignItems: "center",
-                                          justifyContent: "center",
                                         }}
                                       >
                                         {ic}
                                       </button>
                                     ))}
                                     <button
+                                      className="icon-pick-btn clear"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleInlineEdit(lead.id, "icon", "");
-                                      }}
-                                      style={{
-                                        width: 28,
-                                        height: 28,
-                                        borderRadius: 6,
-                                        border: "1px dashed #e2e8f0",
-                                        background: "transparent",
-                                        cursor: "pointer",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        color: "#94a3b8",
                                       }}
                                     >
                                       <CloseOutlined style={{ fontSize: 9 }} />
@@ -906,21 +1327,12 @@ const Leads = () => {
                                 }
                               >
                                 <div
+                                  className="lead-avatar"
                                   onClick={(e) => e.stopPropagation()}
                                   style={{
-                                    width: 32,
-                                    height: 32,
-                                    borderRadius: 9,
-                                    flexShrink: 0,
                                     background: getVal(lead, "icon")
-                                      ? "#f1f5f9"
+                                      ? "var(--bg-muted)"
                                       : "linear-gradient(135deg,#0f172a,#334155)",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    cursor: "pointer",
-                                    fontSize: 17,
-                                    border: "1.5px solid #e8edf4",
                                   }}
                                 >
                                   {getVal(lead, "icon") ? (
@@ -932,25 +1344,20 @@ const Leads = () => {
                                   )}
                                 </div>
                               </Popover>
-                              <Input
-                                className="ghost-input"
-                                value={getVal(lead, "name") || ""}
-                                onChange={(e) =>
-                                  handleInlineEdit(
-                                    lead.id,
-                                    "name",
-                                    e.target.value,
-                                  )
-                                }
-                                onClick={(e) => e.stopPropagation()}
-                                bordered={false}
-                                style={{
-                                  fontWeight: 700,
-                                  fontSize: 13,
-                                  color: "#0f172a",
-                                  padding: "3px 6px",
-                                }}
-                              />
+                              <div className="ghost-input" style={{ flex: 1 }}>
+                                <Input
+                                  value={getVal(lead, "name") || ""}
+                                  onChange={(e) =>
+                                    handleInlineEdit(
+                                      lead.id,
+                                      "name",
+                                      e.target.value,
+                                    )
+                                  }
+                                  onClick={(e) => e.stopPropagation()}
+                                  bordered={false}
+                                />
+                              </div>
                             </div>
                           </td>
 
@@ -983,6 +1390,7 @@ const Leads = () => {
                           <td style={{ padding: "10px 14px", minWidth: 140 }}>
                             <input
                               type="date"
+                              className="date-input-row"
                               value={getVal(lead, "last_followup_date") || ""}
                               onChange={(e) =>
                                 handleInlineEdit(
@@ -992,32 +1400,12 @@ const Leads = () => {
                                 )
                               }
                               onClick={(e) => e.stopPropagation()}
-                              style={{
-                                border: "none",
-                                background: "transparent",
-                                fontSize: 12,
-                                color: getVal(lead, "last_followup_date")
-                                  ? "#1e293b"
-                                  : "#94a3b8",
-                                cursor: "text",
-                                outline: "none",
-                                borderRadius: 6,
-                                padding: "3px 6px",
-                                transition: "background 0.1s",
-                                width: "100%",
-                              }}
-                              onFocus={(e) =>
-                                (e.target.style.background = "#f1f5f9")
-                              }
-                              onBlur={(e) =>
-                                (e.target.style.background = "transparent")
-                              }
                             />
                             {getVal(lead, "last_followup_date") && (
                               <div
                                 style={{
                                   fontSize: 10,
-                                  color: "#94a3b8",
+                                  color: "var(--text-muted)",
                                   paddingLeft: 6,
                                 }}
                               >
@@ -1046,22 +1434,7 @@ const Leads = () => {
                             >
                               {Object.entries(STATUS_CFG).map(([val, cfg]) => (
                                 <Select.Option key={val} value={val}>
-                                  <span
-                                    style={{
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      gap: 5,
-                                      padding: "3px 9px",
-                                      borderRadius: 20,
-                                      border: `1px solid ${cfg.border}`,
-                                      background: cfg.bg,
-                                      fontSize: 11,
-                                      fontWeight: 700,
-                                      color: cfg.color,
-                                    }}
-                                  >
-                                    {cfg.icon} {cfg.label}
-                                  </span>
+                                  {statusBadge(val)}
                                 </Select.Option>
                               ))}
                             </Select>
@@ -1090,14 +1463,14 @@ const Leads = () => {
                                       display: "inline-flex",
                                       alignItems: "center",
                                       gap: 7,
-                                      color: "#475569",
+                                      color: "var(--text-secondary)",
                                     }}
                                   >
                                     <span
                                       style={{
                                         display: "flex",
                                         alignItems: "center",
-                                        color: "#64748b",
+                                        color: "var(--text-muted)",
                                       }}
                                     >
                                       {cfg.icon}
@@ -1116,9 +1489,8 @@ const Leads = () => {
                             style={{ padding: "10px 14px", minWidth: 90 }}
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <div>
+                            <div className="ghost-input">
                               <Input
-                                className="ghost-input"
                                 type="number"
                                 value={pct}
                                 onChange={(e) =>
@@ -1138,7 +1510,7 @@ const Leads = () => {
                                   <span
                                     style={{
                                       fontSize: 10,
-                                      color: "#94a3b8",
+                                      color: "var(--text-muted)",
                                       fontWeight: 700,
                                     }}
                                   >
@@ -1151,22 +1523,21 @@ const Leads = () => {
                                 style={{
                                   width: 72,
                                   fontWeight: 700,
-                                  color: pctColor(pct),
-                                  padding: "3px 6px",
+                                  color: pb.color,
                                 }}
                               />
+                            </div>
+                            <div
+                              className="pct-bar"
+                              style={{ width: 64, marginLeft: 6 }}
+                            >
                               <div
-                                className="pct-bar"
-                                style={{ width: 64, marginLeft: 6 }}
-                              >
-                                <div
-                                  className="pct-fill"
-                                  style={{
-                                    width: `${pct}%`,
-                                    background: pctColor(pct),
-                                  }}
-                                />
-                              </div>
+                                className="pct-fill"
+                                style={{
+                                  width: `${pct}%`,
+                                  background: pb.color,
+                                }}
+                              />
                             </div>
                           </td>
 
@@ -1177,7 +1548,12 @@ const Leads = () => {
                               whiteSpace: "nowrap",
                             }}
                           >
-                            <span style={{ fontSize: 11, color: "#94a3b8" }}>
+                            <span
+                              style={{
+                                fontSize: 11,
+                                color: "var(--text-muted)",
+                              }}
+                            >
                               {dayjs(lead.created_at).format("MMM D, YY")}
                             </span>
                           </td>
@@ -1185,34 +1561,11 @@ const Leads = () => {
                           {/* Delete */}
                           <td style={{ padding: "10px 14px 10px 4px" }}>
                             <button
+                              className="row-action-btn danger"
+                              style={{ width: 26, height: 26 }}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleDelete(lead.id);
-                              }}
-                              style={{
-                                width: 26,
-                                height: 26,
-                                borderRadius: 7,
-                                border: "1px solid transparent",
-                                background: "transparent",
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                color: "#cbd5e1",
-                                transition: "all 0.1s",
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background = "#fff1f2";
-                                e.currentTarget.style.color = "#e11d48";
-                                e.currentTarget.style.borderColor = "#fecdd3";
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background =
-                                  "transparent";
-                                e.currentTarget.style.color = "#cbd5e1";
-                                e.currentTarget.style.borderColor =
-                                  "transparent";
                               }}
                             >
                               <DeleteOutlined style={{ fontSize: 11 }} />
@@ -1229,104 +1582,49 @@ const Leads = () => {
 
         {/* Pagination */}
         {filtered.length > PAGE_SIZE && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "14px 20px",
-              borderTop: "1px solid #f1f5f9",
-              background: "#fff",
-              borderRadius: "0 0 16px 16px",
-            }}
-          >
-            {/* Left: result range info */}
-            <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 500 }}>
+          <div className="pagination-wrap">
+            <span
+              style={{
+                fontSize: 12,
+                color: "var(--text-muted)",
+                fontWeight: 500,
+              }}
+            >
               Showing{" "}
-              <span style={{ color: "#0f172a", fontWeight: 700 }}>
+              <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>
                 {Math.min((currentPage - 1) * PAGE_SIZE + 1, filtered.length)}
               </span>
               {" – "}
-              <span style={{ color: "#0f172a", fontWeight: 700 }}>
+              <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>
                 {Math.min(currentPage * PAGE_SIZE, filtered.length)}
               </span>
               {" of "}
-              <span style={{ color: "#0f172a", fontWeight: 700 }}>
+              <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>
                 {filtered.length}
               </span>
               {" leads"}
             </span>
-
-            {/* Right: page controls */}
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              {/* Prev */}
               <button
+                className="page-btn"
                 disabled={currentPage === 1}
                 onClick={() => setCurrentPage((p) => p - 1)}
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 8,
-                  border: "1.5px solid #e2e8f0",
-                  background: "#fff",
-                  cursor: currentPage === 1 ? "not-allowed" : "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: currentPage === 1 ? "#cbd5e1" : "#475569",
-                  transition: "all .12s",
-                  fontSize: 13,
-                  fontWeight: 700,
-                }}
-                onMouseEnter={(e) => {
-                  if (currentPage > 1) {
-                    e.currentTarget.style.background = "#0f172a";
-                    e.currentTarget.style.color = "#fff";
-                    e.currentTarget.style.borderColor = "#0f172a";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "#fff";
-                  e.currentTarget.style.color =
-                    currentPage === 1 ? "#cbd5e1" : "#475569";
-                  e.currentTarget.style.borderColor = "#e2e8f0";
-                }}
+                style={{ fontSize: 13, fontWeight: 700 }}
               >
                 ‹
               </button>
-
-              {/* Page numbers */}
               {(() => {
                 const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
                 const pages = [];
                 let start = Math.max(1, currentPage - 2);
                 let end = Math.min(totalPages, start + 4);
                 if (end - start < 4) start = Math.max(1, end - 4);
-
                 if (start > 1) {
                   pages.push(
                     <button
                       key={1}
+                      className="page-btn"
                       onClick={() => setCurrentPage(1)}
-                      style={{
-                        minWidth: 32,
-                        height: 32,
-                        borderRadius: 8,
-                        border: "1.5px solid #e2e8f0",
-                        background: "#fff",
-                        cursor: "pointer",
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: "#475569",
-                        padding: "0 6px",
-                        transition: "all .12s",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = "#f1f5f9";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "#fff";
-                      }}
                     >
                       1
                     </button>,
@@ -1336,7 +1634,7 @@ const Leads = () => {
                       <span
                         key="s1"
                         style={{
-                          color: "#cbd5e1",
+                          color: "var(--text-faint)",
                           fontSize: 13,
                           padding: "0 2px",
                         }}
@@ -1345,49 +1643,24 @@ const Leads = () => {
                       </span>,
                     );
                 }
-
                 for (let i = start; i <= end; i++) {
-                  const isActive = i === currentPage;
                   pages.push(
                     <button
                       key={i}
+                      className={`page-btn${i === currentPage ? " active" : ""}`}
                       onClick={() => setCurrentPage(i)}
-                      style={{
-                        minWidth: 32,
-                        height: 32,
-                        borderRadius: 8,
-                        border: `1.5px solid ${isActive ? "#0f172a" : "#e2e8f0"}`,
-                        background: isActive ? "#0f172a" : "#fff",
-                        cursor: "pointer",
-                        fontSize: 12,
-                        fontWeight: isActive ? 700 : 600,
-                        color: isActive ? "#fff" : "#475569",
-                        padding: "0 6px",
-                        transition: "all .12s",
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.background = "#f1f5f9";
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.background = "#fff";
-                        }
-                      }}
                     >
                       {i}
                     </button>,
                   );
                 }
-
                 if (end < totalPages) {
                   if (end < totalPages - 1)
                     pages.push(
                       <span
                         key="s2"
                         style={{
-                          color: "#cbd5e1",
+                          color: "var(--text-faint)",
                           fontSize: 13,
                           padding: "0 2px",
                         }}
@@ -1398,26 +1671,8 @@ const Leads = () => {
                   pages.push(
                     <button
                       key={totalPages}
+                      className="page-btn"
                       onClick={() => setCurrentPage(totalPages)}
-                      style={{
-                        minWidth: 32,
-                        height: 32,
-                        borderRadius: 8,
-                        border: "1.5px solid #e2e8f0",
-                        background: "#fff",
-                        cursor: "pointer",
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: "#475569",
-                        padding: "0 6px",
-                        transition: "all .12s",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = "#f1f5f9";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "#fff";
-                      }}
                     >
                       {totalPages}
                     </button>,
@@ -1425,47 +1680,11 @@ const Leads = () => {
                 }
                 return pages;
               })()}
-
-              {/* Next */}
               <button
+                className="page-btn"
                 disabled={currentPage >= Math.ceil(filtered.length / PAGE_SIZE)}
                 onClick={() => setCurrentPage((p) => p + 1)}
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 8,
-                  border: "1.5px solid #e2e8f0",
-                  background: "#fff",
-                  cursor:
-                    currentPage >= Math.ceil(filtered.length / PAGE_SIZE)
-                      ? "not-allowed"
-                      : "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color:
-                    currentPage >= Math.ceil(filtered.length / PAGE_SIZE)
-                      ? "#cbd5e1"
-                      : "#475569",
-                  transition: "all .12s",
-                  fontSize: 13,
-                  fontWeight: 700,
-                }}
-                onMouseEnter={(e) => {
-                  if (currentPage < Math.ceil(filtered.length / PAGE_SIZE)) {
-                    e.currentTarget.style.background = "#0f172a";
-                    e.currentTarget.style.color = "#fff";
-                    e.currentTarget.style.borderColor = "#0f172a";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "#fff";
-                  e.currentTarget.style.color =
-                    currentPage >= Math.ceil(filtered.length / PAGE_SIZE)
-                      ? "#cbd5e1"
-                      : "#475569";
-                  e.currentTarget.style.borderColor = "#e2e8f0";
-                }}
+                style={{ fontSize: 13, fontWeight: 700 }}
               >
                 ›
               </button>
@@ -1476,7 +1695,7 @@ const Leads = () => {
 
       {/* Lead Drawer */}
       <Drawer
-        className="ld-drawer"
+        className={`ld-drawer${dark ? " dark" : ""}`}
         open={drawerOpen}
         onClose={() => {
           setDrawerOpen(false);
@@ -1498,22 +1717,17 @@ const Leads = () => {
                   width: 36,
                   height: 36,
                   borderRadius: 10,
-                  background: editingLead
-                    ? "#f1f5f9"
+                  fontSize: 20,
+                  background: editingLead?.icon
+                    ? "var(--bg-muted)"
                     : "linear-gradient(135deg,#0f172a,#334155)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 20,
                 }}
               >
                 {editingLead?.icon || (
-                  <GlobalOutlined
-                    style={{
-                      fontSize: 16,
-                      color: editingLead ? "#475569" : "#fff",
-                    }}
-                  />
+                  <GlobalOutlined style={{ fontSize: 16, color: "#fff" }} />
                 )}
               </div>
               <div>
@@ -1521,7 +1735,7 @@ const Leads = () => {
                   style={{
                     fontSize: 10,
                     fontWeight: 700,
-                    color: "#94a3b8",
+                    color: "var(--text-muted)",
                     textTransform: "uppercase",
                     letterSpacing: "0.08em",
                   }}
@@ -1529,7 +1743,11 @@ const Leads = () => {
                   {editingLead ? "Lead Details" : "New Lead"}
                 </div>
                 <div
-                  style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}
+                  style={{
+                    fontSize: 15,
+                    fontWeight: 700,
+                    color: "var(--text-primary)",
+                  }}
                 >
                   {editingLead?.name || "Create Lead"}
                 </div>
@@ -1552,7 +1770,6 @@ const Leads = () => {
                 </Button>
                 <Button
                   size="small"
-                  danger
                   icon={<DeleteOutlined />}
                   onClick={() => handleDelete(editingLead.id)}
                   style={{
@@ -1560,9 +1777,9 @@ const Leads = () => {
                     fontWeight: 600,
                     fontSize: 12,
                     height: 30,
-                    border: "1px solid #fecdd3",
-                    background: "#fff1f2",
-                    color: "#e11d48",
+                    border: `1px solid var(--danger-border)`,
+                    background: "var(--danger-bg)",
+                    color: "var(--danger-text)",
                   }}
                 >
                   Delete
@@ -1574,9 +1791,11 @@ const Leads = () => {
         footer={null}
       >
         <LeadForm
+          key={editingLead?.id || "new-lead"}
           lead={editingLead}
           profile={profile}
           tenantId={tenantId}
+          dark={dark}
           onClose={() => {
             setDrawerOpen(false);
             setEditingLead(null);
@@ -1587,7 +1806,7 @@ const Leads = () => {
 
       {/* Settings Drawer */}
       <Drawer
-        className="ld-drawer"
+        className={`ld-drawer${dark ? " dark" : ""}`}
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         width={460}
@@ -1611,14 +1830,20 @@ const Leads = () => {
                 style={{
                   fontSize: 10,
                   fontWeight: 700,
-                  color: "#94a3b8",
+                  color: "var(--text-muted)",
                   textTransform: "uppercase",
                   letterSpacing: "0.08em",
                 }}
               >
                 Leads
               </div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>
+              <div
+                style={{
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: "var(--text-primary)",
+                }}
+              >
                 Pipeline Settings
               </div>
             </div>
@@ -1626,14 +1851,19 @@ const Leads = () => {
         }
         footer={null}
       >
-        <LeadsSettings profile={profile} tenantId={tenantId} leads={leads} />
+        <LeadsSettings
+          profile={profile}
+          tenantId={tenantId}
+          leads={leads}
+          dark={dark}
+        />
       </Drawer>
     </div>
   );
 };
 
 // ── LeadForm ──────────────────────────────────────────────────────────────
-const LeadForm = ({ lead, profile, tenantId, onClose }) => {
+const LeadForm = ({ lead, profile, tenantId, dark, onClose }) => {
   const [form, setForm] = useState({
     name: lead?.name || "",
     status: lead?.status || "in_progress",
@@ -1735,22 +1965,29 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
   };
 
   const pct = form.closing_percentage || 0;
+  const sc = STATUS_CFG[form.status] || STATUS_CFG.not_closed;
+  const pb = {
+    color: pctColor(pct),
+    bg: dark ? pctDarkBg(pct) : pctBg(pct),
+    border: dark ? pctDarkBd(pct) : pctBord(pct),
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* Name */}
       <div className="form-field">
         <label
           style={{
             display: "block",
             fontSize: 11,
             fontWeight: 700,
-            color: "#94a3b8",
+            color: "var(--text-muted)",
             textTransform: "uppercase",
             letterSpacing: "0.06em",
             marginBottom: 7,
           }}
         >
-          Name <span style={{ color: "#e11d48" }}>*</span>
+          Name <span style={{ color: "var(--danger-text)" }}>*</span>
         </label>
         <Input
           value={form.name}
@@ -1759,13 +1996,14 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
         />
       </div>
 
+      {/* Icon */}
       <div>
         <label
           style={{
             display: "block",
             fontSize: 11,
             fontWeight: 700,
-            color: "#94a3b8",
+            color: "var(--text-muted)",
             textTransform: "uppercase",
             letterSpacing: "0.06em",
             marginBottom: 7,
@@ -1779,9 +2017,9 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
               width: 44,
               height: 44,
               borderRadius: 12,
-              border: "1.5px solid #e2e8f0",
+              border: "1.5px solid var(--border-strong)",
               background: form.icon
-                ? "#f8fafc"
+                ? "var(--bg-muted)"
                 : "linear-gradient(135deg,#0f172a,#334155)",
               display: "flex",
               alignItems: "center",
@@ -1796,7 +2034,15 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
           <Popover
             trigger="click"
             title={
-              <span style={{ fontSize: 12, fontWeight: 700 }}>Select Icon</span>
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "var(--text-primary)",
+                }}
+              >
+                Select Icon
+              </span>
             }
             content={
               <div
@@ -1810,40 +2056,15 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
                 {AVAILABLE_ICONS.map((ic) => (
                   <button
                     key={ic}
+                    className={`icon-pick-btn${form.icon === ic ? " selected" : ""}`}
                     onClick={() => set("icon", ic)}
-                    style={{
-                      width: 30,
-                      height: 30,
-                      borderRadius: 7,
-                      border:
-                        form.icon === ic
-                          ? "2px solid #0f172a"
-                          : "1px solid transparent",
-                      background: "transparent",
-                      cursor: "pointer",
-                      fontSize: 17,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
                   >
                     {ic}
                   </button>
                 ))}
                 <button
+                  className="icon-pick-btn clear"
                   onClick={() => set("icon", "")}
-                  style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: 7,
-                    border: "1px dashed #e2e8f0",
-                    background: "transparent",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#94a3b8",
-                  }}
                 >
                   <CloseOutlined style={{ fontSize: 10 }} />
                 </button>
@@ -1868,7 +2089,7 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
                 border: "none",
                 background: "transparent",
                 cursor: "pointer",
-                color: "#94a3b8",
+                color: "var(--text-muted)",
                 fontSize: 12,
               }}
             >
@@ -1878,6 +2099,7 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
         </div>
       </div>
 
+      {/* Status + Source */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
         <div className="form-select">
           <label
@@ -1885,7 +2107,7 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
               display: "block",
               fontSize: 11,
               fontWeight: 700,
-              color: "#94a3b8",
+              color: "var(--text-muted)",
               textTransform: "uppercase",
               letterSpacing: "0.06em",
               marginBottom: 7,
@@ -1906,7 +2128,7 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
                     alignItems: "center",
                     gap: 5,
                     fontWeight: 600,
-                    color: cfg.color,
+                    color: dark ? cfg.darkColor : cfg.color,
                   }}
                 >
                   {cfg.icon} {cfg.label}
@@ -1921,7 +2143,7 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
               display: "block",
               fontSize: 11,
               fontWeight: 700,
-              color: "#94a3b8",
+              color: "var(--text-muted)",
               textTransform: "uppercase",
               letterSpacing: "0.06em",
               marginBottom: 7,
@@ -1941,14 +2163,14 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
                     display: "inline-flex",
                     alignItems: "center",
                     gap: 7,
-                    color: "#475569",
+                    color: "var(--text-secondary)",
                   }}
                 >
                   <span
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      color: "#64748b",
+                      color: "var(--text-muted)",
                     }}
                   >
                     {cfg.icon}
@@ -1961,13 +2183,14 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
         </div>
       </div>
 
+      {/* Closing % */}
       <div>
         <label
           style={{
             display: "block",
             fontSize: 11,
             fontWeight: 700,
-            color: "#94a3b8",
+            color: "var(--text-muted)",
             textTransform: "uppercase",
             letterSpacing: "0.06em",
             marginBottom: 7,
@@ -1989,7 +2212,7 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
                 )
               }
               suffix={
-                <span style={{ color: pctColor(pct), fontWeight: 700 }}>%</span>
+                <span style={{ color: pb.color, fontWeight: 700 }}>%</span>
               }
             />
           </div>
@@ -2001,21 +2224,17 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
                 marginBottom: 4,
               }}
             >
-              <span
-                style={{ fontSize: 11, color: pctColor(pct), fontWeight: 700 }}
-              >
+              <span style={{ fontSize: 11, color: pb.color, fontWeight: 700 }}>
                 {pct >= 75 ? "🔥 Hot" : pct >= 40 ? "🌤 Warm" : "🧊 Cold"}
               </span>
-              <span
-                style={{ fontSize: 12, fontWeight: 700, color: pctColor(pct) }}
-              >
+              <span style={{ fontSize: 12, fontWeight: 700, color: pb.color }}>
                 {pct}%
               </span>
             </div>
             <div
               style={{
                 height: 6,
-                background: "#f1f5f9",
+                background: "var(--bg-muted)",
                 borderRadius: 99,
                 overflow: "hidden",
               }}
@@ -2024,7 +2243,7 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
                 style={{
                   height: "100%",
                   width: `${pct}%`,
-                  background: pctColor(pct),
+                  background: pb.color,
                   borderRadius: 99,
                   transition: "width 0.3s ease",
                 }}
@@ -2034,13 +2253,14 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
         </div>
       </div>
 
+      {/* Remarks */}
       <div className="form-field">
         <label
           style={{
             display: "block",
             fontSize: 11,
             fontWeight: 700,
-            color: "#94a3b8",
+            color: "var(--text-muted)",
             textTransform: "uppercase",
             letterSpacing: "0.06em",
             marginBottom: 7,
@@ -2057,13 +2277,14 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
         />
       </div>
 
+      {/* Last followup */}
       <div className="form-field">
         <label
           style={{
             display: "block",
             fontSize: 11,
             fontWeight: 700,
-            color: "#94a3b8",
+            color: "var(--text-muted)",
             textTransform: "uppercase",
             letterSpacing: "0.06em",
             marginBottom: 7,
@@ -2077,7 +2298,9 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
           onChange={(e) => set("last_followup_date", e.target.value)}
         />
         {form.last_followup_date && (
-          <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 5 }}>
+          <div
+            style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 5 }}
+          >
             {dayjs(form.last_followup_date).fromNow()}
           </div>
         )}
@@ -2096,12 +2319,12 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-            <Sparkles size={14} color="#4338ca" />
+            <Sparkles size={14} color="var(--ai-text)" />
             <span
               style={{
                 fontSize: 12,
                 fontWeight: 700,
-                color: "#4338ca",
+                color: "var(--ai-text)",
                 letterSpacing: "0.04em",
               }}
             >
@@ -2147,13 +2370,14 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
             </button>
           </div>
         </div>
+
         {aiInsights && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <p
               style={{
                 margin: 0,
                 fontSize: 13,
-                color: "#1e293b",
+                color: "var(--text-primary)",
                 lineHeight: 1.65,
               }}
             >
@@ -2163,9 +2387,9 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
               <span
                 className="insight-chip"
                 style={{
-                  background: pctBg(form.closing_percentage),
-                  border: `1px solid ${pctBord(form.closing_percentage)}`,
-                  color: pctColor(form.closing_percentage),
+                  background: pb.bg,
+                  border: `1px solid ${pb.border}`,
+                  color: pb.color,
                 }}
               >
                 <Sparkles size={10} /> {form.closing_percentage}% close
@@ -2174,12 +2398,12 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
               <span
                 className="insight-chip"
                 style={{
-                  background: STATUS_CFG[form.status]?.bg,
-                  border: `1px solid ${STATUS_CFG[form.status]?.border}`,
-                  color: STATUS_CFG[form.status]?.color,
+                  background: dark ? sc.darkBg : sc.bg,
+                  border: `1px solid ${dark ? sc.darkBorder : sc.border}`,
+                  color: dark ? sc.darkColor : sc.color,
                 }}
               >
-                {STATUS_CFG[form.status]?.label}
+                {sc.label}
               </span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -2187,7 +2411,7 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
                 style={{
                   fontSize: 10,
                   fontWeight: 700,
-                  color: "#94a3b8",
+                  color: "var(--text-muted)",
                   textTransform: "uppercase",
                   letterSpacing: "0.06em",
                 }}
@@ -2204,7 +2428,7 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
                       width: 18,
                       height: 18,
                       borderRadius: "50%",
-                      background: "#e0e7ff",
+                      background: "var(--ai-num-bg)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -2213,13 +2437,21 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
                     }}
                   >
                     <span
-                      style={{ fontSize: 9, fontWeight: 800, color: "#4338ca" }}
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 800,
+                        color: "var(--ai-text)",
+                      }}
                     >
                       {i + 1}
                     </span>
                   </div>
                   <span
-                    style={{ fontSize: 12, color: "#374151", lineHeight: 1.55 }}
+                    style={{
+                      fontSize: 12,
+                      color: "var(--text-secondary)",
+                      lineHeight: 1.55,
+                    }}
                   >
                     {action}
                   </span>
@@ -2228,6 +2460,7 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
             </div>
           </div>
         )}
+
         {followupText && (
           <div className="followup-box">
             <button className="copy-btn" onClick={handleCopy}>
@@ -2244,12 +2477,13 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
             {followupText}
           </div>
         )}
+
         {!aiInsights && !followupText && !aiLoading && (
           <p
             style={{
               margin: 0,
               fontSize: 12,
-              color: "#94a3b8",
+              color: "var(--text-muted)",
               fontStyle: "italic",
             }}
           >
@@ -2259,13 +2493,14 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
         )}
       </div>
 
+      {/* Save/Cancel */}
       <div
         style={{
           display: "flex",
           justifyContent: "flex-end",
           gap: 10,
           paddingTop: 8,
-          borderTop: "1px solid #f1f5f9",
+          borderTop: "1px solid var(--border)",
           marginTop: 4,
         }}
       >
@@ -2283,8 +2518,9 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
             borderRadius: 9,
             height: 38,
             paddingInline: 24,
-            background: "#0f172a",
+            background: "var(--text-primary)",
             border: "none",
+            color: "var(--bg-card)",
             fontWeight: 700,
             boxShadow: "0 4px 12px rgba(15,23,42,0.2)",
           }}
@@ -2297,10 +2533,10 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
 };
 
 // ── LeadsSettings ─────────────────────────────────────────────────────────
-const LeadsSettings = ({ profile, tenantId, leads }) => {
+const LeadsSettings = ({ profile, tenantId, leads, dark }) => {
   const [settings, setSettings] = useState({
     followup_reminders_enabled: false,
-    reminder_days_overdue: 7, // remind if no followup in N days
+    reminder_days_overdue: 7,
     reminder_email: profile?.email || "",
     reminder_include_ai_message: true,
     notify_hot_leads: true,
@@ -2349,7 +2585,6 @@ const LeadsSettings = ({ profile, tenantId, leads }) => {
     }
   };
 
-  // Send a test reminder email
   const sendTestEmail = async () => {
     if (!settings.reminder_email) {
       message.error("Enter a recipient email first");
@@ -2378,7 +2613,6 @@ const LeadsSettings = ({ profile, tenantId, leads }) => {
     }
   };
 
-  // Run reminders now — AI triages overdue leads, sends ONE digest email
   const runRemindersNow = async () => {
     if (!settings.reminder_email) {
       message.error("Enter a recipient email first");
@@ -2395,14 +2629,12 @@ const LeadsSettings = ({ profile, tenantId, leads }) => {
         if (!l.last_followup_date) return true;
         return l.last_followup_date <= cutoff;
       });
-
       if (!overdue.length) {
         message.info("No overdue leads found. All up to date!");
         setRunningReminders(false);
         return;
       }
 
-      // Step 1: AI triage — one call to filter which leads actually need attention
       let toNotify = overdue;
       try {
         const TRIAGE_SYSTEM = `You are a sales prioritization assistant. Given a list of overdue leads, decide which ones genuinely need a follow-up reminder. Skip leads that are clearly dead, very low priority, or where a reminder adds no value. Be selective. Respond ONLY with valid JSON: {"recommend": [<id>, ...]}`;
@@ -2440,7 +2672,6 @@ const LeadsSettings = ({ profile, tenantId, leads }) => {
         return;
       }
 
-      // Step 2: Optionally generate one AI summary for the whole digest
       let aiSummary = "";
       if (settings.reminder_include_ai_message) {
         try {
@@ -2461,7 +2692,6 @@ const LeadsSettings = ({ profile, tenantId, leads }) => {
         }
       }
 
-      // Step 3: Build one digest email
       const digestHtml = buildDigestEmail({
         leads: toNotify,
         totalOverdue: overdue.length,
@@ -2502,7 +2732,6 @@ const LeadsSettings = ({ profile, tenantId, leads }) => {
   }) => {
     const pctLabel = (v) =>
       v >= 75 ? "🔥 Hot" : v >= 40 ? "🌤 Warm" : "🧊 Cold";
-
     const leadItems = leads
       .sort((a, b) => (b.closing_percentage || 0) - (a.closing_percentage || 0))
       .map((l) => {
@@ -2511,74 +2740,38 @@ const LeadsSettings = ({ profile, tenantId, leads }) => {
           : null;
         const statusLabel = STATUS_CFG[l.status]?.label || l.status;
         const pct = l.closing_percentage || 0;
-
-        return `
-        <tr>
-          <td style="padding:14px 0;border-bottom:1px solid #f1f5f9;">
-            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
-              <div>
-                <span style="font-size:14px;font-weight:700;color:#0f172a;">
-                  ${l.icon ? l.icon + " " : ""}${l.name}
-                </span>
-                <span style="margin-left:8px;font-size:11px;font-weight:700;color:#64748b;background:#f1f5f9;padding:2px 8px;border-radius:20px;">${statusLabel}</span>
-              </div>
-              <span style="font-size:12px;font-weight:700;color:#64748b;">${pctLabel(pct)} · ${pct}%</span>
+        return `<tr><td style="padding:14px 0;border-bottom:1px solid #f1f5f9;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+            <div>
+              <span style="font-size:14px;font-weight:700;color:#0f172a;">${l.icon ? l.icon + " " : ""}${l.name}</span>
+              <span style="margin-left:8px;font-size:11px;font-weight:700;color:#64748b;background:#f1f5f9;padding:2px 8px;border-radius:20px;">${statusLabel}</span>
             </div>
-            ${l.remarks ? `<div style="margin-top:4px;font-size:12px;color:#64748b;line-height:1.5;">${l.remarks}</div>` : ""}
-            <div style="margin-top:4px;font-size:11px;color:#94a3b8;">
-              Last contact: ${daysSince !== null ? `${daysSince} days ago` : "<span style='color:#e11d48;font-weight:700;'>Never contacted</span>"}
-            </div>
-          </td>
-        </tr>`;
+            <span style="font-size:12px;font-weight:700;color:#64748b;">${pctLabel(pct)} · ${pct}%</span>
+          </div>
+          ${l.remarks ? `<div style="margin-top:4px;font-size:12px;color:#64748b;line-height:1.5;">${l.remarks}</div>` : ""}
+          <div style="margin-top:4px;font-size:11px;color:#94a3b8;">Last contact: ${daysSince !== null ? `${daysSince} days ago` : `<span style='color:#e11d48;font-weight:700;'>Never contacted</span>`}</div>
+        </td></tr>`;
       })
       .join("");
 
-    return `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/></head>
+    return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/></head>
 <body style="margin:0;padding:0;background:#f9fafb;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 20px;">
-    <tr><td align="center">
-      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
-
-        <tr><td style="padding:0 0 20px;">
-          <span style="font-size:13px;font-weight:700;color:#0f172a;">${companyName || "Resosyncer"}</span>
-        </td></tr>
-
-        <tr><td style="background:#fff;border-radius:8px;border:1px solid #e5e7eb;padding:28px 32px;">
-
-          <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;">Follow-up Digest</p>
-          <h2 style="margin:0 0 6px;font-size:20px;font-weight:800;color:#0f172a;">
-            ${leads.length} lead${leads.length !== 1 ? "s" : ""} need attention
-          </h2>
-          <p style="margin:0 0 24px;font-size:12px;color:#94a3b8;">
-            ${totalOverdue} overdue · ${leads.length} prioritized by AI · ${reminderDays}+ days without contact
-          </p>
-
-          ${
-            aiSummary
-              ? `
-          <div style="background:#f8faff;border:1px solid #e0e7ff;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
-            <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#4338ca;text-transform:uppercase;letter-spacing:0.06em;">✦ AI Summary</p>
-            <p style="margin:0;font-size:13px;color:#1e293b;line-height:1.65;">${aiSummary}</p>
-          </div>`
-              : ""
-          }
-
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tbody>${leadItems}</tbody>
-          </table>
-
-          <div style="margin-top:24px;padding-top:20px;border-top:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;">
-            <span style="font-size:11px;color:#94a3b8;">Sent by ${senderName} · ${companyName}</span>
-          </div>
-
-        </td></tr>
-      </table>
-    </td></tr>
+    <tr><td align="center"><table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+      <tr><td style="padding:0 0 20px;"><span style="font-size:13px;font-weight:700;color:#0f172a;">${companyName || "Resosyncer"}</span></td></tr>
+      <tr><td style="background:#fff;border-radius:8px;border:1px solid #e5e7eb;padding:28px 32px;">
+        <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;">Follow-up Digest</p>
+        <h2 style="margin:0 0 6px;font-size:20px;font-weight:800;color:#0f172a;">${leads.length} lead${leads.length !== 1 ? "s" : ""} need attention</h2>
+        <p style="margin:0 0 24px;font-size:12px;color:#94a3b8;">${totalOverdue} overdue · ${leads.length} prioritized by AI · ${reminderDays}+ days without contact</p>
+        ${aiSummary ? `<div style="background:#f8faff;border:1px solid #e0e7ff;border-radius:8px;padding:14px 16px;margin-bottom:24px;"><p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#4338ca;text-transform:uppercase;letter-spacing:0.06em;">✦ AI Summary</p><p style="margin:0;font-size:13px;color:#1e293b;line-height:1.65;">${aiSummary}</p></div>` : ""}
+        <table width="100%" cellpadding="0" cellspacing="0"><tbody>${leadItems}</tbody></table>
+        <div style="margin-top:24px;padding-top:20px;border-top:1px solid #f1f5f9;">
+          <span style="font-size:11px;color:#94a3b8;">Sent by ${senderName} · ${companyName}</span>
+        </div>
+      </td></tr>
+    </table></td></tr>
   </table>
-</body>
-</html>`;
+</body></html>`;
   };
 
   if (loading)
@@ -2588,50 +2781,42 @@ const LeadsSettings = ({ profile, tenantId, leads }) => {
       </div>
     );
 
+  const SettingLabel = ({ title, desc }) => (
+    <div>
+      <div
+        style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}
+      >
+        {title}
+      </div>
+      <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 3 }}>
+        {desc}
+      </div>
+    </div>
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-      {/* Section: Follow-up Reminders */}
+      {/* Follow-up Reminders */}
       <div style={{ marginBottom: 8 }}>
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            color: "#94a3b8",
-            textTransform: "uppercase",
-            letterSpacing: "0.07em",
-            marginBottom: 16,
-            paddingBottom: 10,
-            borderBottom: "1px solid #f1f5f9",
-          }}
-        >
-          Follow-up Reminders
-        </div>
+        <div className="settings-section-label">Follow-up Reminders</div>
 
-        {/* Enable toggle */}
         <div className="settings-row">
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>
-              Enable Reminders
-            </div>
-            <div style={{ fontSize: 12, color: "#64748b", marginTop: 3 }}>
-              Get notified about leads that haven't been contacted recently
-            </div>
-          </div>
+          <SettingLabel
+            title="Enable Reminders"
+            desc="Get notified about leads that haven't been contacted recently"
+          />
           <Switch
             checked={settings.followup_reminders_enabled}
             onChange={(v) => set("followup_reminders_enabled", v)}
           />
         </div>
 
-        {/* Recipient email */}
         <div className="settings-row">
           <div style={{ flex: 1, marginRight: 20 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>
-              Reminder Email
-            </div>
-            <div style={{ fontSize: 12, color: "#64748b", marginTop: 3 }}>
-              Who receives the reminder emails
-            </div>
+            <SettingLabel
+              title="Reminder Email"
+              desc="Who receives the reminder emails"
+            />
           </div>
           <Input
             value={settings.reminder_email}
@@ -2640,21 +2825,20 @@ const LeadsSettings = ({ profile, tenantId, leads }) => {
             style={{
               width: 220,
               borderRadius: 8,
-              border: "1.5px solid #e2e8f0",
+              border: "1.5px solid var(--border-strong)",
+              background: "var(--input-bg)",
+              color: "var(--text-primary)",
               fontSize: 13,
             }}
           />
         </div>
 
-        {/* Days overdue */}
         <div className="settings-row">
           <div style={{ flex: 1, marginRight: 20 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>
-              Remind After
-            </div>
-            <div style={{ fontSize: 12, color: "#64748b", marginTop: 3 }}>
-              Send reminder if no followup within this many days
-            </div>
+            <SettingLabel
+              title="Remind After"
+              desc="Send reminder if no followup within this many days"
+            />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Input
@@ -2671,34 +2855,29 @@ const LeadsSettings = ({ profile, tenantId, leads }) => {
               style={{
                 width: 72,
                 borderRadius: 8,
-                border: "1.5px solid #e2e8f0",
+                border: "1.5px solid var(--border-strong)",
+                background: "var(--input-bg)",
+                color: "var(--text-primary)",
                 fontSize: 13,
                 textAlign: "center",
               }}
             />
-            <span style={{ fontSize: 12, color: "#64748b" }}>days</span>
+            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+              days
+            </span>
           </div>
         </div>
 
-        {/* AI message */}
         <div className="settings-row">
-          <div>
-            <div
-              style={{
-                fontSize: 14,
-                fontWeight: 600,
-                color: "#0f172a",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              <Sparkles size={13} color="#4338ca" /> Include AI Suggestions
-            </div>
-            <div style={{ fontSize: 12, color: "#64748b", marginTop: 3 }}>
-              Attach an AI-generated follow-up suggestion to each reminder
-            </div>
-          </div>
+          <SettingLabel
+            title={
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Sparkles size={13} color="var(--ai-text)" /> Include AI
+                Suggestions
+              </span>
+            }
+            desc="Attach an AI-generated follow-up suggestion to each reminder"
+          />
           <Switch
             checked={settings.reminder_include_ai_message}
             onChange={(v) => set("reminder_include_ai_message", v)}
@@ -2706,32 +2885,15 @@ const LeadsSettings = ({ profile, tenantId, leads }) => {
         </div>
       </div>
 
-      {/* Section: Hot Lead Alerts */}
+      {/* Hot Lead Alerts */}
       <div style={{ marginBottom: 8 }}>
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            color: "#94a3b8",
-            textTransform: "uppercase",
-            letterSpacing: "0.07em",
-            marginBottom: 16,
-            paddingBottom: 10,
-            borderBottom: "1px solid #f1f5f9",
-          }}
-        >
-          Hot Lead Alerts
-        </div>
+        <div className="settings-section-label">Hot Lead Alerts</div>
 
         <div className="settings-row">
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>
-              Notify on Hot Leads
-            </div>
-            <div style={{ fontSize: 12, color: "#64748b", marginTop: 3 }}>
-              Send an alert when a lead crosses the hot threshold
-            </div>
-          </div>
+          <SettingLabel
+            title="Notify on Hot Leads"
+            desc="Send an alert when a lead crosses the hot threshold"
+          />
           <Switch
             checked={settings.notify_hot_leads}
             onChange={(v) => set("notify_hot_leads", v)}
@@ -2740,12 +2902,10 @@ const LeadsSettings = ({ profile, tenantId, leads }) => {
 
         <div className="settings-row">
           <div style={{ flex: 1, marginRight: 20 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>
-              Hot Lead Threshold
-            </div>
-            <div style={{ fontSize: 12, color: "#64748b", marginTop: 3 }}>
-              Leads above this closing % are considered hot 🔥
-            </div>
+            <SettingLabel
+              title="Hot Lead Threshold"
+              desc="Leads above this closing % are considered hot 🔥"
+            />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Input
@@ -2762,12 +2922,14 @@ const LeadsSettings = ({ profile, tenantId, leads }) => {
               style={{
                 width: 72,
                 borderRadius: 8,
-                border: "1.5px solid #e2e8f0",
+                border: "1.5px solid var(--border-strong)",
+                background: "var(--input-bg)",
+                color: "var(--text-primary)",
                 fontSize: 13,
                 textAlign: "center",
               }}
             />
-            <span style={{ fontSize: 12, color: "#64748b" }}>%</span>
+            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>%</span>
           </div>
         </div>
       </div>
@@ -2781,20 +2943,18 @@ const LeadsSettings = ({ profile, tenantId, leads }) => {
           gap: 12,
         }}
       >
-        {/* Run reminders now */}
         <div
+          className="settings-action-box"
           style={{
-            background: "#f8fafc",
-            border: "1px solid #e2e8f0",
-            borderRadius: 10,
-            padding: "14px 16px",
+            background: "var(--bg-subtle)",
+            border: "1px solid var(--border-strong)",
           }}
         >
           <div
             style={{
               fontSize: 13,
               fontWeight: 600,
-              color: "#0f172a",
+              color: "var(--text-primary)",
               marginBottom: 4,
             }}
           >
@@ -2803,7 +2963,7 @@ const LeadsSettings = ({ profile, tenantId, leads }) => {
           <div
             style={{
               fontSize: 12,
-              color: "#64748b",
+              color: "var(--text-muted)",
               marginBottom: 12,
               lineHeight: 1.6,
             }}
@@ -2823,9 +2983,9 @@ const LeadsSettings = ({ profile, tenantId, leads }) => {
                 fontWeight: 600,
                 fontSize: 13,
                 height: 36,
-                background: "#0f172a",
+                background: "var(--text-primary)",
                 border: "none",
-                color: "#fff",
+                color: "var(--bg-card)",
               }}
             >
               {runningReminders ? "Sending…" : "Run Now"}
@@ -2838,7 +2998,9 @@ const LeadsSettings = ({ profile, tenantId, leads }) => {
                 fontWeight: 600,
                 fontSize: 13,
                 height: 36,
-                border: "1.5px solid #e2e8f0",
+                border: "1.5px solid var(--border-strong)",
+                background: "var(--bg-card)",
+                color: "var(--text-secondary)",
               }}
             >
               Send Test Email
@@ -2852,7 +3014,7 @@ const LeadsSettings = ({ profile, tenantId, leads }) => {
             justifyContent: "flex-end",
             gap: 10,
             paddingTop: 8,
-            borderTop: "1px solid #f1f5f9",
+            borderTop: "1px solid var(--border)",
           }}
         >
           <Button
@@ -2863,8 +3025,9 @@ const LeadsSettings = ({ profile, tenantId, leads }) => {
               borderRadius: 9,
               height: 38,
               paddingInline: 24,
-              background: "#0f172a",
+              background: "var(--text-primary)",
               border: "none",
+              color: "var(--bg-card)",
               fontWeight: 700,
             }}
           >

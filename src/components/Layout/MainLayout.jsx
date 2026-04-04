@@ -1,10 +1,11 @@
-import { useState, useEffect, createContext, useContext } from "react";
+import { useState, useEffect, useRef, createContext, useContext } from "react";
 import {
   Layout,
   Menu,
   Avatar,
   Dropdown,
   Badge,
+  Popover,
   ConfigProvider,
   theme as antdTheme,
 } from "antd";
@@ -27,6 +28,7 @@ import {
   DollarOutlined,
   SunOutlined,
   MoonOutlined,
+  DownOutlined,
   CommentOutlined,
   DesktopOutlined,
   CheckOutlined,
@@ -57,19 +59,132 @@ import {
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { supabase } from "../../lib/supabase";
+import ReactCountryFlag from "country-flag-icons/react/3x2";
 
 const { Header, Sider, Content } = Layout;
 
 export const ThemeContext = createContext({ isDarkMode: false });
 export const useTheme = () => useContext(ThemeContext);
 
+const TRANSLATE_LANGUAGES = [
+  { value: "es", label: "Spanish", native: "Español", flag: "ES", country: "ES" },
+  { value: "pt", label: "Portuguese", native: "Português", flag: "PT", country: "PT" },
+  { value: "ru", label: "Russian", native: "Русский", flag: "RU", country: "RU" },
+  { value: "en", label: "English", native: "English", flag: "EN", country: "US" },
+  { value: "de", label: "German", native: "Deutsch", flag: "DE", country: "DE" },
+  { value: "ar", label: "Arabic", native: "العربية", flag: "AR", country: "SA" },
+  { value: "fr", label: "French", native: "Français", flag: "FR", country: "FR" },
+  { value: "zh-CN", label: "Chinese", native: "中文", flag: "ZH", country: "CN" },
+];
+
+const FlagMark = ({ country, width = 16, height = 12 }) => {
+  const FlagComponent = ReactCountryFlag[country];
+  if (!FlagComponent) return null;
+  return (
+    <FlagComponent
+      style={{
+        width,
+        height,
+        borderRadius: 2,
+        display: "inline-block",
+        boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.08)",
+      }}
+    />
+  );
+};
+
+const getCookieDomains = () => {
+  const host = window.location.hostname;
+  const domains = [undefined];
+  if (!host || host === "localhost" || /^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+    return domains;
+  }
+  const parts = host.split(".");
+  if (parts.length >= 2) {
+    domains.push(`.${parts.slice(-2).join(".")}`);
+  }
+  return domains;
+};
+
+const writeGoogTransCookie = (value, maxAgeSeconds) => {
+  const attrsBase = `path=/; max-age=${maxAgeSeconds}`;
+  getCookieDomains().forEach((domain) => {
+    const domainAttr = domain ? `; domain=${domain}` : "";
+    document.cookie = `googtrans=${encodeURIComponent(value)}; ${attrsBase}${domainAttr}`;
+  });
+};
+
+const clearGoogTransCookie = () => {
+  if (typeof document === "undefined") return;
+  const expires = "Thu, 01 Jan 1970 00:00:00 GMT";
+  getCookieDomains().forEach((domain) => {
+    const domainAttr = domain ? `; domain=${domain}` : "";
+    document.cookie = `googtrans=; path=/; expires=${expires}${domainAttr}`;
+    document.cookie = `googtrans=${encodeURIComponent("/en/en")}; path=/; expires=${expires}${domainAttr}`;
+  });
+};
+
+const setGoogTransCookie = (lang) => {
+  if (typeof document === "undefined") return;
+  clearGoogTransCookie();
+  if (lang === "en") return;
+  writeGoogTransCookie(`/en/${lang}`, 31536000);
+};
+
 const MainLayout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [activityItems, setActivityItems] = useState([]);
+  const [activityLoading, setActivityLoading] = useState(false);
   const [themeMode, setThemeMode] = useState(() => {
     const saved = localStorage.getItem("themeMode");
     return saved || "system";
   });
+  const [uiLanguage, setUiLanguage] = useState(() => {
+    const saved = localStorage.getItem("uiLanguage");
+    return TRANSLATE_LANGUAGES.some((l) => l.value === saved) ? saved : "en";
+  });
+  const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
+  const pendingLanguageRef = useRef(uiLanguage);
+  const translateInitRef = useRef(null);
+
+  const applyLanguageToWidget = (lang, attempt = 0) => {
+    const combo = document.querySelector(".goog-te-combo");
+    const targetValue = lang === "en" ? "" : lang;
+    if (combo) {
+      if (combo.value !== targetValue) {
+        combo.value = targetValue;
+        combo.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      return;
+    }
+    if (attempt === 0 && typeof translateInitRef.current === "function") {
+      translateInitRef.current();
+    }
+    if (attempt < 100) {
+      window.setTimeout(() => applyLanguageToWidget(lang, attempt + 1), 150);
+    }
+  };
+
+  const forceHideTranslateBanner = () => {
+    if (typeof document === "undefined") return;
+    const nodes = document.querySelectorAll(
+      "iframe.goog-te-banner-frame, .goog-te-banner-frame, .goog-te-balloon-frame, #goog-gt-tt, body > .skiptranslate",
+    );
+    nodes.forEach((node) => {
+      node.style.setProperty("display", "none", "important");
+      node.style.setProperty("visibility", "hidden", "important");
+      node.style.setProperty("height", "0", "important");
+      node.style.setProperty("min-height", "0", "important");
+    });
+    if (document.body) {
+      document.body.style.setProperty("top", "0px", "important");
+      document.body.style.setProperty("position", "static", "important");
+    }
+    if (document.documentElement) {
+      document.documentElement.style.setProperty("top", "0px", "important");
+    }
+  };
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -77,7 +192,78 @@ const MainLayout = ({ children }) => {
 
   useEffect(() => {
     localStorage.setItem("themeMode", themeMode);
+    window.dispatchEvent(
+      new CustomEvent("themeModeChanged", { detail: { themeMode } }),
+    );
   }, [themeMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const initTranslate = () => {
+      if (!window.google?.translate?.TranslateElement) return;
+      const el = document.getElementById("google_translate_element");
+      if (!el || el.dataset.initialized === "true") return;
+      // Hidden widget, we drive language changes from our own selector.
+      new window.google.translate.TranslateElement(
+        {
+          pageLanguage: "en",
+          autoDisplay: false,
+          includedLanguages: TRANSLATE_LANGUAGES.map((l) => l.value).join(","),
+        },
+        "google_translate_element",
+      );
+      el.dataset.initialized = "true";
+      const target = pendingLanguageRef.current || "en";
+      if (target !== "en") {
+        applyLanguageToWidget(target);
+      }
+    };
+    translateInitRef.current = initTranslate;
+
+    if (window.google?.translate?.TranslateElement) {
+      initTranslate();
+      return;
+    }
+
+    window.__resosyncerTranslateInit = initTranslate;
+    if (!document.getElementById("google-translate-script")) {
+      const script = document.createElement("script");
+      script.id = "google-translate-script";
+      script.src =
+        "https://translate.google.com/translate_a/element.js?cb=__resosyncerTranslateInit";
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }, []);
+
+  useEffect(() => {
+    forceHideTranslateBanner();
+    const obs = new MutationObserver(() => forceHideTranslateBanner());
+    obs.observe(document.documentElement, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["style", "class"],
+    });
+    const interval = window.setInterval(forceHideTranslateBanner, 500);
+    return () => {
+      obs.disconnect();
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("uiLanguage") || "en";
+    const savedValid = TRANSLATE_LANGUAGES.some((l) => l.value === saved);
+    const initial = savedValid ? saved : "en";
+    setUiLanguage(initial);
+    pendingLanguageRef.current = initial;
+    setGoogTransCookie(initial);
+    if (initial !== "en") {
+      applyLanguageToWidget(initial);
+    }
+  }, []);
 
   const getEffectiveTheme = () => {
     if (themeMode === "system") {
@@ -140,38 +326,143 @@ const MainLayout = ({ children }) => {
   }, [profile]);
 
   const fetchUnreadCount = async () => {
+    if (!profile?.id) {
+      setUnreadCount(0);
+      setActivityItems([]);
+      return;
+    }
+
+    setActivityLoading(true);
+
     try {
-      const { count: dmCount, error: dmError } = await supabase
+      const tenantId = profile?.tenant_id || null;
+
+      let dmUnreadQuery = supabase
         .from("messages")
-        .select("id", { count: "exact", head: true })
+        .select(
+          "id,sender_id,message,file_type,meeting_meta,created_at,sender:profiles!messages_sender_id_fkey(id,full_name,user_photo)",
+        )
         .eq("receiver_id", profile.id)
-        .eq("is_read", false);
+        .is("channel_id", null)
+        .neq("sender_id", profile.id)
+        .eq("is_read", false)
+        .order("created_at", { ascending: false });
+      if (tenantId) dmUnreadQuery = dmUnreadQuery.eq("tenant_id", tenantId);
+      const { data: dmUnreadMessages, error: dmError } = await dmUnreadQuery;
       if (dmError) throw dmError;
 
-      const { data: channelMessages, error: channelError } = await supabase
-        .from("messages")
-        .select("id")
-        .not("channel_id", "is", null)
-        .neq("sender_id", profile.id);
-      if (channelError) throw channelError;
+      const dmCount = dmUnreadMessages?.length || 0;
 
-      const messageIds = channelMessages?.map((m) => m.id) || [];
-      const { data: readStatus, error: readError } = await supabase
-        .from("message_read_status")
-        .select("message_id")
-        .eq("user_id", profile.id)
-        .in("message_id", messageIds.length > 0 ? messageIds : [""]);
-      if (readError) throw readError;
+      let channelMembershipQuery = supabase
+        .from("channel_members")
+        .select("channel_id")
+        .eq("user_id", profile.id);
+      if (tenantId) {
+        channelMembershipQuery = channelMembershipQuery.eq("tenant_id", tenantId);
+      }
+      const { data: membershipRows, error: membershipError } =
+        await channelMembershipQuery;
+      if (membershipError) throw membershipError;
 
-      const readMessageIds = new Set(
-        readStatus?.map((r) => r.message_id) || [],
+      const channelIds = Array.from(
+        new Set((membershipRows || []).map((row) => row.channel_id).filter(Boolean)),
       );
-      const unreadChannelCount =
-        channelMessages?.filter((msg) => !readMessageIds.has(msg.id)).length ||
-        0;
-      setUnreadCount((dmCount || 0) + unreadChannelCount);
+
+      let unreadChannelMessages = [];
+      let channelNameMap = {};
+
+      if (channelIds.length > 0) {
+        let channelNameQuery = supabase
+          .from("channels")
+          .select("id,name")
+          .in("id", channelIds);
+        if (tenantId) channelNameQuery = channelNameQuery.eq("tenant_id", tenantId);
+
+        let channelMessagesQuery = supabase
+          .from("messages")
+          .select(
+            "id,sender_id,channel_id,message,file_type,meeting_meta,created_at,sender:profiles!messages_sender_id_fkey(id,full_name,user_photo)",
+          )
+          .in("channel_id", channelIds)
+          .neq("sender_id", profile.id);
+        if (tenantId) channelMessagesQuery = channelMessagesQuery.eq("tenant_id", tenantId);
+
+        const [
+          { data: channelRows, error: channelRowsError },
+          { data: channelMessages, error: channelMessagesError },
+        ] = await Promise.all([channelNameQuery, channelMessagesQuery]);
+
+        if (channelRowsError) throw channelRowsError;
+        if (channelMessagesError) throw channelMessagesError;
+
+        channelNameMap = (channelRows || []).reduce((acc, row) => {
+          acc[row.id] = row.name;
+          return acc;
+        }, {});
+
+        const messageIds = (channelMessages || []).map((m) => m.id);
+        let readMessageIds = new Set();
+
+        if (messageIds.length > 0) {
+          const { data: readStatus, error: readError } = await supabase
+            .from("message_read_status")
+            .select("message_id")
+            .eq("user_id", profile.id)
+            .in("message_id", messageIds);
+          if (readError) throw readError;
+          readMessageIds = new Set((readStatus || []).map((r) => r.message_id));
+        }
+
+        unreadChannelMessages = (channelMessages || []).filter(
+          (msg) => !readMessageIds.has(msg.id),
+        );
+      }
+
+      const makePreviewText = (msg) => {
+        const text = msg?.message?.trim();
+        if (text) return text;
+        if (msg?.meeting_meta?.type) {
+          return msg.meeting_meta.type === "video"
+            ? "Started a video call"
+            : "Started an audio call";
+        }
+        if (msg?.file_type === "voice") return "Voice message";
+        if (msg?.file_type === "image") return "Image";
+        if (msg?.file_type === "video") return "Video";
+        if (msg?.file_type) return "File";
+        return "New message";
+      };
+
+      const dmItems = (dmUnreadMessages || []).map((msg) => ({
+        id: `dm-${msg.id}`,
+        senderName: msg.sender?.full_name || "Unknown user",
+        senderPhoto: msg.sender?.user_photo || null,
+        preview: makePreviewText(msg),
+        createdAt: msg.created_at,
+        scopeLabel: "Direct message",
+      }));
+
+      const channelItems = unreadChannelMessages.map((msg) => ({
+        id: `ch-${msg.id}`,
+        senderName: msg.sender?.full_name || "Unknown user",
+        senderPhoto: msg.sender?.user_photo || null,
+        preview: makePreviewText(msg),
+        createdAt: msg.created_at,
+        scopeLabel: `#${channelNameMap[msg.channel_id] || "channel"}`,
+      }));
+
+      const previewItems = [...dmItems, ...channelItems]
+        .sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        )
+        .slice(0, 6);
+
+      setActivityItems(previewItems);
+      setUnreadCount(dmCount + unreadChannelMessages.length);
     } catch (error) {
       console.error("Error fetching unread count:", error);
+    } finally {
+      setActivityLoading(false);
     }
   };
 
@@ -192,9 +483,15 @@ const MainLayout = ({ children }) => {
     "/training-material": { icon: <ReadOutlined />, label: "Training" },
     "/documents": { icon: <FolderOutlined />, label: "Documents" },
     "/communication": { icon: <MessageOutlined />, label: "Communication" },
+    "/support": {
+      icon: <CustomerServiceOutlined />,
+      label: "Customer Support",
+    },
+    "/report-problem": { icon: <AlertOutlined />, label: "Report a Problem" },
     "/subscription": { icon: <CreditCardOutlined />, label: "Subscription" },
     "/settings": { icon: <SettingOutlined />, label: "Settings" },
   };
+  const ALWAYS_VISIBLE_ADMIN_ROUTES = new Set(["/support", "/report-problem"]);
 
   const ADMIN_GROUPS = [
     {
@@ -228,6 +525,11 @@ const MainLayout = ({ children }) => {
         "/settings",
       ],
     },
+    {
+      key: "support",
+      label: "Support",
+      routes: ["/support", "/report-problem"],
+    },
   ];
 
   const getMenuItems = () => {
@@ -246,6 +548,11 @@ const MainLayout = ({ children }) => {
             label: "Subscription Plans",
           },
           { key: "/discounts", icon: <BankOutlined />, label: "Discounts" },
+          {
+            key: "/support",
+            icon: <CustomerServiceOutlined />,
+            label: "Support",
+          },
         ],
       },
       {
@@ -301,7 +608,12 @@ const MainLayout = ({ children }) => {
 
     const adminMenuItems = ADMIN_GROUPS.map((group) => {
       const children = group.routes
-        .filter((route) => !adminPermissions || adminPermissions.has(route))
+        .filter(
+          (route) =>
+            !adminPermissions ||
+            adminPermissions.has(route) ||
+            ALWAYS_VISIBLE_ADMIN_ROUTES.has(route),
+        )
         .map((route) => ({
           key: route,
           icon: ALL_ADMIN_ROUTES[route].icon,
@@ -354,6 +666,18 @@ const MainLayout = ({ children }) => {
           { key: "/settings", icon: <SettingOutlined />, label: "Profile" },
         ],
       },
+      {
+        key: "support",
+        type: "group",
+        label: collapsed ? null : "Support",
+        children: [
+          {
+            key: "/report-problem",
+            icon: <AlertOutlined />,
+            label: "Report a Problem",
+          }
+        ],
+      },
     ];
 
     // ── Employee menu ─────────────────────────────────────────────────────────
@@ -393,6 +717,11 @@ const MainLayout = ({ children }) => {
             icon: <MessageOutlined />,
             label: "Communication",
           },
+          {
+            key: "/report-problem",
+            icon: <AlertOutlined />,
+            label: "Report a Problem",
+          },
         ],
       },
       {
@@ -428,6 +757,27 @@ const MainLayout = ({ children }) => {
   const handleSignOut = async () => {
     await signOut();
     navigate("/signin");
+  };
+
+  const applyLanguage = (lang) => {
+    if (lang === uiLanguage) return;
+    setUiLanguage(lang);
+    localStorage.setItem("uiLanguage", lang);
+    pendingLanguageRef.current = lang;
+    setGoogTransCookie(lang);
+    if (lang === "en") {
+      const combo = document.querySelector(".goog-te-combo");
+      if (combo) {
+        combo.value = "";
+        combo.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      document.body?.classList.remove("translated-ltr", "translated-rtl");
+      document.documentElement?.removeAttribute("lang");
+    } else {
+      applyLanguageToWidget(lang);
+    }
+    forceHideTranslateBanner();
+    window.location.reload();
   };
 
   const isSuperadmin = profile?.role === "superadmin";
@@ -515,6 +865,8 @@ const MainLayout = ({ children }) => {
     "/training-material": "Training",
     "/documents": "Documents",
     "/communication": "Communication",
+    "/support": "Support",
+    "/report-problem": "Report a Problem",
     "/letters": "Letters",
     "/profile": "Profile",
     "/settings": "Settings",
@@ -620,12 +972,196 @@ const MainLayout = ({ children }) => {
     },
   ];
 
+  const currentLanguage =
+    TRANSLATE_LANGUAGES.find((lang) => lang.value === uiLanguage) ||
+    TRANSLATE_LANGUAGES.find((lang) => lang.value === "en") ||
+    TRANSLATE_LANGUAGES[0];
+  const languageMenuItems = TRANSLATE_LANGUAGES.map((lang) => ({
+    key: lang.value,
+    label: (
+      <span className="rs-lang-option">
+        <span className="rs-lang-option-flag">
+          <FlagMark country={lang.country} width={30} height={20} />
+        </span>
+        <span className="rs-lang-option-main">
+          <span className="rs-lang-option-name">{lang.label}</span>
+          <span className="rs-lang-option-code">({lang.flag})</span>
+        </span>
+        {uiLanguage === lang.value && (
+          <span className="rs-lang-option-check">
+            <CheckOutlined style={{ fontSize: 11 }} />
+          </span>
+        )}
+      </span>
+    ),
+  }));
+
   const SIDER_WIDTH = 232;
   const SIDER_COLLAPSED = 64;
   const isMobile = window.innerWidth < 768;
+  const formatActivityTime = (timestamp) => {
+    if (!timestamp) return "";
+    const diffMs = Date.now() - new Date(timestamp).getTime();
+    if (Number.isNaN(diffMs)) return "";
+    const minutes = Math.max(0, Math.floor(diffMs / 60000));
+    if (minutes < 1) return "now";
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days}d`;
+    return new Date(timestamp).toLocaleDateString();
+  };
+  const activityPopoverContent = (
+    <div style={{ width: 336, maxWidth: "calc(100vw - 24px)" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "10px 12px",
+          borderBottom: `1px solid ${t.border}`,
+        }}
+      >
+        <span style={{ fontSize: 12.5, fontWeight: 620, color: t.text }}>
+          Unread messages
+        </span>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: t.activeText,
+            background: t.activeItem,
+            borderRadius: 999,
+            padding: "2px 8px",
+          }}
+        >
+          {unreadCount}
+        </span>
+      </div>
+
+      <div style={{ maxHeight: 320, overflowY: "auto", padding: "6px" }}>
+        {activityLoading ? (
+          <div style={{ padding: "12px 10px", fontSize: 12.5, color: t.textSub }}>
+            Loading unread activity...
+          </div>
+        ) : activityItems.length === 0 ? (
+          <div style={{ padding: "12px 10px", fontSize: 12.5, color: t.textSub }}>
+            No unread messages
+          </div>
+        ) : (
+          activityItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => navigate("/communication")}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 10,
+                textAlign: "left",
+                border: "none",
+                background: "transparent",
+                borderRadius: 8,
+                padding: "8px",
+                cursor: "pointer",
+              }}
+            >
+              <Avatar
+                size={32}
+                src={item.senderPhoto}
+                icon={<UserOutlined />}
+                style={{ flexShrink: 0, border: `1px solid ${t.border}` }}
+              />
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 12.5,
+                      fontWeight: 610,
+                      color: t.text,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {item.senderName}
+                  </span>
+                  <span style={{ fontSize: 11, color: t.textMuted, flexShrink: 0 }}>
+                    {formatActivityTime(item.createdAt)}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    marginTop: 2,
+                    fontSize: 10.5,
+                    fontWeight: 650,
+                    color: t.activeText,
+                    letterSpacing: "0.03em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {item.scopeLabel}
+                </div>
+                <div
+                  style={{
+                    marginTop: 3,
+                    fontSize: 12,
+                    color: t.textSub,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {item.preview}
+                </div>
+              </div>
+            </button>
+          ))
+        )}
+      </div>
+
+      <div style={{ padding: "8px", borderTop: `1px solid ${t.border}` }}>
+        <button
+          onClick={() => navigate("/communication")}
+          style={{
+            width: "100%",
+            border: `1px solid ${t.border}`,
+            background: t.surface,
+            color: t.text,
+            borderRadius: 8,
+            height: 32,
+            fontSize: 12.5,
+            fontWeight: 580,
+            cursor: "pointer",
+          }}
+        >
+          Open Communication
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <ThemeContext.Provider value={{ isDarkMode }}>
+      <div
+        id="google_translate_element"
+        style={{
+          position: "fixed",
+          left: "-9999px",
+          top: "-9999px",
+          width: 0,
+          height: 0,
+          overflow: "hidden",
+        }}
+      />
       {/* Google Font: Geist */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap');
@@ -633,6 +1169,24 @@ const MainLayout = ({ children }) => {
         *, *::before, *::after { box-sizing: border-box; }
 
         body { background: ${t.bg} !important; }
+        body { top: 0 !important; }
+        iframe.goog-te-banner-frame,
+        iframe.goog-te-banner-frame.skiptranslate,
+        .goog-te-banner-frame,
+        .goog-te-balloon-frame,
+        body > .skiptranslate,
+        #goog-gt-tt {
+          display: none !important;
+          visibility: hidden !important;
+          height: 0 !important;
+        }
+        .goog-text-highlight {
+          background-color: transparent !important;
+          box-shadow: none !important;
+        }
+        html[lang] body {
+          top: 0 !important;
+        }
 
         /* ── Scrollbar ── */
         ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -691,6 +1245,168 @@ const MainLayout = ({ children }) => {
         /* ── Hover utility ── */
         .rs-icon-btn:hover { background: ${t.hover} !important; }
         .rs-user-btn:hover { background: ${t.hover} !important; }
+
+        /* ── Language selector ── */
+        .rs-lang-btn {
+          height: 36px;
+          min-width: 36px;
+          border: 1px solid ${isDarkMode ? "#355a88" : "#9ec5ff"};
+          background: ${isDarkMode ? "#151b22" : "#f8fbff"};
+          border-radius: 10px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 0 ${isMobile ? "8px" : "10px"};
+          cursor: pointer;
+          transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+          color: ${t.textSub};
+          box-shadow: 0 0 0 1px ${isDarkMode ? "rgba(65,140,225,0.25)" : "rgba(64,132,220,0.15)"}, 0 8px 24px ${isDarkMode ? "rgba(0,0,0,0.32)" : "rgba(24,84,150,0.14)"};
+        }
+        .rs-lang-btn:hover {
+          border-color: ${isDarkMode ? "#53a4ff" : "#4b9bff"};
+          box-shadow: 0 0 0 3px ${isDarkMode ? "rgba(83,164,255,0.22)" : "rgba(75,155,255,0.2)"}, 0 10px 28px ${isDarkMode ? "rgba(0,0,0,0.35)" : "rgba(24,84,150,0.18)"};
+          transform: translateY(-1px);
+        }
+        .rs-lang-btn.open { border-color: ${isDarkMode ? "#53a4ff" : "#4b9bff"}; }
+        .rs-lang-current {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          max-width: ${isMobile ? "84px" : "152px"};
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .rs-lang-current-flag {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 22px;
+          height: 22px;
+          border-radius: 999px;
+          overflow: hidden;
+          border: 1px solid ${isDarkMode ? "#2d3a48" : "#cfe0f6"};
+          box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+          flex-shrink: 0;
+        }
+        .rs-lang-current-main {
+          display: inline-flex;
+          align-items: baseline;
+          gap: 6px;
+          min-width: 0;
+        }
+        .rs-lang-current-name {
+          font-size: 12px;
+          font-weight: 540;
+          color: ${t.text};
+          max-width: 104px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .rs-lang-current-code {
+          font-size: 10px;
+          color: ${t.textMuted};
+          opacity: .9;
+          max-width: 44px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .rs-lang-current-mobile {
+          font-size: 10px;
+          font-weight: 700;
+          color: ${t.text};
+        }
+        .rs-lang-caret {
+          color: ${isDarkMode ? "#8ea8c5" : "#5f748f"};
+          font-size: 10px;
+          display: inline-flex;
+          transition: transform .16s ease;
+        }
+        .rs-lang-btn.open .rs-lang-caret { transform: rotate(180deg); }
+        .rs-lang-dropdown {
+          min-width: 214px;
+        }
+        .rs-lang-dropdown .ant-dropdown-menu {
+          padding: 6px !important;
+          border-radius: 10px !important;
+          background: ${isDarkMode ? "#151b22" : "#f8fbff"} !important;
+          border-color: ${isDarkMode ? "#253142" : "#cfe0f6"} !important;
+          box-shadow: 0 20px 36px ${isDarkMode ? "rgba(0,0,0,0.35)" : "rgba(29,84,145,0.18)"} !important;
+        }
+        .rs-lang-dropdown .ant-dropdown-menu-item {
+          padding: 7px 8px !important;
+          border-radius: 8px !important;
+          margin: 2px !important;
+        }
+        .rs-lang-dropdown .ant-dropdown-menu-item:hover {
+          background: ${isDarkMode ? "#1d2632" : "#eaf3ff"} !important;
+        }
+        .rs-lang-dropdown .ant-dropdown-menu-item-active,
+        .rs-lang-dropdown .ant-dropdown-menu-item-selected {
+          background: ${isDarkMode ? "#1f2f43" : "#e1eeff"} !important;
+        }
+        .rs-lang-option {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+        }
+        .rs-lang-option-flag {
+          width: 22px;
+          height: 22px;
+          border-radius: 999px;
+          border: 1px solid ${isDarkMode ? "#2d3a48" : "#cfe0f6"};
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          overflow: hidden;
+          background: ${isDarkMode ? "#121821" : "#ffffff"};
+        }
+        .rs-lang-option-main {
+          display: inline-flex;
+          align-items: baseline;
+          gap: 6px;
+          min-width: 0;
+          flex: 1;
+        }
+        .rs-lang-option-name {
+          font-size: 12px;
+          font-weight: 530;
+          color: ${t.text};
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .rs-lang-option-code {
+          font-size: 10px;
+          color: ${t.textMuted};
+          opacity: .9;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .rs-lang-option-check {
+          width: 14px;
+          height: 14px;
+          border-radius: 999px;
+          background: ${isDarkMode ? "rgba(83,164,255,0.18)" : "rgba(75,155,255,0.18)"};
+          color: ${isDarkMode ? "#7ec0ff" : "#2e82f2"};
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          box-shadow: inset 0 0 0 1px ${isDarkMode ? "rgba(126,192,255,0.35)" : "rgba(46,130,242,0.25)"};
+        }
+        .rs-activity-popover .ant-popover-inner {
+          padding: 0 !important;
+          border-radius: 12px !important;
+          background: ${t.surfaceRaised} !important;
+          border: 1px solid ${t.border} !important;
+          box-shadow: ${t.shadow} !important;
+          overflow: hidden;
+        }
+        .rs-activity-popover .ant-popover-inner-content {
+          padding: 0 !important;
+        }
 
         /* ── Ant dropdown tweaks ── */
         .ant-dropdown-menu {
@@ -769,26 +1485,25 @@ const MainLayout = ({ children }) => {
             >
               <div
                 style={{
-                  width: "28px",
-                  height: "28px",
+                  width: "18px",
+                  height: "18px",
                   flexShrink: 0,
-                  borderRadius: "8px",
-                  background: t.accent,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  overflow: "hidden",
                 }}
               >
-                <span
+                <img
+                  src={isDarkMode ? "/Ryzent1.png" : "/Ryzent.png"}
+                  alt="Ryzent"
                   style={{
-                    color: "#fff",
-                    fontWeight: "700",
-                    fontSize: "13px",
-                    letterSpacing: "-0.5px",
+                    width: "18px",
+                    height: "18px",
+                    objectFit: "cover",
+                    display: "block",
                   }}
-                >
-                  R
-                </span>
+                />
               </div>
 
               {!collapsed && (
@@ -801,7 +1516,7 @@ const MainLayout = ({ children }) => {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  Resosyncer
+                  Ryzent
                 </span>
               )}
             </div>
@@ -902,6 +1617,39 @@ const MainLayout = ({ children }) => {
               <div
                 style={{ display: "flex", alignItems: "center", gap: "2px" }}
               >
+                <Dropdown
+                  menu={{
+                    items: languageMenuItems,
+                    onClick: ({ key }) => applyLanguage(String(key)),
+                  }}
+                  placement="bottomRight"
+                  trigger={["click"]}
+                  overlayClassName="rs-lang-dropdown"
+                  onOpenChange={setIsLangDropdownOpen}
+                >
+                  <button
+                    className={`rs-lang-btn${isLangDropdownOpen ? " open" : ""}`}
+                    style={{ marginRight: 8 }}
+                    aria-label={`Language selector. Current language ${currentLanguage.label}`}
+                  >
+                    <span className="rs-lang-current">
+                      <span className="rs-lang-current-flag" aria-hidden="true">
+                        <FlagMark country={currentLanguage.country} width={30} height={20} />
+                      </span>
+                      {!isMobile && (
+                        <span className="rs-lang-current-main">
+                          <span className="rs-lang-current-name">{currentLanguage.label}</span>
+                          <span className="rs-lang-current-code">({currentLanguage.flag})</span>
+                        </span>
+                      )}
+                      {isMobile && <span className="rs-lang-current-mobile">{currentLanguage.flag}</span>}
+                    </span>
+                    <span className="rs-lang-caret">
+                      <DownOutlined />
+                    </span>
+                  </button>
+                </Dropdown>
+
                 {/* Theme */}
                 <Dropdown
                   menu={{ items: themeMenuItems }}
@@ -937,29 +1685,59 @@ const MainLayout = ({ children }) => {
                 </Dropdown>
 
                 {/* Bell */}
-                <Badge count={unreadCount} size="small" offset={[-2, 2]}>
-                  <button
-                    className="rs-icon-btn"
-                    onClick={() =>
-                      navigate(isSuperadmin ? "/alerts" : "/communication")
-                    }
-                    style={{
-                      width: "32px",
-                      height: "32px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      borderRadius: "7px",
-                      border: "none",
-                      background: "transparent",
-                      cursor: "pointer",
-                      color: t.textSub,
-                      transition: "background 0.15s",
-                    }}
+                {isSuperadmin ? (
+                  <Badge count={unreadCount} size="small" offset={[-2, 2]}>
+                    <button
+                      className="rs-icon-btn"
+                      onClick={() => navigate("/alerts")}
+                      style={{
+                        width: "32px",
+                        height: "32px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderRadius: "7px",
+                        border: "none",
+                        background: "transparent",
+                        cursor: "pointer",
+                        color: t.textSub,
+                        transition: "background 0.15s",
+                      }}
+                    >
+                      <BellOutlined style={{ fontSize: "15px" }} />
+                    </button>
+                  </Badge>
+                ) : (
+                  <Popover
+                    content={activityPopoverContent}
+                    trigger={["hover"]}
+                    placement="bottomRight"
+                    overlayClassName="rs-activity-popover"
+                    mouseEnterDelay={0.12}
                   >
-                    <BellOutlined style={{ fontSize: "15px" }} />
-                  </button>
-                </Badge>
+                    <Badge count={unreadCount} size="small" offset={[-2, 2]}>
+                      <button
+                        className="rs-icon-btn"
+                        onClick={() => navigate("/communication")}
+                        style={{
+                          width: "32px",
+                          height: "32px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderRadius: "7px",
+                          border: "none",
+                          background: "transparent",
+                          cursor: "pointer",
+                          color: t.textSub,
+                          transition: "background 0.15s",
+                        }}
+                      >
+                        <BellOutlined style={{ fontSize: "15px" }} />
+                      </button>
+                    </Badge>
+                  </Popover>
+                )}
 
                 {/* Divider */}
                 <div
@@ -1060,3 +1838,5 @@ const MainLayout = ({ children }) => {
 };
 
 export default MainLayout;
+
+

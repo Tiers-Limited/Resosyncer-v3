@@ -82,6 +82,13 @@ const { Option } = Select;
 const GROQ_API_KEY = import.meta.env.VITE_GROK_API_KEY;
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
+const getIsDarkTheme = () => {
+  const mode = localStorage.getItem("themeMode") || "system";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
+
 // ─────────────────────────────────────────────────────────────
 // HIERARCHY
 // ─────────────────────────────────────────────────────────────
@@ -332,6 +339,151 @@ Respond ONLY with valid JSON: {"priority":"low|medium|high|urgent","story_points
   }
 };
 
+const PLAN_PRIORITY = new Set(["low", "medium", "high", "urgent"]);
+const PLAN_STATUS = new Set(["open", "in_progress", "completed", "closed"]);
+const PLAN_TYPE = new Set(["epic", "story", "task", "bug", "subtask"]);
+const PLAN_POINTS = new Set([0, 1, 2, 3, 5, 8, 13, 21]);
+
+const readFileAsText = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(String(e.target?.result || ""));
+    reader.onerror = () => reject(new Error("Could not read selected file."));
+    reader.readAsText(file);
+  });
+
+const readFileAsArrayBuffer = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target?.result);
+    reader.onerror = () => reject(new Error("Could not read selected file."));
+    reader.readAsArrayBuffer(file);
+  });
+
+const readPlannerFileText = async (file) => {
+  const ext = (file?.name || "").toLowerCase().split(".").pop();
+  const textFormats = new Set(["txt", "md", "json", "csv"]);
+  const binaryFormats = new Set(["pdf", "doc", "docx"]);
+  const allowed = new Set([...textFormats, ...binaryFormats]);
+
+  if (!allowed.has(ext)) {
+    throw new Error(
+      "Unsupported file. Use md, pdf, doc, docx, txt, json, or csv for AI planning.",
+    );
+  }
+
+  if (textFormats.has(ext)) {
+    return await readFileAsText(file);
+  }
+
+  const raw = await readFileAsArrayBuffer(file);
+  const bytes = raw instanceof ArrayBuffer ? new Uint8Array(raw) : new Uint8Array();
+  const preview = new TextDecoder("utf-8", { fatal: false })
+    .decode(bytes.slice(0, Math.min(bytes.length, 1600)))
+    .replace(/[^\x09\x0A\x0D\x20-\x7E]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return [
+    `File Name: ${file.name}`,
+    `File Type: ${ext.toUpperCase()}`,
+    `File Size: ${Math.round((file.size || 0) / 1024)} KB`,
+    preview ? `Extracted Preview: ${preview}` : "Extracted Preview: unavailable (binary file).",
+  ].join("\n");
+};
+
+const normalizeAiPlan = (rawPlan) => {
+  const rawSprints = Array.isArray(rawPlan?.sprints) ? rawPlan.sprints : [];
+  const rawTickets = Array.isArray(rawPlan?.tickets) ? rawPlan.tickets : [];
+
+  const sprints = rawSprints
+    .map((s, i) => ({
+      name: String(s?.name || `Sprint ${i + 1}`).slice(0, 120),
+      goal: s?.goal ? String(s.goal).slice(0, 600) : null,
+      status: s?.status === "active" || s?.status === "completed" ? s.status : "planning",
+      start_date: s?.start_date || null,
+      end_date: s?.end_date || null,
+    }))
+    .filter((s) => s.name.trim().length > 0);
+
+  const tickets = rawTickets
+    .map((t, i) => {
+      const type = PLAN_TYPE.has(t?.ticket_type) ? t.ticket_type : "task";
+      const status = PLAN_STATUS.has(t?.status) ? t.status : "open";
+      const priority = PLAN_PRIORITY.has(t?.priority) ? t.priority : "medium";
+      const storyPoints = PLAN_POINTS.has(Number(t?.story_points))
+        ? Number(t.story_points)
+        : 0;
+      return {
+        key: String(t?.key || `T${i + 1}`).slice(0, 40),
+        title: String(t?.title || "").trim().slice(0, 240),
+        description: t?.description ? String(t.description).slice(0, 3000) : "",
+        ticket_type: type,
+        status,
+        priority,
+        story_points: storyPoints,
+        sprint_name: t?.sprint_name ? String(t.sprint_name).trim() : null,
+        parent_key: t?.parent_key ? String(t.parent_key).trim() : null,
+      };
+    })
+    .filter((t) => t.title.length > 0);
+
+  return { sprints, tickets };
+};
+
+const generateProjectPlanWithAI = async ({ projectName, brief, extraText }) => {
+  const systemPrompt = `You are a senior Agile delivery lead.
+Create a precise execution plan for software delivery.
+Respond ONLY JSON with this schema:
+{
+  "sprints":[
+    {"name":"Sprint 1","goal":"...","status":"planning|active|completed","start_date":"YYYY-MM-DD or null","end_date":"YYYY-MM-DD or null"}
+  ],
+  "tickets":[
+    {"key":"E1","title":"...","description":"...","ticket_type":"epic|story|task|bug|subtask","status":"open|in_progress|completed|closed","priority":"low|medium|high|urgent","story_points":0|1|2|3|5|8|13|21,"sprint_name":"Sprint 1 or null","parent_key":"E1 or null"}
+  ]
+}
+Rules:
+- Include 2-4 sprints when project scope is medium/large, otherwise 1-2.
+- Tickets must be actionable and implementation-ready.
+- Use epics/stories/tasks hierarchy when appropriate.
+- Use parent_key only when parent exists in tickets key list.
+- Backlog items can have sprint_name null.
+- Keep titles concise and unambiguous.`;
+
+  const res = await fetch(GROQ_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${GROQ_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: `Project: ${projectName}\nBrief:\n${brief}\n\nReference Material:\n${extraText || "None"}`,
+        },
+      ],
+      temperature: 0.2,
+      max_tokens: 2200,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || "AI planning request failed");
+  }
+
+  const data = await res.json();
+  let text = data?.choices?.[0]?.message?.content || "";
+  text = text.replace(/^```json/i, "").replace(/^```/i, "").replace(/```$/, "").trim();
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  const parsed = JSON.parse((jsonMatch ? jsonMatch[0] : text).trim());
+  return normalizeAiPlan(parsed);
+};
+
 // ─────────────────────────────────────────────────────────────
 // SUB-COMPONENTS
 // ─────────────────────────────────────────────────────────────
@@ -483,8 +635,14 @@ const TypeChip = ({ type, size = "normal" }) => {
   );
 };
 
-const StatusBadge = ({ status }) => {
+const StatusBadge = ({ status, dark = false }) => {
   const s = TICKET_STATUS.find((x) => x.key === status) || TICKET_STATUS[0];
+  const darkStatus = {
+    open: { bg: "#273141", border: "#3c4b61", color: "#cbd5e1" },
+    in_progress: { bg: "#1f3a66", border: "#2d5189", color: "#93c5fd" },
+    completed: { bg: "#1f3a2f", border: "#2f5a46", color: "#86efac" },
+    closed: { bg: "#2b2f39", border: "#3f4654", color: "#c4c9d4" },
+  }[s.key];
   return (
     <span
       style={{
@@ -492,9 +650,9 @@ const StatusBadge = ({ status }) => {
         fontWeight: 600,
         padding: "2px 8px",
         borderRadius: 3,
-        color: s.color,
-        background: s.bg,
-        border: `1px solid ${s.border}`,
+        color: dark ? darkStatus?.color || "#d1d5db" : s.color,
+        background: dark ? darkStatus?.bg || "#2b2f39" : s.bg,
+        border: `1px solid ${dark ? darkStatus?.border || "#3f4654" : s.border}`,
       }}
     >
       {s.label}
@@ -509,6 +667,7 @@ const SkeletonPulse = ({
   width = "100%",
   height = 16,
   borderRadius = 4,
+  dark = false,
   style = {},
 }) => (
   <div
@@ -516,7 +675,9 @@ const SkeletonPulse = ({
       width,
       height,
       borderRadius,
-      background: "linear-gradient(90deg,#f0f2f5 25%,#e4e8ed 50%,#f0f2f5 75%)",
+      background: dark
+        ? "linear-gradient(90deg,#22252d 25%,#2d313b 50%,#22252d 75%)"
+        : "linear-gradient(90deg,#f0f2f5 25%,#e4e8ed 50%,#f0f2f5 75%)",
       backgroundSize: "200% 100%",
       animation: "skeletonShimmer 1.4s ease-in-out infinite",
       ...style,
@@ -524,11 +685,12 @@ const SkeletonPulse = ({
   />
 );
 
-const SkeletonBoard = () => (
+const SkeletonBoard = ({ dark = false }) => (
   <div>
     {[1, 2].map((i) => (
       <div key={i} style={{ marginBottom: 28 }}>
         <SkeletonPulse
+          dark={dark}
           height={52}
           borderRadius={8}
           style={{ marginBottom: 10 }}
@@ -537,6 +699,7 @@ const SkeletonBoard = () => (
           {[1, 2, 3, 4].map((j) => (
             <div key={j} style={{ flex: 1, minWidth: 0 }}>
               <SkeletonPulse
+                dark={dark}
                 height={36}
                 borderRadius={4}
                 style={{ marginBottom: 8 }}
@@ -544,6 +707,7 @@ const SkeletonBoard = () => (
               {[1, 2, 3].map((k) => (
                 <SkeletonPulse
                   key={k}
+                  dark={dark}
                   height={52}
                   borderRadius={6}
                   style={{ marginBottom: 4 }}
@@ -557,23 +721,23 @@ const SkeletonBoard = () => (
   </div>
 );
 
-const SkeletonBacklog = () => (
+const SkeletonBacklog = ({ dark = false }) => (
   <div
     style={{
-      background: "#fff",
+      background: dark ? "#1a1b1f" : "#fff",
       borderRadius: 8,
-      border: "1px solid #dde3ec",
+      border: dark ? "1px solid #2a2d36" : "1px solid #dde3ec",
       overflow: "hidden",
     }}
   >
     <div
       style={{
         padding: "10px 14px",
-        borderBottom: "1px solid #f1f2f4",
-        background: "#fafafa",
+        borderBottom: dark ? "1px solid #2a2d36" : "1px solid #f1f2f4",
+        background: dark ? "#17181c" : "#fafafa",
       }}
     >
-      <SkeletonPulse width={120} height={18} />
+      <SkeletonPulse dark={dark} width={120} height={18} />
     </div>
     {[1, 2, 3, 4, 5, 6].map((i) => (
       <div
@@ -583,15 +747,15 @@ const SkeletonBacklog = () => (
           alignItems: "center",
           gap: 10,
           padding: "12px 14px",
-          borderBottom: "1px solid #f8fafc",
+          borderBottom: dark ? "1px solid #242833" : "1px solid #f8fafc",
         }}
       >
-        <SkeletonPulse width={12} height={12} borderRadius={2} />
-        <SkeletonPulse width={60} height={18} borderRadius={3} />
-        <SkeletonPulse height={14} style={{ flex: 1 }} />
-        <SkeletonPulse width={55} height={18} borderRadius={3} />
-        <SkeletonPulse width={55} height={18} borderRadius={3} />
-        <SkeletonPulse width={24} height={24} borderRadius="50%" />
+        <SkeletonPulse dark={dark} width={12} height={12} borderRadius={2} />
+        <SkeletonPulse dark={dark} width={60} height={18} borderRadius={3} />
+        <SkeletonPulse dark={dark} height={14} style={{ flex: 1 }} />
+        <SkeletonPulse dark={dark} width={55} height={18} borderRadius={3} />
+        <SkeletonPulse dark={dark} width={55} height={18} borderRadius={3} />
+        <SkeletonPulse dark={dark} width={24} height={24} borderRadius="50%" />
       </div>
     ))}
   </div>
@@ -2017,8 +2181,23 @@ const GroupedKanbanColumn = ({
   onDrop,
   onDelete,
   projectAssignees,
+  dark = false,
 }) => {
   const [isOver, setIsOver] = useState(false);
+  const columnHeaderBgByKey = dark
+    ? {
+        open: "#23262f",
+        in_progress: "#1f2a3d",
+        completed: "#1d332b",
+        closed: "#262933",
+      }
+    : {};
+  const cardBg = dark ? "#181a20" : "#fff";
+  const cardBorder = dark ? "#2a2d36" : "#e5e7eb";
+  const hoverBg = dark ? "#21242d" : "#f8fafc";
+  const textColor = dark ? "#e5e7eb" : "#172b4d";
+  const mutedBg = dark ? "#262a33" : "#f1f2f4";
+  const mutedText = dark ? "#a9afbd" : "#626f86";
 
   // Stories visible in this column
   const stories = tickets.filter((t) => t.ticket_type === "story");
@@ -2079,8 +2258,8 @@ const GroupedKanbanColumn = ({
           padding: "7px 10px",
           borderRadius: 4,
           marginBottom: 8,
-          background: col.headerBg,
-          border: `1px solid ${col.border}`,
+          background: dark ? columnHeaderBgByKey[col.key] || "#23262f" : col.headerBg,
+          border: `1px solid ${dark ? "#333744" : col.border}`,
         }}
       >
         <div
@@ -2126,7 +2305,11 @@ const GroupedKanbanColumn = ({
           border: isOver
             ? `2px dashed ${col.color}60`
             : "2px dashed transparent",
-          background: isOver ? `${col.bg}` : undefined,
+          background: isOver
+            ? dark
+              ? "rgba(37, 99, 235, 0.12)"
+              : `${col.bg}`
+            : undefined,
           transition: "all .15s",
           padding: "0 0 4px",
         }}
@@ -2151,15 +2334,17 @@ const GroupedKanbanColumn = ({
               onDragEnd={onDragEnd}
               style={{
                 marginBottom: 4,
-                background: "#fff",
+                background: cardBg,
                 borderRadius: 6,
                 border: groupDragging
                   ? `2px solid ${TICKET_TYPE.story.color}60`
-                  : "1px solid #e5e7eb",
+                  : `1px solid ${cardBorder}`,
                 overflow: "hidden",
                 boxShadow: groupDragging
                   ? `0 8px 24px rgba(5,150,105,0.18)`
-                  : "0 1px 2px rgba(0,0,0,.04)",
+                  : dark
+                    ? "0 4px 14px rgba(0,0,0,.26)"
+                    : "0 1px 2px rgba(0,0,0,.04)",
                 opacity: groupDragging ? 0.5 : 1,
                 transform: groupDragging ? "scale(0.97)" : "scale(1)",
                 transition: "all .15s",
@@ -2178,15 +2363,15 @@ const GroupedKanbanColumn = ({
                   padding: "8px 10px",
                   cursor: "pointer",
                   borderBottom:
-                    children.length > 0 ? "1px solid #f1f5f9" : "none",
-                  background: "#fff",
+                    children.length > 0
+                      ? `1px solid ${dark ? "#2f3440" : "#f1f5f9"}`
+                      : "none",
+                  background: cardBg,
                   transition: "background .1s",
                 }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "#f8fafc")
-                }
+                onMouseEnter={(e) => (e.currentTarget.style.background = hoverBg)}
                 onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "transparent")
+                  (e.currentTarget.style.background = cardBg)
                 }
               >
                 <GripVertical
@@ -2216,7 +2401,7 @@ const GroupedKanbanColumn = ({
                     flex: 1,
                     fontSize: 12,
                     fontWeight: 600,
-                    color: "#172b4d",
+                    color: textColor,
                     lineHeight: 1.4,
                   }}
                 >
@@ -2293,15 +2478,13 @@ const GroupedKanbanColumn = ({
                       gap: 8,
                       padding: "7px 10px 7px 22px",
                       cursor: "pointer",
-                      borderBottom: "1px solid #f8fafc",
-                      background: "#fff",
+                      borderBottom: `1px solid ${dark ? "#272c37" : "#f8fafc"}`,
+                      background: cardBg,
                       transition: "background .1s",
                     }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.background = "#f8fafc")
-                    }
+                    onMouseEnter={(e) => (e.currentTarget.style.background = hoverBg)}
                     onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = "transparent")
+                      (e.currentTarget.style.background = cardBg)
                     }
                   >
                     <span
@@ -2325,7 +2508,7 @@ const GroupedKanbanColumn = ({
                       style={{
                         flex: 1,
                         fontSize: 12,
-                        color: "#172b4d",
+                        color: textColor,
                         lineHeight: 1.4,
                       }}
                     >
@@ -2344,8 +2527,8 @@ const GroupedKanbanColumn = ({
                       <span
                         style={{
                           fontSize: 10,
-                          color: "#626f86",
-                          background: "#f1f2f4",
+                          color: mutedText,
+                          background: mutedBg,
                           padding: "1px 5px",
                           borderRadius: 99,
                           fontWeight: 600,
@@ -2417,13 +2600,15 @@ const GroupedKanbanColumn = ({
               onDragEnd={onDragEnd}
               style={{
                 marginBottom: 4,
-                background: "#fff",
+                background: cardBg,
                 borderRadius: 6,
-                border: "1px solid #e5e7eb",
+                border: `1px solid ${cardBorder}`,
                 overflow: "hidden",
                 boxShadow: isOrphanDragging
                   ? "0 8px 24px rgba(0,0,0,.12)"
-                  : "0 1px 2px rgba(0,0,0,.04)",
+                  : dark
+                    ? "0 4px 14px rgba(0,0,0,.24)"
+                    : "0 1px 2px rgba(0,0,0,.04)",
                 opacity: isOrphanDragging ? 0.5 : 1,
                 transition: "all .15s",
                 cursor: "grab",
@@ -2439,11 +2624,9 @@ const GroupedKanbanColumn = ({
                   cursor: "pointer",
                   transition: "background .1s",
                 }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "#f8fafc")
-                }
+                onMouseEnter={(e) => (e.currentTarget.style.background = hoverBg)}
                 onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "transparent")
+                  (e.currentTarget.style.background = cardBg)
                 }
               >
                 <GripVertical
@@ -2472,7 +2655,7 @@ const GroupedKanbanColumn = ({
                   style={{
                     flex: 1,
                     fontSize: 12,
-                    color: "#172b4d",
+                    color: textColor,
                     lineHeight: 1.4,
                   }}
                 >
@@ -2491,8 +2674,8 @@ const GroupedKanbanColumn = ({
                   <span
                     style={{
                       fontSize: 10,
-                      color: "#626f86",
-                      background: "#f1f2f4",
+                      color: mutedText,
+                      background: mutedBg,
                       padding: "1px 5px",
                       borderRadius: 99,
                       fontWeight: 600,
@@ -2546,7 +2729,7 @@ const GroupedKanbanColumn = ({
               height: 44,
               borderRadius: 6,
               border: `2px dashed ${col.color}60`,
-              background: `${col.bg}`,
+              background: dark ? "rgba(37, 99, 235, 0.14)" : `${col.bg}`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -2567,10 +2750,10 @@ const GroupedKanbanColumn = ({
             width: "100%",
             padding: "6px",
             borderRadius: 4,
-            border: "1.5px dashed #dde3ec",
+            border: `1.5px dashed ${dark ? "#3a3f4d" : "#dde3ec"}`,
             background: "transparent",
             cursor: "pointer",
-            color: "#626f86",
+            color: dark ? "#aab1bf" : "#626f86",
             fontSize: 11,
             display: "flex",
             alignItems: "center",
@@ -2581,11 +2764,11 @@ const GroupedKanbanColumn = ({
           onMouseEnter={(e) => {
             e.currentTarget.style.borderColor = "#0c66e4";
             e.currentTarget.style.color = "#0c66e4";
-            e.currentTarget.style.background = "#e9f2ff";
+            e.currentTarget.style.background = dark ? "#1d2f4f" : "#e9f2ff";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = "#dde3ec";
-            e.currentTarget.style.color = "#626f86";
+            e.currentTarget.style.borderColor = dark ? "#3a3f4d" : "#dde3ec";
+            e.currentTarget.style.color = dark ? "#aab1bf" : "#626f86";
             e.currentTarget.style.background = "transparent";
           }}
         >
@@ -2613,6 +2796,7 @@ const SprintBoard = ({
   onDrop,
   onDelete,
   projectAssignees,
+  dark = false,
 }) => {
   const [collapsed, setCollapsed] = useState(false);
   // Only show ticket types that belong on the board (no epics, no subtasks)
@@ -2631,9 +2815,13 @@ const SprintBoard = ({
           gap: 10,
           padding: "10px 14px",
           background: isActive
-            ? "linear-gradient(90deg,#e9f2ff,#dcfff1)"
-            : "#f8fafc",
-          border: `1.5px solid ${isActive ? "#b8d0f5" : "#e2e8f0"}`,
+            ? dark
+              ? "linear-gradient(90deg,#1c2740,#1f3b33)"
+              : "linear-gradient(90deg,#e9f2ff,#dcfff1)"
+            : dark
+              ? "#1c1f27"
+              : "#f8fafc",
+          border: `1.5px solid ${isActive ? (dark ? "#30496b" : "#b8d0f5") : dark ? "#2b2f39" : "#e2e8f0"}`,
           borderRadius: 8,
           marginBottom: 10,
           cursor: "pointer",
@@ -2657,7 +2845,7 @@ const SprintBoard = ({
         <Zap size={14} color={isActive ? "#0c66e4" : "#9ca3af"} />
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-            <span style={{ fontWeight: 800, fontSize: 13, color: "#172b4d" }}>
+            <span style={{ fontWeight: 800, fontSize: 13, color: dark ? "#f3f4f6" : "#172b4d" }}>
               {sprint.name}
             </span>
             {isActive && (
@@ -2693,11 +2881,11 @@ const SprintBoard = ({
                 style={{
                   fontSize: 9,
                   fontWeight: 800,
-                  color: "#626f86",
-                  background: "#f1f2f4",
+                  color: dark ? "#c2c8d3" : "#626f86",
+                  background: dark ? "#2a2e38" : "#f1f2f4",
                   padding: "1px 6px",
                   borderRadius: 99,
-                  border: "1px solid #e2e4e9",
+                  border: `1px solid ${dark ? "#3a3f4b" : "#e2e4e9"}`,
                 }}
               >
                 PLANNING
@@ -2705,13 +2893,13 @@ const SprintBoard = ({
             )}
           </div>
           {sprint.goal && (
-            <p style={{ fontSize: 11, color: "#626f86", margin: "1px 0 0" }}>
+            <p style={{ fontSize: 11, color: dark ? "#a9afbd" : "#626f86", margin: "1px 0 0" }}>
               {sprint.goal}
             </p>
           )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 11, color: "#626f86" }}>
+          <span style={{ fontSize: 11, color: dark ? "#a9afbd" : "#626f86" }}>
             {fmtDate(sprint.start_date)} → {fmtDate(sprint.end_date)}
           </span>
           <Progress
@@ -2735,7 +2923,7 @@ const SprintBoard = ({
               cursor: "pointer",
               padding: 4,
               borderRadius: 4,
-              color: "#626f86",
+              color: dark ? "#a9afbd" : "#626f86",
             }}
           >
             <MoreHorizontal size={15} />
@@ -2772,6 +2960,7 @@ const SprintBoard = ({
               onNewTicket={(status) => onNewTicket(sprint, status)}
               onDelete={onDelete}
               projectAssignees={projectAssignees}
+              dark={dark}
             />
           ))}
         </div>
@@ -2794,6 +2983,7 @@ const BacklogEpicRow = ({
   isDragging,
   onDelete,
   projectAssignees,
+  dark = false,
 }) => {
   const [expanded, setExpanded] = useState(true);
   const children = allTickets.filter((t) => t.parent_id === epic.id);
@@ -2801,14 +2991,18 @@ const BacklogEpicRow = ({
     (t) => t.status === "completed" || t.status === "closed",
   ).length;
   return (
-    <div style={{ borderBottom: "1px solid #f1f5f9" }}>
+    <div style={{ borderBottom: `1px solid ${dark ? "#2a2d36" : "#f1f5f9"}` }}>
       <div
         style={{
           display: "flex",
           alignItems: "center",
           gap: 10,
           padding: "10px 14px",
-          background: expanded ? "#f8f5ff" : "transparent",
+          background: expanded
+            ? dark
+              ? "#241f33"
+              : "#f8f5ff"
+            : "transparent",
           cursor: "pointer",
           transition: "background .1s",
         }}
@@ -2825,7 +3019,7 @@ const BacklogEpicRow = ({
             flex: 1,
             fontSize: 13,
             fontWeight: 700,
-            color: "#172b4d",
+            color: dark ? "#f3f4f6" : "#172b4d",
             cursor: "pointer",
           }}
           onClick={(e) => {
@@ -2839,8 +3033,8 @@ const BacklogEpicRow = ({
         <span
           style={{
             fontSize: 11,
-            color: "#626f86",
-            background: "#f1f2f4",
+            color: dark ? "#a9afbd" : "#626f86",
+            background: dark ? "#2a2f39" : "#f1f2f4",
             padding: "2px 8px",
             borderRadius: 99,
           }}
@@ -2860,9 +3054,9 @@ const BacklogEpicRow = ({
               onNewChild(epic);
             }}
             style={{
-              background: "#f0f0ff",
-              border: "1px solid #c7d2fe",
-              color: "#6366f1",
+              background: dark ? "#2b2540" : "#f0f0ff",
+              border: `1px solid ${dark ? "#4a3f72" : "#c7d2fe"}`,
+              color: dark ? "#c4b5fd" : "#6366f1",
               borderRadius: 4,
               cursor: "pointer",
               padding: "3px 8px",
@@ -2930,7 +3124,7 @@ const BacklogEpicRow = ({
               style={{
                 padding: "8px 14px",
                 fontSize: 12,
-                color: "#d1d5db",
+                color: dark ? "#9ca3af" : "#d1d5db",
                 fontStyle: "italic",
               }}
             >
@@ -2950,6 +3144,7 @@ const BacklogEpicRow = ({
               isDragging={isDragging === child.id}
               onDelete={onDelete}
               projectAssignees={projectAssignees}
+              dark={dark}
             />
           ))}
         </div>
@@ -2969,6 +3164,7 @@ const BacklogChildRow = ({
   isDragging,
   onDelete,
   projectAssignees,
+  dark = false,
 }) => {
   const [expanded, setExpanded] = useState(false);
   const subtasks =
@@ -2982,7 +3178,7 @@ const BacklogChildRow = ({
   const p = PRIORITY[ticket.priority] || PRIORITY.medium;
 
   return (
-    <div style={{ borderBottom: "1px solid #f8fafc" }}>
+    <div style={{ borderBottom: `1px solid ${dark ? "#242833" : "#f8fafc"}` }}>
       <div
         draggable={!isSubtask}
         onDragStart={(e) => {
@@ -2997,14 +3193,19 @@ const BacklogChildRow = ({
           alignItems: "center",
           gap: 8,
           padding: isSubtask ? "7px 14px 7px 28px" : "9px 14px",
-          borderBottom: "1px solid #f1f5f9",
+          borderBottom: `1px solid ${dark ? "#2a2d36" : "#f1f5f9"}`,
           transition: "background .1s, opacity .15s",
           cursor: isSubtask ? "default" : "pointer",
           opacity: isDragging ? 0.4 : 1,
-          background: isDragging ? "#f0f0ff" : "transparent",
+          background: isDragging
+            ? dark
+              ? "#2b2540"
+              : "#f0f0ff"
+            : "transparent",
         }}
         onMouseEnter={(e) =>
-          !isDragging && (e.currentTarget.style.background = "#f8fafc")
+          !isDragging &&
+          (e.currentTarget.style.background = dark ? "#1d2027" : "#f8fafc")
         }
         onMouseLeave={(e) =>
           !isDragging && (e.currentTarget.style.background = "transparent")
@@ -3062,7 +3263,7 @@ const BacklogChildRow = ({
             flex: 1,
             fontSize: 12,
             fontWeight: 500,
-            color: "#172b4d",
+            color: dark ? "#f3f4f6" : "#172b4d",
             cursor: "pointer",
           }}
           onClick={() => onTicketClick(ticket)}
@@ -3071,14 +3272,14 @@ const BacklogChildRow = ({
         </span>
 
         <PriorityIcon priority={ticket.priority} />
-        <StatusBadge status={ticket.status} />
+        <StatusBadge status={ticket.status} dark={dark} />
 
         {ticket.story_points > 0 && (
           <span
             style={{
               fontSize: 11,
-              color: "#626f86",
-              background: "#f1f2f4",
+              color: dark ? "#a9afbd" : "#626f86",
+              background: dark ? "#2a2f39" : "#f1f2f4",
               padding: "2px 6px",
               borderRadius: 99,
               fontWeight: 600,
@@ -3179,6 +3380,7 @@ const BacklogChildRow = ({
             isDragging={false}
             onDelete={onDelete}
             projectAssignees={projectAssignees}
+            dark={dark}
           />
         ))}
     </div>
@@ -3188,32 +3390,45 @@ const BacklogChildRow = ({
 // ─────────────────────────────────────────────────────────────
 // PROJECT CARD
 // ─────────────────────────────────────────────────────────────
-const ProjectCard = ({ project, onClick }) => {
+const ProjectCard = ({ project, onClick, dark = false }) => {
   const ps =
     PROJECT_STATUS.find((s) => s.key === project.status) || PROJECT_STATUS[0];
+  const darkStatusTag = {
+    not_started: { color: "#cbd5e1", bg: "#273141", border: "#3c4b61" },
+    in_progress: { color: "#93c5fd", bg: "#1e3a66", border: "#2d5189" },
+    testing: { color: "#fcd34d", bg: "#46361e", border: "#6b532d" },
+    completed: { color: "#86efac", bg: "#1f3a2f", border: "#2f5a46" },
+  }[ps.key] || { color: "#d1d5db", bg: "#2a2f3a", border: "#3d4452" };
   return (
     <div
+      className={`pm-project-card${dark ? " dark" : ""}`}
       onClick={onClick}
       style={{
-        background: "#fff",
+        background: dark ? "#1a1b1f" : "#fff",
         borderRadius: 8,
-        border: "1px solid #e5e7eb",
+        border: dark ? "1px solid #2a2b31" : "1px solid #e5e7eb",
         padding: "12px 14px",
         marginBottom: 8,
         cursor: "pointer",
-        boxShadow: "0 1px 2px rgba(0,0,0,.04)",
+        boxShadow: dark
+          ? "0 2px 10px rgba(0,0,0,.35)"
+          : "0 1px 2px rgba(0,0,0,.04)",
         transition: "all .2s",
         position: "relative",
         overflow: "hidden",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,.08)";
+        e.currentTarget.style.boxShadow = dark
+          ? "0 8px 24px rgba(0,0,0,.42)"
+          : "0 4px 16px rgba(0,0,0,.08)";
         e.currentTarget.style.borderColor = ps.border;
         e.currentTarget.style.transform = "translateY(-1px)";
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = "0 1px 2px rgba(0,0,0,.04)";
-        e.currentTarget.style.borderColor = "#e5e7eb";
+        e.currentTarget.style.boxShadow = dark
+          ? "0 2px 10px rgba(0,0,0,.35)"
+          : "0 1px 2px rgba(0,0,0,.04)";
+        e.currentTarget.style.borderColor = dark ? "#2a2b31" : "#e5e7eb";
         e.currentTarget.style.transform = "translateY(0)";
       }}
     >
@@ -3236,7 +3451,12 @@ const ProjectCard = ({ project, onClick }) => {
         }}
       >
         <h3
-          style={{ fontSize: 12, fontWeight: 700, color: "#172b4d", margin: 0 }}
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: dark ? "#f3f4f6" : "#172b4d",
+            margin: 0,
+          }}
         >
           {project.name}
         </h3>
@@ -3246,9 +3466,9 @@ const ProjectCard = ({ project, onClick }) => {
             fontWeight: 800,
             padding: "2px 6px",
             borderRadius: 99,
-            color: ps.color,
-            background: ps.bg,
-            border: `1px solid ${ps.border}`,
+            color: dark ? darkStatusTag.color : ps.color,
+            background: dark ? darkStatusTag.bg : ps.bg,
+            border: `1px solid ${dark ? darkStatusTag.border : ps.border}`,
             textTransform: "uppercase",
             letterSpacing: 0.4,
             whiteSpace: "nowrap",
@@ -3260,10 +3480,10 @@ const ProjectCard = ({ project, onClick }) => {
       </div>
       <p
         style={{
-          fontSize: 11,
-          color: "#626f86",
-          margin: "0 0 8px",
-          lineHeight: 1.5,
+            fontSize: 11,
+            color: dark ? "#9ca3af" : "#626f86",
+            margin: "0 0 8px",
+            lineHeight: 1.5,
           display: "-webkit-box",
           WebkitLineClamp: 2,
           WebkitBoxOrient: "vertical",
@@ -3293,7 +3513,7 @@ const ProjectCard = ({ project, onClick }) => {
         <span
           style={{
             fontSize: 10,
-            color: "#9ca3af",
+            color: dark ? "#9ca3af" : "#9ca3af",
             display: "flex",
             alignItems: "center",
             gap: 2,
@@ -3310,17 +3530,20 @@ const ProjectCard = ({ project, onClick }) => {
 // ─────────────────────────────────────────────────────────────
 // AI SUGGESTION WIDGET
 // ─────────────────────────────────────────────────────────────
-const AISuggestionBanner = ({ suggestion, onApply, onDismiss }) => (
+const AISuggestionBanner = ({ suggestion, onApply, onDismiss, dark = false }) => (
   <div
     style={{
-      background: "linear-gradient(135deg,#f0f0ff,#fdf4ff)",
-      border: "1px solid #c7d2fe",
-      borderRadius: 8,
-      padding: "10px 12px",
+      background: dark
+        ? "linear-gradient(135deg,#1f2340,#2a1f3d)"
+        : "linear-gradient(135deg,#f0f0ff,#fdf4ff)",
+      border: `1px solid ${dark ? "#3e3f6d" : "#c7d2fe"}`,
+      borderRadius: 10,
+      padding: "11px 12px",
       marginBottom: 14,
       display: "flex",
       alignItems: "flex-start",
       gap: 10,
+      boxShadow: dark ? "0 8px 18px rgba(0,0,0,.28)" : "none",
     }}
   >
     <div
@@ -3340,12 +3563,12 @@ const AISuggestionBanner = ({ suggestion, onApply, onDismiss }) => (
     <div style={{ flex: 1 }}>
       <div
         style={{
-          fontSize: 11,
-          fontWeight: 700,
-          color: "#4338ca",
-          marginBottom: 3,
-        }}
-      >
+        fontSize: 11,
+        fontWeight: 700,
+        color: dark ? "#c4b5fd" : "#4338ca",
+        marginBottom: 3,
+      }}
+    >
         AI Suggestion
       </div>
       <div
@@ -3356,20 +3579,26 @@ const AISuggestionBanner = ({ suggestion, onApply, onDismiss }) => (
           flexWrap: "wrap",
         }}
       >
-        <span style={{ fontSize: 12, color: "#374151" }}>
+        <span style={{ fontSize: 12, color: dark ? "#d1d5db" : "#374151" }}>
           Priority:{" "}
           <strong style={{ color: PRIORITY[suggestion.priority]?.color }}>
             {suggestion.priority}
           </strong>
         </span>
-        <span style={{ fontSize: 12, color: "#374151" }}>
+        <span style={{ fontSize: 12, color: dark ? "#d1d5db" : "#374151" }}>
           Points:{" "}
-          <strong style={{ color: "#6366f1" }}>
+          <strong style={{ color: dark ? "#a5b4fc" : "#6366f1" }}>
             {suggestion.story_points}pt
           </strong>
         </span>
         {suggestion.reasoning && (
-          <span style={{ fontSize: 11, color: "#6b7280", fontStyle: "italic" }}>
+          <span
+            style={{
+              fontSize: 11,
+              color: dark ? "#a5adbb" : "#6b7280",
+              fontStyle: "italic",
+            }}
+          >
             "{suggestion.reasoning}"
           </span>
         )}
@@ -3379,13 +3608,15 @@ const AISuggestionBanner = ({ suggestion, onApply, onDismiss }) => (
       <button
         onClick={onApply}
         style={{
-          background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
-          border: "none",
+          background: dark
+            ? "linear-gradient(135deg,#6366f1,#4f46e5)"
+            : "linear-gradient(135deg,#6366f1,#8b5cf6)",
+          border: dark ? "1px solid #7176ff" : "none",
           color: "#fff",
           fontSize: 11,
           fontWeight: 700,
-          padding: "4px 10px",
-          borderRadius: 5,
+          padding: "5px 11px",
+          borderRadius: 6,
           cursor: "pointer",
         }}
       >
@@ -3398,7 +3629,7 @@ const AISuggestionBanner = ({ suggestion, onApply, onDismiss }) => (
           border: "none",
           cursor: "pointer",
           padding: 3,
-          color: "#9ca3af",
+          color: dark ? "#a7adba" : "#9ca3af",
         }}
       >
         <X size={13} />
@@ -3503,6 +3734,7 @@ const QuickAddRow = ({
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────
 const PMProjects = () => {
+  const [dark, setDark] = useState(getIsDarkTheme);
   const [profile, setProfile] = useState(null);
   const [projects, setProjects] = useState([]);
   const [tickets, setTickets] = useState([]);
@@ -3527,6 +3759,12 @@ const PMProjects = () => {
   const [detailTicket, setDetailTicket] = useState(null);
   const [defaultParentId, setDefaultParentId] = useState(null);
   const [defaultTicketType, setDefaultTicketType] = useState("task");
+  const [showAiPlanner, setShowAiPlanner] = useState(false);
+  const [aiPlannerLoading, setAiPlannerLoading] = useState(false);
+  const [aiPlannerApplying, setAiPlannerApplying] = useState(false);
+  const [aiProjectBrief, setAiProjectBrief] = useState("");
+  const [aiPlannerFile, setAiPlannerFile] = useState(null);
+  const [aiPlannerResult, setAiPlannerResult] = useState(null);
 
   const [ticketForm] = Form.useForm();
   const [sprintForm] = Form.useForm();
@@ -3537,6 +3775,19 @@ const PMProjects = () => {
   useEffect(() => {
     if (profile?.id) fetchProjects();
   }, [profile]);
+
+  useEffect(() => {
+    const syncTheme = () => setDark(getIsDarkTheme());
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    window.addEventListener("storage", syncTheme);
+    window.addEventListener("themeModeChanged", syncTheme);
+    mediaQuery.addEventListener("change", syncTheme);
+    return () => {
+      window.removeEventListener("storage", syncTheme);
+      window.removeEventListener("themeModeChanged", syncTheme);
+      mediaQuery.removeEventListener("change", syncTheme);
+    };
+  }, []);
 
   const getAllowedParentTypes = (type) => HIERARCHY[type]?.parentTypes || [];
   const getParentOptions = (type) =>
@@ -3620,6 +3871,10 @@ const PMProjects = () => {
     ticketForm.resetFields();
     setEditingTicket(null);
     setAiSuggestion(null);
+    setShowAiPlanner(false);
+    setAiPlannerResult(null);
+    setAiProjectBrief("");
+    setAiPlannerFile(null);
   };
 
   // ── GROUP DRAG HANDLERS ──
@@ -3729,6 +3984,110 @@ const PMProjects = () => {
     });
     setAiSuggestion(null);
     message.success("AI suggestions applied!");
+  };
+
+  const runAiPlanner = async () => {
+    if (!selectedProject?.id) return;
+    if (!GROQ_API_KEY) {
+      message.error("Missing AI key. Set VITE_GROK_API_KEY in environment.");
+      return;
+    }
+    if (!aiProjectBrief.trim() && !aiPlannerFile) {
+      message.warning("Add project brief or upload a file first.");
+      return;
+    }
+
+    setAiPlannerLoading(true);
+    try {
+      const fileText = aiPlannerFile ? await readPlannerFileText(aiPlannerFile) : "";
+      const plan = await generateProjectPlanWithAI({
+        projectName: selectedProject.name || "Project",
+        brief: aiProjectBrief.trim(),
+        extraText: fileText,
+      });
+      if (!plan.tickets.length) {
+        message.warning("AI returned no tickets. Please add more details and try again.");
+        setAiPlannerResult(null);
+        return;
+      }
+      setAiPlannerResult(plan);
+      message.success("AI plan generated. Review and apply.");
+    } catch (err) {
+      message.error(err?.message || "Failed to generate AI plan");
+    } finally {
+      setAiPlannerLoading(false);
+    }
+  };
+
+  const applyAiPlannerResult = async () => {
+    if (!aiPlannerResult || !selectedProject?.id || !profile?.id) return;
+    setAiPlannerApplying(true);
+    try {
+      const sprintNameToId = {};
+      for (const sp of aiPlannerResult.sprints) {
+        const { data, error } = await supabase
+          .from("sprints")
+          .insert([
+            {
+              project_id: selectedProject.id,
+              name: sp.name,
+              goal: sp.goal,
+              status: sp.status,
+              start_date: sp.start_date || null,
+              end_date: sp.end_date || null,
+              created_by: profile.id,
+            },
+          ])
+          .select("id,name")
+          .single();
+        if (error) throw error;
+        sprintNameToId[data.name] = data.id;
+      }
+
+      const typeOrder = { epic: 0, story: 1, task: 2, bug: 2, subtask: 3 };
+      const sortedTickets = [...aiPlannerResult.tickets].sort(
+        (a, b) => (typeOrder[a.ticket_type] ?? 9) - (typeOrder[b.ticket_type] ?? 9),
+      );
+
+      const keyToId = {};
+      for (const tk of sortedTickets) {
+        const payload = {
+          project_id: selectedProject.id,
+          title: tk.title,
+          description: tk.description || "",
+          status: tk.status || "open",
+          priority: tk.priority || "medium",
+          ticket_type: tk.ticket_type || "task",
+          story_points: tk.story_points || 0,
+          sprint_id: tk.sprint_name ? sprintNameToId[tk.sprint_name] || null : null,
+          parent_id: tk.parent_key ? keyToId[tk.parent_key] || null : null,
+          assigned_to: null,
+          assigned_to_ids: [],
+          created_by: profile.id,
+        };
+        if (payload.ticket_type === "epic") payload.sprint_id = null;
+        const { data, error } = await supabase
+          .from("tickets")
+          .insert([payload])
+          .select("id")
+          .single();
+        if (error) throw error;
+        keyToId[tk.key] = data.id;
+      }
+
+      await fetchProjectData(selectedProject.id);
+      message.success(
+        `Created ${aiPlannerResult.sprints.length} sprint(s) and ${aiPlannerResult.tickets.length} ticket(s).`,
+      );
+      setShowAiPlanner(false);
+      setAiPlannerResult(null);
+      setAiProjectBrief("");
+      setAiPlannerFile(null);
+    } catch (err) {
+      message.error("Failed to apply AI plan: " + (err?.message || "Unknown error"));
+    } finally {
+      setAiPlannerApplying(false);
+    }
   };
 
   const openTicketForm = (
@@ -3981,6 +4340,7 @@ const PMProjects = () => {
       <div
         style={{
           minHeight: "100vh",
+          background: dark ? "#141416" : "#f4f5f7",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -3999,12 +4359,87 @@ const PMProjects = () => {
           100% { background-position: -200% 0 }
         }
         .pm-scroll::-webkit-scrollbar { height: 5px; width: 5px }
-        .pm-scroll::-webkit-scrollbar-track { background: #f1f2f4; border-radius: 3px }
-        .pm-scroll::-webkit-scrollbar-thumb { background: #c1c7d0; border-radius: 3px }
+        .pm-scroll::-webkit-scrollbar-track { background: ${dark ? "#23242a" : "#f1f2f4"}; border-radius: 3px }
+        .pm-scroll::-webkit-scrollbar-thumb { background: ${dark ? "#3a3c45" : "#c1c7d0"}; border-radius: 3px }
         .ant-select-selection-item .ant-space { flex-wrap: nowrap; }
+
+        .pm-root.dark { color: #f3f4f6; }
+        .pm-root.dark [style*="background: #fff"],
+        .pm-root.dark [style*="background:#fff"],
+        .pm-root.dark [style*="background: #ffffff"] { background: #1a1b1f !important; }
+        .pm-root.dark [style*="background: #f4f5f7"],
+        .pm-root.dark [style*="background:#f4f5f7"],
+        .pm-root.dark [style*="background: #fafafa"],
+        .pm-root.dark [style*="background:#fafafa"] { background: #141416 !important; }
+        .pm-root.dark [style*="background: #f1f2f4"],
+        .pm-root.dark [style*="background:#f1f2f4"],
+        .pm-root.dark [style*="background: #f8fafc"],
+        .pm-root.dark [style*="background:#f8fafc"] { background: #202127 !important; }
+        .pm-root.dark [style*="border: 1px solid #dde3ec"],
+        .pm-root.dark [style*="border:1px solid #dde3ec"],
+        .pm-root.dark [style*="border-bottom: 1px solid #f1f2f4"],
+        .pm-root.dark [style*="border-bottom:1px solid #f1f2f4"],
+        .pm-root.dark [style*="border: 1px solid #e5e7eb"],
+        .pm-root.dark [style*="border:1px solid #e5e7eb"] { border-color: #2a2b31 !important; }
+        .pm-root.dark [style*="border: 1.5px dashed #dde3ec"] { border-color: #2a2b31 !important; }
+        .pm-root.dark [style*="color: #172b4d"],
+        .pm-root.dark [style*="color:#172b4d"],
+        .pm-root.dark [style*="color: #374151"] { color: #f3f4f6 !important; }
+        .pm-root.dark [style*="color: #626f86"],
+        .pm-root.dark [style*="color:#626f86"],
+        .pm-root.dark [style*="color: #94a3b8"],
+        .pm-root.dark [style*="color:#94a3b8"],
+        .pm-root.dark [style*="color: #9ca3af"] { color: #9ca3af !important; }
+        .pm-root.dark .ant-drawer-header,
+        .pm-root.dark .ant-drawer-body,
+        .pm-root.dark .ant-drawer-footer,
+        .pm-root.dark .ant-modal-content,
+        .pm-root.dark .ant-modal-header,
+        .pm-root.dark .ant-modal-body,
+        .pm-root.dark .ant-modal-footer {
+          background: #1a1b1f !important;
+          border-color: #2a2b31 !important;
+          color: #f3f4f6 !important;
+        }
+        .pm-root.dark .ant-modal-title,
+        .pm-root.dark .ant-drawer-title { color: #f3f4f6 !important; }
+        .pm-root.dark .ant-input,
+        .pm-root.dark .ant-input-affix-wrapper,
+        .pm-root.dark .ant-select-selector,
+        .pm-root.dark .ant-picker {
+          background: #17181c !important;
+          color: #f3f4f6 !important;
+          border-color: #2a2b31 !important;
+        }
+
+        .pm-dark-overlay .ant-drawer-content,
+        .pm-dark-overlay .ant-drawer-header,
+        .pm-dark-overlay .ant-drawer-body,
+        .pm-dark-overlay .ant-drawer-footer,
+        .pm-dark-overlay .ant-modal-content,
+        .pm-dark-overlay .ant-modal-header,
+        .pm-dark-overlay .ant-modal-body,
+        .pm-dark-overlay .ant-modal-footer {
+          background: #1a1b1f !important;
+          color: #f3f4f6 !important;
+          border-color: #2a2b31 !important;
+        }
+        .pm-dark-overlay .ant-drawer-title,
+        .pm-dark-overlay .ant-modal-title { color: #f3f4f6 !important; }
+        .pm-dark-overlay .ant-input,
+        .pm-dark-overlay .ant-input-affix-wrapper,
+        .pm-dark-overlay .ant-select-selector,
+        .pm-dark-overlay .ant-picker {
+          background: #17181c !important;
+          color: #f3f4f6 !important;
+          border-color: #2a2b31 !important;
+        }
       `}</style>
 
-      <div style={{ minHeight: "100vh", background: "#f4f5f7" }}>
+      <div
+        className={`pm-root ${dark ? "dark" : ""}`}
+        style={{ minHeight: "100vh", background: dark ? "#141416" : "#f4f5f7" }}
+      >
         <div style={{ margin: "0 auto", padding: "24px 20px" }}>
           {/* Header */}
           <div
@@ -4020,7 +4455,6 @@ const PMProjects = () => {
                 style={{
                   fontSize: 20,
                   fontWeight: 800,
-                  color: "#172b4d",
                   margin: "0 0 2px",
                 }}
               >
@@ -4032,7 +4466,7 @@ const PMProjects = () => {
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               {[
-                { label: "Total", val: projects.length, color: "#172b4d" },
+                { label: "Total", val: projects.length, color: "#ce4f12" },
                 {
                   label: "Active",
                   val: projects.filter((p) => p.status === "in_progress")
@@ -4048,8 +4482,8 @@ const PMProjects = () => {
                 <div
                   key={s.label}
                   style={{
-                    background: "#fff",
-                    border: "1px solid #dde3ec",
+                    background: dark ? "#1a1b1f" : "#fff",
+                    border: dark ? "1px solid #2a2b31" : "1px solid #dde3ec",
                     borderRadius: 8,
                     padding: "7px 14px",
                     textAlign: "center",
@@ -4111,8 +4545,10 @@ const PMProjects = () => {
                         padding: "8px 12px",
                         borderRadius: 6,
                         marginBottom: 10,
-                        background: ps.bg,
-                        border: `1.5px solid ${ps.border}`,
+                        background: dark ? `${ps.color}20` : ps.bg,
+                        border: dark
+                          ? `1.5px solid ${ps.color}55`
+                          : `1.5px solid ${ps.border}`,
                       }}
                     >
                       <div
@@ -4147,10 +4583,12 @@ const PMProjects = () => {
                           fontSize: 11,
                           fontWeight: 700,
                           color: ps.color,
-                          background: "#fff",
+                          background: dark ? "#1a1b1f" : "#fff",
                           padding: "1px 7px",
                           borderRadius: 99,
-                          border: `1px solid ${ps.border}`,
+                          border: dark
+                            ? "1px solid #2a2b31"
+                            : `1px solid ${ps.border}`,
                         }}
                       >
                         {cols.length}
@@ -4161,22 +4599,26 @@ const PMProjects = () => {
                         <ProjectCard
                           key={p.id}
                           project={p}
+                          dark={dark}
                           onClick={() => openProject(p)}
                         />
                       ))}
                       {cols.length === 0 && (
                         <div
                           style={{
-                            border: "1.5px dashed #dde3ec",
+                            border: dark
+                              ? "1.5px dashed #2a2b31"
+                              : "1.5px dashed #dde3ec",
                             borderRadius: 8,
                             padding: "28px 14px",
                             textAlign: "center",
+                            background: dark ? "#1a1b1f" : "transparent",
                           }}
                         >
                           <p
                             style={{
                               fontSize: 11,
-                              color: "#d1d5db",
+                              color: dark ? "#6b7280" : "#d1d5db",
                               margin: 0,
                             }}
                           >
@@ -4196,6 +4638,7 @@ const PMProjects = () => {
       {/* ═══ PROJECT DRAWER ═══ */}
       <Drawer
         open={showProjectDrawer}
+        rootClassName={dark ? "pm-dark-overlay" : undefined}
         onClose={closeProjectDrawer}
         width="96%"
         styles={{
@@ -4231,11 +4674,15 @@ const PMProjects = () => {
               </div>
               <div>
                 <div
-                  style={{ fontSize: 14, fontWeight: 800, color: "#172b4d" }}
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 800,
+                    color: dark ? "#f3f4f6" : "#172b4d",
+                  }}
                 >
                   {selectedProject?.name}
                 </div>
-                <div style={{ fontSize: 10, color: "#94a3b8" }}>
+                <div style={{ fontSize: 10, color: dark ? "#9ca3af" : "#94a3b8" }}>
                   {selectedProject?.description}
                 </div>
               </div>
@@ -4250,8 +4697,8 @@ const PMProjects = () => {
                 <div
                   key={s.label}
                   style={{
-                    background: "#f4f5f7",
-                    border: "1px solid #dde3ec",
+                    background: dark ? "#1f222a" : "#f4f5f7",
+                    border: `1px solid ${dark ? "#313540" : "#dde3ec"}`,
                     borderRadius: 6,
                     padding: "4px 10px",
                     textAlign: "center",
@@ -4282,6 +4729,21 @@ const PMProjects = () => {
         extra={
           <Space>
             <Button
+              icon={<Sparkles size={12} />}
+              onClick={() => setShowAiPlanner(true)}
+              size="small"
+              style={{
+                background: dark
+                  ? "linear-gradient(135deg,#2a2440,#1e3a8a)"
+                  : "linear-gradient(135deg,#ede9fe,#e0e7ff)",
+                border: dark ? "1px solid #3b3d46" : "1px solid #c7d2fe",
+                color: dark ? "#dbeafe" : "#4338ca",
+                fontWeight: 600,
+              }}
+            >
+              AI Sprint Planner
+            </Button>
+            <Button
               icon={<Zap size={12} />}
               onClick={() => openSprintForm()}
               size="small"
@@ -4311,7 +4773,7 @@ const PMProjects = () => {
               alignItems: "center",
               justifyContent: "space-between",
               padding: "12px 0",
-              borderBottom: "1px solid #e5e7eb",
+              borderBottom: `1px solid ${dark ? "#2a2d36" : "#e5e7eb"}`,
               marginBottom: 16,
             }}
           >
@@ -4319,9 +4781,10 @@ const PMProjects = () => {
               style={{
                 display: "flex",
                 gap: 0,
-                background: "#f1f2f4",
+                background: dark ? "#1f2229" : "#f1f2f4",
                 padding: 3,
                 borderRadius: 6,
+                border: dark ? "1px solid #2f3440" : "none",
               }}
             >
               {["board", "backlog"].map((t) => (
@@ -4336,10 +4799,14 @@ const PMProjects = () => {
                     fontSize: 12,
                     fontWeight: 600,
                     transition: "all .15s",
-                    background: activeTab === t ? "#fff" : "transparent",
-                    color: activeTab === t ? "#172b4d" : "#626f86",
+                    background: activeTab === t ? (dark ? "#2a2e38" : "#fff") : "transparent",
+                    color: activeTab === t ? (dark ? "#f3f4f6" : "#172b4d") : dark ? "#a9afbd" : "#626f86",
                     boxShadow:
-                      activeTab === t ? "0 1px 3px rgba(0,0,0,.1)" : "none",
+                      activeTab === t
+                        ? dark
+                          ? "0 1px 8px rgba(0,0,0,.35)"
+                          : "0 1px 3px rgba(0,0,0,.1)"
+                        : "none",
                   }}
                 >
                   {t === "board" ? "Board" : "Backlog"}
@@ -4347,8 +4814,8 @@ const PMProjects = () => {
                     <span
                       style={{
                         marginLeft: 4,
-                        background: activeTab === t ? "#e0e7ff" : "#e5e7eb",
-                        color: activeTab === t ? "#4338ca" : "#6b7280",
+                        background: activeTab === t ? (dark ? "#1f345e" : "#e0e7ff") : dark ? "#2d323d" : "#e5e7eb",
+                        color: activeTab === t ? (dark ? "#bfdbfe" : "#4338ca") : dark ? "#b4bccb" : "#6b7280",
                         fontSize: 9,
                         fontWeight: 700,
                         padding: "1px 4px",
@@ -4366,13 +4833,13 @@ const PMProjects = () => {
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
-                background: "#fff",
-                border: "1px solid #dde3ec",
+                background: dark ? "#1d2027" : "#fff",
+                border: `1px solid ${dark ? "#313540" : "#dde3ec"}`,
                 borderRadius: 6,
                 padding: "5px 10px",
               }}
             >
-              <Search size={12} color="#9ca3af" />
+              <Search size={12} color={dark ? "#9098a8" : "#9ca3af"} />
               <input
                 placeholder="Search issues…"
                 value={searchQ}
@@ -4381,7 +4848,7 @@ const PMProjects = () => {
                   border: "none",
                   outline: "none",
                   fontSize: 12,
-                  color: "#172b4d",
+                  color: dark ? "#f3f4f6" : "#172b4d",
                   width: 150,
                   background: "transparent",
                 }}
@@ -4390,14 +4857,14 @@ const PMProjects = () => {
                 <button
                   onClick={() => setSearchQ("")}
                   style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    padding: 0,
-                    color: "#9ca3af",
-                    display: "flex",
-                  }}
-                >
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: 0,
+                      color: dark ? "#9098a8" : "#9ca3af",
+                      display: "flex",
+                    }}
+                  >
                   <X size={12} />
                 </button>
               )}
@@ -4407,7 +4874,7 @@ const PMProjects = () => {
           {/* BOARD */}
           {activeTab === "board" &&
             (loadingData ? (
-              <SkeletonBoard />
+              <SkeletonBoard dark={dark} />
             ) : (
               <div>
                 {sprints.length === 0 ? (
@@ -4415,21 +4882,21 @@ const PMProjects = () => {
                     style={{
                       textAlign: "center",
                       padding: "60px 0",
-                      background: "#fff",
+                      background: dark ? "#1a1c23" : "#fff",
                       borderRadius: 10,
-                      border: "1.5px dashed #dde3ec",
+                      border: `1.5px dashed ${dark ? "#343946" : "#dde3ec"}`,
                     }}
                   >
                     <Zap
                       size={32}
-                      color="#dde3ec"
+                      color={dark ? "#3a3f4c" : "#dde3ec"}
                       style={{ margin: "0 auto 10px" }}
                     />
                     <p
                       style={{
                         fontSize: 14,
                         fontWeight: 600,
-                        color: "#374151",
+                        color: dark ? "#f3f4f6" : "#374151",
                         marginBottom: 3,
                       }}
                     >
@@ -4438,7 +4905,7 @@ const PMProjects = () => {
                     <p
                       style={{
                         fontSize: 12,
-                        color: "#9ca3af",
+                        color: dark ? "#9ca3af" : "#9ca3af",
                         marginBottom: 16,
                       }}
                     >
@@ -4477,6 +4944,7 @@ const PMProjects = () => {
                       projectAssignees={
                         selectedProject?.project_assignees || []
                       }
+                      dark={dark}
                     />
                   ))
                 )}
@@ -4486,13 +4954,13 @@ const PMProjects = () => {
           {/* BACKLOG */}
           {activeTab === "backlog" &&
             (loadingData ? (
-              <SkeletonBacklog />
+              <SkeletonBacklog dark={dark} />
             ) : (
               <div
                 style={{
-                  background: "#fff",
+                  background: dark ? "#17181c" : "#fff",
                   borderRadius: 8,
-                  border: "1px solid #dde3ec",
+                  border: `1px solid ${dark ? "#2a2d36" : "#dde3ec"}`,
                   overflow: "hidden",
                 }}
               >
@@ -4502,19 +4970,19 @@ const PMProjects = () => {
                     alignItems: "center",
                     justifyContent: "space-between",
                     padding: "10px 14px",
-                    borderBottom: "1px solid #f1f2f4",
-                    background: "#fafafa",
+                    borderBottom: `1px solid ${dark ? "#2a2d36" : "#f1f2f4"}`,
+                    background: dark ? "#1d2027" : "#fafafa",
                   }}
                 >
                   <div
                     style={{ display: "flex", alignItems: "center", gap: 7 }}
                   >
-                    <Inbox size={13} color="#626f86" />
+                    <Inbox size={13} color={dark ? "#a9afbd" : "#626f86"} />
                     <span
                       style={{
                         fontWeight: 700,
                         fontSize: 13,
-                        color: "#172b4d",
+                        color: dark ? "#f3f4f6" : "#172b4d",
                       }}
                     >
                       Backlog
@@ -4522,8 +4990,8 @@ const PMProjects = () => {
                     <span
                       style={{
                         fontSize: 11,
-                        color: "#626f86",
-                        background: "#f1f2f4",
+                        color: dark ? "#a9afbd" : "#626f86",
+                        background: dark ? "#2a2f39" : "#f1f2f4",
                         padding: "2px 7px",
                         borderRadius: 99,
                       }}
@@ -4540,9 +5008,9 @@ const PMProjects = () => {
                         display: "flex",
                         alignItems: "center",
                         gap: 4,
-                        background: "#f8f5ff",
-                        border: "1px solid #c4b5fd",
-                        color: "#7c3aed",
+                        background: dark ? "#2b2540" : "#f8f5ff",
+                        border: `1px solid ${dark ? "#4a3f72" : "#c4b5fd"}`,
+                        color: dark ? "#c4b5fd" : "#7c3aed",
                         fontSize: 11,
                         fontWeight: 600,
                         padding: "4px 10px",
@@ -4558,9 +5026,9 @@ const PMProjects = () => {
                         display: "flex",
                         alignItems: "center",
                         gap: 4,
-                        background: "#e9f2ff",
-                        border: "1px solid #b8d0f5",
-                        color: "#0c66e4",
+                        background: dark ? "#1d2f4f" : "#e9f2ff",
+                        border: `1px solid ${dark ? "#2f4d75" : "#b8d0f5"}`,
+                        color: dark ? "#93c5fd" : "#0c66e4",
                         fontSize: 11,
                         fontWeight: 600,
                         padding: "4px 10px",
@@ -4587,8 +5055,8 @@ const PMProjects = () => {
                     <div
                       style={{
                         padding: "6px 14px",
-                        background: "#f8f5ff",
-                        borderBottom: "1px solid #f1f2f4",
+                        background: dark ? "#241f33" : "#f8f5ff",
+                        borderBottom: `1px solid ${dark ? "#2a2d36" : "#f1f2f4"}`,
                       }}
                     >
                       <span
@@ -4625,6 +5093,7 @@ const PMProjects = () => {
                         projectAssignees={
                           selectedProject?.project_assignees || []
                         }
+                        dark={dark}
                       />
                     ))}
                   </>
@@ -4636,16 +5105,16 @@ const PMProjects = () => {
                     <div
                       style={{
                         padding: "6px 14px",
-                        background: "#f4f5f7",
-                        borderBottom: "1px solid #f1f2f4",
-                        borderTop: "1px solid #f1f2f4",
+                        background: dark ? "#1f2229" : "#f4f5f7",
+                        borderBottom: `1px solid ${dark ? "#2a2d36" : "#f1f2f4"}`,
+                        borderTop: `1px solid ${dark ? "#2a2d36" : "#f1f2f4"}`,
                       }}
                     >
                       <span
                         style={{
                           fontSize: 10,
                           fontWeight: 800,
-                          color: "#626f86",
+                          color: dark ? "#a9afbd" : "#626f86",
                           textTransform: "uppercase",
                           letterSpacing: 0.5,
                         }}
@@ -4659,8 +5128,8 @@ const PMProjects = () => {
                         alignItems: "center",
                         gap: 8,
                         padding: "6px 14px",
-                        borderBottom: "1px solid #f1f2f4",
-                        background: "#fafafa",
+                        borderBottom: `1px solid ${dark ? "#2a2d36" : "#f1f2f4"}`,
+                        background: dark ? "#1d2027" : "#fafafa",
                       }}
                     >
                       <div style={{ width: 12 }} />
@@ -4737,11 +5206,12 @@ const PMProjects = () => {
                         }
                         onDragEnd={handleDragEnd}
                         isDragging={draggingGroup?.leadId === t.id}
-                        onDelete={handleDeleteTicket}
-                        projectAssignees={
-                          selectedProject?.project_assignees || []
-                        }
-                      />
+                      onDelete={handleDeleteTicket}
+                      projectAssignees={
+                        selectedProject?.project_assignees || []
+                      }
+                      dark={dark}
+                    />
                     ))}
                   </>
                 )}
@@ -4750,16 +5220,16 @@ const PMProjects = () => {
                   <div style={{ textAlign: "center", padding: "44px 0" }}>
                     <CheckCircle2
                       size={28}
-                      color="#dde3ec"
+                      color={dark ? "#3a3f4c" : "#dde3ec"}
                       style={{ margin: "0 auto 8px" }}
                     />
-                    <p style={{ fontSize: 13, color: "#9ca3af", margin: 0 }}>
+                    <p style={{ fontSize: 13, color: dark ? "#9ca3af" : "#9ca3af", margin: 0 }}>
                       Backlog is empty 🎉
                     </p>
                     <p
                       style={{
                         fontSize: 11,
-                        color: "#d1d5db",
+                        color: dark ? "#6b7280" : "#d1d5db",
                         margin: "3px 0 0",
                       }}
                     >
@@ -4771,7 +5241,7 @@ const PMProjects = () => {
                 <div
                   style={{
                     padding: "10px 14px",
-                    borderTop: "1px solid #f1f2f4",
+                    borderTop: `1px solid ${dark ? "#2a2d36" : "#f1f2f4"}`,
                   }}
                 >
                   <button
@@ -4811,6 +5281,246 @@ const PMProjects = () => {
       )}
 
       {/* ═══ TICKET FORM DRAWER ═══ */}
+      <Modal
+        title={
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Sparkles size={14} color={dark ? "#93c5fd" : "#4338ca"} />
+            <span style={{ fontWeight: 700, color: dark ? "#f3f4f6" : "#172b4d" }}>
+              AI Sprint Planner
+            </span>
+          </div>
+        }
+        open={showAiPlanner}
+        rootClassName={dark ? "pm-dark-overlay" : undefined}
+        onCancel={() => {
+          if (aiPlannerLoading || aiPlannerApplying) return;
+          setShowAiPlanner(false);
+        }}
+        width={760}
+        footer={
+          <Space>
+            <Button
+              onClick={() => {
+                setShowAiPlanner(false);
+                setAiPlannerResult(null);
+                setAiProjectBrief("");
+                setAiPlannerFile(null);
+              }}
+              disabled={aiPlannerLoading || aiPlannerApplying}
+            >
+              Close
+            </Button>
+            <Button
+              onClick={runAiPlanner}
+              loading={aiPlannerLoading}
+              icon={<Sparkles size={13} />}
+            >
+              Generate Plan
+            </Button>
+            <Button
+              type="primary"
+              onClick={applyAiPlannerResult}
+              loading={aiPlannerApplying}
+              disabled={!aiPlannerResult}
+              style={{
+                background: "linear-gradient(135deg,#003467,#0c66e4)",
+                border: "none",
+                fontWeight: 600,
+              }}
+            >
+              Create Sprints & Tickets
+            </Button>
+          </Space>
+        }
+        styles={{
+          content: {
+            background: dark ? "#1a1b1f" : "#ffffff",
+            border: dark ? "1px solid #2a2b31" : "1px solid #e5e7eb",
+          },
+          header: { background: dark ? "#1a1b1f" : "#ffffff" },
+          body: { background: dark ? "#1a1b1f" : "#ffffff" },
+          footer: { background: dark ? "#1a1b1f" : "#ffffff" },
+        }}
+      >
+        <div
+          style={{
+            marginBottom: 12,
+            fontSize: 12,
+            color: dark ? "#9ca3af" : "#6b7280",
+          }}
+        >
+          Describe project scope, outcomes, constraints, timeline and dependencies.
+          AI will generate sprint plan and backlog tickets.
+        </div>
+        <TextArea
+          rows={6}
+          value={aiProjectBrief}
+          onChange={(e) => setAiProjectBrief(e.target.value)}
+          placeholder="Example: Build multi-tenant PM platform with auth, project boards, ticketing, notifications, reporting, and role-based access. Deadline 10 weeks."
+          style={{
+            background: dark ? "#17181c" : "#ffffff",
+            borderColor: dark ? "#2a2b31" : "#d1d5db",
+            color: dark ? "#f3f4f6" : "#111827",
+          }}
+        />
+        <div style={{ marginTop: 12, marginBottom: 14 }}>
+          <label
+            htmlFor="ai-planner-upload"
+            style={{
+              display: "block",
+              border: `1px dashed ${dark ? "#3a3f4d" : "#cbd5e1"}`,
+              borderRadius: 10,
+              padding: "12px 14px",
+              background: dark ? "#17181c" : "#f8fafc",
+              cursor: "pointer",
+              transition: "all .15s",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 8,
+                  background: dark ? "#20232b" : "#e9f2ff",
+                  border: `1px solid ${dark ? "#2f3440" : "#bfdbfe"}`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <Upload size={14} color={dark ? "#93c5fd" : "#0c66e4"} />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: dark ? "#f3f4f6" : "#172b4d",
+                    marginBottom: 1,
+                  }}
+                >
+                  Upload reference file
+                </div>
+                <div style={{ fontSize: 11, color: dark ? "#9ca3af" : "#6b7280" }}>
+                  Supported: `.md`, `.pdf`, `.doc`, `.docx`, `.txt`, `.json`, `.csv`
+                </div>
+              </div>
+            </div>
+          </label>
+          <input
+            id="ai-planner-upload"
+            type="file"
+            accept=".md,.pdf,.doc,.docx,.txt,.json,.csv"
+            onChange={(e) => setAiPlannerFile(e.target.files?.[0] || null)}
+            style={{ display: "none" }}
+          />
+          {aiPlannerFile && (
+            <div
+              style={{
+                marginTop: 8,
+                borderRadius: 8,
+                border: `1px solid ${dark ? "#2f3440" : "#dbe2ea"}`,
+                background: dark ? "#1d2027" : "#ffffff",
+                padding: "8px 10px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 10,
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: dark ? "#f3f4f6" : "#172b4d",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {aiPlannerFile.name}
+                </div>
+                <div style={{ fontSize: 11, color: dark ? "#9ca3af" : "#6b7280" }}>
+                  {(aiPlannerFile.size / 1024).toFixed(1)} KB
+                </div>
+              </div>
+              <button
+                onClick={() => setAiPlannerFile(null)}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  color: dark ? "#9ca3af" : "#6b7280",
+                  cursor: "pointer",
+                  padding: 2,
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {aiPlannerResult && (
+          <div
+            style={{
+              border: `1px solid ${dark ? "#2a2b31" : "#e5e7eb"}`,
+              background: dark ? "#17181c" : "#f9fafb",
+              borderRadius: 8,
+              padding: 12,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                marginBottom: 8,
+                color: dark ? "#d1d5db" : "#374151",
+                fontSize: 12,
+                fontWeight: 600,
+              }}
+            >
+              <span>Sprints: {aiPlannerResult.sprints.length}</span>
+              <span>Tickets: {aiPlannerResult.tickets.length}</span>
+            </div>
+            <div style={{ maxHeight: 220, overflow: "auto" }}>
+              {aiPlannerResult.tickets.slice(0, 20).map((tk, i) => (
+                <div
+                  key={`${tk.key}-${i}`}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "6px 0",
+                    borderBottom: `1px solid ${dark ? "#2a2b31" : "#f1f5f9"}`,
+                  }}
+                >
+                  <Tag style={{ margin: 0 }}>{tk.ticket_type}</Tag>
+                  <span
+                    style={{
+                      color: dark ? "#f3f4f6" : "#111827",
+                      fontSize: 12,
+                      flex: 1,
+                    }}
+                  >
+                    {tk.title}
+                  </span>
+                  <span
+                    style={{ color: dark ? "#9ca3af" : "#6b7280", fontSize: 11 }}
+                  >
+                    {tk.sprint_name || "Backlog"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Modal>
+
       <Drawer
         title={
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
@@ -4820,7 +5530,9 @@ const PMProjects = () => {
                 height: 24,
                 borderRadius: 5,
                 background: editingTicket
-                  ? "#f0f0ff"
+                  ? dark
+                    ? "#282c3a"
+                    : "#f0f0ff"
                   : "linear-gradient(135deg,#003467,#0c66e4)",
                 display: "flex",
                 alignItems: "center",
@@ -4828,12 +5540,18 @@ const PMProjects = () => {
               }}
             >
               {editingTicket ? (
-                <Edit2 size={12} color="#6366f1" />
+                <Edit2 size={12} color={dark ? "#c4b5fd" : "#6366f1"} />
               ) : (
                 <Plus size={12} color="#fff" />
               )}
             </div>
-            <span style={{ fontSize: 14, fontWeight: 700, color: "#172b4d" }}>
+            <span
+              style={{
+                fontSize: 14,
+                fontWeight: 700,
+                color: dark ? "#f3f4f6" : "#172b4d",
+              }}
+            >
               {editingTicket ? "Edit Issue" : "Create Issue"}
             </span>
           </div>
@@ -4841,6 +5559,7 @@ const PMProjects = () => {
         placement="right"
         width={580}
         open={showTicketForm}
+        rootClassName={dark ? "pm-dark-overlay" : undefined}
         onClose={() => {
           setShowTicketForm(false);
           ticketForm.resetFields();
@@ -4860,9 +5579,11 @@ const PMProjects = () => {
               loading={aiLoading}
               icon={<Sparkles size={12} />}
               style={{
-                background: "linear-gradient(135deg,#f0f0ff,#fdf4ff)",
-                border: "1px solid #c7d2fe",
-                color: "#6366f1",
+                background: dark
+                  ? "linear-gradient(135deg,#232744,#1e2239)"
+                  : "linear-gradient(135deg,#f0f0ff,#fdf4ff)",
+                border: `1px solid ${dark ? "#3e3f6d" : "#c7d2fe"}`,
+                color: dark ? "#c4b5fd" : "#6366f1",
                 fontWeight: 600,
               }}
             >
@@ -4894,7 +5615,11 @@ const PMProjects = () => {
           </div>
         }
         styles={{
-          footer: { padding: "10px 14px", borderTop: "1px solid #f1f2f4" },
+          footer: {
+            padding: "10px 14px",
+            borderTop: `1px solid ${dark ? "#2a2d36" : "#f1f2f4"}`,
+            background: dark ? "#17181c" : "#fff",
+          },
         }}
       >
         {aiSuggestion && (
@@ -4902,6 +5627,7 @@ const PMProjects = () => {
             suggestion={aiSuggestion}
             onApply={applyAISuggestion}
             onDismiss={() => setAiSuggestion(null)}
+            dark={dark}
           />
         )}
 
@@ -4964,16 +5690,16 @@ const PMProjects = () => {
               style={{
                 marginBottom: 14,
                 padding: "7px 10px",
-                background: "#f8f8ff",
-                border: "1px solid #e0e7ff",
+                background: dark ? "#22263a" : "#f8f8ff",
+                border: `1px solid ${dark ? "#3a4060" : "#e0e7ff"}`,
                 borderRadius: 6,
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
               }}
             >
-              <Sparkles size={11} color="#6366f1" />
-              <span style={{ fontSize: 11, color: "#6366f1" }}>
+              <Sparkles size={11} color={dark ? "#a5b4fc" : "#6366f1"} />
+              <span style={{ fontSize: 11, color: dark ? "#c4b5fd" : "#6366f1" }}>
                 Fill in title & description, then click{" "}
                 <strong>AI Suggest</strong> for auto-analysis
               </span>
@@ -5237,6 +5963,7 @@ const PMProjects = () => {
         placement="right"
         width={460}
         open={showSprintForm}
+        rootClassName={dark ? "pm-dark-overlay" : undefined}
         onClose={() => {
           setShowSprintForm(false);
           sprintForm.resetFields();

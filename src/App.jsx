@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -47,6 +49,8 @@ import InterviewReviewPage from "./pages/InterviewReview";
 import MeetingRoom from "./pages/meetingsroom";
 import MeetingsPage from "./pages/mettingspage";
 import SubscriptionManagement from "./pages/subscriptions";
+import SupportCenter from "./pages/SupportCenter";
+import ReportProblem from "./pages/ReportProblem";
 import MainLayout from "./components/Layout/MainLayout";
 
 // Super-Admin
@@ -55,6 +59,74 @@ import TenantsPage from "./pages/superadmin/Platform/tenants";
 import TenantDetailPage from "./pages/superadmin/Platform/tenantDetails";
 import AdminPlans from "./pages/superadmin/Platform/plans";
 import DiscountsPage from "./pages/superadmin/Platform/discounts";
+
+const getIsDarkTheme = () => {
+  if (typeof window === "undefined") return false;
+  const mode = localStorage.getItem("themeMode") || "system";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
+
+const AuthLoadingScreen = () => {
+  const [dark, setDark] = useState(getIsDarkTheme);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const syncTheme = () => setDark(getIsDarkTheme());
+
+    syncTheme();
+    window.addEventListener("storage", syncTheme);
+    window.addEventListener("themeModeChanged", syncTheme);
+
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", syncTheme);
+    } else if (typeof media.addListener === "function") {
+      media.addListener(syncTheme);
+    }
+
+    return () => {
+      window.removeEventListener("storage", syncTheme);
+      window.removeEventListener("themeModeChanged", syncTheme);
+      if (typeof media.removeEventListener === "function") {
+        media.removeEventListener("change", syncTheme);
+      } else if (typeof media.removeListener === "function") {
+        media.removeListener(syncTheme);
+      }
+    };
+  }, []);
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: dark ? "#141416" : "#f8fafc",
+        transition: "background-color 0.2s ease",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          padding: 8,
+        }}
+      >
+        <DotLottieReact
+          src="/Ryzent.lottie"
+          loop
+          autoplay
+          style={{ width: 140, height: 140 }}
+        />
+      </div>
+    </div>
+  );
+};
 
 const ProtectedRoute = ({
   children,
@@ -67,13 +139,14 @@ const ProtectedRoute = ({
   const { user, loading, profile } = useAuth();
   const location = useLocation();
   const path = location.pathname;
+  const ALWAYS_ALLOWED_ADMIN_ROUTES = new Set([
+    "/dashboard",
+    "/support",
+    "/report-problem",
+  ]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        Loading...
-      </div>
-    );
+    return <AuthLoadingScreen />;
   }
 
   if (!user) {
@@ -85,7 +158,10 @@ const ProtectedRoute = ({
     Array.isArray(profile?.permissions) &&
     routePath
   ) {
-    if (!profile.permissions.includes(routePath)) {
+    if (
+      !ALWAYS_ALLOWED_ADMIN_ROUTES.has(routePath) &&
+      !profile.permissions.includes(routePath)
+    ) {
       return <Navigate to="/dashboard" replace />;
     }
   }
@@ -359,6 +435,30 @@ function App() {
               <ProtectedRoute routePath="/communication">
                 <Communication />
               </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/support"
+            element={
+              <ProtectedRoute
+                routePath="/support"
+                saComponent={<SupportCenter />}
+                adminComponent={<SupportCenter />}
+              />
+            }
+          />
+
+          <Route
+            path="/report-problem"
+            element={
+              <ProtectedRoute
+                routePath="/report-problem"
+                saComponent={<Navigate to="/dashboard" replace />}
+                pmComponent={<ReportProblem />}
+                adminComponent={<ReportProblem />}
+                employeeComponent={<ReportProblem />}
+              />
             }
           />
 

@@ -182,11 +182,150 @@ const DEFAULT_BRANDING = {
   sendTrackingLink: true,
 };
 
+const getIsDarkTheme = () => {
+  const mode = localStorage.getItem("themeMode") || "system";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
+
+const RECRUITMENT_THEME_CSS = `
+  .rec-page, .rec-portal {
+    --rec-bg-page: #f8fafc;
+    --rec-bg-card: #ffffff;
+    --rec-bg-subtle: #f8fafc;
+    --rec-bg-soft: #fafafa;
+    --rec-bg-muted: #f1f5f9;
+    --rec-border: #e2e8f0;
+    --rec-border-soft: #f1f5f9;
+    --rec-text: #0f172a;
+    --rec-text-2: #64748b;
+    --rec-text-3: #94a3b8;
+    --rec-text-faint: #cbd5e1;
+  }
+  .rec-page.dark, .rec-portal.dark {
+    --rec-bg-page: #141416;
+    --rec-bg-card: #141416;
+    --rec-bg-subtle: #1a1a1e;
+    --rec-bg-soft: #18181c;
+    --rec-bg-muted: #222228;
+    --rec-border: #2e2e38;
+    --rec-border-soft: #222228;
+    --rec-text: #f1f5f9;
+    --rec-text-2: #cbd5e1;
+    --rec-text-3: #94a3b8;
+    --rec-text-faint: #475569;
+  }
+
+  .rec-page .ant-input,
+  .rec-page .ant-input-affix-wrapper,
+  .rec-page .ant-select-selector,
+  .rec-page .ant-picker,
+  .rec-page .ant-input-number,
+  .rec-page textarea.ant-input,
+  .rec-portal .ant-input,
+  .rec-portal .ant-input-affix-wrapper,
+  .rec-portal .ant-select-selector,
+  .rec-portal .ant-picker,
+  .rec-portal .ant-input-number,
+  .rec-portal textarea.ant-input {
+    background: var(--rec-bg-subtle) !important;
+    border-color: var(--rec-border) !important;
+    color: var(--rec-text) !important;
+  }
+  .rec-page .ant-input::placeholder,
+  .rec-page textarea.ant-input::placeholder,
+  .rec-portal .ant-input::placeholder,
+  .rec-portal textarea.ant-input::placeholder {
+    color: var(--rec-text-3) !important;
+  }
+  .rec-page .ant-input:focus,
+  .rec-page .ant-input-affix-wrapper:focus-within,
+  .rec-page .ant-select-focused .ant-select-selector,
+  .rec-page .ant-picker-focused,
+  .rec-page .ant-input-number-focused,
+  .rec-portal .ant-input:focus,
+  .rec-portal .ant-input-affix-wrapper:focus-within,
+  .rec-portal .ant-select-focused .ant-select-selector,
+  .rec-portal .ant-picker-focused,
+  .rec-portal .ant-input-number-focused {
+    border-color: var(--rec-text) !important;
+    box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08) !important;
+  }
+
+  .rec-page .ant-modal-content,
+  .rec-page .ant-modal-header,
+  .rec-page .ant-modal-footer,
+  .rec-portal .ant-modal-content,
+  .rec-portal .ant-modal-header,
+  .rec-portal .ant-modal-footer,
+  .rec-portal .ant-drawer-content,
+  .rec-portal .ant-drawer-header,
+  .rec-portal .ant-drawer-body {
+    background: var(--rec-bg-card) !important;
+    color: var(--rec-text) !important;
+    border-color: var(--rec-border-soft) !important;
+  }
+  .rec-page .ant-modal-title,
+  .rec-portal .ant-modal-title,
+  .rec-portal .ant-drawer-title {
+    color: var(--rec-text) !important;
+  }
+  .rec-page .ant-modal-close,
+  .rec-portal .ant-modal-close,
+  .rec-portal .ant-drawer-close {
+    color: var(--rec-text-3) !important;
+  }
+
+  .rec-page .ant-table,
+  .rec-page .ant-table-container,
+  .rec-page .ant-table-thead > tr > th,
+  .rec-page .ant-table-tbody > tr > td {
+    background: var(--rec-bg-card) !important;
+    color: var(--rec-text) !important;
+    border-color: var(--rec-border-soft) !important;
+  }
+  .rec-page .ant-table-thead > tr > th {
+    background: var(--rec-bg-subtle) !important;
+    color: var(--rec-text-3) !important;
+  }
+  .rec-page .ant-empty-description,
+  .rec-page .ant-pagination-total-text,
+  .rec-page .ant-select-arrow,
+  .rec-page .ant-picker-suffix {
+    color: var(--rec-text-3) !important;
+  }
+
+  /* Modal polish */
+  .rec-portal .ant-modal-header,
+  .rec-portal .ant-modal-footer {
+    background: transparent !important;
+  }
+  .rec-portal .ant-btn-primary {
+    background: var(--rec-text) !important;
+    border-color: var(--rec-text) !important;
+    color: var(--rec-bg-page) !important;
+  }
+  .rec-portal .ant-btn-primary:disabled,
+  .rec-portal .ant-btn-primary[disabled] {
+    background: var(--rec-bg-muted) !important;
+    border-color: var(--rec-border) !important;
+    color: var(--rec-text-3) !important;
+    opacity: 1 !important;
+  }
+
+  /* Dark mode overrides for inline hardcoded light colors */
+  .rec-page.dark .ant-table-tbody > tr:nth-child(even) > td,
+  .rec-page.dark .ant-table-tbody > tr:hover > td {
+    background: var(--rec-bg-subtle) !important;
+  }
+`;
+
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
 const stageInfo = (key) =>
   STAGES.find((s) => s.key === key) || {
     label: key,
-    color: "#94a3b8",
+    color: "var(--rec-text-3)",
     bg: "#f8fafc",
     border: "#e2e8f0",
   };
@@ -268,7 +407,7 @@ const sendTrackingEmail = async ({
 /* ══════════════════════════════════════════════════════════════════════════
    FREE PLAN PAYWALL
 ══════════════════════════════════════════════════════════════════════════ */
-const RecruitmentPaywall = () => {
+const RecruitmentPaywall = ({ dark = false }) => {
   const features = [
     {
       icon: <FileText size={16} />,
@@ -349,12 +488,16 @@ const RecruitmentPaywall = () => {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
-      {/* Header — same as the real page so it feels native */}
+    <div
+      className={`rec-page${dark ? " dark" : ""}`}
+      style={{ minHeight: "100vh", background: "var(--rec-bg-page)" }}
+    >
+      <style>{RECRUITMENT_THEME_CSS}</style>
+      {/* Header */}
       <div
         style={{
-          background: "#fff",
-          borderBottom: "1px solid #e2e8f0",
+          background: "var(--rec-bg-card)",
+          borderBottom: "1px solid var(--rec-border)",
           padding: "20px 28px",
           marginBottom: 24,
         }}
@@ -374,7 +517,7 @@ const RecruitmentPaywall = () => {
                 margin: 0,
                 fontSize: 26,
                 fontWeight: 800,
-                color: "#0f172a",
+                color: "var(--rec-text)",
                 letterSpacing: "-0.04em",
                 lineHeight: 1,
                 marginBottom: 4,
@@ -382,7 +525,7 @@ const RecruitmentPaywall = () => {
             >
               Recruitment
             </h1>
-            <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>
+            <p style={{ margin: 0, color: "var(--rec-text-2)", fontSize: 13 }}>
               Build forms · Share links · Track candidates end-to-end
             </p>
           </div>
@@ -390,7 +533,7 @@ const RecruitmentPaywall = () => {
             <div
               style={{
                 display: "flex",
-                background: "#f1f5f9",
+                background: "var(--rec-bg-muted)",
                 borderRadius: 9,
                 padding: 3,
                 gap: 2,
@@ -413,7 +556,7 @@ const RecruitmentPaywall = () => {
                     fontSize: 13,
                     fontWeight: 600,
                     background: "transparent",
-                    color: "#94a3b8",
+                    color: "var(--rec-text-3)",
                     opacity: 0.6,
                   }}
                 >
@@ -428,12 +571,12 @@ const RecruitmentPaywall = () => {
                 alignItems: "center",
                 gap: 6,
                 padding: "9px 18px",
-                background: "#e2e8f0",
+                background: "var(--rec-bg-muted)",
                 border: "none",
                 borderRadius: 9,
                 fontWeight: 700,
                 fontSize: 13,
-                color: "#94a3b8",
+                color: "var(--rec-text-3)",
                 cursor: "not-allowed",
                 opacity: 0.6,
               }}
@@ -466,8 +609,8 @@ const RecruitmentPaywall = () => {
             <div
               key={label}
               style={{
-                background: "#fff",
-                border: "1px solid #e2e8f0",
+                background: "var(--rec-bg-card)",
+                border: "1px solid var(--rec-border)",
                 borderRadius: 14,
                 padding: "18px 20px",
                 display: "flex",
@@ -494,7 +637,7 @@ const RecruitmentPaywall = () => {
                   style={{
                     fontSize: 26,
                     fontWeight: 800,
-                    color: "#0f172a",
+                    color: "var(--rec-text)",
                     lineHeight: 1,
                   }}
                 >
@@ -503,7 +646,7 @@ const RecruitmentPaywall = () => {
                 <div
                   style={{
                     fontSize: 12,
-                    color: "#94a3b8",
+                    color: "var(--rec-text-3)",
                     marginTop: 3,
                     fontWeight: 500,
                   }}
@@ -521,8 +664,8 @@ const RecruitmentPaywall = () => {
         <div
           style={{
             position: "relative",
-            background: "#fff",
-            border: "1px solid #e2e8f0",
+            background: "var(--rec-bg-card)",
+            border: "1px solid var(--rec-border)",
             borderRadius: 20,
             overflow: "hidden",
           }}
@@ -535,7 +678,7 @@ const RecruitmentPaywall = () => {
               userSelect: "none",
               opacity: 0.35,
               padding: "24px 24px 0",
-              borderBottom: "1px solid #e2e8f0",
+              borderBottom: "1px solid var(--rec-border)",
             }}
           >
             <div
@@ -561,7 +704,7 @@ const RecruitmentPaywall = () => {
                         style={{
                           fontSize: 12,
                           fontWeight: 700,
-                          color: "#0f172a",
+                          color: "var(--rec-text)",
                         }}
                       >
                         {stage}
@@ -592,8 +735,8 @@ const RecruitmentPaywall = () => {
                           <div
                             key={ci}
                             style={{
-                              background: "#f8fafc",
-                              border: "1px solid #e2e8f0",
+                              background: "var(--rec-bg-subtle)",
+                              border: "1px solid var(--rec-border)",
                               borderRadius: 10,
                               padding: "11px 13px",
                               borderTop: `3px solid ${Object.values(stageColors)[si]}`,
@@ -603,13 +746,18 @@ const RecruitmentPaywall = () => {
                               style={{
                                 fontWeight: 700,
                                 fontSize: 13,
-                                color: "#0f172a",
+                                color: "var(--rec-text)",
                                 marginBottom: 2,
                               }}
                             >
                               {c.name}
                             </div>
-                            <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                            <div
+                              style={{
+                                fontSize: 11,
+                                color: "var(--rec-text-3)",
+                              }}
+                            >
                               {c.role}
                             </div>
                             {c.score && (
@@ -618,7 +766,7 @@ const RecruitmentPaywall = () => {
                                   style={{
                                     height: 3,
                                     borderRadius: 99,
-                                    background: "#f1f5f9",
+                                    background: "var(--rec-bg-muted)",
                                     overflow: "hidden",
                                   }}
                                 >
@@ -648,8 +796,9 @@ const RecruitmentPaywall = () => {
               position: "relative",
               padding: "48px 40px 44px",
               marginTop: -200,
-              background:
-                "linear-gradient(180deg, rgba(255,255,255,0) 0%, #fff 8%)",
+              background: dark
+                ? "linear-gradient(180deg, rgba(20,20,22,0) 0%, #141416 8%)"
+                : "linear-gradient(180deg, rgba(255,255,255,0) 0%, #fff 8%)",
             }}
           >
             {/* Badge */}
@@ -666,8 +815,9 @@ const RecruitmentPaywall = () => {
                   alignItems: "center",
                   gap: 7,
                   padding: "6px 14px",
-                  background:
-                    "linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%)",
+                  background: dark
+                    ? "linear-gradient(135deg, #1e2a3a 0%, #1e1a2e 100%)"
+                    : "linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%)",
                   border: "1px solid #ddd6fe",
                   borderRadius: 30,
                 }}
@@ -706,7 +856,7 @@ const RecruitmentPaywall = () => {
                   margin: 0,
                   fontSize: 30,
                   fontWeight: 900,
-                  color: "#0f172a",
+                  color: "var(--rec-text)",
                   letterSpacing: "-0.04em",
                   lineHeight: 1.15,
                 }}
@@ -729,7 +879,7 @@ const RecruitmentPaywall = () => {
               style={{
                 textAlign: "center",
                 fontSize: 15,
-                color: "#64748b",
+                color: "var(--rec-text-2)",
                 maxWidth: 480,
                 margin: "0 auto 36px",
                 lineHeight: 1.6,
@@ -756,8 +906,8 @@ const RecruitmentPaywall = () => {
                   key={i}
                   style={{
                     padding: "16px 18px",
-                    background: "#f8fafc",
-                    border: "1px solid #e2e8f0",
+                    background: "var(--rec-bg-subtle)",
+                    border: "1px solid var(--rec-border)",
                     borderRadius: 12,
                     display: "flex",
                     flexDirection: "column",
@@ -769,8 +919,8 @@ const RecruitmentPaywall = () => {
                       width: 34,
                       height: 34,
                       borderRadius: 9,
-                      background: "#fff",
-                      border: "1px solid #e2e8f0",
+                      background: "var(--rec-bg-muted)",
+                      border: "1px solid var(--rec-border)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -785,7 +935,7 @@ const RecruitmentPaywall = () => {
                       style={{
                         fontSize: 13,
                         fontWeight: 700,
-                        color: "#0f172a",
+                        color: "var(--rec-text)",
                         marginBottom: 3,
                       }}
                     >
@@ -794,7 +944,7 @@ const RecruitmentPaywall = () => {
                     <div
                       style={{
                         fontSize: 12,
-                        color: "#64748b",
+                        color: "var(--rec-text-2)",
                         lineHeight: 1.5,
                       }}
                     >
@@ -810,8 +960,8 @@ const RecruitmentPaywall = () => {
               style={{
                 maxWidth: 760,
                 margin: "0 auto 36px",
-                background: "#f8fafc",
-                border: "1px solid #e2e8f0",
+                background: "var(--rec-bg-subtle)",
+                border: "1px solid var(--rec-border)",
                 borderRadius: 14,
                 padding: "20px 24px",
               }}
@@ -820,7 +970,7 @@ const RecruitmentPaywall = () => {
                 style={{
                   fontSize: 11,
                   fontWeight: 700,
-                  color: "#94a3b8",
+                  color: "var(--rec-text-3)",
                   letterSpacing: "0.07em",
                   marginBottom: 16,
                 }}
@@ -888,7 +1038,7 @@ const RecruitmentPaywall = () => {
                         style={{
                           fontSize: 12,
                           fontWeight: 700,
-                          color: "#0f172a",
+                          color: "var(--rec-text)",
                           marginBottom: 2,
                         }}
                       >
@@ -897,7 +1047,7 @@ const RecruitmentPaywall = () => {
                       <div
                         style={{
                           fontSize: 11,
-                          color: "#94a3b8",
+                          color: "var(--rec-text-3)",
                           lineHeight: 1.4,
                         }}
                       >
@@ -909,7 +1059,7 @@ const RecruitmentPaywall = () => {
                         style={{
                           flexShrink: 0,
                           padding: "0 4px",
-                          color: "#d1d5db",
+                          color: "var(--rec-text-faint)",
                         }}
                       >
                         <ChevronRight size={16} />
@@ -925,7 +1075,7 @@ const RecruitmentPaywall = () => {
               style={{
                 maxWidth: 760,
                 margin: "0 auto 36px",
-                border: "1px solid #e2e8f0",
+                border: "1px solid var(--rec-border)",
                 borderRadius: 12,
                 overflow: "hidden",
               }}
@@ -933,23 +1083,27 @@ const RecruitmentPaywall = () => {
               <div
                 style={{
                   padding: "12px 16px",
-                  borderBottom: "1px solid #f1f5f9",
-                  background: "#f8fafc",
+                  borderBottom: "1px solid var(--rec-border-soft)",
+                  background: "var(--rec-bg-subtle)",
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
                 }}
               >
                 <span
-                  style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "var(--rec-text)",
+                  }}
                 >
                   Sample Pipeline
                 </span>
                 <span
                   style={{
                     fontSize: 11,
-                    color: "#64748b",
-                    background: "#e2e8f0",
+                    color: "var(--rec-text-2)",
+                    background: "var(--rec-bg-muted)",
                     padding: "1px 7px",
                     borderRadius: 5,
                     fontWeight: 600,
@@ -968,9 +1122,10 @@ const RecruitmentPaywall = () => {
                     padding: "12px 16px",
                     borderBottom:
                       i < mockCandidates.length - 1
-                        ? "1px solid #f1f5f9"
+                        ? "1px solid var(--rec-border-soft)"
                         : "none",
-                    background: i % 2 === 0 ? "#fff" : "#fafafa",
+                    background:
+                      i % 2 === 0 ? "var(--rec-bg-card)" : "var(--rec-bg-soft)",
                   }}
                 >
                   <div
@@ -981,7 +1136,7 @@ const RecruitmentPaywall = () => {
                         width: 32,
                         height: 32,
                         borderRadius: "50%",
-                        background: "#eff6ff",
+                        background: dark ? "#1e2a3a" : "#eff6ff",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -998,12 +1153,12 @@ const RecruitmentPaywall = () => {
                         style={{
                           fontSize: 13,
                           fontWeight: 700,
-                          color: "#0f172a",
+                          color: "var(--rec-text)",
                         }}
                       >
                         {c.name}
                       </div>
-                      <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                      <div style={{ fontSize: 11, color: "var(--rec-text-3)" }}>
                         {c.role}
                       </div>
                     </div>
@@ -1037,7 +1192,7 @@ const RecruitmentPaywall = () => {
                             flex: 1,
                             height: 4,
                             borderRadius: 99,
-                            background: "#f1f5f9",
+                            background: "var(--rec-bg-muted)",
                             overflow: "hidden",
                           }}
                         >
@@ -1061,7 +1216,11 @@ const RecruitmentPaywall = () => {
                         </span>
                       </div>
                     ) : (
-                      <span style={{ fontSize: 11, color: "#d1d5db" }}>—</span>
+                      <span
+                        style={{ fontSize: 11, color: "var(--rec-text-faint)" }}
+                      >
+                        —
+                      </span>
                     )}
                   </div>
                   <div style={{ display: "flex", gap: 4 }}>
@@ -1072,11 +1231,11 @@ const RecruitmentPaywall = () => {
                           width: 26,
                           height: 26,
                           borderRadius: 6,
-                          background: "#f1f5f9",
+                          background: "var(--rec-bg-muted)",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          color: "#94a3b8",
+                          color: "var(--rec-text-3)",
                         }}
                       >
                         <Icon size={11} />
@@ -1123,7 +1282,13 @@ const RecruitmentPaywall = () => {
                 Upgrade to unlock Recruitment
                 <ArrowRight size={16} />
               </a>
-              <p style={{ margin: "12px 0 0", fontSize: 12, color: "#94a3b8" }}>
+              <p
+                style={{
+                  margin: "12px 0 0",
+                  fontSize: 12,
+                  color: "var(--rec-text-3)",
+                }}
+              >
                 Upgrade your plan to access the full Recruitment module and all
                 Pro features.
               </p>
@@ -1140,8 +1305,8 @@ const KpiCard = ({ icon, value, label, color }) => (
   <div
     className="rec-kpi rec-fade"
     style={{
-      background: "#fff",
-      border: "1px solid #e2e8f0",
+      background: "var(--rec-bg-card)",
+      border: "1px solid var(--rec-border)",
       borderRadius: 14,
       padding: "18px 20px",
       display: "flex",
@@ -1169,7 +1334,7 @@ const KpiCard = ({ icon, value, label, color }) => (
         style={{
           fontSize: 26,
           fontWeight: 800,
-          color: "#0f172a",
+          color: "var(--rec-text)",
           lineHeight: 1,
         }}
       >
@@ -1178,7 +1343,7 @@ const KpiCard = ({ icon, value, label, color }) => (
       <div
         style={{
           fontSize: 12,
-          color: "#94a3b8",
+          color: "var(--rec-text-3)",
           marginTop: 3,
           fontWeight: 500,
         }}
@@ -1221,7 +1386,7 @@ const JobBrandingTab = ({ branding, onChange }) => {
           <div>
             <label style={lbl}>
               Tagline{" "}
-              <span style={{ color: "#94a3b8", fontWeight: 400 }}>
+              <span style={{ color: "var(--rec-text-3)", fontWeight: 400 }}>
                 (optional)
               </span>
             </label>
@@ -1234,7 +1399,7 @@ const JobBrandingTab = ({ branding, onChange }) => {
           <div>
             <label style={lbl}>Logo URL</label>
             <Input
-              prefix={<Link size={13} color="#94a3b8" />}
+              prefix={<Link size={13} color="var(--rec-text-3)" />}
               value={b.logo_url}
               onChange={(e) => onChange({ ...b, logo_url: e.target.value })}
               placeholder="https://…/logo.png"
@@ -1252,7 +1417,7 @@ const JobBrandingTab = ({ branding, onChange }) => {
                     height: 14,
                     borderRadius: 3,
                     background: accent,
-                    border: "1px solid #e2e8f0",
+                    border: "1px solid var(--rec-border)",
                   }}
                 />
               }
@@ -1288,7 +1453,7 @@ const JobBrandingTab = ({ branding, onChange }) => {
             style={{
               fontSize: 11,
               fontWeight: 700,
-              color: "#94a3b8",
+              color: "var(--rec-text-3)",
               letterSpacing: "0.06em",
               marginBottom: 10,
             }}
@@ -1297,10 +1462,10 @@ const JobBrandingTab = ({ branding, onChange }) => {
           </div>
           <div
             style={{
-              background: "#f8fafc",
+              background: "var(--rec-bg-subtle)",
               borderRadius: 12,
               padding: "18px 14px",
-              border: "1px solid #e2e8f0",
+              border: "1px solid var(--rec-border)",
             }}
           >
             <div
@@ -1340,12 +1505,16 @@ const JobBrandingTab = ({ branding, onChange }) => {
               )}
               <div>
                 <div
-                  style={{ fontWeight: 700, fontSize: 13, color: "#0f172a" }}
+                  style={{
+                    fontWeight: 700,
+                    fontSize: 13,
+                    color: "var(--rec-text)",
+                  }}
                 >
                   {b.company_name || "Company Name"}
                 </div>
                 {b.tagline && (
-                  <div style={{ fontSize: 10, color: "#94a3b8" }}>
+                  <div style={{ fontSize: 10, color: "var(--rec-text-3)" }}>
                     {b.tagline}
                   </div>
                 )}
@@ -1353,10 +1522,10 @@ const JobBrandingTab = ({ branding, onChange }) => {
             </div>
             <div
               style={{
-                background: "#fff",
+                background: "var(--rec-bg-card)",
                 borderRadius: 10,
                 padding: 14,
-                border: "1px solid #e2e8f0",
+                border: "1px solid var(--rec-border)",
               }}
             >
               <div
@@ -1377,7 +1546,7 @@ const JobBrandingTab = ({ branding, onChange }) => {
                 style={{
                   fontSize: 15,
                   fontWeight: 700,
-                  color: "#0f172a",
+                  color: "var(--rec-text)",
                   marginBottom: 4,
                 }}
               >
@@ -1401,7 +1570,7 @@ const JobBrandingTab = ({ branding, onChange }) => {
                     style={{
                       fontSize: 11,
                       fontWeight: 600,
-                      color: "#374151",
+                      color: "var(--rec-text-2)",
                       marginBottom: 3,
                     }}
                   >
@@ -1411,8 +1580,8 @@ const JobBrandingTab = ({ branding, onChange }) => {
                     style={{
                       height: 26,
                       borderRadius: 5,
-                      border: "1px solid #e2e8f0",
-                      background: "#fafafa",
+                      border: "1px solid var(--rec-border)",
+                      background: "var(--rec-bg-soft)",
                     }}
                   />
                 </div>
@@ -1444,8 +1613,8 @@ const JobBrandingTab = ({ branding, onChange }) => {
           justifyContent: "space-between",
           gap: 16,
           padding: "16px 18px",
-          background: "#f8fafc",
-          border: "1px solid #e2e8f0",
+          background: "var(--rec-bg-subtle)",
+          border: "1px solid var(--rec-border)",
           borderRadius: 12,
         }}
       >
@@ -1456,12 +1625,12 @@ const JobBrandingTab = ({ branding, onChange }) => {
               height: 36,
               borderRadius: 9,
               flexShrink: 0,
-              background: sendTracking ? "#eff6ff" : "#f8fafc",
-              border: `1px solid ${sendTracking ? "#bfdbfe" : "#e2e8f0"}`,
+              background: sendTracking ? "#eff6ff" : "var(--rec-bg-subtle)",
+              border: `1px solid ${sendTracking ? "#bfdbfe" : "var(--rec-border)"}`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: sendTracking ? "#3b82f6" : "#94a3b8",
+              color: sendTracking ? "#3b82f6" : "var(--rec-text-3)",
               transition: "all 0.2s",
             }}
           >
@@ -1472,13 +1641,19 @@ const JobBrandingTab = ({ branding, onChange }) => {
               style={{
                 fontSize: 13,
                 fontWeight: 700,
-                color: "#0f172a",
+                color: "var(--rec-text)",
                 marginBottom: 2,
               }}
             >
               Send tracking link to applicant
             </div>
-            <div style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--rec-text-2)",
+                lineHeight: 1.5,
+              }}
+            >
               When enabled, the confirmation email will include a personal link
               so applicants can track their application status in real time.
             </div>
@@ -1495,7 +1670,14 @@ const JobBrandingTab = ({ branding, onChange }) => {
 };
 
 /* ── FormBuilderModal ────────────────────────────────────────────────────── */
-const FormBuilderModal = ({ open, job, onClose, onSave, saving }) => {
+const FormBuilderModal = ({
+  open,
+  job,
+  onClose,
+  onSave,
+  saving,
+  dark = false,
+}) => {
   const [fields, setFields] = useState([]);
   const [adding, setAdding] = useState(false);
   const [newField, setNewField] = useState({
@@ -1549,7 +1731,13 @@ const FormBuilderModal = ({ open, job, onClose, onSave, saving }) => {
       ),
       children: (
         <div style={{ paddingTop: 8 }}>
-          <p style={{ fontSize: 13, color: "#64748b", marginBottom: 14 }}>
+          <p
+            style={{
+              fontSize: 13,
+              color: "var(--rec-text-2)",
+              marginBottom: 14,
+            }}
+          >
             Configure the fields candidates will fill in when applying.
           </p>
           <div
@@ -1577,20 +1765,24 @@ const FormBuilderModal = ({ open, job, onClose, onSave, saving }) => {
                   alignItems: "center",
                   gap: 10,
                   padding: "11px 14px",
-                  border: "1px solid #e2e8f0",
+                  border: "1px solid var(--rec-border)",
                   borderRadius: 10,
-                  background: "#f8fafc",
+                  background: "var(--rec-bg-subtle)",
                   animationDelay: `${idx * 30}ms`,
                 }}
               >
                 <GripVertical
                   size={14}
-                  color="#cbd5e1"
+                  color="var(--rec-text-faint)"
                   style={{ cursor: "grab" }}
                 />
                 <div style={{ flex: 1 }}>
                   <span
-                    style={{ fontWeight: 700, fontSize: 13, color: "#0f172a" }}
+                    style={{
+                      fontWeight: 700,
+                      fontSize: 13,
+                      color: "var(--rec-text)",
+                    }}
                   >
                     {f.label}
                   </span>
@@ -1598,8 +1790,8 @@ const FormBuilderModal = ({ open, job, onClose, onSave, saving }) => {
                     style={{
                       marginLeft: 8,
                       fontSize: 11,
-                      color: "#94a3b8",
-                      background: "#e2e8f0",
+                      color: "var(--rec-text-3)",
+                      background: "var(--rec-bg-muted)",
                       padding: "1px 6px",
                       borderRadius: 4,
                     }}
@@ -1611,7 +1803,7 @@ const FormBuilderModal = ({ open, job, onClose, onSave, saving }) => {
                       style={{
                         marginLeft: 6,
                         fontSize: 10,
-                        background: "#fef2f2",
+                        background: dark ? "#2d1a1a" : "#fef2f2",
                         color: "#ef4444",
                         padding: "1px 6px",
                         borderRadius: 4,
@@ -1623,7 +1815,11 @@ const FormBuilderModal = ({ open, job, onClose, onSave, saving }) => {
                   )}
                   {f.options?.length > 0 && (
                     <span
-                      style={{ fontSize: 11, color: "#64748b", marginLeft: 8 }}
+                      style={{
+                        fontSize: 11,
+                        color: "var(--rec-text-2)",
+                        marginLeft: 8,
+                      }}
                     >
                       Options: {f.options.join(", ")}
                     </span>
@@ -1652,7 +1848,7 @@ const FormBuilderModal = ({ open, job, onClose, onSave, saving }) => {
                 padding: "14px 16px",
                 border: "1.5px dashed #3b82f6",
                 borderRadius: 12,
-                background: "#eff6ff",
+                background: dark ? "#1a2233" : "#eff6ff",
               }}
             >
               <div
@@ -1689,7 +1885,7 @@ const FormBuilderModal = ({ open, job, onClose, onSave, saving }) => {
                     checked={newField.required}
                     onChange={(v) => setNewField({ ...newField, required: v })}
                   />
-                  <span style={{ fontSize: 12, color: "#64748b" }}>
+                  <span style={{ fontSize: 12, color: "var(--rec-text-2)" }}>
                     Required
                   </span>
                 </div>
@@ -1746,7 +1942,13 @@ const FormBuilderModal = ({ open, job, onClose, onSave, saving }) => {
       ),
       children: (
         <div style={{ paddingTop: 8 }}>
-          <p style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
+          <p
+            style={{
+              fontSize: 13,
+              color: "var(--rec-text-2)",
+              marginBottom: 16,
+            }}
+          >
             Customize how this job's application form appears to candidates, and
             configure email settings.
           </p>
@@ -1758,6 +1960,7 @@ const FormBuilderModal = ({ open, job, onClose, onSave, saving }) => {
 
   return (
     <Modal
+      rootClassName={`rec-portal${dark ? " dark" : ""}`}
       open={open}
       title={
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1766,7 +1969,7 @@ const FormBuilderModal = ({ open, job, onClose, onSave, saving }) => {
               width: 34,
               height: 34,
               borderRadius: 9,
-              background: "#eff6ff",
+              background: dark ? "#1a2233" : "#eff6ff",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -1778,7 +1981,13 @@ const FormBuilderModal = ({ open, job, onClose, onSave, saving }) => {
           </div>
           <div>
             <div style={{ fontWeight: 700, fontSize: 15 }}>Form Builder</div>
-            <div style={{ fontSize: 12, color: "#94a3b8", fontWeight: 400 }}>
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--rec-text-3)",
+                fontWeight: 400,
+              }}
+            >
               {job?.title}
             </div>
           </div>
@@ -1791,8 +2000,9 @@ const FormBuilderModal = ({ open, job, onClose, onSave, saving }) => {
       width={760}
       okButtonProps={{
         style: {
-          background: "#0f172a",
-          borderColor: "#0f172a",
+          background: "var(--rec-text)",
+          borderColor: "var(--rec-text)",
+          color: "var(--rec-bg-page)",
           fontWeight: 600,
         },
       }}
@@ -1808,7 +2018,7 @@ const FormBuilderModal = ({ open, job, onClose, onSave, saving }) => {
 };
 
 /* ── EmailModal ──────────────────────────────────────────────────────────── */
-const EmailModal = ({ open, applicant, job, onClose }) => {
+const EmailModal = ({ open, applicant, job, onClose, dark = false }) => {
   const [form] = Form.useForm();
   const [sending, setSending] = useState(false);
   const [template, setTemplate] = useState("custom");
@@ -1885,6 +2095,7 @@ const EmailModal = ({ open, applicant, job, onClose }) => {
 
   return (
     <Modal
+      rootClassName={`rec-portal${dark ? " dark" : ""}`}
       open={open}
       title={
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1893,7 +2104,7 @@ const EmailModal = ({ open, applicant, job, onClose }) => {
               width: 34,
               height: 34,
               borderRadius: 9,
-              background: "#eff6ff",
+              background: dark ? "#1a2233" : "#eff6ff",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -1905,7 +2116,7 @@ const EmailModal = ({ open, applicant, job, onClose }) => {
           <div>
             <div style={{ fontWeight: 700, fontSize: 15 }}>Send Email</div>
             {applicant && (
-              <div style={{ fontSize: 12, color: "#94a3b8" }}>
+              <div style={{ fontSize: 12, color: "var(--rec-text-3)" }}>
                 to {applicant.name} · {applicant.email}
               </div>
             )}
@@ -1979,8 +2190,8 @@ const EmailModal = ({ open, applicant, job, onClose }) => {
         {showInterview && (
           <div
             style={{
-              background: "#f8fafc",
-              border: "1px solid #e2e8f0",
+              background: "var(--rec-bg-subtle)",
+              border: "1px solid var(--rec-border)",
               borderRadius: 10,
               padding: "14px 16px",
               marginBottom: 16,
@@ -1990,7 +2201,7 @@ const EmailModal = ({ open, applicant, job, onClose }) => {
               style={{
                 fontSize: 11,
                 fontWeight: 700,
-                color: "#94a3b8",
+                color: "var(--rec-text-3)",
                 letterSpacing: "0.06em",
                 marginBottom: 10,
               }}
@@ -2054,8 +2265,8 @@ const EmailModal = ({ open, applicant, job, onClose }) => {
         {showOffer && (
           <div
             style={{
-              background: "#f8fafc",
-              border: "1px solid #e2e8f0",
+              background: "var(--rec-bg-subtle)",
+              border: "1px solid var(--rec-border)",
               borderRadius: 10,
               padding: "14px 16px",
               marginBottom: 16,
@@ -2065,7 +2276,7 @@ const EmailModal = ({ open, applicant, job, onClose }) => {
               style={{
                 fontSize: 11,
                 fontWeight: 700,
-                color: "#94a3b8",
+                color: "var(--rec-text-3)",
                 letterSpacing: "0.06em",
                 marginBottom: 10,
               }}
@@ -2134,7 +2345,7 @@ const EmailModal = ({ open, applicant, job, onClose }) => {
 };
 
 /* ── NewJobModal ─────────────────────────────────────────────────────────── */
-const NewJobModal = ({ open, onClose, onCreate, saving }) => {
+const NewJobModal = ({ open, onClose, onCreate, saving, dark = false }) => {
   const [form] = Form.useForm();
   const submit = () => {
     form.validateFields().then((values) => {
@@ -2149,6 +2360,7 @@ const NewJobModal = ({ open, onClose, onCreate, saving }) => {
   };
   return (
     <Modal
+      rootClassName={`rec-portal${dark ? " dark" : ""}`}
       open={open}
       title={
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -2157,7 +2369,7 @@ const NewJobModal = ({ open, onClose, onCreate, saving }) => {
               width: 34,
               height: 34,
               borderRadius: 9,
-              background: "#f0fdf4",
+              background: dark ? "#1a2e22" : "#f0fdf4",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -2177,8 +2389,8 @@ const NewJobModal = ({ open, onClose, onCreate, saving }) => {
       confirmLoading={saving}
       okButtonProps={{
         style: {
-          background: "#0f172a",
-          borderColor: "#0f172a",
+          background: "var(--rec-text)",
+          borderColor: "var(--rec-text)",
           fontWeight: 600,
         },
       }}
@@ -2214,14 +2426,13 @@ const NewJobModal = ({ open, onClose, onCreate, saving }) => {
           <DatePicker style={{ width: "100%", height: 38 }} />
         </Form.Item>
       </Form>
-      <div style={{ fontSize: 12, color: "#94a3b8", marginTop: -8 }}>
+      <div style={{ fontSize: 12, color: "var(--rec-text-3)", marginTop: -8 }}>
         Default form fields (name, email, phone, CV) are added automatically.
         Customise in Form Builder.
       </div>
     </Modal>
   );
 };
-
 
 const scoreBg = (s) => (s >= 70 ? "#639922" : s >= 40 ? "#EF9F27" : "#E24B4A");
 
@@ -2253,16 +2464,16 @@ const StageBadge = ({ stage }) => {
 const StatCard = ({ label, value, color }) => (
   <div
     style={{
-      background: "#f8fafc",
+      background: "var(--rec-bg-subtle)",
       borderRadius: 10,
       padding: "10px 12px",
-      border: "0.5px solid #e2e8f0",
+      border: "0.5px solid var(--rec-border)",
     }}
   >
     <div
       style={{
         fontSize: 10,
-        color: "#94a3b8",
+        color: "var(--rec-text-3)",
         marginBottom: 5,
         letterSpacing: "0.05em",
         textTransform: "uppercase",
@@ -2271,7 +2482,13 @@ const StatCard = ({ label, value, color }) => (
     >
       {label}
     </div>
-    <div style={{ fontSize: 14, fontWeight: 600, color: color || "#0f172a" }}>
+    <div
+      style={{
+        fontSize: 14,
+        fontWeight: 600,
+        color: color || "var(--rec-text)",
+      }}
+    >
       {value}
     </div>
   </div>
@@ -2282,7 +2499,7 @@ const SectionLabel = ({ children }) => (
     style={{
       fontSize: 10,
       fontWeight: 600,
-      color: "#94a3b8",
+      color: "var(--rec-text-3)",
       letterSpacing: "0.07em",
       textTransform: "uppercase",
       marginBottom: 8,
@@ -2295,8 +2512,8 @@ const SectionLabel = ({ children }) => (
 const Card = ({ children, style }) => (
   <div
     style={{
-      background: "#fff",
-      border: "0.5px solid #e2e8f0",
+      background: "var(--rec-bg-card)",
+      border: "0.5px solid var(--rec-border)",
       borderRadius: 14,
       overflow: "hidden",
       ...style,
@@ -2314,8 +2531,9 @@ const AnswerTable = ({ rows, onOpenFile }) => (
         style={{
           display: "grid",
           gridTemplateColumns: "130px 1fr",
-          borderBottom: i < rows.length - 1 ? "0.5px solid #f1f5f9" : "none",
-          background: i % 2 === 0 ? "#fff" : "#fbfdff",
+          borderBottom:
+            i < rows.length - 1 ? "0.5px solid var(--rec-border-soft)" : "none",
+          background: i % 2 === 0 ? "var(--rec-bg-card)" : "var(--rec-bg-soft)",
         }}
       >
         <div
@@ -2323,8 +2541,8 @@ const AnswerTable = ({ rows, onOpenFile }) => (
             padding: "10px 12px",
             fontSize: 11,
             fontWeight: 600,
-            color: "#64748b",
-            borderRight: "0.5px solid #f1f5f9",
+            color: "var(--rec-text-2)",
+            borderRight: "0.5px solid var(--rec-border-soft)",
           }}
         >
           {row.label}
@@ -2344,7 +2562,9 @@ const AnswerValue = ({ row, onOpenFile }) => {
   if (row.type === "file") {
     if (empty)
       return (
-        <span style={{ fontSize: 12, color: "#cbd5e1" }}>No file uploaded</span>
+        <span style={{ fontSize: 12, color: "var(--rec-text-faint)" }}>
+          No file uploaded
+        </span>
       );
     return (
       <button
@@ -2367,7 +2587,10 @@ const AnswerValue = ({ row, onOpenFile }) => {
     );
   }
 
-  if (empty) return <span style={{ fontSize: 12, color: "#cbd5e1" }}>—</span>;
+  if (empty)
+    return (
+      <span style={{ fontSize: 12, color: "var(--rec-text-faint)" }}>—</span>
+    );
 
   if (
     row.type === "url" ||
@@ -2385,7 +2608,13 @@ const AnswerValue = ({ row, onOpenFile }) => {
     );
 
   return (
-    <span style={{ fontSize: 12, color: "#0f172a", wordBreak: "break-word" }}>
+    <span
+      style={{
+        fontSize: 12,
+        color: "var(--rec-text)",
+        wordBreak: "break-word",
+      }}
+    >
       {String(row.value)}
     </span>
   );
@@ -2398,16 +2627,16 @@ const TrackingLinkRow = ({ url, label, style }) => (
       alignItems: "center",
       gap: 8,
       padding: "10px 12px",
-      background: "#f8fafc",
+      background: "var(--rec-bg-subtle)",
       borderRadius: 10,
-      border: "0.5px solid #e2e8f0",
+      border: "0.5px solid var(--rec-border)",
       ...style,
     }}
   >
     <span
       style={{
         fontSize: 11,
-        color: "#64748b",
+        color: "var(--rec-text-2)",
         flex: 1,
         overflow: "hidden",
         textOverflow: "ellipsis",
@@ -2491,7 +2720,7 @@ const InterviewBlock = ({
           <TrackingLinkRow
             url={aiInterview.interviewLink}
             label="AI interview link"
-            style={{ background: "#fff" }}
+            style={{ background: "var(--rec-bg-card)" }}
           />
         </div>
       </div>
@@ -2589,7 +2818,7 @@ const OverviewTab = ({
         <StatCard
           label="Score"
           value={score != null ? `${score}/100` : "Not set"}
-          color={score != null ? scoreColor(score) : "#94a3b8"}
+          color={score != null ? scoreColor(score) : "var(--rec-text-3)"}
         />
         <StatCard
           label="Interview"
@@ -2605,7 +2834,7 @@ const OverviewTab = ({
               ? "#185FA5"
               : applicant.interviewDate
                 ? "#854F0B"
-                : "#94a3b8"
+                : "var(--rec-text-3)"
           }
         />
       </div>
@@ -2671,7 +2900,7 @@ const AIInsightsTab = ({ applicant, screening, aiInterview }) => (
         <p
           style={{
             fontSize: 13,
-            color: "#0f172a",
+            color: "var(--rec-text)",
             lineHeight: 1.7,
             margin: "0 0 10px",
           }}
@@ -2689,13 +2918,19 @@ const AIInsightsTab = ({ applicant, screening, aiInterview }) => (
           <Tag color="purple">ATS {screening.atsScore}/100</Tag>
         </div>
         {screening.matchedSkills?.length > 0 && (
-          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--rec-text-2)",
+              marginBottom: 4,
+            }}
+          >
             <span style={{ fontWeight: 600 }}>Matched: </span>
             {screening.matchedSkills.join(", ")}
           </div>
         )}
         {screening.missingSkills?.length > 0 && (
-          <div style={{ fontSize: 12, color: "#64748b" }}>
+          <div style={{ fontSize: 12, color: "var(--rec-text-2)" }}>
             <span style={{ fontWeight: 600 }}>Missing: </span>
             {screening.missingSkills.join(", ")}
           </div>
@@ -2706,7 +2941,7 @@ const AIInsightsTab = ({ applicant, screening, aiInterview }) => (
         <div
           style={{
             fontSize: 13,
-            color: "#94a3b8",
+            color: "var(--rec-text-3)",
             textAlign: "center",
             padding: "20px 0",
           }}
@@ -2730,7 +2965,7 @@ const AIInsightsTab = ({ applicant, screening, aiInterview }) => (
           <TrackingLinkRow
             url={aiInterview.interviewLink}
             label="AI interview link"
-            style={{ background: "#fff" }}
+            style={{ background: "var(--rec-bg-card)" }}
           />
         </div>
       </div>
@@ -2753,7 +2988,7 @@ const AIInsightsTab = ({ applicant, screening, aiInterview }) => (
       <div
         style={{
           fontSize: 12,
-          color: "#94a3b8",
+          color: "var(--rec-text-3)",
           textAlign: "center",
           paddingTop: 8,
         }}
@@ -2820,7 +3055,7 @@ const ManageTab = ({
                 flex: 1,
                 height: 5,
                 borderRadius: 999,
-                background: "#f1f5f9",
+                background: "var(--rec-bg-muted)",
                 overflow: "hidden",
               }}
             >
@@ -2853,28 +3088,28 @@ const ManageTab = ({
     <div
       style={{
         height: 1,
-        background: "#f1f5f9",
+        background: "var(--rec-bg-muted)",
         margin: "2px 0",
       }}
     />
 
     <div>
       <SectionLabel>Interview</SectionLabel>
-        <InterviewBlock
-          applicant={applicant}
-          interviewDate={interviewDate}
-          scheduleMode={scheduleMode}
-          setScheduleMode={setScheduleMode}
-          setInterviewDate={setInterviewDate}
-          onEmail={onEmail}
-          aiInterview={applicant.answers?.__aiInterview || null}
-        />
-      </div>
+      <InterviewBlock
+        applicant={applicant}
+        interviewDate={interviewDate}
+        scheduleMode={scheduleMode}
+        setScheduleMode={setScheduleMode}
+        setInterviewDate={setInterviewDate}
+        onEmail={onEmail}
+        aiInterview={applicant.answers?.__aiInterview || null}
+      />
+    </div>
 
     <div
       style={{
         height: 1,
-        background: "#f1f5f9",
+        background: "var(--rec-bg-muted)",
         margin: "2px 0",
       }}
     />
@@ -2903,6 +3138,7 @@ const ApplicantDrawer = ({
   onDelete,
   saving,
   onEmail,
+  dark = false,
 }) => {
   const [stage, setStage] = useState("applied");
   const [notes, setNotes] = useState("");
@@ -3041,19 +3277,19 @@ const ApplicantDrawer = ({
 
   return (
     <Drawer
+      rootClassName={`rec-portal${dark ? " dark" : ""}`}
       open={open}
       onClose={onClose}
       width={600}
       styles={{
         header: {
-          borderBottom: "0.5px solid #f1f5f9",
+          borderBottom: "0.5px solid var(--rec-border-soft)",
           paddingBottom: 14,
-          background:
-            "linear-gradient(180deg, rgba(24,95,165,0.05) 0%, rgba(255,255,255,1) 100%)",
+          background: "var(--rec-bg-card)",
         },
         body: {
           padding: 0,
-          background: "#fff",
+          background: "var(--rec-bg-card)",
           display: "flex",
           flexDirection: "column",
           height: "100%",
@@ -3088,13 +3324,19 @@ const ApplicantDrawer = ({
             {applicant.name.charAt(0)}
           </div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>
+            <div
+              style={{
+                fontWeight: 700,
+                fontSize: 15,
+                color: "var(--rec-text)",
+              }}
+            >
               {applicant.name}
             </div>
             <div
               style={{
                 fontSize: 12,
-                color: "#64748b",
+                color: "var(--rec-text-2)",
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
@@ -3103,7 +3345,7 @@ const ApplicantDrawer = ({
               }}
             >
               <span>{job?.title || "Candidate"}</span>
-              <span style={{ color: "#cbd5e1" }}>•</span>
+              <span style={{ color: "var(--rec-text-faint)" }}>•</span>
               <span>Applied {applicant.appliedAt}</span>
             </div>
           </div>
@@ -3163,9 +3405,9 @@ const ApplicantDrawer = ({
         <div
           style={{
             display: "flex",
-            borderBottom: "0.5px solid #f1f5f9",
+            borderBottom: "0.5px solid var(--rec-border-soft)",
             padding: "0 24px",
-            background: "#fff",
+            background: "var(--rec-bg-card)",
             position: "sticky",
             top: 0,
             zIndex: 10,
@@ -3179,10 +3421,11 @@ const ApplicantDrawer = ({
                 padding: "10px 14px",
                 fontSize: 12,
                 fontWeight: 500,
-                color: activeTab === tab ? "#0f172a" : "#94a3b8",
+                color:
+                  activeTab === tab ? "var(--rec-text)" : "var(--rec-text-3)",
                 background: "none",
                 border: "none",
-                borderBottom: `2px solid ${activeTab === tab ? "#0f172a" : "transparent"}`,
+                borderBottom: `2px solid ${activeTab === tab ? "var(--rec-text)" : "transparent"}`,
                 marginBottom: -0.5,
                 cursor: "pointer",
                 transition: "color 0.15s, border-color 0.15s",
@@ -3203,9 +3446,9 @@ const ApplicantDrawer = ({
       <div
         style={{
           marginTop: "auto",
-          background: "rgba(255,255,255,0.96)",
+          background: dark ? "rgba(20,20,22,0.96)" : "rgba(255,255,255,0.96)",
           backdropFilter: "blur(10px)",
-          borderTop: "0.5px solid #f1f5f9",
+          borderTop: "0.5px solid var(--rec-border-soft)",
           padding: "14px 24px",
           display: "flex",
           justifyContent: "flex-end",
@@ -3217,8 +3460,8 @@ const ApplicantDrawer = ({
           loading={saving}
           size="middle"
           style={{
-            background: "#0f172a",
-            borderColor: "#0f172a",
+            background: "var(--rec-text)",
+            borderColor: "var(--rec-text)",
             fontWeight: 700,
             borderRadius: 10,
             height: 40,
@@ -3233,17 +3476,36 @@ const ApplicantDrawer = ({
 };
 
 /* ── StageColumn ─────────────────────────────────────────────────────────── */
-const StageColumn = ({ stage, applicants, onView }) => (
-  <div
+const StageColumn = ({ stage, applicants, onView, onMove, dark = false }) => {
+  const stageBorder = dark ? "var(--rec-border)" : stage.border;
+  const stageHeaderBg = dark ? "var(--rec-bg-card)" : stage.bg;
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const applicantId = e.dataTransfer.getData("text/plain");
+    if (!applicantId) return;
+    onMove?.(applicantId, stage.key);
+  };
+
+  return (
+    <div
     style={{
       flex: "0 0 280px",
       minWidth: 280,
-      background: "#f8fafc",
-      border: `1px solid ${stage.border}`,
+      background: "var(--rec-bg-subtle)",
+      border: `1px solid ${stageBorder}`,
       borderRadius: 20,
       padding: 14,
-      boxShadow: "0 10px 24px rgba(15,23,42,0.04)",
+      boxShadow: dark
+        ? "0 10px 24px rgba(0,0,0,0.28)"
+        : "0 10px 24px rgba(15,23,42,0.04)",
     }}
+    onDragOver={handleDragOver}
+    onDrop={handleDrop}
   >
     <div
       style={{
@@ -3260,8 +3522,8 @@ const StageColumn = ({ stage, applicants, onView }) => (
             width: 34,
             height: 34,
             borderRadius: 12,
-            background: stage.bg,
-            border: `1px solid ${stage.border}`,
+            background: stageHeaderBg,
+            border: `1px solid ${stageBorder}`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -3282,13 +3544,13 @@ const StageColumn = ({ stage, applicants, onView }) => (
             style={{
               fontSize: 13,
               fontWeight: 800,
-              color: "#0f172a",
+              color: "var(--rec-text)",
               letterSpacing: "0.01em",
             }}
           >
             {stage.label}
           </div>
-          <div style={{ fontSize: 11, color: "#94a3b8" }}>
+          <div style={{ fontSize: 11, color: "var(--rec-text-3)" }}>
             {applicants.length === 1
               ? "1 candidate"
               : `${applicants.length} candidates`}
@@ -3300,8 +3562,8 @@ const StageColumn = ({ stage, applicants, onView }) => (
           fontSize: 11,
           fontWeight: 800,
           color: stage.color,
-          background: "#fff",
-          border: `1px solid ${stage.border}`,
+          background: "var(--rec-bg-card)",
+          border: `1px solid ${stageBorder}`,
           padding: "4px 9px",
           borderRadius: 999,
         }}
@@ -3313,13 +3575,14 @@ const StageColumn = ({ stage, applicants, onView }) => (
       {applicants.length === 0 && (
         <div
           style={{
-            border: "1.5px dashed #dbe4ee",
+            border: "1.5px dashed var(--rec-border)",
             borderRadius: 16,
             padding: "24px 14px",
             textAlign: "center",
-            color: "#94a3b8",
+            color: "var(--rec-text-3)",
             fontSize: 12,
-            background: "rgba(255,255,255,0.7)",
+            background: "var(--rec-bg-card)",
+            opacity: 0.7,
           }}
         >
           No candidates in this stage
@@ -3329,14 +3592,21 @@ const StageColumn = ({ stage, applicants, onView }) => (
         <div
           key={a.id}
           className="rec-stage-card rec-fade"
+          draggable
           style={{
-            background: "#fff",
-            border: `1px solid ${stage.border}`,
+            background: "var(--rec-bg-card)",
+            border: `1px solid ${stageBorder}`,
             borderRadius: 16,
             padding: "14px 14px 12px",
             animationDelay: `${idx * 25}ms`,
-            boxShadow: "0 10px 18px rgba(15,23,42,0.05)",
+            boxShadow: dark
+              ? "0 10px 18px rgba(0,0,0,0.28)"
+              : "0 10px 18px rgba(15,23,42,0.05)",
             cursor: "pointer",
+          }}
+          onDragStart={(e) => {
+            e.dataTransfer.setData("text/plain", String(a.id));
+            e.dataTransfer.effectAllowed = "move";
           }}
           onClick={() => onView(a)}
         >
@@ -3354,7 +3624,7 @@ const StageColumn = ({ stage, applicants, onView }) => (
                 style={{
                   fontWeight: 800,
                   fontSize: 14,
-                  color: "#0f172a",
+                  color: "var(--rec-text)",
                   marginBottom: 3,
                 }}
               >
@@ -3363,7 +3633,7 @@ const StageColumn = ({ stage, applicants, onView }) => (
               <div
                 style={{
                   fontSize: 11,
-                  color: "#64748b",
+                  color: "var(--rec-text-2)",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
@@ -3416,7 +3686,7 @@ const StageColumn = ({ stage, applicants, onView }) => (
                   marginBottom: 5,
                 }}
               >
-                <span style={{ fontSize: 10, color: "#94a3b8" }}>
+                <span style={{ fontSize: 10, color: "var(--rec-text-3)" }}>
                   Match score
                 </span>
                 <span
@@ -3433,7 +3703,7 @@ const StageColumn = ({ stage, applicants, onView }) => (
                 style={{
                   height: 5,
                   borderRadius: 999,
-                  background: "#edf2f7",
+                  background: "var(--rec-bg-muted)",
                   overflow: "hidden",
                 }}
               >
@@ -3452,7 +3722,8 @@ const StageColumn = ({ stage, applicants, onView }) => (
       ))}
     </div>
   </div>
-);
+  );
+};
 
 /* ── JobCard ─────────────────────────────────────────────────────────────── */
 const JobCard = ({
@@ -3463,17 +3734,58 @@ const JobCard = ({
   onToggle,
   onDelete,
   onCopyLink,
+  dark = false,
 }) => {
   const brand = job.branding || DEFAULT_BRANDING;
   const accent = brand.accent_color || "#3b82f6";
   const isActive = job.status === "active";
+  const trackingOn = brand.sendTrackingLink !== false;
+
+  const deptTagBg = dark ? "rgba(148,163,184,0.14)" : "var(--rec-bg-muted)";
+  const deptTagBorder = dark ? "rgba(148,163,184,0.28)" : "transparent";
+
+  const statusBg = isActive
+    ? dark
+      ? "rgba(16,185,129,0.18)"
+      : "#ecfdf5"
+    : dark
+      ? "rgba(148,163,184,0.12)"
+      : "var(--rec-bg-subtle)";
+  const statusBorder = isActive
+    ? dark
+      ? "rgba(16,185,129,0.45)"
+      : "#a7f3d0"
+    : dark
+      ? "rgba(148,163,184,0.24)"
+      : "var(--rec-border)";
+  const statusColor = isActive
+    ? dark
+      ? "#34d399"
+      : "#10b981"
+    : "var(--rec-text-3)";
+
+  const trackingBg = trackingOn
+    ? dark
+      ? "rgba(59,130,246,0.2)"
+      : "#eff6ff"
+    : dark
+      ? "rgba(148,163,184,0.1)"
+      : "var(--rec-bg-subtle)";
+  const trackingBorder = trackingOn
+    ? dark
+      ? "rgba(96,165,250,0.45)"
+      : "#bfdbfe"
+    : dark
+      ? "rgba(148,163,184,0.24)"
+      : "var(--rec-border)";
+  const trackingColor = trackingOn ? "#3b82f6" : "var(--rec-text-3)";
 
   return (
     <div
       className="rec-job-card rec-fade"
       style={{
-        background: "#fff",
-        border: "1px solid #e2e8f0",
+        background: "var(--rec-bg-card)",
+        border: "1px solid var(--rec-border)",
         borderRadius: 14,
         overflow: "hidden",
         display: "flex",
@@ -3503,7 +3815,7 @@ const JobCard = ({
               style={{
                 fontWeight: 800,
                 fontSize: 15,
-                color: "#0f172a",
+                color: "var(--rec-text)",
                 lineHeight: 1.2,
                 marginBottom: 4,
               }}
@@ -3521,8 +3833,9 @@ const JobCard = ({
               <span
                 style={{
                   fontSize: 11,
-                  color: "#64748b",
-                  background: "#f1f5f9",
+                  color: "var(--rec-text-2)",
+                  background: deptTagBg,
+                  border: `1px solid ${deptTagBorder}`,
                   padding: "2px 8px",
                   borderRadius: 5,
                   fontWeight: 600,
@@ -3539,9 +3852,9 @@ const JobCard = ({
                   fontWeight: 700,
                   padding: "2px 8px",
                   borderRadius: 5,
-                  background: isActive ? "#ecfdf5" : "#f8fafc",
-                  color: isActive ? "#10b981" : "#94a3b8",
-                  border: `1px solid ${isActive ? "#a7f3d0" : "#e2e8f0"}`,
+                  background: statusBg,
+                  color: statusColor,
+                  border: `1px solid ${statusBorder}`,
                 }}
               >
                 <span
@@ -3549,7 +3862,7 @@ const JobCard = ({
                     width: 5,
                     height: 5,
                     borderRadius: "50%",
-                    background: isActive ? "#10b981" : "#94a3b8",
+                    background: statusColor,
                     display: "inline-block",
                   }}
                 />
@@ -3604,7 +3917,7 @@ const JobCard = ({
               type="text"
               icon={<MoreHorizontal size={15} />}
               size="small"
-              style={{ color: "#94a3b8" }}
+              style={{ color: "var(--rec-text-3)" }}
             />
           </Dropdown>
         </div>
@@ -3615,9 +3928,9 @@ const JobCard = ({
               alignItems: "center",
               gap: 7,
               padding: "7px 10px",
-              background: "#f8fafc",
+              background: "var(--rec-bg-subtle)",
               borderRadius: 8,
-              border: "1px solid #f1f5f9",
+              border: "1px solid var(--rec-border-soft)",
             }}
           >
             {brand.logo_url ? (
@@ -3652,7 +3965,7 @@ const JobCard = ({
               style={{
                 fontSize: 11,
                 fontWeight: 600,
-                color: "#475569",
+                color: "var(--rec-text-2)",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
@@ -3664,7 +3977,7 @@ const JobCard = ({
               <span
                 style={{
                   fontSize: 10,
-                  color: "#94a3b8",
+                  color: "var(--rec-text-3)",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
@@ -3691,7 +4004,7 @@ const JobCard = ({
             <span style={{ fontSize: 18, fontWeight: 800, color: accent }}>
               {applicantCount}
             </span>
-            <span style={{ fontSize: 11, color: "#94a3b8" }}>
+            <span style={{ fontSize: 11, color: "var(--rec-text-3)" }}>
               applicant{applicantCount !== 1 ? "s" : ""}
             </span>
           </button>
@@ -3702,7 +4015,7 @@ const JobCard = ({
                   width: 3,
                   height: 3,
                   borderRadius: "50%",
-                  background: "#e2e8f0",
+                  background: "var(--rec-bg-muted)",
                   display: "inline-block",
                 }}
               />
@@ -3711,7 +4024,7 @@ const JobCard = ({
                   fontSize: 11,
                   color: dayjs(job.deadline).isBefore(dayjs())
                     ? "#ef4444"
-                    : "#94a3b8",
+                    : "var(--rec-text-3)",
                   display: "flex",
                   alignItems: "center",
                   gap: 4,
@@ -3732,26 +4045,23 @@ const JobCard = ({
               fontWeight: 600,
               padding: "2px 7px",
               borderRadius: 5,
-              background:
-                brand.sendTrackingLink !== false ? "#eff6ff" : "#f8fafc",
-              color: brand.sendTrackingLink !== false ? "#3b82f6" : "#94a3b8",
-              border: `1px solid ${brand.sendTrackingLink !== false ? "#bfdbfe" : "#e2e8f0"}`,
+              background: trackingBg,
+              color: trackingColor,
+              border: `1px solid ${trackingBorder}`,
             }}
           >
             <Link2 size={9} />
-            {brand.sendTrackingLink !== false
-              ? "Tracking link on"
-              : "Tracking link off"}
+            {trackingOn ? "Tracking link on" : "Tracking link off"}
           </span>
         </div>
       </div>
       <div
         style={{
-          borderTop: "1px solid #f1f5f9",
+          borderTop: "1px solid var(--rec-border-soft)",
           padding: "10px 14px",
           display: "flex",
           gap: 8,
-          background: "#fafafa",
+          background: "var(--rec-bg-subtle)",
         }}
       >
         <Button
@@ -3785,6 +4095,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [dark, setDark] = useState(getIsDarkTheme);
   const [jobs, setJobs] = useState([]);
   const [applicants, setApplicants] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -3802,7 +4113,20 @@ export function RecruitmentPage({ initialView = "jobs" }) {
   const [orgPlan, setOrgPlan] = useState(null);
 
   useEffect(() => {
-    setView(location.pathname === "/recruitment/pipeline" ? "pipeline" : "jobs");
+    const syncTheme = () => setDark(getIsDarkTheme());
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    window.addEventListener("themeModeChanged", syncTheme);
+    mq.addEventListener("change", syncTheme);
+    return () => {
+      window.removeEventListener("themeModeChanged", syncTheme);
+      mq.removeEventListener("change", syncTheme);
+    };
+  }, []);
+
+  useEffect(() => {
+    setView(
+      location.pathname === "/recruitment/pipeline" ? "pipeline" : "jobs",
+    );
   }, [initialView, location.pathname]);
 
   useEffect(() => {
@@ -3903,7 +4227,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
   }, [TENANT_ID]);
 
   useEffect(() => {
-    if (orgPlan === null) return; // ← wait until plan is loaded
+    if (orgPlan === null) return;
 
     if (orgPlan === "Free") {
       setLoading(false);
@@ -4075,6 +4399,33 @@ export function RecruitmentPage({ initialView = "jobs" }) {
     }
   };
 
+  const moveApplicantStage = async (applicantId, nextStage) => {
+    const current = applicants.find((a) => String(a.id) === String(applicantId));
+    if (!current || current.stage === nextStage) return;
+
+    setApplicants((prev) =>
+      prev.map((a) =>
+        String(a.id) === String(applicantId) ? { ...a, stage: nextStage } : a,
+      ),
+    );
+
+    try {
+      const { error } = await supabase
+        .from("recruitment_applicants")
+        .update({ stage: nextStage })
+        .eq("id", applicantId)
+        .eq("tenant_id", TENANT_ID);
+      if (error) throw error;
+    } catch {
+      setApplicants((prev) =>
+        prev.map((a) =>
+          String(a.id) === String(applicantId) ? { ...a, stage: current.stage } : a,
+        ),
+      );
+      message.error("Failed to move applicant");
+    }
+  };
+
   const deleteApplicant = async (id) => {
     try {
       const { error } = await supabase
@@ -4146,7 +4497,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
               width: 34,
               height: 34,
               borderRadius: "50%",
-              background: "#eff6ff",
+              background: dark ? "#1e2a3a" : "#eff6ff",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -4159,10 +4510,18 @@ export function RecruitmentPage({ initialView = "jobs" }) {
             {name.charAt(0)}
           </div>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 13, color: "#0f172a" }}>
+            <div
+              style={{
+                fontWeight: 700,
+                fontSize: 13,
+                color: "var(--rec-text)",
+              }}
+            >
               {name}
             </div>
-            <div style={{ fontSize: 11, color: "#94a3b8" }}>{row.email}</div>
+            <div style={{ fontSize: 11, color: "var(--rec-text-3)" }}>
+              {row.email}
+            </div>
           </div>
         </div>
       ),
@@ -4225,7 +4584,9 @@ export function RecruitmentPage({ initialView = "jobs" }) {
             </div>
           </div>
         ) : (
-          <span style={{ color: "#d1d5db", fontSize: 12 }}>—</span>
+          <span style={{ color: "var(--rec-text-faint)", fontSize: 12 }}>
+            —
+          </span>
         ),
     },
     {
@@ -4246,14 +4607,16 @@ export function RecruitmentPage({ initialView = "jobs" }) {
             <Calendar size={12} /> {d}
           </span>
         ) : (
-          <span style={{ color: "#d1d5db", fontSize: 12 }}>Not scheduled</span>
+          <span style={{ color: "var(--rec-text-faint)", fontSize: 12 }}>
+            Not scheduled
+          </span>
         ),
     },
     {
       title: "Applied",
       dataIndex: "appliedAt",
       render: (d) => (
-        <span style={{ fontSize: 12, color: "#94a3b8" }}>{d}</span>
+        <span style={{ fontSize: 12, color: "var(--rec-text-3)" }}>{d}</span>
       ),
     },
     {
@@ -4317,18 +4680,22 @@ export function RecruitmentPage({ initialView = "jobs" }) {
 
   /* ── FREE PLAN GATE ───────────────────────────────────────────────── */
   if (orgPlan === "Free") {
-    return <RecruitmentPaywall />;
+    return <RecruitmentPaywall dark={dark} />;
   }
 
   /* ── Render ───────────────────────────────────────────────────────── */
   return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
+    <div
+      className={`rec-page${dark ? " dark" : ""}`}
+      style={{ minHeight: "100vh", background: "var(--rec-bg-page)" }}
+    >
+      <style>{RECRUITMENT_THEME_CSS}</style>
       {/* Header */}
       <div
         className="rec-fade"
         style={{
-          background: "#fff",
-          borderBottom: "1px solid #e2e8f0",
+          background: "var(--rec-bg-card)",
+          borderBottom: "1px solid var(--rec-border)",
           padding: "20px 28px",
           marginBottom: 24,
         }}
@@ -4356,7 +4723,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
                   margin: 0,
                   fontSize: 26,
                   fontWeight: 800,
-                  color: "#0f172a",
+                  color: "var(--rec-text)",
                   letterSpacing: "-0.04em",
                   lineHeight: 1,
                 }}
@@ -4365,64 +4732,19 @@ export function RecruitmentPage({ initialView = "jobs" }) {
               </h1>
               <TenantBadge />
             </div>
-            <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>
+            <p style={{ margin: 0, color: "var(--rec-text-2)", fontSize: 13 }}>
               Build forms · Share links · Track candidates end-to-end
             </p>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <div
-              style={{
-                display: "flex",
-                background: "#f1f5f9",
-                borderRadius: 9,
-                padding: 3,
-                gap: 2,
-              }}
-            >
-              {[
-                {
-                  key: "jobs",
-                  label: "Openings",
-                  icon: <FileText size={13} />,
-                },
-                {
-                  key: "pipeline",
-                  label: "Pipeline",
-                  icon: <Users size={13} />,
-                },
-              ].map((t) => (
-                <button
-                  key={t.key}
-                  onClick={() => {
-                    if (t.key === "jobs") openJobsPage();
-                    else openPipelinePage(selectedJob);
-                  }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "7px 14px",
-                    borderRadius: 7,
-                    border: "none",
-                    cursor: "pointer",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    transition: "all 0.15s",
-                    background: view === t.key ? "#0f172a" : "transparent",
-                    color: view === t.key ? "#fff" : "#64748b",
-                  }}
-                >
-                  {t.icon} {t.label}
-                </button>
-              ))}
-            </div>
             <Button
               type="primary"
               icon={<Plus size={14} />}
               onClick={() => setNewJobOpen(true)}
               style={{
-                background: "#0f172a",
-                borderColor: "#0f172a",
+                background: "var(--rec-text)",
+                borderColor: "var(--rec-text)",
+                color: "var(--rec-bg-page)",
                 fontWeight: 700,
                 height: 38,
                 borderRadius: 9,
@@ -4481,15 +4803,21 @@ export function RecruitmentPage({ initialView = "jobs" }) {
                 marginBottom: 16,
               }}
             >
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "var(--rec-text)",
+                }}
+              >
                 {jobs.length} Job Opening{jobs.length !== 1 ? "s" : ""}
               </div>
             </div>
             {jobs.length === 0 ? (
               <div
                 style={{
-                  background: "#fff",
-                  border: "2px dashed #e2e8f0",
+                  background: "var(--rec-bg-card)",
+                  border: "2px dashed var(--rec-border)",
                   borderRadius: 16,
                   padding: "60px 40px",
                   textAlign: "center",
@@ -4500,14 +4828,18 @@ export function RecruitmentPage({ initialView = "jobs" }) {
                   style={{
                     fontSize: 16,
                     fontWeight: 700,
-                    color: "#0f172a",
+                    color: "var(--rec-text)",
                     marginBottom: 6,
                   }}
                 >
                   No job openings yet
                 </div>
                 <div
-                  style={{ fontSize: 13, color: "#94a3b8", marginBottom: 20 }}
+                  style={{
+                    fontSize: 13,
+                    color: "var(--rec-text-3)",
+                    marginBottom: 20,
+                  }}
                 >
                   Create your first opening and start receiving applications
                 </div>
@@ -4516,8 +4848,9 @@ export function RecruitmentPage({ initialView = "jobs" }) {
                   icon={<Plus size={13} />}
                   onClick={() => setNewJobOpen(true)}
                   style={{
-                    background: "#0f172a",
-                    borderColor: "#0f172a",
+                    background: "var(--rec-text)",
+                    borderColor: "var(--rec-text)",
+                    color: "var(--rec-bg-page)",
                     fontWeight: 600,
                   }}
                 >
@@ -4539,6 +4872,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
                       applicantCount={
                         applicants.filter((a) => a.jobId === job.id).length
                       }
+                      dark={dark}
                       onPipeline={() => {
                         openPipelinePage(job);
                       }}
@@ -4559,9 +4893,10 @@ export function RecruitmentPage({ initialView = "jobs" }) {
           <div className="rec-fade">
             <div
               style={{
-                background:
-                  "linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.98) 100%)",
-                border: "1px solid #e2e8f0",
+                background: dark
+                  ? "var(--rec-bg-card)"
+                  : "linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.98) 100%)",
+                border: "1px solid var(--rec-border)",
                 borderRadius: 20,
                 padding: 20,
                 boxShadow: "0 18px 40px rgba(15,23,42,0.05)",
@@ -4600,7 +4935,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
                     style={{
                       fontSize: 24,
                       fontWeight: 800,
-                      color: "#0f172a",
+                      color: "var(--rec-text)",
                       lineHeight: 1.15,
                     }}
                   >
@@ -4609,7 +4944,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
                   <div
                     style={{
                       fontSize: 13,
-                      color: "#64748b",
+                      color: "var(--rec-text-2)",
                       marginTop: 6,
                       maxWidth: 720,
                     }}
@@ -4632,7 +4967,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
                     {
                       label: "Visible Candidates",
                       value: jobApplicants.length,
-                      color: "#0f172a",
+                      color: "var(--rec-text)",
                     },
                     {
                       label: "Interviews",
@@ -4651,8 +4986,8 @@ export function RecruitmentPage({ initialView = "jobs" }) {
                     <div
                       key={item.label}
                       style={{
-                        background: "#fff",
-                        border: "1px solid #e2e8f0",
+                        background: "var(--rec-bg-subtle)",
+                        border: "1px solid var(--rec-border)",
                         borderRadius: 16,
                         padding: "12px 14px",
                       }}
@@ -4660,7 +4995,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
                       <div
                         style={{
                           fontSize: 11,
-                          color: "#94a3b8",
+                          color: "var(--rec-text-3)",
                           fontWeight: 600,
                           marginBottom: 6,
                         }}
@@ -4696,9 +5031,15 @@ export function RecruitmentPage({ initialView = "jobs" }) {
                     style={{
                       padding: "7px 13px",
                       borderRadius: 999,
-                      border: `1px solid ${pipelineFilter === null ? "#0f172a" : "#e2e8f0"}`,
-                      background: pipelineFilter === null ? "#0f172a" : "#fff",
-                      color: pipelineFilter === null ? "#fff" : "#64748b",
+                      border: `1px solid ${pipelineFilter === null ? "var(--rec-text)" : "var(--rec-border)"}`,
+                      background:
+                        pipelineFilter === null
+                          ? "var(--rec-text)"
+                          : "var(--rec-bg-card)",
+                      color:
+                        pipelineFilter === null
+                          ? "var(--rec-bg-card)"
+                          : "var(--rec-text-2)",
                       fontSize: 12,
                       fontWeight: 700,
                       cursor: "pointer",
@@ -4717,9 +5058,15 @@ export function RecruitmentPage({ initialView = "jobs" }) {
                       style={{
                         padding: "7px 13px",
                         borderRadius: 999,
-                        border: `1px solid ${pipelineFilter === s.key ? s.color : "#e2e8f0"}`,
-                        background: pipelineFilter === s.key ? s.bg : "#fff",
-                        color: pipelineFilter === s.key ? s.color : "#64748b",
+                        border: `1px solid ${pipelineFilter === s.key ? s.color : "var(--rec-border)"}`,
+                        background:
+                          pipelineFilter === s.key
+                            ? s.bg
+                            : "var(--rec-bg-card)",
+                        color:
+                          pipelineFilter === s.key
+                            ? s.color
+                            : "var(--rec-text-2)",
                         fontSize: 12,
                         fontWeight: 700,
                         cursor: "pointer",
@@ -4769,6 +5116,8 @@ export function RecruitmentPage({ initialView = "jobs" }) {
                       (a) => a.stage === stage.key,
                     )}
                     onView={setViewApplicant}
+                    onMove={moveApplicantStage}
+                    dark={dark}
                   />
                 ))}
               </div>
@@ -4776,8 +5125,8 @@ export function RecruitmentPage({ initialView = "jobs" }) {
             <div
               style={{
                 marginTop: 10,
-                background: "#fff",
-                border: "1px solid #e2e8f0",
+                background: "var(--rec-bg-card)",
+                border: "1px solid var(--rec-border)",
                 borderRadius: 20,
                 overflow: "hidden",
                 boxShadow: "0 18px 36px rgba(15,23,42,0.05)",
@@ -4786,7 +5135,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
               <div
                 style={{
                   padding: "18px 20px",
-                  borderBottom: "1px solid #f1f5f9",
+                  borderBottom: "1px solid var(--rec-border-soft)",
                   display: "flex",
                   alignItems: "center",
                   gap: 10,
@@ -4794,7 +5143,11 @@ export function RecruitmentPage({ initialView = "jobs" }) {
                 }}
               >
                 <span
-                  style={{ fontWeight: 800, fontSize: 15, color: "#0f172a" }}
+                  style={{
+                    fontWeight: 800,
+                    fontSize: 15,
+                    color: "var(--rec-text)",
+                  }}
                 >
                   All Candidates
                 </span>
@@ -4817,8 +5170,8 @@ export function RecruitmentPage({ initialView = "jobs" }) {
                 <span
                   style={{
                     fontSize: 11,
-                    background: "#f1f5f9",
-                    color: "#64748b",
+                    background: "var(--rec-bg-muted)",
+                    color: "var(--rec-text-2)",
                     padding: "4px 10px",
                     borderRadius: 999,
                     fontWeight: 600,
@@ -4857,6 +5210,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
         onClose={() => setNewJobOpen(false)}
         onCreate={createJob}
         saving={saving}
+        dark={dark}
       />
       {formBuilderJob && (
         <FormBuilderModal
@@ -4865,6 +5219,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
           onClose={() => setFormBuilderJob(null)}
           onSave={saveFormFields}
           saving={saving}
+          dark={dark}
         />
       )}
       {viewApplicant && (
@@ -4877,6 +5232,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
           onDelete={deleteApplicant}
           saving={saving}
           onEmail={() => setEmailApplicant(viewApplicant)}
+          dark={dark}
         />
       )}
       <EmailModal
@@ -4884,6 +5240,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
         applicant={emailApplicant}
         job={emailJob}
         onClose={() => setEmailApplicant(null)}
+        dark={dark}
       />
     </div>
   );

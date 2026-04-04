@@ -63,6 +63,13 @@ const fmt = (d) =>
 const fmtCurrency = (n, currency = "PKR") =>
   `${currency} ${(n || 0).toLocaleString()}`;
 
+const getIsDarkTheme = () => {
+  const mode = localStorage.getItem("themeMode") || "system";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
+
 const MONTHS = [
   "Jan",
   "Feb",
@@ -128,8 +135,8 @@ const TagChip = ({ label }) => (
     style={{
       display: "inline-flex",
       alignItems: "center",
-      background: "#f0f5ff",
-      color: "#2563eb",
+      background: "var(--ed-card2)",
+      color: "var(--ed-sub)",
       borderRadius: 6,
       padding: "2px 9px",
       fontSize: 11.5,
@@ -146,28 +153,55 @@ const TagChip = ({ label }) => (
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Mulish:wght@400;500;600&display=swap');
 
-.ed { font-family:'Mulish',-apple-system,sans-serif; color:#0d0d0d; }
+.ed {
+  font-family:'Mulish',-apple-system,sans-serif;
+  --ed-bg:#f8fafc;
+  --ed-card:#ffffff;
+  --ed-card2:#fafafa;
+  --ed-border:#f3f3f3;
+  --ed-text:#0d0d0d;
+  --ed-sub:#4a4a4a;
+  --ed-muted:#9a9a9a;
+  --ed-muted-2:#c0c0c0;
+  --ed-hover:#fafafa;
+  --ed-tab:#f5f5f5;
+  --ed-tab-active:#ffffff;
+  color:var(--ed-text);
+}
+.ed.dark {
+  --ed-bg:#0a0f1e;
+  --ed-card:#111827;
+  --ed-card2:#0d1220;
+  --ed-border:#1e2a3e;
+  --ed-text:#e8edf5;
+  --ed-sub:#b7c3d8;
+  --ed-muted:#8ea0bc;
+  --ed-muted-2:#6e829f;
+  --ed-hover:#182235;
+  --ed-tab:#172437;
+  --ed-tab-active:#111827;
+}
 
-.ed-back { display:inline-flex; align-items:center; gap:6px; border:none; background:transparent; cursor:pointer; font-family:inherit; font-size:13px; font-weight:600; color:#9a9a9a; padding:0; margin-bottom:20px; transition:color .14s; }
-.ed-back:hover { color:#0d0d0d; }
+.ed-back { display:inline-flex; align-items:center; gap:6px; border:none; background:transparent; cursor:pointer; font-family:inherit; font-size:13px; font-weight:600; color:var(--ed-muted); padding:0; margin-bottom:20px; transition:color .14s; }
+.ed-back:hover { color:var(--ed-text); }
 
-.ed-hero { background:#fff; border-radius:20px; box-shadow:0 2px 16px rgba(0,0,0,.07); padding:28px 32px; display:flex; align-items:center; gap:24px; margin-bottom:20px; flex-wrap:wrap; }
+.ed-hero { background:var(--ed-card); border-radius:20px; box-shadow:0 2px 16px rgba(0,0,0,.07); padding:28px 32px; display:flex; align-items:center; gap:24px; margin-bottom:20px; flex-wrap:wrap; }
 .ed-hero-av { position:relative; flex-shrink:0; }
 .ed-hero-av img,.ed-hero-av-fallback { width:80px; height:80px; border-radius:20px; object-fit:cover; }
 .ed-hero-av-fallback { display:flex; align-items:center; justify-content:center; font-family:'Sora',sans-serif; font-size:28px; font-weight:700; color:#fff; }
-.ed-hero-status { position:absolute; bottom:-2px; right:-2px; width:14px; height:14px; border-radius:50%; border:2.5px solid #fff; }
+.ed-hero-status { position:absolute; bottom:-2px; right:-2px; width:14px; height:14px; border-radius:50%; border:2.5px solid var(--ed-card); }
 .ed-hero-info { flex:1; min-width:0; }
 .ed-hero-name { font-family:'Sora',sans-serif; font-size:22px; font-weight:700; margin:0 0 6px; }
 .ed-hero-meta { display:flex; flex-wrap:wrap; gap:14px; margin-top:8px; }
-.ed-hero-meta-item { display:flex; align-items:center; gap:5px; font-size:12.5px; color:#7a7a7a; }
+.ed-hero-meta-item { display:flex; align-items:center; gap:5px; font-size:12.5px; color:var(--ed-muted); }
 .ed-hero-right { display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
 
-.ed-tabs { display:flex; gap:2px; margin-bottom:20px; background:#f5f5f5; border-radius:12px; padding:4px; width:fit-content; flex-wrap:wrap; }
-.ed-tab { border:none; background:transparent; cursor:pointer; padding:8px 18px; border-radius:9px; font-size:13px; font-weight:600; color:#9a9a9a; font-family:inherit; transition:all .15s; display:flex; align-items:center; gap:6px; white-space:nowrap; }
-.ed-tab.active { background:#fff; color:#0d0d0d; box-shadow:0 1px 6px rgba(0,0,0,.1); }
-.ed-tab:hover:not(.active) { color:#555; }
+.ed-tabs { display:flex; gap:2px; margin-bottom:20px; background:var(--ed-tab); border-radius:12px; padding:4px; width:fit-content; flex-wrap:wrap; }
+.ed-tab { border:none; background:transparent; cursor:pointer; padding:8px 18px; border-radius:9px; font-size:13px; font-weight:600; color:var(--ed-muted); font-family:inherit; transition:all .15s; display:flex; align-items:center; gap:6px; white-space:nowrap; }
+.ed-tab.active { background:var(--ed-tab-active); color:var(--ed-text); box-shadow:0 1px 6px rgba(0,0,0,.1); }
+.ed-tab:hover:not(.active) { color:var(--ed-sub); }
 
-.ed-card { background:#fff; border-radius:18px; box-shadow:0 2px 12px rgba(0,0,0,.06); margin-bottom:16px; overflow:hidden; }
+.ed-card { background:var(--ed-card); border-radius:18px; box-shadow:0 2px 12px rgba(0,0,0,.06); margin-bottom:16px; overflow:hidden; }
 .ed-card-head { padding:18px 24px 0; display:flex; align-items:center; gap:8px; }
 .ed-card-head-icon { width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .ed-card-head-title { font-family:'Sora',sans-serif; font-size:14px; font-weight:700; }
@@ -175,24 +209,24 @@ const CSS = `
 
 .ed-info-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:16px; }
 .ed-info-item { }
-.ed-info-label { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#c0c0c0; margin-bottom:5px; }
-.ed-info-value { font-size:13.5px; font-weight:600; color:#0d0d0d; display:flex; align-items:center; gap:6px; }
+.ed-info-label { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--ed-muted-2); margin-bottom:5px; }
+.ed-info-value { font-size:13.5px; font-weight:600; color:var(--ed-text); display:flex; align-items:center; gap:6px; }
 .ed-info-value a { color:#3b5bdb; text-decoration:none; }
 .ed-info-value a:hover { text-decoration:underline; }
-.ed-info-value.muted { color:#a0a0a0; font-weight:400; font-style:italic; }
+.ed-info-value.muted { color:var(--ed-muted); font-weight:400; font-style:italic; }
 
-.ed-divider { border:none; border-top:1px solid #f3f3f3; margin:16px 0; }
+.ed-divider { border:none; border-top:1px solid var(--ed-border); margin:16px 0; }
 
-.ed-bio { font-size:13.5px; color:#4a4a4a; line-height:1.65; background:#fafafa; border-radius:10px; padding:12px 14px; margin-top:4px; }
+.ed-bio { font-size:13.5px; color:var(--ed-sub); line-height:1.65; background:var(--ed-card2); border-radius:10px; padding:12px 14px; margin-top:4px; }
 
 .ed-table { width:100%; border-collapse:collapse; font-size:13px; }
-.ed-table thead tr { border-bottom:1px solid #f3f3f3; }
-.ed-table thead th { padding:10px 14px; text-align:left; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#c0c0c0; white-space:nowrap; }
-.ed-table tbody tr { border-bottom:1px solid #fafafa; transition:background .12s; }
+.ed-table thead tr { border-bottom:1px solid var(--ed-border); }
+.ed-table thead th { padding:10px 14px; text-align:left; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--ed-muted-2); white-space:nowrap; }
+.ed-table tbody tr { border-bottom:1px solid var(--ed-border); transition:background .12s; }
 .ed-table tbody tr:last-child { border-bottom:none; }
-.ed-table tbody tr:hover { background:#fafafa; }
-.ed-table td { padding:12px 14px; vertical-align:middle; color:#3a3a3a; }
-.ed-table-empty { text-align:center; padding:40px; color:#c0c0c0; font-style:italic; font-size:13px; }
+.ed-table tbody tr:hover { background:var(--ed-hover); }
+.ed-table td { padding:12px 14px; vertical-align:middle; color:var(--ed-sub); }
+.ed-table-empty { text-align:center; padding:40px; color:var(--ed-muted-2); font-style:italic; font-size:13px; }
 
 .ed-salary-box { background:linear-gradient(135deg,#0d0d0d 0%,#2a2a2a 100%); border-radius:16px; padding:20px 24px; color:#fff; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:16px; }
 .ed-salary-label { font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:rgba(255,255,255,.5); margin-bottom:4px; }
@@ -201,7 +235,8 @@ const CSS = `
 
 @keyframes ed-sweep { to { background-position:-200% 0; } }
 .ed-sk { background:linear-gradient(90deg,#f2f2f2 25%,#e8e8e8 50%,#f2f2f2 75%); background-size:200% 100%; animation:ed-sweep 1.5s ease-in-out infinite; border-radius:8px; }
-.ed-sk-card { background:#fff; border-radius:18px; box-shadow:0 2px 12px rgba(0,0,0,.06); padding:24px; margin-bottom:16px; }
+.ed.dark .ed-sk { background:linear-gradient(90deg,#1b273d 25%,#23324d 50%,#1b273d 75%); background-size:200% 100%; }
+.ed-sk-card { background:var(--ed-card); border-radius:18px; box-shadow:0 2px 12px rgba(0,0,0,.06); padding:24px; margin-bottom:16px; }
 `;
 
 /* ════════════════════════════════════════════════════════ */
@@ -214,6 +249,18 @@ const EmployeeDetail = () => {
   const [payslips, setPayslips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("details");
+  const [dark, setDark] = useState(getIsDarkTheme);
+
+  useEffect(() => {
+    const syncTheme = () => setDark(getIsDarkTheme());
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    window.addEventListener("storage", syncTheme);
+    mediaQuery.addEventListener("change", syncTheme);
+    return () => {
+      window.removeEventListener("storage", syncTheme);
+      mediaQuery.removeEventListener("change", syncTheme);
+    };
+  }, []);
 
   useEffect(() => {
     fetchAll();
@@ -266,7 +313,10 @@ const EmployeeDetail = () => {
   /* ── Skeleton ──────────────────────────────────────── */
   if (loading)
     return (
-      <div className="ed">
+      <div
+        className={`ed${dark ? " dark" : ""}`}
+        style={{ background: "var(--ed-bg)", minHeight: "100vh" }}
+      >
         <style>{CSS}</style>
         <div
           className="ed-sk"
@@ -274,6 +324,7 @@ const EmployeeDetail = () => {
         />
         <div
           style={{
+            background: "var(--ed-card)",
             borderRadius: 20,
             boxShadow: "0 2px 16px rgba(0,0,0,.07)",
             padding: "28px 32px",
@@ -341,13 +392,17 @@ const EmployeeDetail = () => {
 
   if (!employee)
     return (
-      <div className="ed">
+      <div
+        className={`ed${dark ? " dark" : ""}`}
+        style={{ background: "var(--ed-bg)", minHeight: "100vh" }}
+      >
         <style>{CSS}</style>
         <button className="ed-back" onClick={() => navigate("/employees")}>
           <ArrowLeft size={15} /> Back to Employees
         </button>
         <div
           style={{
+            background: "var(--ed-card)",
             borderRadius: 18,
             boxShadow: "0 2px 12px rgba(0,0,0,.06)",
             padding: "60px 24px",
@@ -355,7 +410,9 @@ const EmployeeDetail = () => {
           }}
         >
           <AlertCircle size={40} style={{ marginBottom: 12 }} />
-          <p style={{ fontSize: 15, fontWeight: 600 }}>Employee not found</p>
+          <p style={{ fontSize: 15, fontWeight: 600, color: "var(--ed-text)" }}>
+            Employee not found
+          </p>
         </div>
       </div>
     );
@@ -374,7 +431,7 @@ const EmployeeDetail = () => {
     >
       <div className="ed-info-label">{label}</div>
       <div className={`ed-info-value${!value ? " muted" : ""}`}>
-        {Icon && <Icon size={13} color="#c0c0c0" strokeWidth={2} />}
+        {Icon && <Icon size={13} color="var(--ed-muted-2)" strokeWidth={2} />}
         {link && value ? (
           <a href={link} target="_blank" rel="noopener noreferrer">
             {value}
@@ -440,7 +497,10 @@ const EmployeeDetail = () => {
 
   /* ────────────────────────────── RENDER ──────────────── */
   return (
-    <div className="ed">
+    <div
+      className={`ed${dark ? " dark" : ""}`}
+      style={{ background: "var(--ed-bg)", minHeight: "100vh" }}
+    >
       <style>{CSS}</style>
 
       {/* Back */}
@@ -519,7 +579,7 @@ const EmployeeDetail = () => {
                   alignItems: "center",
                   gap: 5,
                   fontSize: 12.5,
-                  color: "#7a7a7a",
+                  color: "var(--ed-muted)",
                 }}
               >
                 <Building2 size={12} strokeWidth={2} /> {employee.teams.name}
@@ -567,7 +627,7 @@ const EmployeeDetail = () => {
                 fontSize: 10.5,
                 textTransform: "uppercase",
                 letterSpacing: 0.5,
-                color: "#c0c0c0",
+                color: "var(--ed-muted-2)",
                 fontWeight: 700,
                 marginBottom: 4,
               }}
@@ -588,7 +648,7 @@ const EmployeeDetail = () => {
                 alignItems: "center",
                 gap: 5,
                 fontSize: 12.5,
-                color: "#7a7a7a",
+                color: "var(--ed-muted)",
                 textDecoration: "none",
               }}
             >
@@ -611,12 +671,12 @@ const EmployeeDetail = () => {
             {t.count !== undefined && (
               <span
                 style={{
-                  background: tab === t.key ? "#f3f3f3" : "#ececec",
+                  background: tab === t.key ? "var(--ed-border)" : "var(--ed-tab)",
                   borderRadius: 20,
                   padding: "1px 7px",
                   fontSize: 11,
                   fontWeight: 700,
-                  color: "#9a9a9a",
+                  color: "var(--ed-muted)",
                 }}
               >
                 {t.count}
@@ -880,7 +940,7 @@ const EmployeeDetail = () => {
                       STATUS_PROJECT.not_started;
                     return (
                       <tr key={p.project_id}>
-                        <td style={{ fontWeight: 600, color: "#0d0d0d" }}>
+                        <td style={{ fontWeight: 600, color: "var(--ed-text)" }}>
                           {p.projects?.name || "—"}
                         </td>
                         <td>
@@ -888,7 +948,7 @@ const EmployeeDetail = () => {
                         </td>
                         <td>{fmt(p.projects?.start_date)}</td>
                         <td>{fmt(p.projects?.end_date)}</td>
-                        <td style={{ color: "#9a9a9a" }}>
+                        <td style={{ color: "var(--ed-muted)" }}>
                           {fmt(p.created_at)}
                         </td>
                       </tr>
@@ -926,7 +986,7 @@ const EmployeeDetail = () => {
                         <td
                           style={{
                             fontWeight: 600,
-                            color: "#0d0d0d",
+                            color: "var(--ed-text)",
                             maxWidth: 280,
                           }}
                         >
@@ -938,7 +998,7 @@ const EmployeeDetail = () => {
                         <td>
                           <Pill label={p.label} color={p.color} bg={p.bg} />
                         </td>
-                        <td style={{ color: "#9a9a9a" }}>
+                        <td style={{ color: "var(--ed-muted)" }}>
                           {fmt(t.created_at)}
                         </td>
                       </tr>
@@ -987,7 +1047,7 @@ const EmployeeDetail = () => {
                   <tbody>
                     {payslips.map((p) => (
                       <tr key={p.id}>
-                        <td style={{ fontWeight: 600, color: "#0d0d0d" }}>
+                        <td style={{ fontWeight: 600, color: "var(--ed-text)" }}>
                           {MONTHS[(p.month || 1) - 1]} {p.year}
                         </td>
                         <td>{fmtCurrency(p.base_salary, currency)}</td>

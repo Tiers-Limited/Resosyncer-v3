@@ -6,6 +6,7 @@ import { Upload, CheckCircle, Loader2, Clock } from "lucide-react";
 import {
   analyzeResumeAgainstJob,
   buildScreeningNote,
+  createApplicationTrackingLink,
   createAiInterviewLink,
   extractTextFromUploadedFile,
 } from "../lib/recruitmentAi";
@@ -426,14 +427,17 @@ function ApplyForm() {
             notes: screeningNote || null,
           },
         ])
-        .select("id")
+        .select("id, public_access_token")
         .single();
 
       if (error) throw error;
 
       const sendTracking = job.branding?.sendTrackingLink !== false;
       const applicantId = inserted?.id;
-      const interviewLink = applicantId ? createAiInterviewLink(applicantId) : "";
+      const publicAccessToken = inserted?.public_access_token;
+      const interviewLink = publicAccessToken
+        ? createAiInterviewLink(publicAccessToken)
+        : "";
 
       if (isShortlisted && applicantId) {
         const updatedAnswers = {
@@ -470,8 +474,8 @@ function ApplyForm() {
           companyName,
           logoUrl: job.branding?.logo_url || null,
           trackingUrl:
-            sendTracking && applicantId
-              ? `${PUBLIC_DOMAIN}/track/${applicantId}`
+            sendTracking && publicAccessToken
+              ? createApplicationTrackingLink(publicAccessToken)
               : undefined,
         });
         setSubmissionOutcome("submitted");

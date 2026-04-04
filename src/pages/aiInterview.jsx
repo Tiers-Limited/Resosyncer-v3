@@ -6,14 +6,12 @@ import {
   CameraOff,
   CheckCircle2,
   Mic,
-  MicOff,
   PhoneOff,
   PlayCircle,
   ShieldAlert,
   User,
   Volume2,
   Activity,
-  Zap,
   Shield,
   ChevronRight,
   RotateCcw,
@@ -34,9 +32,6 @@ import {
   generateInterviewTurn,
 } from "../lib/recruitmentAi";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CONSTANTS
-// ─────────────────────────────────────────────────────────────────────────────
 const AGENT_NAME = "Rexa";
 const INTERVIEW_SECTIONS = [
   "Introduction Questions",
@@ -50,6 +45,13 @@ const INTERVIEW_SECTIONS = [
 
 const MIN_QUESTIONS = INTERVIEW_SECTIONS.length;
 const MAX_QUESTIONS = 10;
+const AUTO_SUBMIT_SILENCE_MS = 1800;
+const MAX_TURN_CAPTURE_MS = 45000;
+const VOICE_RMS_THRESHOLD = 0.008;
+const NO_VOICE_TIMEOUT_MS = 7000;
+const GROQ_API_KEY =
+  import.meta.env.VITE_GROQ_API_KEY || import.meta.env.VITE_GROK_API_KEY;
+const GROQ_TRANSCRIBE_URL = "https://api.groq.com/openai/v1/audio/transcriptions";
 const BUCKET = import.meta.env.VITE_INTERVIEW_RECORDINGS_BUCKET;
 const WARMUP_QUESTION = (name) =>
   `Hi ${name || "there"}, hello. It's great to meet you today. How are you doing?`;
@@ -998,18 +1000,16 @@ function ActiveSession({
   currentAnswer,
   setCurrentAnswer,
   interimText,
+  draftStatus,
   warningNotice,
   focusWarnings,
-  micSupported,
-  onMicToggle,
   onReplay,
-  onSubmit,
   onEnd,
   bottomRef,
   STEPS,
   stepIdx,
 }) {
-  const [showTranscript, setShowTranscript] = useState(false);
+  const [showTranscript, setShowTranscript] = useState(true);
 
   return (
     <div
@@ -1383,12 +1383,9 @@ function ActiveSession({
             rows={3}
             placeholder={
               listening
-                ? "Listening — your speech is being captured…"
-                : "Type your answer, or use the microphone…"
+                ? "Speak naturally. We will submit when you pause."
+                : "Wait for Rexa to finish, then answer naturally."
             }
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) onSubmit();
-            }}
           />
           {interimText && (
             <div
@@ -1420,13 +1417,22 @@ function ActiveSession({
           )}
           <div
             style={{
-              textAlign: "right",
-              fontSize: 10,
+              marginTop: 6,
+              fontSize: 11,
+              color: "var(--text-3)",
+            }}
+          >
+            {draftStatus}
+          </div>
+          <div
+            style={{
+              textAlign: "left",
+              fontSize: 11,
               color: "var(--text-3)",
               marginTop: 4,
             }}
           >
-            ⌘↵ to send
+            Answers are submitted automatically after a short pause.
           </div>
         </div>
       </div>
@@ -1447,16 +1453,34 @@ function ActiveSession({
           backdropFilter: "blur(20px)",
         }}
       >
-        <button
-          className={`rxa-btn ${listening ? "rxa-btn-mic-active" : "rxa-btn-ghost"}`}
-          onClick={onMicToggle}
-          disabled={!micSupported || processing}
-          style={{ minWidth: 100 }}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            minWidth: 250,
+            padding: "10px 14px",
+            borderRadius: 12,
+            background: "rgba(255,255,255,.04)",
+            border: "1px solid var(--border)",
+          }}
         >
-          {listening ? <MicOff size={14} /> : <Mic size={14} />}
-          {listening ? "Mute" : "Unmute"}
-          {listening && <WaveformBars active color="var(--accent)" count={3} />}
-        </button>
+          <Mic size={14} color={listening ? "#22c55e" : "rgba(255,255,255,.45)"} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-1)" }}>
+              Autonomous voice reply
+            </span>
+            <span style={{ fontSize: 11, color: "var(--text-3)" }}>
+              {listening
+                ? "Listening now and auto-submitting on silence"
+                : speaking
+                  ? "Waiting for Rexa to finish speaking"
+                  : processing
+                    ? "Preparing the next question"
+                    : "Voice capture starts automatically"}
+            </span>
+          </div>
+        </div>
 
         <button
           className="rxa-btn rxa-btn-ghost"
@@ -1466,28 +1490,6 @@ function ActiveSession({
         >
           <RotateCcw size={14} />
           Replay
-        </button>
-
-        <button
-          className="rxa-btn rxa-btn-blue"
-          onClick={onSubmit}
-          disabled={processing}
-          style={{
-            minWidth: 150,
-            padding: "11px 28px",
-            fontSize: 14,
-            fontWeight: 700,
-          }}
-        >
-          {processing ? (
-            <>
-              <Loader size={14} className="rxa-spin" /> Processing…
-            </>
-          ) : (
-            <>
-              <Zap size={14} /> Send Answer
-            </>
-          )}
         </button>
 
         <button
@@ -1799,7 +1801,7 @@ function LoadingScreen() {
 // MAIN PAGE
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AiInterviewPage() {
-  const { applicantId } = useParams();
+  const { applicantId: accessToken } = useParams();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -1830,6 +1832,7 @@ export default function AiInterviewPage() {
   const [uploadingRecording, setUploadingRecording] = useState(false);
   const [tick, setTick] = useState(0);
   const [warmupPending, setWarmupPending] = useState(true);
+  const [draftStatus, setDraftStatus] = useState("Waiting for your answer");
 
   const recognitionRef = useRef(null);
   const transcriptRef = useRef([]);
@@ -1841,6 +1844,24 @@ export default function AiInterviewPage() {
   const previewRequestedRef = useRef(false);
   const keepRef = useRef(false);
   const manualRef = useRef(false);
+  const autoSubmitTimeoutRef = useRef(null);
+  const processingRef = useRef(false);
+  const currentAnswerRef = useRef("");
+  const interimTextRef = useRef("");
+  const turnRecorderRef = useRef(null);
+  const turnChunksRef = useRef([]);
+  const turnAnalyserRef = useRef(null);
+  const turnAudioCtxRef = useRef(null);
+  const turnSourceRef = useRef(null);
+  const turnStreamRef = useRef(null);
+  const turnLoopRef = useRef(null);
+  const turnCaptureStartedAtRef = useRef(0);
+  const turnLastVoiceAtRef = useRef(0);
+  const turnDetectedVoiceRef = useRef(false);
+  const turnStoppingRef = useRef(false);
+  const speakingRef = useRef(false);
+  const speechTurnIdRef = useRef(0);
+  const speechWatchdogRef = useRef(null);
   const bottomRef = useRef(null);
   const integrityCooldownsRef = useRef({});
   const frameCanvasRef = useRef(null);
@@ -1872,10 +1893,28 @@ export default function AiInterviewPage() {
     Math.max(0, questionCount ? questionCount - 1 : 0),
   );
   const entries = transcriptRef.current;
+  const clearAutoSubmit = useCallback(() => {
+    if (autoSubmitTimeoutRef.current) {
+      clearTimeout(autoSubmitTimeoutRef.current);
+      autoSubmitTimeoutRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     injectStyles();
   }, []);
+  useEffect(() => {
+    processingRef.current = processing;
+  }, [processing]);
+  useEffect(() => {
+    speakingRef.current = speaking;
+  }, [speaking]);
+  useEffect(() => {
+    currentAnswerRef.current = currentAnswer;
+  }, [currentAnswer]);
+  useEffect(() => {
+    interimTextRef.current = interimText;
+  }, [interimText]);
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [tick]);
@@ -1885,18 +1924,14 @@ export default function AiInterviewPage() {
     let live = true;
     (async () => {
       try {
-        const { data: ar, error: ae } = await supabase
-          .from("recruitment_applicants")
-          .select("*")
-          .eq("id", applicantId)
-          .single();
+        const { data: context, error: ae } = await supabase
+          .rpc("get_public_recruitment_context", {
+            p_access_token: accessToken,
+          });
         if (ae) throw ae;
-        const { data: jr, error: je } = await supabase
-          .from("recruitment_jobs")
-          .select("*")
-          .eq("id", ar.job_id)
-          .single();
-        if (je) throw je;
+        const ar = context?.applicant || null;
+        const jr = context?.job || null;
+        if (!ar || !jr) throw new Error("Interview not available.");
         if (!live) return;
         setApplicant(ar);
         setJob(jr);
@@ -1915,11 +1950,26 @@ export default function AiInterviewPage() {
     return () => {
       live = false;
       window.speechSynthesis?.cancel();
+      if (autoSubmitTimeoutRef.current) clearTimeout(autoSubmitTimeoutRef.current);
+      if (speechWatchdogRef.current) clearTimeout(speechWatchdogRef.current);
       recognitionRef.current?.stop?.();
+      if (turnLoopRef.current) cancelAnimationFrame(turnLoopRef.current);
+      turnLoopRef.current = null;
+      try {
+        turnRecorderRef.current?.stop?.();
+      } catch {}
+      turnRecorderRef.current = null;
+      turnSourceRef.current?.disconnect?.();
+      turnSourceRef.current = null;
+      turnAnalyserRef.current = null;
+      turnStreamRef.current?.getTracks?.().forEach((track) => track.stop());
+      turnStreamRef.current = null;
+      turnAudioCtxRef.current?.close?.();
+      turnAudioCtxRef.current = null;
       recorderRef.current?.stop?.();
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  }, [applicantId]);
+  }, [accessToken]);
 
   useEffect(() => {
     if (
@@ -2229,8 +2279,8 @@ export default function AiInterviewPage() {
   }, [started, completed, cameraReady, ensureIntegrityModels]);
 
   const aiInterviewLink = useMemo(
-    () => createAiInterviewLink(applicantId),
-    [applicantId],
+    () => createAiInterviewLink(accessToken),
+    [accessToken],
   );
   const screening = applicant?.answers?.__aiScreening || null;
 
@@ -2321,7 +2371,7 @@ export default function AiInterviewPage() {
     setRecordingStatus("Uploading…");
     try {
       const blob = new Blob(chunksRef.current, { type: "video/webm" });
-      const path = `${applicantId}/${Date.now()}-interview.webm`;
+      const path = `${applicant?.id || "public"}/${Date.now()}-interview.webm`;
       const { error: ue } = await supabase.storage
         .from(BUCKET)
         .upload(path, blob, { contentType: "video/webm", upsert: false });
@@ -2343,72 +2393,282 @@ export default function AiInterviewPage() {
   // ── SPEECH ─────────────────────────────────────────────────────────────────
   const speakText = (text) => {
     if (!text || !window.speechSynthesis) return;
+    clearAutoSubmit();
+    speechTurnIdRef.current += 1;
+    const speechTurnId = speechTurnIdRef.current;
+    if (speechWatchdogRef.current) {
+      clearTimeout(speechWatchdogRef.current);
+      speechWatchdogRef.current = null;
+    }
+    setDraftStatus("Agent is speaking");
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 1;
     u.pitch = 1;
-    u.onstart = () => setSpeaking(true);
-    u.onend = () => {
+    const handoffToListening = () => {
+      if (speechTurnId !== speechTurnIdRef.current) return;
       setSpeaking(false);
-      if (started && !completed && micSupported) startListening();
+      if (started && !completed && !processingRef.current) {
+        setDraftStatus("Starting microphone...");
+        startListening();
+      }
     };
-    u.onerror = () => setSpeaking(false);
+    u.onstart = () => setSpeaking(true);
+    u.onend = handoffToListening;
+    u.onerror = handoffToListening;
     window.speechSynthesis.speak(u);
+    const fallbackDelay = Math.min(14000, Math.max(2500, text.length * 70));
+    speechWatchdogRef.current = setTimeout(() => {
+      if (speechTurnId !== speechTurnIdRef.current) return;
+      if (speakingRef.current) {
+        handoffToListening();
+      } else if (started && !completed && !processingRef.current && !listening) {
+        setDraftStatus("Starting microphone...");
+        startListening();
+      }
+    }, fallbackDelay);
   };
 
+  const stopTurnCapture = useCallback(() => {
+    if (turnLoopRef.current) {
+      cancelAnimationFrame(turnLoopRef.current);
+      turnLoopRef.current = null;
+    }
+    if (turnRecorderRef.current && turnRecorderRef.current.state !== "inactive") {
+      try {
+        turnRecorderRef.current.stop();
+      } catch {}
+    }
+    turnSourceRef.current?.disconnect?.();
+    turnSourceRef.current = null;
+    turnAnalyserRef.current = null;
+    turnAudioCtxRef.current?.close?.();
+    turnAudioCtxRef.current = null;
+    turnStreamRef.current?.getTracks?.().forEach((track) => track.stop());
+    turnStreamRef.current = null;
+  }, []);
+
+  const transcribeTurnAudio = useCallback(async (audioBlob) => {
+    if (!audioBlob || !GROQ_API_KEY) return "";
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new File([audioBlob], "interview-turn.webm", {
+        type: audioBlob.type || "audio/webm",
+      }),
+    );
+    formData.append("model", "whisper-large-v3-turbo");
+    formData.append("language", "en");
+    formData.append("response_format", "verbose_json");
+
+    const response = await fetch(GROQ_TRANSCRIBE_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${GROQ_API_KEY}` },
+      body: formData,
+    });
+    if (!response.ok) return "";
+    const payload = await response.json().catch(() => null);
+    return String(payload?.text || "").trim();
+  }, []);
+
   const stopListening = useCallback(() => {
+    clearAutoSubmit();
     keepRef.current = false;
     manualRef.current = true;
     recognitionRef.current?.stop?.();
+    stopTurnCapture();
     setListening(false);
-  }, []);
+    setDraftStatus("Microphone paused");
+  }, [clearAutoSubmit, stopTurnCapture]);
 
   const startListening = useCallback(() => {
-    const SR = getSR();
-    if (!SR) return;
+    if (processingRef.current || completed) return;
     keepRef.current = true;
     manualRef.current = false;
+    clearAutoSubmit();
     recognitionRef.current?.stop?.();
-    const r = new SR();
-    r.lang = "en-US";
-    r.continuous = true;
-    r.interimResults = true;
-    r.onstart = () => setListening(true);
-    r.onend = () => {
-      setListening(false);
-      if (keepRef.current && !manualRef.current)
-        setTimeout(() => {
-          if (keepRef.current) startListening();
-        }, 250);
-    };
-    r.onerror = () => {
-      setListening(false);
-      if (keepRef.current)
-        setTimeout(() => {
-          if (keepRef.current) startListening();
-        }, 600);
-    };
-    r.onresult = (ev) => {
-      let fin = "",
-        live = "";
-      for (let i = ev.resultIndex; i < ev.results.length; i++) {
-        const t = ev.results[i][0]?.transcript || "";
-        if (ev.results[i].isFinal) fin += `${t} `;
-        else live += `${t} `;
-      }
-      setInterimText(live.trim());
-      if (fin)
-        setCurrentAnswer((p) =>
-          [p, fin.trim()].filter(Boolean).join(" ").trim(),
+    stopTurnCapture();
+    setListening(true);
+    setDraftStatus("Starting microphone...");
+
+    (async () => {
+      try {
+        let sourceStream = null;
+        try {
+          sourceStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
+            video: false,
+          });
+        } catch {
+          sourceStream = streamRef.current?.getAudioTracks?.()?.length
+            ? streamRef.current
+            : null;
+        }
+        if (!sourceStream) {
+          throw new Error("no-audio-stream");
+        }
+        const audioTracks = sourceStream.getAudioTracks();
+        if (!audioTracks.length) {
+          setListening(false);
+          setDraftStatus("No microphone audio detected.");
+          return;
+        }
+
+        const turnStream = new MediaStream(
+          audioTracks.map((track) => (track.clone ? track.clone() : track)),
         );
-    };
-    recognitionRef.current = r;
-    r.start();
-  }, []);
+        turnStreamRef.current = turnStream;
+        turnChunksRef.current = [];
+        turnDetectedVoiceRef.current = false;
+        turnCaptureStartedAtRef.current = Date.now();
+        turnLastVoiceAtRef.current = Date.now();
+        setListening(true);
+        setDraftStatus("Listening...");
+
+        const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+          ? "audio/webm;codecs=opus"
+          : MediaRecorder.isTypeSupported("audio/webm")
+            ? "audio/webm"
+            : "";
+        const recorder = mime
+          ? new MediaRecorder(turnStream, { mimeType: mime })
+          : new MediaRecorder(turnStream);
+        turnRecorderRef.current = recorder;
+
+        recorder.ondataavailable = (event) => {
+          if (event.data?.size) turnChunksRef.current.push(event.data);
+        };
+
+        recorder.onstop = async () => {
+          setListening(false);
+          if (turnLoopRef.current) cancelAnimationFrame(turnLoopRef.current);
+          turnLoopRef.current = null;
+          turnSourceRef.current?.disconnect?.();
+          turnSourceRef.current = null;
+          turnAnalyserRef.current = null;
+          turnAudioCtxRef.current?.close?.();
+          turnAudioCtxRef.current = null;
+          turnStreamRef.current?.getTracks?.().forEach((track) => track.stop());
+          turnStreamRef.current = null;
+
+          if (!keepRef.current || manualRef.current) return;
+
+          if (!turnChunksRef.current.length) {
+            setDraftStatus("No audio captured. Listening again...");
+            if (!processingRef.current) {
+              setTimeout(() => {
+                if (keepRef.current && !manualRef.current) startListening();
+              }, 350);
+            }
+            return;
+          }
+
+          setDraftStatus("Transcribing your answer...");
+          const blob = new Blob(turnChunksRef.current, {
+            type: mime || "audio/webm",
+          });
+          const text = await transcribeTurnAudio(blob);
+          if (!text) {
+            setDraftStatus("Could not transcribe. Please answer again.");
+            if (!processingRef.current) {
+              setTimeout(() => {
+                if (keepRef.current && !manualRef.current) startListening();
+              }, 350);
+            }
+            return;
+          }
+
+          currentAnswerRef.current = text;
+          interimTextRef.current = "";
+          setCurrentAnswer(text);
+          setInterimText("");
+          setDraftStatus("Submitting your answer...");
+          await submitAnswer({ silent: true, prefilled: text });
+        };
+
+        recorder.start(250);
+
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          const ctx = new AudioCtx();
+          turnAudioCtxRef.current = ctx;
+          const source = ctx.createMediaStreamSource(turnStream);
+          turnSourceRef.current = source;
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 2048;
+          analyser.smoothingTimeConstant = 0.12;
+          source.connect(analyser);
+          turnAnalyserRef.current = analyser;
+
+          const samples = new Float32Array(analyser.fftSize);
+          const monitor = () => {
+            if (!turnRecorderRef.current || turnRecorderRef.current.state !== "recording") {
+              return;
+            }
+
+            analyser.getFloatTimeDomainData(samples);
+            let sum = 0;
+            for (let i = 0; i < samples.length; i += 1) sum += samples[i] * samples[i];
+            const rms = Math.sqrt(sum / samples.length);
+            const now = Date.now();
+            const speakingNow = rms > VOICE_RMS_THRESHOLD;
+
+            if (speakingNow) {
+              turnDetectedVoiceRef.current = true;
+              turnLastVoiceAtRef.current = now;
+            }
+
+            const silentTooLong =
+              turnDetectedVoiceRef.current &&
+              now - turnLastVoiceAtRef.current >= AUTO_SUBMIT_SILENCE_MS;
+            const noVoiceTimeout =
+              !turnDetectedVoiceRef.current &&
+              now - turnCaptureStartedAtRef.current >= NO_VOICE_TIMEOUT_MS;
+            const maxTurnReached =
+              now - turnCaptureStartedAtRef.current >= MAX_TURN_CAPTURE_MS;
+
+            if (silentTooLong || noVoiceTimeout || maxTurnReached) {
+              try {
+                if (turnRecorderRef.current?.state === "recording") {
+                  turnRecorderRef.current.stop();
+                }
+              } catch {}
+              return;
+            }
+
+            turnLoopRef.current = requestAnimationFrame(monitor);
+          };
+
+          turnLoopRef.current = requestAnimationFrame(monitor);
+        } else {
+          setTimeout(() => {
+            try {
+              if (turnRecorderRef.current?.state === "recording") {
+                turnRecorderRef.current.stop();
+              }
+            } catch {}
+          }, AUTO_SUBMIT_SILENCE_MS + 1200);
+        }
+      } catch {
+        setListening(false);
+        setDraftStatus("Microphone access failed. Please allow mic permission.");
+        if (!processingRef.current) {
+          setTimeout(() => {
+            if (keepRef.current && !manualRef.current) startListening();
+          }, 800);
+        }
+      }
+    })();
+  }, [clearAutoSubmit, completed, stopTurnCapture, transcribeTurnAudio]);
 
   // ── INTERVIEW FLOW ─────────────────────────────────────────────────────────
   const askNextQuestion = async (lastAnswer = "") => {
     if (!job || !applicant) return;
+    processingRef.current = true;
     setProcessing(true);
     try {
       const nextSectionIndex = Math.min(
@@ -2454,21 +2714,33 @@ export default function AiInterviewPage() {
     } catch (e) {
       message.error(e.message || "Could not generate question.");
     } finally {
+      processingRef.current = false;
       setProcessing(false);
     }
   };
 
-  const submitAnswer = async () => {
-    const ans = [currentAnswer, interimText].filter(Boolean).join(" ").trim();
+  const submitAnswer = async (options = {}) => {
+    if (processingRef.current) return;
+    const ans = [options.prefilled, currentAnswerRef.current, interimTextRef.current]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
     if (!ans) {
-      message.warning("Please answer before continuing.");
+      if (!options.silent) {
+        message.warning("Please answer before continuing.");
+      }
       return;
     }
+    clearAutoSubmit();
     stopListening();
+    processingRef.current = true;
+    setDraftStatus("Sending your answer...");
     transcriptRef.current = [
       ...transcriptRef.current,
       { role: "user", content: ans, speaker: applicant?.name || "Candidate" },
     ];
+    currentAnswerRef.current = "";
+    interimTextRef.current = "";
     setCurrentAnswer("");
     setInterimText("");
     setTick((t) => t + 1);
@@ -2484,8 +2756,10 @@ export default function AiInterviewPage() {
 
   const finishInterview = async () => {
     if (!job || !applicant) return;
+    processingRef.current = true;
     setProcessing(true);
     try {
+      clearAutoSubmit();
       stopListening();
       if (recorderRef.current?.state === "recording") {
         recorderRef.current.stop();
@@ -2500,35 +2774,41 @@ export default function AiInterviewPage() {
         suspiciousEvents,
       });
       const prev = applicant.answers?.__aiInterview || {};
-      await supabase
-        .from("recruitment_applicants")
-        .update({
-          score: report.overallScore,
-          answers: {
-            ...(applicant.answers || {}),
-            __aiInterview: {
-              ...prev,
-              status: "completed",
-              completedAt: new Date().toISOString(),
-              suspiciousEvents,
-              transcript: transcriptRef.current,
-              report,
-              interviewLink: aiInterviewLink,
-              recordingUrl: meta?.url || recordingUrl || null,
-              recordingPath: meta?.filePath || null,
-            },
-          },
-          notes: `${applicant.notes ? applicant.notes + "\n\n" : ""}AI Interview\nScore:${report.overallScore}/100\nRecommendation:${report.recommendation}`,
-        })
-        .eq("id", applicant.id);
+      const nextAnswers = {
+        ...(applicant.answers || {}),
+        __aiInterview: {
+          ...prev,
+          status: "completed",
+          completedAt: new Date().toISOString(),
+          suspiciousEvents,
+          transcript: transcriptRef.current,
+          report,
+          interviewLink: aiInterviewLink,
+          recordingUrl: meta?.url || recordingUrl || null,
+          recordingPath: meta?.filePath || null,
+        },
+      };
+      const nextNotes = `${applicant.notes ? applicant.notes + "\n\n" : ""}AI Interview\nScore:${report.overallScore}/100\nRecommendation:${report.recommendation}`;
+      const { error: completeError } = await supabase.rpc(
+        "complete_public_ai_interview",
+        {
+          p_access_token: accessToken,
+          p_answers: nextAnswers,
+          p_notes: nextNotes,
+          p_score: report.overallScore,
+        },
+      );
+      if (completeError) throw completeError;
       setFinalReport(report);
       setCompleted(true);
       setCurrentQuestion("");
+      setDraftStatus("Interview completed");
       window.speechSynthesis?.cancel();
       stopCamera();
     } catch (e) {
       message.error(e.message || "Could not finish interview.");
     } finally {
+      processingRef.current = false;
       setProcessing(false);
     }
   };
@@ -2563,8 +2843,9 @@ export default function AiInterviewPage() {
       },
     ];
     setTick((t) => t + 1);
+    setDraftStatus("Agent is speaking");
     speakText(greeting);
-    if (!window.speechSynthesis && micSupported) startListening();
+    if (!window.speechSynthesis) startListening();
   };
 
   // ── RENDER GATES ───────────────────────────────────────────────────────────
@@ -2629,12 +2910,10 @@ export default function AiInterviewPage() {
       currentAnswer={currentAnswer}
       setCurrentAnswer={setCurrentAnswer}
       interimText={interimText}
+      draftStatus={draftStatus}
       warningNotice={warningNotice}
       focusWarnings={focusWarnings}
-      micSupported={micSupported}
-      onMicToggle={() => (listening ? stopListening() : startListening())}
       onReplay={() => speakText(currentQuestion)}
-      onSubmit={submitAnswer}
       onEnd={finishInterview}
       bottomRef={bottomRef}
       STEPS={STEPS}

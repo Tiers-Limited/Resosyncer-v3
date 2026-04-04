@@ -126,6 +126,14 @@ const getPreviewType = (name = "") => {
   return null;
 };
 
+const getIsDarkTheme = () => {
+  if (typeof window === "undefined") return false;
+  const mode = localStorage.getItem("themeMode") || "system";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
+
 // ─── File Preview Overlay ─────────────────────────────────────────────────────
 const FilePreview = ({
   file,
@@ -432,6 +440,7 @@ const ContextMenu = ({
   x,
   y,
   record,
+  dark,
   onEdit,
   onDelete,
   onDownload,
@@ -457,12 +466,14 @@ const ContextMenu = ({
         left: x,
         top: y,
         zIndex: 1000,
-        background: "white",
+        background: dark ? "#1a1b1f" : "white",
         borderRadius: 8,
-        boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+        boxShadow: dark
+          ? "0 8px 24px rgba(0,0,0,0.45)"
+          : "0 4px 20px rgba(0,0,0,0.15)",
         minWidth: 200,
         padding: "6px 0",
-        border: "1px solid #e0e0e0",
+        border: dark ? "1px solid #2a2b31" : "1px solid #e0e0e0",
       }}
     >
       {record.type === "file" && (
@@ -473,7 +484,10 @@ const ContextMenu = ({
                 onPreview(record);
                 onClose();
               }}
-              style={menuItemStyle}
+              style={{
+                ...menuItemStyle,
+                color: dark ? "#e5e7eb" : menuItemStyle.color,
+              }}
             >
               <EyeIcon /> Preview
             </button>
@@ -483,7 +497,10 @@ const ContextMenu = ({
               onDownload(record);
               onClose();
             }}
-            style={menuItemStyle}
+            style={{
+              ...menuItemStyle,
+              color: dark ? "#e5e7eb" : menuItemStyle.color,
+            }}
           >
             <DownloadIcon /> Download
           </button>
@@ -495,18 +512,31 @@ const ContextMenu = ({
             onEdit(record);
             onClose();
           }}
-          style={menuItemStyle}
+          style={{
+            ...menuItemStyle,
+            color: dark ? "#e5e7eb" : menuItemStyle.color,
+          }}
         >
           <EditIcon /> Rename
         </button>
       )}
-      <div style={{ height: 1, background: "#e0e0e0", margin: "6px 0" }} />
+      <div
+        style={{
+          height: 1,
+          background: dark ? "#2a2b31" : "#e0e0e0",
+          margin: "6px 0",
+        }}
+      />
       <button
         onClick={() => {
           onClose();
           setTimeout(() => onDelete(record), 50);
         }}
-        style={{ ...menuItemStyle, color: "#d32f2f" }}
+        style={{
+          ...menuItemStyle,
+          color: "#d32f2f",
+          ...(dark ? { color: "#ef5350" } : {}),
+        }}
       >
         <TrashIcon /> Delete
       </button>
@@ -553,6 +583,7 @@ const formatDate = (d) =>
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const Documents = () => {
+  const [dark, setDark] = useState(getIsDarkTheme);
   const [documents, setDocuments] = useState([]);
   const [currentFolder, setCurrentFolder] = useState(null);
   const [folderPath, setFolderPath] = useState([]);
@@ -577,6 +608,19 @@ const Documents = () => {
   // ── Fetch tenant on mount ─────────────────────────────────────────────────
   useEffect(() => {
     fetchCurrentTenant();
+  }, []);
+
+  useEffect(() => {
+    const syncTheme = () => setDark(getIsDarkTheme());
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    window.addEventListener("storage", syncTheme);
+    window.addEventListener("themeModeChanged", syncTheme);
+    mediaQuery.addEventListener("change", syncTheme);
+    return () => {
+      window.removeEventListener("storage", syncTheme);
+      window.removeEventListener("themeModeChanged", syncTheme);
+      mediaQuery.removeEventListener("change", syncTheme);
+    };
   }, []);
 
   const fetchCurrentTenant = async () => {
@@ -792,6 +836,22 @@ const Documents = () => {
   const getFileExt = (name) => name?.split(".").pop() || "";
   const getFolderColor = (id) =>
     FOLDER_COLORS[id?.charCodeAt(0) % FOLDER_COLORS.length] || FOLDER_COLORS[0];
+  const modalStyles = dark
+    ? {
+        content: {
+          background: "#1a1b1f",
+          border: "1px solid #2a2b31",
+        },
+        header: {
+          background: "#1a1b1f",
+          borderBottom: "1px solid #2a2b31",
+        },
+        body: {
+          background: "#1a1b1f",
+          color: "#e5e7eb",
+        },
+      }
+    : undefined;
 
   // ── Show a loading state while tenant resolves ────────────────────────────
   if (tenantLoading) {
@@ -802,10 +862,10 @@ const Documents = () => {
           alignItems: "center",
           justifyContent: "center",
           minHeight: "100vh",
-          background: "#f8f9fa",
+          background: dark ? "#141416" : "#f8f9fa",
         }}
       >
-        <div style={{ textAlign: "center", color: "#5f6368" }}>
+        <div style={{ textAlign: "center", color: dark ? "#9ca3af" : "#5f6368" }}>
           <div
             style={{
               ...spinnerStyle,
@@ -827,12 +887,18 @@ const Documents = () => {
           alignItems: "center",
           justifyContent: "center",
           minHeight: "100vh",
-          background: "#f8f9fa",
+          background: dark ? "#141416" : "#f8f9fa",
         }}
       >
-        <div style={{ textAlign: "center", color: "#5f6368" }}>
+        <div style={{ textAlign: "center", color: dark ? "#9ca3af" : "#5f6368" }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
-          <div style={{ fontSize: 16, color: "#202124", marginBottom: 8 }}>
+          <div
+            style={{
+              fontSize: 16,
+              color: dark ? "#f3f4f6" : "#202124",
+              marginBottom: 8,
+            }}
+          >
             No tenant found
           </div>
           <div style={{ fontSize: 14 }}>
@@ -845,17 +911,37 @@ const Documents = () => {
 
   return (
     <div
+      className={dark ? "docs-root docs-dark" : "docs-root"}
       style={{
         minHeight: "100vh",
-        background: "#f8f9fa",
+        background: dark ? "#141416" : "#f8f9fa",
         fontFamily: "'Google Sans', Roboto, sans-serif",
       }}
     >
+      <style>{`
+        .docs-dark .ant-modal-title { color: #f3f4f6 !important; }
+        .docs-dark .ant-form-item-label > label { color: #d1d5db !important; }
+        .docs-dark .ant-input,
+        .docs-dark .ant-input-affix-wrapper,
+        .docs-dark .ant-input-textarea textarea {
+          background: #17181c !important;
+          color: #f3f4f6 !important;
+          border-color: #2a2b31 !important;
+        }
+        .docs-dark .ant-input::placeholder,
+        .docs-dark .ant-input-textarea textarea::placeholder {
+          color: #9ca3af !important;
+        }
+        .docs-dark .ant-upload.ant-upload-drag {
+          background: #17181c !important;
+          border-color: #2a2b31 !important;
+        }
+      `}</style>
       {/* Header */}
       <div
         style={{
-          background: "white",
-          borderBottom: "1px solid #e0e0e0",
+          background: dark ? "#1a1b1f" : "white",
+          borderBottom: `1px solid ${dark ? "#2a2b31" : "#e0e0e0"}`,
           padding: "12px 24px",
           display: "flex",
           alignItems: "center",
@@ -869,7 +955,8 @@ const Documents = () => {
           style={{
             flex: 1,
             maxWidth: 720,
-            background: "#f1f3f4",
+            background: dark ? "#17181c" : "#f1f3f4",
+            border: dark ? "1px solid #2a2b31" : "none",
             borderRadius: 24,
             display: "flex",
             alignItems: "center",
@@ -878,7 +965,9 @@ const Documents = () => {
             height: 46,
           }}
         >
-          <SearchIcon />
+          <div style={{ color: dark ? "#9ca3af" : "#5f6368" }}>
+            <SearchIcon />
+          </div>
           <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -888,13 +977,21 @@ const Documents = () => {
               background: "none",
               outline: "none",
               fontSize: 16,
-              color: "#202124",
+              color: dark ? "#f3f4f6" : "#202124",
               width: "100%",
             }}
           />
         </div>
         <div style={{ display: "flex", gap: 8, flex: "0 0 auto" }}>
-          <button onClick={() => setFolderModal(true)} style={actionBtnStyle}>
+          <button
+            onClick={() => setFolderModal(true)}
+            style={{
+              ...actionBtnStyle,
+              background: dark ? "#1a1b1f" : actionBtnStyle.background,
+              color: dark ? "#e5e7eb" : actionBtnStyle.color,
+              border: dark ? "1px solid #2a2b31" : actionBtnStyle.border,
+            }}
+          >
             <NewFolderIcon /> New folder
           </button>
           <button
@@ -914,11 +1011,17 @@ const Documents = () => {
             alignItems: "center",
             gap: 4,
             padding: "16px 0 8px",
-            color: "#5f6368",
+            color: dark ? "#9ca3af" : "#5f6368",
             fontSize: 14,
           }}
         >
-          <button onClick={() => navigateTo(-1)} style={breadcrumbBtnStyle}>
+          <button
+            onClick={() => navigateTo(-1)}
+            style={{
+              ...breadcrumbBtnStyle,
+              color: dark ? "#9ca3af" : breadcrumbBtnStyle.color,
+            }}
+          >
             <HomeIcon /> My Drive
           </button>
           {folderPath.map((folder, idx) => (
@@ -929,7 +1032,10 @@ const Documents = () => {
               <ChevronRight />
               <button
                 onClick={() => navigateTo(idx)}
-                style={breadcrumbBtnStyle}
+                style={{
+                  ...breadcrumbBtnStyle,
+                  color: dark ? "#9ca3af" : breadcrumbBtnStyle.color,
+                }}
               >
                 {folder.name}
               </button>
@@ -946,7 +1052,7 @@ const Documents = () => {
             marginBottom: 16,
           }}
         >
-          <div style={{ fontSize: 13, color: "#5f6368" }}>
+          <div style={{ fontSize: 13, color: dark ? "#9ca3af" : "#5f6368" }}>
             {loading
               ? "Loading..."
               : `${filtered.length} item${filtered.length !== 1 ? "s" : ""}`}
@@ -956,8 +1062,18 @@ const Documents = () => {
               onClick={() => setViewMode("grid")}
               style={{
                 ...viewToggleStyle,
-                color: viewMode === "grid" ? "#1a73e8" : "#5f6368",
-                background: viewMode === "grid" ? "#e8f0fe" : "transparent",
+                color:
+                  viewMode === "grid"
+                    ? "#1a73e8"
+                    : dark
+                      ? "#9ca3af"
+                      : "#5f6368",
+                background:
+                  viewMode === "grid"
+                    ? dark
+                      ? "rgba(26,115,232,0.18)"
+                      : "#e8f0fe"
+                    : "transparent",
               }}
             >
               <GridIcon />
@@ -966,8 +1082,18 @@ const Documents = () => {
               onClick={() => setViewMode("list")}
               style={{
                 ...viewToggleStyle,
-                color: viewMode === "list" ? "#1a73e8" : "#5f6368",
-                background: viewMode === "list" ? "#e8f0fe" : "transparent",
+                color:
+                  viewMode === "list"
+                    ? "#1a73e8"
+                    : dark
+                      ? "#9ca3af"
+                      : "#5f6368",
+                background:
+                  viewMode === "list"
+                    ? dark
+                      ? "rgba(26,115,232,0.18)"
+                      : "#e8f0fe"
+                    : "transparent",
               }}
             >
               <ListIcon />
@@ -978,10 +1104,20 @@ const Documents = () => {
         {/* Empty state */}
         {!loading && filtered.length === 0 && (
           <div
-            style={{ textAlign: "center", padding: "80px 0", color: "#5f6368" }}
+            style={{
+              textAlign: "center",
+              padding: "80px 0",
+              color: dark ? "#9ca3af" : "#5f6368",
+            }}
           >
             <div style={{ fontSize: 64, marginBottom: 16 }}>📂</div>
-            <div style={{ fontSize: 18, marginBottom: 8, color: "#202124" }}>
+            <div
+              style={{
+                fontSize: 18,
+                marginBottom: 8,
+                color: dark ? "#f3f4f6" : "#202124",
+              }}
+            >
               {searchQuery ? "No results found" : "This folder is empty"}
             </div>
             <div style={{ fontSize: 14 }}>
@@ -997,7 +1133,14 @@ const Documents = () => {
           <div>
             {folders.length > 0 && (
               <>
-                <div style={sectionLabel}>Folders</div>
+                <div
+                  style={{
+                    ...sectionLabel,
+                    color: dark ? "#9ca3af" : sectionLabel.color,
+                  }}
+                >
+                  Folders
+                </div>
                 <div
                   style={{
                     display: "grid",
@@ -1020,8 +1163,14 @@ const Documents = () => {
                       style={{
                         ...gridCardStyle,
                         background:
-                          selectedItem === folder.id ? "#e8f0fe" : "white",
-                        border: `1px solid ${selectedItem === folder.id ? "#1a73e8" : "#e0e0e0"}`,
+                          selectedItem === folder.id
+                            ? dark
+                              ? "rgba(26,115,232,0.18)"
+                              : "#e8f0fe"
+                            : dark
+                              ? "#1a1b1f"
+                              : "white",
+                        border: `1px solid ${selectedItem === folder.id ? "#1a73e8" : dark ? "#2a2b31" : "#e0e0e0"}`,
                       }}
                     >
                       <div
@@ -1037,7 +1186,7 @@ const Documents = () => {
                         <span
                           style={{
                             fontSize: 14,
-                            color: "#202124",
+                            color: dark ? "#f3f4f6" : "#202124",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
                             whiteSpace: "nowrap",
@@ -1055,7 +1204,7 @@ const Documents = () => {
                             background: "none",
                             border: "none",
                             cursor: "pointer",
-                            color: "#5f6368",
+                            color: dark ? "#9ca3af" : "#5f6368",
                             padding: 2,
                             borderRadius: 4,
                             display: "flex",
@@ -1074,7 +1223,14 @@ const Documents = () => {
 
             {files.length > 0 && (
               <>
-                <div style={sectionLabel}>Files</div>
+                <div
+                  style={{
+                    ...sectionLabel,
+                    color: dark ? "#9ca3af" : sectionLabel.color,
+                  }}
+                >
+                  Files
+                </div>
                 <div
                   style={{
                     display: "grid",
@@ -1098,8 +1254,14 @@ const Documents = () => {
                         style={{
                           ...fileCardStyle,
                           background:
-                            selectedItem === file.id ? "#e8f0fe" : "white",
-                          border: `1px solid ${selectedItem === file.id ? "#1a73e8" : "#e0e0e0"}`,
+                            selectedItem === file.id
+                              ? dark
+                                ? "rgba(26,115,232,0.18)"
+                                : "#e8f0fe"
+                              : dark
+                                ? "#1a1b1f"
+                                : "white",
+                          border: `1px solid ${selectedItem === file.id ? "#1a73e8" : dark ? "#2a2b31" : "#e0e0e0"}`,
                           position: "relative",
                         }}
                       >
@@ -1140,7 +1302,7 @@ const Documents = () => {
                         <div
                           style={{
                             fontSize: 12,
-                            color: "#202124",
+                            color: dark ? "#f3f4f6" : "#202124",
                             textAlign: "center",
                             wordBreak: "break-word",
                             lineHeight: 1.3,
@@ -1152,8 +1314,9 @@ const Documents = () => {
                         <div
                           style={{
                             fontSize: 11,
-                            color: "#9aa0a6",
+                            color: dark ? "#9ca3af" : "#9aa0a6",
                             textAlign: "center",
+                            marginBottom: 12,
                           }}
                         >
                           {formatSize(file.file_size)}
@@ -1171,13 +1334,19 @@ const Documents = () => {
         {viewMode === "list" && !loading && filtered.length > 0 && (
           <div
             style={{
-              background: "white",
+              background: dark ? "#1a1b1f" : "white",
               borderRadius: 8,
-              border: "1px solid #e0e0e0",
+              border: `1px solid ${dark ? "#2a2b31" : "#e0e0e0"}`,
               overflow: "hidden",
             }}
           >
-            <div style={listHeaderStyle}>
+            <div
+              style={{
+                ...listHeaderStyle,
+                borderBottom: `1px solid ${dark ? "#2a2b31" : "#e0e0e0"}`,
+                color: dark ? "#9ca3af" : listHeaderStyle.color,
+              }}
+            >
               <span style={{ flex: 3 }}>Name</span>
               <span style={{ flex: 1 }}>Size</span>
               <span style={{ flex: 1.5 }}>Modified</span>
@@ -1199,11 +1368,20 @@ const Documents = () => {
                   ...listRowStyle,
                   background:
                     selectedItem === item.id
-                      ? "#e8f0fe"
+                      ? dark
+                        ? "rgba(26,115,232,0.18)"
+                        : "#e8f0fe"
                       : idx % 2 === 0
-                        ? "white"
-                        : "#fafafa",
-                  borderTop: idx > 0 ? "1px solid #f1f3f4" : "none",
+                        ? dark
+                          ? "#1a1b1f"
+                          : "white"
+                        : dark
+                          ? "#17181c"
+                          : "#fafafa",
+                  borderTop:
+                    idx > 0
+                      ? `1px solid ${dark ? "#2a2b31" : "#f1f3f4"}`
+                      : "none",
                 }}
               >
                 <div
@@ -1225,7 +1403,7 @@ const Documents = () => {
                   <span
                     style={{
                       fontSize: 14,
-                      color: "#202124",
+                      color: dark ? "#f3f4f6" : "#202124",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
@@ -1234,15 +1412,27 @@ const Documents = () => {
                     {item.name}
                   </span>
                 </div>
-                <span style={{ flex: 1, fontSize: 13, color: "#5f6368" }}>
+                <span
+                  style={{
+                    flex: 1,
+                    fontSize: 13,
+                    color: dark ? "#9ca3af" : "#5f6368",
+                  }}
+                >
                   {formatSize(item.file_size)}
                 </span>
-                <span style={{ flex: 1.5, fontSize: 13, color: "#5f6368" }}>
+                <span
+                  style={{
+                    flex: 1.5,
+                    fontSize: 13,
+                    color: dark ? "#9ca3af" : "#5f6368",
+                  }}
+                >
                   {formatDate(item.created_at)}
                 </span>
                 <div
                   style={{
-                    width: 100,
+                    width: 132,
                     display: "flex",
                     gap: 4,
                     justifyContent: "flex-end",
@@ -1322,6 +1512,7 @@ const Documents = () => {
           x={contextMenu.x}
           y={contextMenu.y}
           record={contextMenu.record}
+          dark={dark}
           onEdit={(r) => {
             setEditingFolder(r);
             form.setFieldsValue({ name: r.name });
@@ -1338,6 +1529,8 @@ const Documents = () => {
       <Modal
         title={null}
         open={!!deleteConfirm}
+        rootClassName={dark ? "docs-dark" : undefined}
+        styles={modalStyles}
         onCancel={() => setDeleteConfirm(null)}
         footer={null}
         width={400}
@@ -1350,12 +1543,18 @@ const Documents = () => {
                 fontSize: 18,
                 fontWeight: 500,
                 marginBottom: 12,
-                color: "#202124",
+                color: dark ? "#f3f4f6" : "#202124",
               }}
             >
               Delete "{deleteConfirm.name}"?
             </div>
-            <div style={{ fontSize: 14, color: "#5f6368", marginBottom: 24 }}>
+            <div
+              style={{
+                fontSize: 14,
+                color: dark ? "#9ca3af" : "#5f6368",
+                marginBottom: 24,
+              }}
+            >
               {deleteConfirm.type === "folder"
                 ? "This will permanently delete the folder and all its contents."
                 : "This file will be permanently deleted."}
@@ -1384,6 +1583,8 @@ const Documents = () => {
       <Modal
         title={editingFolder ? "Rename folder" : "New folder"}
         open={folderModal}
+        rootClassName={dark ? "docs-dark" : undefined}
+        styles={modalStyles}
         onCancel={() => {
           setFolderModal(false);
           setEditingFolder(null);
@@ -1409,11 +1610,12 @@ const Documents = () => {
                 width: "100%",
                 padding: "10px 12px",
                 fontSize: 15,
-                border: "1px solid #e0e0e0",
+                border: `1px solid ${dark ? "#2a2b31" : "#e0e0e0"}`,
                 borderRadius: 6,
                 outline: "none",
                 fontFamily: "inherit",
-                color: "#202124",
+                color: dark ? "#f3f4f6" : "#202124",
+                background: dark ? "#17181c" : "#ffffff",
               }}
               onChange={(e) => form.setFieldsValue({ name: e.target.value })}
               defaultValue={editingFolder?.name || ""}
@@ -1449,6 +1651,8 @@ const Documents = () => {
       <Modal
         title="Upload files"
         open={uploadModal}
+        rootClassName={dark ? "docs-dark" : undefined}
+        styles={modalStyles}
         onCancel={() => {
           setUploadModal(false);
           setFileList([]);
@@ -1466,11 +1670,20 @@ const Documents = () => {
             onRemove={() => setFileList([])}
             fileList={fileList}
             maxCount={1}
-            style={{ background: "#f8f9fa", borderColor: "#1a73e8" }}
+            style={{
+              background: dark ? "#17181c" : "#f8f9fa",
+              borderColor: dark ? "#2a2b31" : "#1a73e8",
+            }}
           >
             <div style={{ padding: 24 }}>
               <div style={{ fontSize: 36, marginBottom: 8 }}>☁️</div>
-              <p style={{ fontSize: 14, color: "#202124", marginBottom: 4 }}>
+              <p
+                style={{
+                  fontSize: 14,
+                  color: dark ? "#f3f4f6" : "#202124",
+                  marginBottom: 4,
+                }}
+              >
                 Drag files here or{" "}
                 <span
                   style={{
@@ -1482,7 +1695,7 @@ const Documents = () => {
                   browse
                 </span>
               </p>
-              <p style={{ fontSize: 12, color: "#9aa0a6" }}>
+              <p style={{ fontSize: 12, color: dark ? "#9ca3af" : "#9aa0a6" }}>
                 Select a file to upload
               </p>
             </div>
@@ -1514,6 +1727,7 @@ const Documents = () => {
           </div>
         </div>
       </Modal>
+
     </div>
   );
 };

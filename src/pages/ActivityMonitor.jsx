@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useAuth } from "../contexts/AuthContext";
 import {
   Table,
   DatePicker,
@@ -10,6 +11,7 @@ import {
   Dropdown,
   message,
   Empty,
+  Button,
 } from "antd";
 import {
   Clock,
@@ -34,6 +36,7 @@ import {
   AlertTriangle,
   TrendingUp,
   Zap,
+  PenLine,
 } from "lucide-react";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
@@ -114,6 +117,105 @@ if (!document.getElementById("ets-css")) {
     }
     .ets-table .ant-table { background: var(--ets-card) !important; }
     .ets-table .ant-pagination { padding: 12px 20px !important; margin: 0 !important; }
+    .ets-table .ant-pagination .ant-pagination-item,
+    .ets-table .ant-pagination .ant-pagination-prev .ant-pagination-item-link,
+    .ets-table .ant-pagination .ant-pagination-next .ant-pagination-item-link {
+      background: var(--ets-card) !important;
+      border-color: var(--ets-border) !important;
+      color: var(--ets-sub) !important;
+    }
+    .ets-table .ant-pagination .ant-pagination-item a {
+      color: var(--ets-sub) !important;
+    }
+    .ets-table .ant-pagination .ant-pagination-item-active {
+      background: var(--ets-hover) !important;
+      border-color: var(--ets-border-strong) !important;
+    }
+    .ets-table .ant-pagination .ant-pagination-item-active a {
+      color: var(--ets-text) !important;
+    }
+    .ets-table .ant-pagination .ant-pagination-options .ant-select-selector {
+      background: var(--ets-card) !important;
+      border-color: var(--ets-border) !important;
+      color: var(--ets-sub) !important;
+    }
+    .ets-table .ant-pagination .ant-select-arrow {
+      color: var(--ets-muted) !important;
+    }
+    .ets-dark .ant-picker {
+      background: var(--ets-card) !important;
+      border-color: var(--ets-border) !important;
+      color: var(--ets-text) !important;
+    }
+    .ets-dark .ant-picker .ant-picker-input > input {
+      color: var(--ets-text) !important;
+    }
+    .ets-dark .ant-picker .ant-picker-suffix,
+    .ets-dark .ant-picker .ant-picker-clear {
+      color: var(--ets-muted) !important;
+    }
+    .ets-picker-popup-dark.ant-picker-dropdown .ant-picker-panel-container {
+      background: var(--ets-card) !important;
+      border: 1px solid var(--ets-border) !important;
+    }
+    .ets-picker-popup-dark.ant-picker-dropdown .ant-picker-header,
+    .ets-picker-popup-dark.ant-picker-dropdown .ant-picker-content th,
+    .ets-picker-popup-dark.ant-picker-dropdown .ant-picker-cell::before {
+      color: var(--ets-muted) !important;
+      border-color: var(--ets-border) !important;
+    }
+    .ets-picker-popup-dark.ant-picker-dropdown .ant-picker-content td,
+    .ets-picker-popup-dark.ant-picker-dropdown .ant-picker-cell,
+    .ets-picker-popup-dark.ant-picker-dropdown .ant-picker-cell-inner {
+      color: var(--ets-sub) !important;
+    }
+    .ets-picker-popup-dark.ant-picker-dropdown .ant-picker-cell-in-view.ant-picker-cell-selected .ant-picker-cell-inner {
+      background: #1d4ed8 !important;
+      color: #f8fafc !important;
+    }
+    .ets-picker-popup-dark.ant-picker-dropdown .ant-picker-cell-in-view.ant-picker-cell-today .ant-picker-cell-inner::before {
+      border-color: #3b82f6 !important;
+    }
+    .ets-dd-dark .ant-dropdown-menu {
+      background: var(--ets-card) !important;
+      border: 1px solid var(--ets-border) !important;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.36) !important;
+    }
+    .ets-dd-dark .ant-dropdown-menu .ant-dropdown-menu-item {
+      color: var(--ets-sub) !important;
+    }
+    .ets-dd-dark .ant-dropdown-menu .ant-dropdown-menu-item:hover {
+      background: var(--ets-hover) !important;
+    }
+    .ets-drawer-dark .ant-drawer-content,
+    .ets-drawer-dark .ant-drawer-header,
+    .ets-drawer-dark .ant-drawer-body {
+      background: var(--ets-card) !important;
+      color: var(--ets-text) !important;
+      border-color: var(--ets-border) !important;
+    }
+    .ets-drawer-dark .ant-drawer-close {
+      color: var(--ets-muted) !important;
+    }
+    .ets-drawer-dark .ant-empty-description {
+      color: var(--ets-muted) !important;
+    }
+
+    /* Hide scrollbars but keep scrolling behavior */
+    .ets-scroll,
+    .ets-table .ant-table-content,
+    .ets-table .ant-table-body {
+      scrollbar-width: none;
+      scrollbar-gutter: stable;
+      -ms-overflow-style: none;
+    }
+    .ets-scroll::-webkit-scrollbar,
+    .ets-table .ant-table-content::-webkit-scrollbar,
+    .ets-table .ant-table-body::-webkit-scrollbar {
+      width: 0;
+      height: 0;
+      display: none;
+    }
   `;
   document.head.appendChild(s);
 }
@@ -155,51 +257,50 @@ const breakSecs = (log, now) => {
     return acc + Math.max(0, en.diff(st, "second"));
   }, 0);
 };
-const netSecs = (log, now) => {
-  if (!log) return 0;
-  if ((log.status === "active" || log.status === "break") && log.start_time)
-    return Math.max(
+
+const netSecs = (log, now, manualSecs = 0) => {
+  let base = 0;
+  if (!log) {
+    base = 0;
+  } else if (
+    (log.status === "active" || log.status === "break") &&
+    log.start_time
+  ) {
+    base = Math.max(
       0,
       now.diff(dayjs(log.start_time), "second") - breakSecs(log, now),
     );
-  return (parseFloat(log.total_hours) || 0) * 3600;
+  } else {
+    base = (parseFloat(log.total_hours) || 0) * 3600;
+  }
+  return base + manualSecs;
 };
 
-/**
- * Get effective working hours for an employee:
- * use employee-level working_hours if set, else fall back to workspace default
- */
 const getEffectiveWorkingHours = (employeeProfile, ws) => {
   const empHours = parseFloat(employeeProfile?.working_hours);
   if (!isNaN(empHours) && empHours > 0) return empHours;
   return parseFloat(ws?.working_hours) || 8;
 };
 
-/**
- * Overtime seconds for an employee (only if overtime_enabled in ws)
- */
-const overtimeSecs = (log, now, effectiveHours, ws) => {
+const overtimeSecs = (log, now, effectiveHours, ws, manualSecs = 0) => {
   if (!ws?.overtime_enabled) return 0;
-  const worked = netSecs(log, now);
+  const worked = netSecs(log, now, manualSecs);
   const target = effectiveHours * 3600;
   return Math.max(0, worked - target);
 };
 
-const autoAtt = (log, now, ws, effectiveHours) => {
-  if (!log) return "absent";
-  if (log.status === "active") return "working";
-  if (log.status === "break") return "paused";
-  const hours = netSecs(log, now) / 3600;
+const autoAtt = (log, now, ws, effectiveHours, manualSecs = 0) => {
+  if (!log && manualSecs === 0) return "absent";
+  const hours = netSecs(log, now, manualSecs) / 3600;
+  if (log?.status === "active") return "working";
+  if (log?.status === "break") return "paused";
   const target = effectiveHours || parseFloat(ws?.working_hours) || 8;
   const half = parseFloat(ws?.half_day_hours) || 4;
   if (hours >= target) return "present";
-  if (hours >= half) return "present"; // half day still counts as present
+  if (hours >= half) return "present";
   return "absent";
 };
 
-/**
- * Late check — only applies to fixed model
- */
 const isLate = (log, ws) => {
   if (!log?.start_time || !ws) return false;
   if (ws.working_model === "flexible") return false;
@@ -222,68 +323,68 @@ const isWeekOff = (dateStr, ws) => {
 };
 
 const isDarkMode = () => {
-  const v = getComputedStyle(document.documentElement)
-    .getPropertyValue("--d-card")
-    .trim();
-  return v.startsWith("#1") || v.startsWith("#0");
+  const mode = localStorage.getItem("themeMode") || "system";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
 };
 
 /* ── Config maps ────────────────────────────────────────────────────────── */
 const ATT = {
   working: {
     label: "Working",
-    color: "#1d4ed8",
-    bg: "#eff6ff",
-    border: "#bfdbfe",
+    color: "#60a5fa",
+    bg: "rgba(59,130,246,0.16)",
+    border: "rgba(96,165,250,0.35)",
     dot: "#3b82f6",
   },
   paused: {
     label: "Paused",
-    color: "#6d28d9",
-    bg: "#f5f3ff",
-    border: "#ddd6fe",
+    color: "#a78bfa",
+    bg: "rgba(139,92,246,0.16)",
+    border: "rgba(167,139,250,0.35)",
     dot: "#8b5cf6",
   },
   present: {
     label: "Present",
-    color: "#15803d",
-    bg: "#f0fdf4",
-    border: "#bbf7d0",
+    color: "#4ade80",
+    bg: "rgba(34,197,94,0.16)",
+    border: "rgba(74,222,128,0.35)",
     dot: "#22c55e",
   },
   absent: {
     label: "Absent",
-    color: "#b91c1c",
-    bg: "#fef2f2",
-    border: "#fecaca",
+    color: "#f87171",
+    bg: "rgba(239,68,68,0.16)",
+    border: "rgba(248,113,113,0.35)",
     dot: "#ef4444",
   },
   leave: {
     label: "On Leave",
-    color: "#b45309",
-    bg: "#fffbeb",
-    border: "#fed7aa",
+    color: "#fbbf24",
+    bg: "rgba(245,158,11,0.16)",
+    border: "rgba(251,191,36,0.35)",
     dot: "#f59e0b",
   },
 };
 const STATUS = {
   active: {
     label: "Active",
-    color: "#15803d",
-    bg: "#f0fdf4",
-    border: "#bbf7d0",
+    color: "#4ade80",
+    bg: "rgba(34,197,94,0.16)",
+    border: "rgba(74,222,128,0.35)",
   },
   break: {
     label: "On Break",
-    color: "#6d28d9",
-    bg: "#f5f3ff",
-    border: "#ddd6fe",
+    color: "#a78bfa",
+    bg: "rgba(139,92,246,0.16)",
+    border: "rgba(167,139,250,0.35)",
   },
   completed: {
     label: "Done",
-    color: "#64748b",
-    bg: "#f8fafc",
-    border: "#e2e8f0",
+    color: "#94a3b8",
+    bg: "rgba(148,163,184,0.14)",
+    border: "rgba(148,163,184,0.28)",
   },
 };
 const APP_COLORS = [
@@ -475,6 +576,7 @@ const TableSkeletons = ({ count = 8 }) => (
 /* ── Holiday Screen ─────────────────────────────────────────────────────── */
 const HolidayScreen = ({ holiday, date }) => {
   const isToday = date === dayjs().format("YYYY-MM-DD");
+  const dark = isDarkMode();
   return (
     <div className="ets-fadein" style={{ margin: "0 28px 28px" }}>
       <div
@@ -500,15 +602,21 @@ const HolidayScreen = ({ holiday, date }) => {
               width: 64,
               height: 64,
               borderRadius: 16,
-              background: "#fffbeb",
-              border: "1px solid #fde68a",
+              background: dark ? "rgba(245,158,11,0.16)" : "#fffbeb",
+              border: dark
+                ? "1px solid rgba(251,191,36,0.35)"
+                : "1px solid #fde68a",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               marginBottom: 20,
             }}
           >
-            <PartyPopper size={28} color="#d97706" strokeWidth={1.6} />
+            <PartyPopper
+              size={28}
+              color={dark ? "#fbbf24" : "#d97706"}
+              strokeWidth={1.6}
+            />
           </div>
           <span
             style={{
@@ -516,7 +624,7 @@ const HolidayScreen = ({ holiday, date }) => {
               fontWeight: 700,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
-              color: "#d97706",
+              color: dark ? "#fbbf24" : "#d97706",
               fontFamily: "'DM Sans',sans-serif",
               marginBottom: 10,
               display: "block",
@@ -612,6 +720,7 @@ const HolidayScreen = ({ holiday, date }) => {
 /* ── Week Off Screen ────────────────────────────────────────────────────── */
 const WeekOffScreen = ({ date, dayName }) => {
   const isToday = date === dayjs().format("YYYY-MM-DD");
+  const dark = isDarkMode();
   return (
     <div className="ets-fadein" style={{ margin: "0 28px 28px" }}>
       <div
@@ -637,15 +746,21 @@ const WeekOffScreen = ({ date, dayName }) => {
               width: 64,
               height: 64,
               borderRadius: 16,
-              background: "#f5f3ff",
-              border: "1px solid #ddd6fe",
+              background: dark ? "rgba(139,92,246,0.16)" : "#f5f3ff",
+              border: dark
+                ? "1px solid rgba(167,139,250,0.35)"
+                : "1px solid #ddd6fe",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               marginBottom: 20,
             }}
           >
-            <Coffee size={28} color="#6d28d9" strokeWidth={1.6} />
+            <Coffee
+              size={28}
+              color={dark ? "#a78bfa" : "#6d28d9"}
+              strokeWidth={1.6}
+            />
           </div>
           <span
             style={{
@@ -653,7 +768,7 @@ const WeekOffScreen = ({ date, dayName }) => {
               fontWeight: 700,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
-              color: "#6d28d9",
+              color: dark ? "#a78bfa" : "#6d28d9",
               fontFamily: "'DM Sans',sans-serif",
               marginBottom: 10,
               display: "block",
@@ -746,6 +861,7 @@ const WeekOffScreen = ({ date, dayName }) => {
 /* ── Attendance Dropdown ─────────────────────────────────────────────────── */
 const AttCell = ({ value, onChange, disabled }) => {
   const cfg = ATT[value] || ATT.absent;
+  const darkTone = isDarkMode();
   const items = ["present", "absent", "leave"].map((k) => ({
     key: k,
     label: (
@@ -779,6 +895,7 @@ const AttCell = ({ value, onChange, disabled }) => {
       menu={{ items, onClick: ({ key }) => !disabled && onChange(key) }}
       trigger={["click"]}
       disabled={disabled}
+      overlayClassName={darkTone ? "ets-dd-dark" : undefined}
     >
       <button
         className="ets-att-btn"
@@ -817,10 +934,11 @@ const AttCell = ({ value, onChange, disabled }) => {
   );
 };
 
-/* ── Hours Cell — per-employee effective hours + overtime ────────────────── */
-const HoursCell = ({ log, effectiveHours, ws }) => {
+/* ── Hours Cell ─────────────────────────────────────────────────────────── */
+const HoursCell = ({ log, effectiveHours, ws, manualSecs = 0 }) => {
   const targetHours = effectiveHours || 8;
   const overtimeEnabled = ws?.overtime_enabled ?? true;
+  const darkTone = isDarkMode();
   const [now, setNow] = useState(dayjs());
 
   useEffect(() => {
@@ -829,20 +947,20 @@ const HoursCell = ({ log, effectiveHours, ws }) => {
     return () => clearInterval(t);
   }, [log?.status]);
 
-  if (!log)
+  if (!log && manualSecs === 0)
     return <span style={{ color: "var(--ets-muted)", fontSize: 12 }}>—</span>;
 
-  const workedSecs = netSecs(log, now);
+  const workedSecs = netSecs(log, now, manualSecs);
   const h = workedSecs / 3600;
   const pct = Math.min((h / targetHours) * 100, 100);
-  const bm = Math.round(breakSecs(log, now) / 60);
-  const isLive = log.status === "active" || log.status === "break";
+  const bm = log ? Math.round(breakSecs(log, now) / 60) : 0;
+  const isLive = log?.status === "active" || log?.status === "break";
   const otSecs = overtimeEnabled
     ? Math.max(0, workedSecs - targetHours * 3600)
     : 0;
 
   const color =
-    log.status === "break"
+    log?.status === "break"
       ? "#8b5cf6"
       : pct >= 100
         ? "#22c55e"
@@ -851,7 +969,7 @@ const HoursCell = ({ log, effectiveHours, ws }) => {
           : "#f59e0b";
 
   return (
-    <div style={{ minWidth: 130 }}>
+    <div style={{ minWidth: 140 }}>
       <div
         style={{
           display: "flex",
@@ -860,16 +978,46 @@ const HoursCell = ({ log, effectiveHours, ws }) => {
           marginBottom: 5,
         }}
       >
-        <span
-          style={{
-            fontFamily: "'JetBrains Mono',monospace",
-            fontSize: 13,
-            fontWeight: 600,
-            color: "var(--ets-text)",
-          }}
-        >
-          {h.toFixed(1)}h
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <span
+            style={{
+              fontFamily: "'JetBrains Mono',monospace",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "var(--ets-text)",
+            }}
+          >
+            {h.toFixed(1)}h
+          </span>
+          {manualSecs > 0 && (
+            <Tooltip
+              title={`Includes ${fmt(manualSecs)} of approved manual time`}
+              placement="top"
+            >
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 3,
+                  fontSize: 9,
+                  fontWeight: 700,
+                  color: darkTone ? "#7dd3fc" : "#0369a1",
+                  background: darkTone ? "rgba(14,165,233,0.16)" : "#e0f2fe",
+                  border: darkTone
+                    ? "1px solid rgba(125,211,252,0.35)"
+                    : "1px solid #7dd3fc",
+                  borderRadius: 4,
+                  padding: "1px 4px",
+                  fontFamily: "'DM Sans',sans-serif",
+                  cursor: "default",
+                  letterSpacing: "0.03em",
+                }}
+              >
+                <PenLine size={8} />+{fmt(manualSecs)}
+              </span>
+            </Tooltip>
+          )}
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           {isLive && (
             <span
@@ -939,15 +1087,17 @@ const HoursCell = ({ log, effectiveHours, ws }) => {
           <div
             style={{
               fontSize: 10,
-              color: "#059669",
+              color: darkTone ? "#4ade80" : "#059669",
               fontFamily: "'DM Sans',sans-serif",
               display: "flex",
               alignItems: "center",
               gap: 3,
-              background: "#d1fae5",
+              background: darkTone ? "rgba(34,197,94,0.16)" : "#d1fae5",
               padding: "1px 5px",
               borderRadius: 4,
-              border: "1px solid #6ee7b7",
+              border: darkTone
+                ? "1px solid rgba(74,222,128,0.35)"
+                : "1px solid #6ee7b7",
             }}
           >
             <Zap size={9} /> +{fmt(otSecs)} OT
@@ -958,8 +1108,9 @@ const HoursCell = ({ log, effectiveHours, ws }) => {
   );
 };
 
-/* ── Overtime Cell (standalone column) ─────────────────────────────────── */
-const OvertimeCell = ({ log, effectiveHours, ws }) => {
+/* ── Overtime Cell ──────────────────────────────────────────────────────── */
+const OvertimeCell = ({ log, effectiveHours, ws, manualSecs = 0 }) => {
+  const darkTone = isDarkMode();
   const [now, setNow] = useState(dayjs());
   useEffect(() => {
     if (log?.status !== "active" && log?.status !== "break") return;
@@ -967,10 +1118,10 @@ const OvertimeCell = ({ log, effectiveHours, ws }) => {
     return () => clearInterval(t);
   }, [log?.status]);
 
-  if (!log || !ws?.overtime_enabled)
+  if ((!log && manualSecs === 0) || !ws?.overtime_enabled)
     return <span style={{ color: "var(--ets-muted)", fontSize: 12 }}>—</span>;
 
-  const otSecs = overtimeSecs(log, now, effectiveHours, ws);
+  const otSecs = overtimeSecs(log, now, effectiveHours, ws, manualSecs);
   if (otSecs <= 0)
     return (
       <span
@@ -984,7 +1135,7 @@ const OvertimeCell = ({ log, effectiveHours, ws }) => {
       </span>
     );
 
-  const isLive = log.status === "active";
+  const isLive = log?.status === "active";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
       <div
@@ -992,18 +1143,20 @@ const OvertimeCell = ({ log, effectiveHours, ws }) => {
           display: "flex",
           alignItems: "center",
           gap: 4,
-          background: "#d1fae5",
-          border: "1px solid #6ee7b7",
+          background: darkTone ? "rgba(34,197,94,0.16)" : "#d1fae5",
+          border: darkTone
+            ? "1px solid rgba(74,222,128,0.35)"
+            : "1px solid #6ee7b7",
           padding: "3px 8px",
           borderRadius: 6,
         }}
       >
-        <Zap size={11} color="#059669" />
+        <Zap size={11} color={darkTone ? "#4ade80" : "#059669"} />
         <span
           style={{
             fontSize: 12,
             fontWeight: 700,
-            color: "#059669",
+            color: darkTone ? "#4ade80" : "#059669",
             fontFamily: "'JetBrains Mono',monospace",
           }}
         >
@@ -1016,7 +1169,7 @@ const OvertimeCell = ({ log, effectiveHours, ws }) => {
               width: 5,
               height: 5,
               borderRadius: "50%",
-              background: "#059669",
+              background: darkTone ? "#4ade80" : "#059669",
               display: "inline-block",
             }}
           />
@@ -1191,6 +1344,7 @@ const AppSidebar = ({ apps, loading }) => {
         <Empty description="No app data" image={Empty.PRESENTED_IMAGE_SIMPLE} />
       ) : (
         <div
+          className="ets-scroll"
           style={{
             flex: 1,
             overflowY: "auto",
@@ -1298,6 +1452,7 @@ const AppSidebar = ({ apps, loading }) => {
 
 /* ── Screenshots Drawer ─────────────────────────────────────────────────── */
 const ShotsDrawer = ({ open, onClose, employee, date }) => {
+  const dark = isDarkMode();
   const [shots, setShots] = useState([]);
   const [apps, setApps] = useState([]);
   const [loadShots, setLoadShots] = useState(false);
@@ -1354,6 +1509,7 @@ const ShotsDrawer = ({ open, onClose, employee, date }) => {
       open={open}
       onClose={onClose}
       width={1060}
+      rootClassName={dark ? "ets-drawer-dark" : undefined}
       title={
         <div
           style={{
@@ -1398,11 +1554,13 @@ const ShotsDrawer = ({ open, onClose, employee, date }) => {
               gap: 5,
               fontSize: 11,
               fontWeight: 600,
-              color: "#15803d",
-              background: "#f0fdf4",
+              color: dark ? "#4ade80" : "#15803d",
+              background: dark ? "rgba(34,197,94,0.16)" : "#f0fdf4",
               padding: "4px 10px",
               borderRadius: 6,
-              border: "1px solid #bbf7d0",
+              border: dark
+                ? "1px solid rgba(74,222,128,0.35)"
+                : "1px solid #bbf7d0",
               fontFamily: "'DM Sans',sans-serif",
             }}
           >
@@ -1424,7 +1582,10 @@ const ShotsDrawer = ({ open, onClose, employee, date }) => {
         },
       }}
     >
-      <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
+      <div
+        className="ets-scroll"
+        style={{ flex: 1, overflowY: "auto", padding: 20 }}
+      >
         {loadShots && shots.length === 0 ? (
           <div
             style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}
@@ -1518,6 +1679,7 @@ const ShotsDrawer = ({ open, onClose, employee, date }) => {
         )}
       </div>
       <div
+        className="ets-scroll"
         style={{
           width: 240,
           flexShrink: 0,
@@ -1542,6 +1704,7 @@ export default function EmployeeTimingStats() {
   const [loading, setLoading] = useState(true);
   const [lastSync, setLastSync] = useState(null);
   const [tenantId, setTenantId] = useState(null);
+  const { profile } = useAuth();
   const [attOver, setAttOver] = useState({});
   const [drawer, setDrawer] = useState({ open: false, employee: null });
   const [selectedHoliday, setSelectedHoliday] = useState(null);
@@ -1557,18 +1720,18 @@ export default function EmployeeTimingStats() {
       setDark(d);
       const r = document.documentElement;
       if (d) {
-        r.style.setProperty("--ets-bg", "#070c16");
-        r.style.setProperty("--ets-card", "#0d1422");
-        r.style.setProperty("--ets-thead", "#0a1020");
-        r.style.setProperty("--ets-border", "#18232f");
-        r.style.setProperty("--ets-border-strong", "#27384a");
-        r.style.setProperty("--ets-text", "#dde4f0");
-        r.style.setProperty("--ets-sub", "#7a8fa8");
-        r.style.setProperty("--ets-muted", "#374860");
-        r.style.setProperty("--ets-hover", "#111c2a");
+        r.style.setProperty("--ets-bg", "#141416");
+        r.style.setProperty("--ets-card", "#1a1b1f");
+        r.style.setProperty("--ets-thead", "#17181c");
+        r.style.setProperty("--ets-border", "#2a2b31");
+        r.style.setProperty("--ets-border-strong", "#383a43");
+        r.style.setProperty("--ets-text", "#f3f4f6");
+        r.style.setProperty("--ets-sub", "#d1d5db");
+        r.style.setProperty("--ets-muted", "#9ca3af");
+        r.style.setProperty("--ets-hover", "#202127");
         r.style.setProperty("--ets-accent", "#60a5fa");
-        r.style.setProperty("--ets-skel-base", "#111c2a");
-        r.style.setProperty("--ets-skel-shine", "#172030");
+        r.style.setProperty("--ets-skel-base", "#202127");
+        r.style.setProperty("--ets-skel-shine", "#2a2b31");
       } else {
         r.style.setProperty("--ets-bg", "#f5f7fa");
         r.style.setProperty("--ets-card", "#ffffff");
@@ -1584,9 +1747,17 @@ export default function EmployeeTimingStats() {
         r.style.setProperty("--ets-skel-shine", "#f4f5f8");
       }
     };
-    apply(isDarkMode());
-    const iv = setInterval(() => apply(isDarkMode()), 500);
-    return () => clearInterval(iv);
+    const syncTheme = () => apply(isDarkMode());
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+
+    syncTheme();
+    window.addEventListener("themeModeChanged", syncTheme);
+    mq.addEventListener("change", syncTheme);
+
+    return () => {
+      window.removeEventListener("themeModeChanged", syncTheme);
+      mq.removeEventListener("change", syncTheme);
+    };
   }, []);
 
   /* ── Bootstrap ──────────────────────────────────────────────────────── */
@@ -1641,14 +1812,13 @@ export default function EmployeeTimingStats() {
       });
   }, [date, tenantId]);
 
-  /* ── Main fetch — includes working_hours from profiles ──────────────── */
+  /* ── Main fetch ─────────────────────────────────────────────────────── */
   const fetchData = useCallback(async (d, tid) => {
     if (!tid) return;
     setLoading(true);
     try {
       const { from, to } = dayRange(d);
 
-      // Fetch profiles WITH working_hours so per-employee hours work
       const { data: profiles } = await supabase
         .from("profiles")
         .select(
@@ -1659,48 +1829,90 @@ export default function EmployeeTimingStats() {
         .not(
           "role",
           "in",
-          '("admin","project_manager","superadmin","super_admin")',
+          '("admin","superadmin","super_admin")',
         )
         .order("full_name");
 
-      if (!profiles?.length) {
-        setRows([]);
-        return;
-      }
-      const ids = profiles.map((p) => p.id);
+      const ids = (profiles || []).map((p) => p.id);
+      const idsSet = new Set(ids);
+      const idsForQuery = ids.length
+        ? ids
+        : ["00000000-0000-0000-0000-000000000000"];
 
       const [
         { data: logs },
         { data: appUsage },
         { data: shots },
         { data: attRows },
+        // ── FIXED: single query scoped by tenant_id + work_date + status ──
+        { data: manualReqsRaw, error: manualReqsErr },
       ] = await Promise.all([
         supabase
           .from("time_logs")
           .select(
             "id,user_id,date,start_time,end_time,total_hours,status,standup_message,breaks",
           )
-          .in("user_id", ids)
+          .in("user_id", idsForQuery)
           .eq("date", d),
         supabase
           .from("app_usage")
           .select("employee_id,app_name,duration_seconds")
-          .in("employee_id", ids)
+          .in("employee_id", idsForQuery)
           .gte("recorded_at", from)
           .lte("recorded_at", to),
         supabase
           .from("screenshots")
           .select("employee_id,id")
-          .in("employee_id", ids)
+          .in("employee_id", idsForQuery)
           .gte("taken_at", from)
           .lte("taken_at", to),
         supabase
           .from("attendance")
           .select("user_id,status")
-          .in("user_id", ids)
+          .in("user_id", idsForQuery)
           .eq("date", d),
+        // ── KEY FIX: filter by work_date = d in the DB query, not in JS ──
+        supabase
+          .from("manual_time_requests")
+          .select("id,user_id,requested_hours,status,work_date")
+          .eq("tenant_id", tid)
+          .eq("work_date", d)
+          .in("status", ["approved", "pending", "rejected"]),
       ]);
 
+      // Log error but don't blow up the whole fetch
+      if (manualReqsErr) {
+        console.error("manual_time_requests fetch error:", manualReqsErr);
+      }
+
+      const manualReqs = manualReqsRaw || [];
+
+      // Fetch profiles for any manual-request users not in the main profiles list
+      const missingManualIds = Array.from(
+        new Set(
+          manualReqs
+            .map((r) => r.user_id)
+            .filter((uid) => uid && !idsSet.has(uid)),
+        ),
+      );
+
+      let profilesAll = profiles || [];
+      if (missingManualIds.length) {
+        const { data: extraProfiles } = await supabase
+          .from("profiles")
+          .select(
+            "id,full_name,email,job_title,department,profile_picture_url,user_photo,role,working_hours",
+          )
+          .eq("tenant_id", tid)
+          .eq("suspended", false)
+          .in("id", missingManualIds);
+        if (extraProfiles?.length) {
+          profilesAll = [...profilesAll, ...extraProfiles];
+          extraProfiles.forEach((p) => idsSet.add(p.id));
+        }
+      }
+
+      // Update attendance overrides from DB
       if (attRows?.length) {
         const m = {};
         attRows.forEach((o) => {
@@ -1709,26 +1921,55 @@ export default function EmployeeTimingStats() {
         setAttOver(m);
       }
 
+      // ── Build manual time maps (no JS date filtering needed — DB already filtered) ──
+      const manualMap = {};
+      const pendingMap = {};
+      const rejectedMap = {};
+
+      manualReqs.forEach((r) => {
+        // Only include rows belonging to known employees in this tenant
+        if (!idsSet.has(r.user_id)) return;
+
+        if (r.status === "approved") {
+          manualMap[r.user_id] =
+            (manualMap[r.user_id] || 0) +
+            (parseFloat(r.requested_hours) || 0) * 3600;
+        }
+        if (r.status === "pending") {
+          pendingMap[r.user_id] = r;
+        }
+        if (r.status === "rejected") {
+          rejectedMap[r.user_id] = r;
+        }
+      });
+
+      // Build lookup maps for logs, apps, screenshots
       const logMap = {};
       (logs || []).forEach((l) => {
         logMap[l.user_id] = l;
       });
+
       const appMap = {};
       (appUsage || []).forEach((a) => {
         if (!appMap[a.employee_id]) appMap[a.employee_id] = {};
         appMap[a.employee_id][a.app_name] =
           (appMap[a.employee_id][a.app_name] || 0) + a.duration_seconds;
       });
+
       const shotCount = {};
       (shots || []).forEach((s) => {
         shotCount[s.employee_id] = (shotCount[s.employee_id] || 0) + 1;
       });
 
-      const result = profiles.map((p) => {
+      // Assemble rows
+      const result = profilesAll.map((p) => {
         const log = logMap[p.id];
         const apps = Object.entries(appMap[p.id] || {}).map(
           ([app_name, duration_seconds]) => ({ app_name, duration_seconds }),
         );
+        const manualSecs = manualMap[p.id] || 0;
+        const pendingManual = pendingMap[p.id] || null;
+        const rejectedManual = rejectedMap[p.id] || null;
         return {
           key: p.id,
           ...p,
@@ -1736,22 +1977,35 @@ export default function EmployeeTimingStats() {
           apps,
           screenshotCount: shotCount[p.id] || 0,
           hasLog: !!log,
+          manualSecs,
+          pendingManual,
+          rejectedManual,
+          hasManualRequest:
+            !!pendingManual || !!rejectedManual || manualSecs > 0,
         };
       });
 
+      // Sort: employees with activity first, then by hours desc
       result.sort((a, b) => {
-        if (a.hasLog && !b.hasLog) return -1;
-        if (!a.hasLog && b.hasLog) return 1;
+        const aActive = a.hasLog || a.hasManualRequest;
+        const bActive = b.hasLog || b.hasManualRequest;
+        if (aActive && !bActive) return -1;
+        if (!aActive && bActive) return 1;
         return (b.log?.total_hours || 0) - (a.log?.total_hours || 0);
       });
 
       setRows(result);
       setLastSync(dayjs());
+
+      // Keep drawer employee data fresh
       setDrawer((prev) => {
         if (!prev.open || !prev.employee) return prev;
         const u = result.find((r) => r.id === prev.employee.id);
         return u ? { ...prev, employee: u } : prev;
       });
+    } catch (err) {
+      console.error("ActivityMonitor fetchData failed:", err);
+      message.error("Failed to load activity monitor data");
     } finally {
       setLoading(false);
     }
@@ -1788,79 +2042,119 @@ export default function EmployeeTimingStats() {
     [date],
   );
 
+  /* ── Manual time approval ───────────────────────────────────────────── */
+  const handleManualRequest = useCallback(
+    async (request, action) => {
+      if (!request?.id) return;
+      if (!profile?.role) {
+        message.error("User role not loaded yet");
+        return;
+      }
+      const allowedRoles = [
+        "admin",
+        "superadmin",
+        "super_admin",
+        "project_manager",
+      ];
+      if (!allowedRoles.includes(profile.role)) {
+        message.error("You are not authorized to approve/reject manual time");
+        return;
+      }
+      const status = action === "approve" ? "approved" : "rejected";
+      setLoading(true);
+      const { error } = await supabase
+        .from("manual_time_requests")
+        .update({ status })
+        .eq("id", request.id);
+      if (error) {
+        message.error("Failed to update manual time request: " + error.message);
+      } else {
+        message.success(
+          `Manual time request ${status === "approved" ? "approved" : "rejected"}`,
+        );
+        fetchData(date, tenantId);
+      }
+      setLoading(false);
+    },
+    [date, fetchData, profile?.role, tenantId],
+  );
+
   /* ── Derived values ─────────────────────────────────────────────────── */
   const now = dayjs();
   const isToday = date === dayjs().format("YYYY-MM-DD");
   const dateIsWeekOff = isWeekOff(date, ws);
   const isFixed = ws.working_model === "fixed";
-  const isFlexible = ws.working_model === "flexible";
 
   const getEffHours = (r) => getEffectiveWorkingHours(r, ws);
+  const getManualSecs = (r) => r.manualSecs || 0;
 
   const getAtt = (r) => {
     if (r.log?.status === "active") return "working";
     if (r.log?.status === "break") return "paused";
-    return attOver[r.id] || autoAtt(r.log, now, ws, getEffHours(r));
+    return (
+      attOver[r.id] || autoAtt(r.log, now, ws, getEffHours(r), getManualSecs(r))
+    );
   };
 
   const lateCount = isFixed
     ? rows.filter((r) => r.hasLog && isLate(r.log, ws)).length
     : 0;
 
-  // Total overtime across all employees
   const totalOtSecs = ws.overtime_enabled
     ? rows.reduce(
-        (sum, r) => sum + overtimeSecs(r.log, now, getEffHours(r), ws),
+        (sum, r) =>
+          sum + overtimeSecs(r.log, now, getEffHours(r), ws, getManualSecs(r)),
         0,
       )
     : 0;
 
-  /* ── KPIs — overtime KPI only shown if enabled ──────────────────────── */
+  const manualCount = rows.filter((r) => getManualSecs(r) > 0).length;
+
+  /* ── KPIs ───────────────────────────────────────────────────────────── */
   const KPIs = [
     {
       label: "Total Staff",
       value: rows.length,
       icon: <Users size={15} />,
-      color: "#1d4ed8",
-      bg: "#eff6ff",
+      color: dark ? "#93c5fd" : "#1d4ed8",
+      bg: dark ? "rgba(59,130,246,0.16)" : "#eff6ff",
     },
     {
       label: "Logged In",
       value: rows.filter((r) => r.hasLog).length,
       icon: <LogIn size={15} />,
-      color: "#0369a1",
-      bg: "#e0f2fe",
+      color: dark ? "#7dd3fc" : "#0369a1",
+      bg: dark ? "rgba(14,165,233,0.16)" : "#e0f2fe",
     },
     {
       label: "Working",
       value: rows.filter((r) => getAtt(r) === "working").length,
       icon: <Activity size={15} />,
-      color: "#15803d",
-      bg: "#f0fdf4",
+      color: dark ? "#4ade80" : "#15803d",
+      bg: dark ? "rgba(34,197,94,0.16)" : "#f0fdf4",
     },
     {
       label: "On Break",
       value: rows.filter((r) => getAtt(r) === "paused").length,
       icon: <Pause size={15} />,
-      color: "#6d28d9",
-      bg: "#f5f3ff",
+      color: dark ? "#a78bfa" : "#6d28d9",
+      bg: dark ? "rgba(139,92,246,0.16)" : "#f5f3ff",
     },
     {
       label: "Present",
       value: rows.filter((r) => getAtt(r) === "present").length,
       icon: <CheckCheck size={15} />,
-      color: "#166534",
-      bg: "#dcfce7",
+      color: dark ? "#4ade80" : "#166534",
+      bg: dark ? "rgba(34,197,94,0.16)" : "#dcfce7",
     },
-    // Late KPI only relevant for fixed model
     ...(isFixed
       ? [
           {
             label: "Late",
             value: lateCount,
             icon: <AlertTriangle size={15} />,
-            color: "#c2410c",
-            bg: "#fff7ed",
+            color: dark ? "#fb923c" : "#c2410c",
+            bg: dark ? "rgba(249,115,22,0.16)" : "#fff7ed",
           },
         ]
       : []),
@@ -1868,18 +2162,28 @@ export default function EmployeeTimingStats() {
       label: "Absent",
       value: rows.filter((r) => getAtt(r) === "absent").length,
       icon: <UserX size={15} />,
-      color: "#b91c1c",
-      bg: "#fef2f2",
+      color: dark ? "#f87171" : "#b91c1c",
+      bg: dark ? "rgba(239,68,68,0.16)" : "#fef2f2",
     },
-    // Overtime KPI only shown if overtime_enabled
     ...(ws.overtime_enabled
       ? [
           {
             label: "Overtime",
             value: fmt(totalOtSecs),
             icon: <Zap size={15} />,
-            color: "#059669",
-            bg: "#d1fae5",
+            color: dark ? "#4ade80" : "#059669",
+            bg: dark ? "rgba(34,197,94,0.16)" : "#d1fae5",
+          },
+        ]
+      : []),
+    ...(manualCount > 0
+      ? [
+          {
+            label: "Manual Time",
+            value: manualCount,
+            icon: <PenLine size={15} />,
+            color: dark ? "#7dd3fc" : "#0369a1",
+            bg: dark ? "rgba(14,165,233,0.16)" : "#e0f2fe",
           },
         ]
       : []),
@@ -1940,19 +2244,17 @@ export default function EmployeeTimingStats() {
               }}
             >
               {r.full_name}
-              {/* Late indicator — only for fixed model */}
               {isFixed && r.hasLog && isLate(r.log, ws) && (
                 <Tooltip
                   title={`Late — grace period: ${ws.late_grace_minutes}min after ${ws.check_in_time}`}
                 >
                   <AlertTriangle
                     size={11}
-                    color="#c2410c"
+                    color={dark ? "#fb923c" : "#c2410c"}
                     style={{ flexShrink: 0 }}
                   />
                 </Tooltip>
               )}
-              {/* Custom hours badge — show if employee has own working_hours */}
               {r.working_hours &&
                 parseFloat(r.working_hours) !==
                   parseFloat(ws.working_hours) && (
@@ -1960,9 +2262,11 @@ export default function EmployeeTimingStats() {
                     <span
                       style={{
                         fontSize: 9,
-                        background: "#eff6ff",
-                        color: "#1d4ed8",
-                        border: "1px solid #bfdbfe",
+                        background: dark ? "rgba(59,130,246,0.16)" : "#eff6ff",
+                        color: dark ? "#93c5fd" : "#1d4ed8",
+                        border: dark
+                          ? "1px solid rgba(147,197,253,0.35)"
+                          : "1px solid #bfdbfe",
                         borderRadius: 4,
                         padding: "0 4px",
                         fontFamily: "'JetBrains Mono',monospace",
@@ -1995,6 +2299,30 @@ export default function EmployeeTimingStats() {
       key: "status",
       width: 112,
       render: (_, r) => {
+        if (!r.hasLog && r.manualSecs > 0) {
+          return (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                fontSize: 11,
+                fontWeight: 600,
+                padding: "3px 9px",
+                borderRadius: 6,
+                background: dark ? "rgba(14,165,233,0.16)" : "#e0f2fe",
+                color: dark ? "#7dd3fc" : "#0369a1",
+                border: dark
+                  ? "1px solid rgba(125,211,252,0.35)"
+                  : "1px solid #7dd3fc",
+                fontFamily: "'DM Sans',sans-serif",
+              }}
+            >
+              <PenLine size={11} />
+              Manual
+            </span>
+          );
+        }
         if (!r.hasLog)
           return (
             <span
@@ -2047,6 +2375,85 @@ export default function EmployeeTimingStats() {
       },
     },
     {
+      title: "Manual Request",
+      key: "manual_request",
+      width: 185,
+      render: (_, r) => {
+        const pending = r.pendingManual;
+        const rejected = r.rejectedManual;
+        const hasApproved = r.manualSecs > 0;
+        if (pending) {
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  color: "#c2410c",
+                  fontSize: 11,
+                  fontWeight: 600,
+                }}
+              >
+                Pending {parseFloat(pending.requested_hours).toFixed(1)}h
+              </span>
+              <div style={{ display: "flex", gap: 4 }}>
+                <Button
+                  size="small"
+                  type="primary"
+                  onClick={() => handleManualRequest(pending, "approve")}
+                >
+                  Approve
+                </Button>
+                <Button
+                  size="small"
+                  danger
+                  onClick={() => handleManualRequest(pending, "reject")}
+                >
+                  Reject
+                </Button>
+              </div>
+            </div>
+          );
+        }
+        if (rejected) {
+          return (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                color: "#b91c1c",
+                fontSize: 11,
+                fontWeight: 600,
+              }}
+            >
+              Rejected {parseFloat(rejected.requested_hours).toFixed(1)}h
+            </span>
+          );
+        }
+        if (hasApproved) {
+          return (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                color: "#059669",
+                fontSize: 11,
+                fontWeight: 600,
+              }}
+            >
+              Approved {Math.round((r.manualSecs / 3600) * 10) / 10}h
+            </span>
+          );
+        }
+        return (
+          <span style={{ color: "var(--ets-muted)", fontSize: 11 }}>—</span>
+        );
+      },
+    },
+    {
       title: "Attendance",
       key: "att",
       width: 132,
@@ -2057,7 +2464,8 @@ export default function EmployeeTimingStats() {
             ? "working"
             : live === "break"
               ? "paused"
-              : attOver[r.id] || autoAtt(r.log, now, ws, getEffHours(r));
+              : attOver[r.id] ||
+                autoAtt(r.log, now, ws, getEffHours(r), getManualSecs(r));
         return (
           <AttCell
             value={val}
@@ -2083,14 +2491,15 @@ export default function EmployeeTimingStats() {
           >
             {fmtH(r.log?.start_time)}
           </span>
-          {/* Late badge next to start time for fixed model */}
           {isFixed && r.hasLog && isLate(r.log, ws) && (
             <span
               style={{
                 fontSize: 9,
-                background: "#fff7ed",
-                color: "#c2410c",
-                border: "1px solid #fed7aa",
+                background: dark ? "rgba(249,115,22,0.16)" : "#fff7ed",
+                color: dark ? "#fb923c" : "#c2410c",
+                border: dark
+                  ? "1px solid rgba(251,146,60,0.35)"
+                  : "1px solid #fed7aa",
                 borderRadius: 4,
                 padding: "0 4px",
                 fontWeight: 700,
@@ -2161,12 +2570,16 @@ export default function EmployeeTimingStats() {
     {
       title: "Net Hours",
       key: "hours",
-      width: 150,
+      width: 165,
       render: (_, r) => (
-        <HoursCell log={r.log} effectiveHours={getEffHours(r)} ws={ws} />
+        <HoursCell
+          log={r.log}
+          effectiveHours={getEffHours(r)}
+          ws={ws}
+          manualSecs={getManualSecs(r)}
+        />
       ),
     },
-    // Overtime column — only shown if overtime_enabled
     ...(ws.overtime_enabled
       ? [
           {
@@ -2178,6 +2591,7 @@ export default function EmployeeTimingStats() {
                 log={r.log}
                 effectiveHours={getEffHours(r)}
                 ws={ws}
+                manualSecs={getManualSecs(r)}
               />
             ),
           },
@@ -2272,6 +2686,7 @@ export default function EmployeeTimingStats() {
   /* ── Render ─────────────────────────────────────────────────────────── */
   return (
     <div
+      className={dark ? "ets-dark" : "ets-light"}
       style={{
         fontFamily: "'DM Sans',sans-serif",
         color: "var(--ets-text)",
@@ -2348,11 +2763,13 @@ export default function EmployeeTimingStats() {
                     gap: 4,
                     fontSize: 11,
                     fontWeight: 600,
-                    color: "#15803d",
-                    background: "#f0fdf4",
+                    color: dark ? "#4ade80" : "#15803d",
+                    background: dark ? "rgba(34,197,94,0.16)" : "#f0fdf4",
                     padding: "2px 8px",
                     borderRadius: 5,
-                    border: "1px solid #bbf7d0",
+                    border: dark
+                      ? "1px solid rgba(74,222,128,0.35)"
+                      : "1px solid #bbf7d0",
                     fontFamily: "'DM Sans',sans-serif",
                   }}
                 >
@@ -2368,11 +2785,13 @@ export default function EmployeeTimingStats() {
                     gap: 4,
                     fontSize: 11,
                     fontWeight: 600,
-                    color: "#b45309",
-                    background: "#fffbeb",
+                    color: dark ? "#fbbf24" : "#b45309",
+                    background: dark ? "rgba(245,158,11,0.16)" : "#fffbeb",
                     padding: "2px 8px",
                     borderRadius: 5,
-                    border: "1px solid #fde68a",
+                    border: dark
+                      ? "1px solid rgba(251,191,36,0.35)"
+                      : "1px solid #fde68a",
                     fontFamily: "'DM Sans',sans-serif",
                   }}
                 >
@@ -2388,11 +2807,13 @@ export default function EmployeeTimingStats() {
                     gap: 4,
                     fontSize: 11,
                     fontWeight: 600,
-                    color: "#6d28d9",
-                    background: "#f5f3ff",
+                    color: dark ? "#a78bfa" : "#6d28d9",
+                    background: dark ? "rgba(139,92,246,0.16)" : "#f5f3ff",
                     padding: "2px 8px",
                     borderRadius: 5,
-                    border: "1px solid #ddd6fe",
+                    border: dark
+                      ? "1px solid rgba(167,139,250,0.35)"
+                      : "1px solid #ddd6fe",
                     fontFamily: "'DM Sans',sans-serif",
                   }}
                 >
@@ -2421,11 +2842,13 @@ export default function EmployeeTimingStats() {
                         display: "flex",
                         alignItems: "center",
                         gap: 3,
-                        color: "#059669",
-                        background: "#d1fae5",
+                        color: dark ? "#4ade80" : "#059669",
+                        background: dark ? "rgba(34,197,94,0.16)" : "#d1fae5",
                         padding: "1px 5px",
                         borderRadius: 4,
-                        border: "1px solid #6ee7b7",
+                        border: dark
+                          ? "1px solid rgba(74,222,128,0.35)"
+                          : "1px solid #6ee7b7",
                       }}
                     >
                       <Zap size={9} />
@@ -2443,6 +2866,7 @@ export default function EmployeeTimingStats() {
           disabledDate={(d) => d && d.isAfter(dayjs(), "day")}
           allowClear={false}
           format="DD MMM YYYY"
+          popupClassName={dark ? "ets-picker-popup-dark" : undefined}
           style={{ borderRadius: 8, fontFamily: "'DM Sans',sans-serif" }}
         />
       </div>
@@ -2456,7 +2880,7 @@ export default function EmployeeTimingStats() {
         <div style={{ padding: "0 28px 28px" }}>
           {/* KPIs */}
           {holidayLoading || wsLoading || (loading && rows.length === 0) ? (
-            <KpiSkeletons count={kpiCount} />
+            <KpiSkeletons count={kpiCount || 8} />
           ) : (
             <div
               className="ets-fade"
@@ -2553,9 +2977,9 @@ export default function EmployeeTimingStats() {
                   pageSizeOptions: ["15", "20", "50"],
                   style: { padding: "12px 20px" },
                 }}
-                scroll={{ x: ws.overtime_enabled ? 1500 : 1380 }}
+                scroll={{ x: ws.overtime_enabled ? 1520 : 1400 }}
                 rowClassName={(r) =>
-                  `ets-row${!r.hasLog ? " ets-row-dim" : ""}`
+                  `ets-row${!r.hasLog && !r.hasManualRequest ? " ets-row-dim" : ""}`
                 }
                 locale={{
                   emptyText: (

@@ -13,6 +13,7 @@ import {
   Button,
   Select,
   Modal,
+  Skeleton,
 } from "antd";
 import {
   CheckOutlined,
@@ -55,43 +56,247 @@ dayjs.extend(isoWeek);
 const { Title, Text } = Typography;
 const { Option } = Select;
 
-const STATUS_CFG = {
-  present: {
-    label: "Present",
-    color: "#059669",
-    bg: "#ecfdf5",
-    border: "#a7f3d0",
-    icon: <CheckOutlined style={{ fontSize: 9 }} />,
-  },
-  absent: {
-    label: "Absent",
-    color: "#e11d48",
-    bg: "#fff1f2",
-    border: "#fecdd3",
-    icon: <CloseOutlined style={{ fontSize: 9 }} />,
-  },
-  late: {
-    label: "Late",
-    color: "#d97706",
-    bg: "#fffbeb",
-    border: "#fde68a",
-    icon: <ClockCircleOutlined style={{ fontSize: 9 }} />,
-  },
-  none: {
-    label: "No Standup",
-    color: "#cbd5e1",
-    bg: "#f8fafc",
-    border: "#e2e8f0",
-    icon: <MinusOutlined style={{ fontSize: 9 }} />,
-  },
+// ─── CSS Variables injected as a <style> tag ──────────────────────────────────
+// All colours are defined here and consumed via var(--token) everywhere below.
+// Switching dark/light = toggling one class on the root wrapper.
+const THEME_STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
+
+  .sp-root {
+    /* ── Background layers ── */
+    --bg-page:       #f8fafc;
+    --bg-card:       #ffffff;
+    --bg-card-alt:   #f9fafb;
+    --bg-card-hover: #f8fafc;
+    --bg-subtle:     #f1f5f9;
+    --bg-muted:      #e2e8f0;
+
+    /* ── Borders ── */
+    --border:        #e2e8f0;
+    --border-subtle: #f1f5f9;
+    --border-faint:  #f9fafb;
+
+    /* ── Text ── */
+    --text-primary:  #0f172a;
+    --text-secondary:#475569;
+    --text-tertiary: #64748b;
+    --text-muted:    #94a3b8;
+    --text-faint:    #cbd5e1;
+
+    /* ── Semantic status colours (light) ── */
+    --present-color: #059669; --present-bg: #ecfdf5; --present-border: #a7f3d0;
+    --absent-color:  #e11d48; --absent-bg:  #fff1f2; --absent-border:  #fecdd3;
+    --late-color:    #d97706; --late-bg:    #fffbeb; --late-border:    #fde68a;
+    --none-color:    #cbd5e1; --none-bg:    #f8fafc; --none-border:    #e2e8f0;
+
+    /* ── Project status colours (light) ── */
+    --status-active-color:    #059669; --status-active-bg:    #ecfdf5; --status-active-border:    #a7f3d0;
+    --status-progress-color:  #2563eb; --status-progress-bg:  #eff6ff; --status-progress-border:  #bfdbfe;
+    --status-planning-color:  #7c3aed; --status-planning-bg:  #f5f3ff; --status-planning-border:  #ddd6fe;
+    --status-review-color:    #d97706; --status-review-bg:    #fffbeb; --status-review-border:    #fde68a;
+    --status-completed-color: #64748b; --status-completed-bg: #f8fafc; --status-completed-border: #e2e8f0;
+
+    /* ── Accent ── */
+    --accent:        #6366f1;
+    --accent-bg:     #eef2ff;
+    --accent-border: #c7d2fe;
+
+    /* ── Shadows ── */
+    --shadow-card:   0 1px 4px rgba(15,23,42,0.06);
+    --shadow-btn:    0 2px 8px rgba(15,23,42,0.15);
+  }
+
+  /* ══════════════════ DARK OVERRIDES ══════════════════ */
+  .sp-root.dark {
+    --bg-page:       #0b1220;
+    --bg-card:       #111827;
+    --bg-card-alt:   #0f172a;
+    --bg-card-hover: #0f172a;
+    --bg-subtle:     #1f2937;
+    --bg-muted:      #334155;
+
+    --border:        #1f2937;
+    --border-subtle: #1f2937;
+    --border-faint:  #1a2332;
+
+    --text-primary:  #f1f5f9;
+    --text-secondary:#cbd5e1;
+    --text-tertiary: #94a3b8;
+    --text-muted:    #64748b;
+    --text-faint:    #334155;
+
+    --present-color: #4ade80; --present-bg: rgba(34,197,94,0.14);  --present-border: rgba(74,222,128,0.3);
+    --absent-color:  #fb7185; --absent-bg:  rgba(225,29,72,0.14);  --absent-border:  rgba(251,113,133,0.3);
+    --late-color:    #fbbf24; --late-bg:    rgba(217,119,6,0.14);  --late-border:    rgba(251,191,36,0.3);
+    --none-color:    #475569; --none-bg:    rgba(71,85,105,0.2);   --none-border:    rgba(71,85,105,0.35);
+
+    --status-active-color:    #4ade80; --status-active-bg:    rgba(34,197,94,0.14);  --status-active-border:    rgba(74,222,128,0.3);
+    --status-progress-color:  #93c5fd; --status-progress-bg:  rgba(37,99,235,0.14);  --status-progress-border:  rgba(147,197,253,0.3);
+    --status-planning-color:  #c4b5fd; --status-planning-bg:  rgba(124,58,237,0.14); --status-planning-border:  rgba(196,181,253,0.3);
+    --status-review-color:    #fbbf24; --status-review-bg:    rgba(217,119,6,0.14);  --status-review-border:    rgba(251,191,36,0.3);
+    --status-completed-color: #94a3b8; --status-completed-bg: rgba(148,163,184,0.12);--status-completed-border: rgba(148,163,184,0.25);
+
+    --accent:        #818cf8;
+    --accent-bg:     rgba(99,102,241,0.14);
+    --accent-border: rgba(129,140,248,0.35);
+
+    --shadow-card:   0 1px 4px rgba(0,0,0,0.35);
+    --shadow-btn:    0 2px 8px rgba(0,0,0,0.4);
+  }
+
+  /* ── Font reset ── */
+  .sp-root * { font-family: 'Outfit', sans-serif !important; box-sizing: border-box; }
+
+  /* ── Ant Design table overrides ── */
+  .sp-root .ant-table { background: transparent !important; }
+  .sp-root .ant-table-thead > tr > th {
+    background: var(--bg-card-alt) !important;
+    color: var(--text-muted) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border) !important;
+    padding: 10px 14px !important;
+    white-space: nowrap;
+  }
+  .sp-root .ant-table-tbody > tr > td {
+    background: var(--bg-card) !important;
+    border-bottom: 1px solid var(--border-faint) !important;
+    padding: 13px 14px !important;
+  }
+  .sp-root .ant-table-tbody > tr:last-child > td { border-bottom: none !important; }
+  .sp-root .ant-table-tbody > tr:hover > td { background: var(--bg-card-hover) !important; }
+  .sp-root .heatmap-table .ant-table-thead > tr > th { padding: 10px 5px !important; }
+  .sp-root .heatmap-table .ant-table-tbody > tr > td  { padding: 9px 5px !important; }
+  .sp-root .ant-table-cell-fix-left,
+  .sp-root .ant-table-cell-fix-right { background: var(--bg-card) !important; }
+  .sp-root .ant-table-tbody > tr:hover .ant-table-cell-fix-left,
+  .sp-root .ant-table-tbody > tr:hover .ant-table-cell-fix-right { background: var(--bg-card-hover) !important; }
+  .sp-root .ant-table-container::before,
+  .sp-root .ant-table-container::after { box-shadow: none !important; }
+  .sp-root .ant-table-ping-left  .ant-table-cell-fix-left-last::after,
+  .sp-root .ant-table-ping-right .ant-table-cell-fix-right-first::after { box-shadow: none !important; }
+  .sp-root .ant-table-body { overflow-x: auto !important; }
+  .sp-root .ant-table-sticky-scroll { display: none !important; }
+
+  /* ── Ant Design form controls ── */
+  .sp-root .ant-picker,
+  .sp-root .ant-input,
+  .sp-root .ant-select-selector {
+    border-radius: 8px !important;
+    background: var(--bg-card) !important;
+    border-color: var(--border) !important;
+    color: var(--text-primary) !important;
+  }
+  .sp-root .ant-picker-suffix,
+  .sp-root .ant-input-prefix { color: var(--text-muted) !important; }
+  .sp-root .ant-picker-input > input,
+  .sp-root .ant-select-selection-item,
+  .sp-root .ant-select-selection-placeholder { color: var(--text-primary) !important; }
+  .sp-root .ant-input-clear-icon { color: var(--text-muted) !important; }
+
+  /* ── Ant Design modal ── */
+  .sp-root .ant-modal-content { border-radius: 16px !important; overflow: hidden; background: var(--bg-card) !important; }
+  .sp-root .ant-modal-header { padding: 20px 24px !important; border-bottom: 1px solid var(--border) !important; background: var(--bg-card) !important; }
+  .sp-root .ant-modal-body  { padding: 0 !important; }
+  .sp-root .ant-modal-close-x { color: var(--text-muted) !important; }
+
+  /* ── Pagination ── */
+  .sp-root .ant-pagination-item,
+  .sp-root .ant-pagination-prev,
+  .sp-root .ant-pagination-next { border-color: var(--border) !important; background: var(--bg-card) !important; }
+  .sp-root .ant-pagination-item a { color: var(--text-secondary) !important; }
+  .sp-root .ant-pagination-item-active { border-color: var(--accent) !important; }
+  .sp-root .ant-pagination-item-active a { color: var(--accent) !important; }
+  .sp-root .ant-pagination-total-text { color: var(--text-muted) !important; }
+
+  /* ── Empty state ── */
+  .sp-root .ant-empty-description { color: var(--text-muted) !important; }
+
+  /* ── Skeleton ── */
+  .sp-root .ant-skeleton-element .ant-skeleton-input,
+  .sp-root .ant-skeleton-element .ant-skeleton-avatar,
+  .sp-root .ant-skeleton-element .ant-skeleton-button { background: var(--bg-subtle) !important; }
+  .sp-root .ant-skeleton-content .ant-skeleton-title,
+  .sp-root .ant-skeleton-content .ant-skeleton-paragraph > li { background: var(--bg-subtle) !important; }
+
+  /* ── Select dropdown (portal) ── */
+  .sp-select-dropdown .ant-select-item { color: var(--text-primary) !important; background: var(--bg-card) !important; }
+  .sp-select-dropdown .ant-select-item-option-active { background: var(--bg-subtle) !important; }
+  .sp-select-dropdown .ant-select-item-option-selected { background: var(--accent-bg) !important; color: var(--accent) !important; }
+
+  /* ── Tooltip ── */
+  .sp-root .ant-tooltip-inner { font-family: 'Outfit', sans-serif !important; }
+`;
+
+// ─── Token-aware STATUS config (reads CSS vars at runtime via getComputedStyle) ─
+// We derive these from CSS variables so they auto-respond to theme class.
+const getTokens = (el) => {
+  const s = el ? getComputedStyle(el) : { getPropertyValue: () => "" };
+  const g = (v) => s.getPropertyValue(v).trim();
+  return {
+    present: {
+      label: "Present",
+      color: g("--present-color"),
+      bg: g("--present-bg"),
+      border: g("--present-border"),
+      icon: <CheckOutlined style={{ fontSize: 9 }} />,
+    },
+    absent: {
+      label: "Absent",
+      color: g("--absent-color"),
+      bg: g("--absent-bg"),
+      border: g("--absent-border"),
+      icon: <CloseOutlined style={{ fontSize: 9 }} />,
+    },
+    late: {
+      label: "Late",
+      color: g("--late-color"),
+      bg: g("--late-bg"),
+      border: g("--late-border"),
+      icon: <ClockCircleOutlined style={{ fontSize: 9 }} />,
+    },
+    none: {
+      label: "No Standup",
+      color: g("--none-color"),
+      bg: g("--none-bg"),
+      border: g("--none-border"),
+      icon: <MinusOutlined style={{ fontSize: 9 }} />,
+    },
+  };
 };
 
-const PROJ_STATUS_CFG = {
-  active: { color: "#059669", bg: "#ecfdf5", border: "#a7f3d0" },
-  "in progress": { color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe" },
-  planning: { color: "#7c3aed", bg: "#f5f3ff", border: "#ddd6fe" },
-  review: { color: "#d97706", bg: "#fffbeb", border: "#fde68a" },
-  completed: { color: "#64748b", bg: "#f8fafc", border: "#e2e8f0" },
+const getProjStatusTokens = (el) => {
+  const s = el ? getComputedStyle(el) : { getPropertyValue: () => "" };
+  const g = (v) => s.getPropertyValue(v).trim();
+  return {
+    active: {
+      color: g("--status-active-color"),
+      bg: g("--status-active-bg"),
+      border: g("--status-active-border"),
+    },
+    "in progress": {
+      color: g("--status-progress-color"),
+      bg: g("--status-progress-bg"),
+      border: g("--status-progress-border"),
+    },
+    planning: {
+      color: g("--status-planning-color"),
+      bg: g("--status-planning-bg"),
+      border: g("--status-planning-border"),
+    },
+    review: {
+      color: g("--status-review-color"),
+      bg: g("--status-review-bg"),
+      border: g("--status-review-border"),
+    },
+    completed: {
+      color: g("--status-completed-color"),
+      bg: g("--status-completed-bg"),
+      border: g("--status-completed-border"),
+    },
+  };
 };
 
 const AVATAR_COLORS = [
@@ -114,6 +319,13 @@ const getInitials = (name = "") =>
     .slice(0, 2);
 const capitalize = (s = "") => s.charAt(0).toUpperCase() + s.slice(1);
 
+const getIsDarkTheme = () => {
+  const mode = localStorage.getItem("themeMode") || "system";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
+
 function getWeekdaysInMonth(year, month) {
   const days = [];
   const start = dayjs(`${year}-${String(month).padStart(2, "0")}-01`);
@@ -128,8 +340,66 @@ function getWeekdaysInMonth(year, month) {
 
 const VIEW = { PROJECTS: "projects", PROJECT_DETAIL: "project_detail" };
 
-// ─── Free Standup Paywall ─────────────────────────────────────────────────────
-function FreeStandupPaywall({ navigate }) {
+// ─── Skeleton loaders ──────────────────────────────────────────────────────────
+const ProjectListSkeleton = () => (
+  <div style={{ padding: 20 }}>
+    {Array.from({ length: 5 }).map((_, idx) => (
+      <div
+        key={idx}
+        style={{
+          padding: "14px 0",
+          borderBottom:
+            idx < 4 ? "1px solid var(--border-faint)" : "1px solid transparent",
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "2.2fr 1fr 1fr 1fr 1fr 1fr 130px",
+            gap: 14,
+            alignItems: "center",
+          }}
+        >
+          <Skeleton.Avatar active size={36} shape="circle" />
+          <Skeleton.Input active size="small" style={{ width: "80%" }} />
+          <Skeleton.Input active size="small" style={{ width: "90%" }} />
+          <Skeleton.Input active size="small" style={{ width: "90%" }} />
+          <Skeleton.Input active size="small" style={{ width: "90%" }} />
+          <Skeleton.Input active size="small" style={{ width: "85%" }} />
+          <Skeleton.Button active size="small" style={{ width: 116 }} />
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const ProjectDetailSkeleton = () => (
+  <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+    {[1, 2].map((k) => (
+      <div
+        key={k}
+        style={{
+          background: "var(--bg-card)",
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          padding: 20,
+        }}
+      >
+        <Skeleton
+          active
+          paragraph={{
+            rows: k === 1 ? 1 : 8,
+            width: k === 1 ? ["55%"] : undefined,
+          }}
+          title={{ width: "30%" }}
+        />
+      </div>
+    ))}
+  </div>
+);
+
+// ─── Free plan paywall ────────────────────────────────────────────────────────
+function FreeStandupPaywall({ navigate, dark = false }) {
   const features = [
     {
       icon: <MessageSquare size={16} />,
@@ -168,8 +438,8 @@ function FreeStandupPaywall({ navigate }) {
       name: "Lena Park",
       role: "Frontend",
       avatar: "LP",
-      avatarBg: "#dbeafe",
-      avatarColor: "#2563eb",
+      avatarBg: "rgba(37,99,235,0.15)",
+      avatarColor: "#93c5fd",
       time: "9:04 AM",
       yesterday: "Finished the dashboard redesign and pushed for review.",
       today: "Starting on the mobile nav refactor.",
@@ -179,8 +449,8 @@ function FreeStandupPaywall({ navigate }) {
       name: "James Osei",
       role: "Backend",
       avatar: "JO",
-      avatarBg: "#dcfce7",
-      avatarColor: "#16a34a",
+      avatarBg: "rgba(22,163,74,0.15)",
+      avatarColor: "#4ade80",
       time: "9:11 AM",
       yesterday: "Fixed the auth token expiry bug in prod.",
       today: "Writing unit tests for the new payments module.",
@@ -190,8 +460,8 @@ function FreeStandupPaywall({ navigate }) {
       name: "Sara Malik",
       role: "Design",
       avatar: "SM",
-      avatarBg: "#ede9fe",
-      avatarColor: "#7c3aed",
+      avatarBg: "rgba(124,58,237,0.15)",
+      avatarColor: "#c4b5fd",
       time: "9:18 AM",
       yesterday: "Delivered final specs for onboarding flow.",
       today: "User interviews at 2pm, then iterating on V2 mockups.",
@@ -207,51 +477,62 @@ function FreeStandupPaywall({ navigate }) {
   ];
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
-      {/* ── Header — mirrors the real Standups page header ── */}
+    <div
+      style={{
+        minHeight: "100vh",
+        background: dark ? "#141416" : "var(--bg-page)",
+        ...(dark
+          ? {
+              "--bg-page": "#141416",
+              "--bg-card": "#1a1b1f",
+              "--bg-card-alt": "#17181c",
+              "--bg-card-hover": "#202127",
+              "--bg-subtle": "#202127",
+              "--bg-muted": "#2a2b31",
+              "--border": "#2a2b31",
+              "--border-subtle": "#2a2b31",
+              "--border-faint": "#242428",
+              "--text-primary": "#f3f4f6",
+              "--text-secondary": "#d1d5db",
+              "--text-tertiary": "#9ca3af",
+              "--text-muted": "#6b7280",
+              "--text-faint": "#4b5563",
+            }
+          : {}),
+      }}
+    >
+      {/* Header */}
       <div
         style={{
-          background: "#fff",
-          borderBottom: "1px solid #e2e8f0",
+          background: "var(--bg-card)",
+          borderBottom: "1px solid var(--border)",
           padding: "20px 28px",
           marginBottom: 24,
         }}
       >
-        <div
+        <h1
           style={{
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: 16,
+            margin: "0 0 4px",
+            fontSize: 26,
+            fontWeight: 800,
+            color: "var(--text-primary)",
+            letterSpacing: "-0.04em",
+            lineHeight: 1,
           }}
         >
-          <div>
-            <h1
-              style={{
-                margin: "0 0 4px",
-                fontSize: 26,
-                fontWeight: 800,
-                color: "#0f172a",
-                letterSpacing: "-0.04em",
-                lineHeight: 1,
-              }}
-            >
-              Standups
-            </h1>
-            <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>
-              Async check-ins · AI summaries · Zero extra meetings
-            </p>
-          </div>
-        </div>
+          Standups
+        </h1>
+        <p style={{ margin: 0, color: "var(--text-tertiary)", fontSize: 13 }}>
+          Async check-ins · AI summaries · Zero extra meetings
+        </p>
       </div>
 
       <div style={{ padding: "0 28px 40px" }}>
-        {/* ── Blurred mock KPI strip ── */}
+        {/* Blurred KPI strip */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
+            gridTemplateColumns: "repeat(4,1fr)",
             gap: 12,
             marginBottom: 24,
             filter: "blur(6px)",
@@ -269,8 +550,8 @@ function FreeStandupPaywall({ navigate }) {
             <div
               key={label}
               style={{
-                background: "#fff",
-                border: "1px solid #e2e8f0",
+                background: "var(--bg-card)",
+                border: "1px solid var(--border)",
                 borderRadius: 14,
                 padding: "18px 20px",
                 display: "flex",
@@ -283,7 +564,7 @@ function FreeStandupPaywall({ navigate }) {
                   width: 44,
                   height: 44,
                   borderRadius: 12,
-                  background: `${color}15`,
+                  background: `${color}20`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -297,7 +578,7 @@ function FreeStandupPaywall({ navigate }) {
                   style={{
                     fontSize: 26,
                     fontWeight: 800,
-                    color: "#0f172a",
+                    color: "var(--text-primary)",
                     lineHeight: 1,
                   }}
                 >
@@ -306,7 +587,7 @@ function FreeStandupPaywall({ navigate }) {
                 <div
                   style={{
                     fontSize: 12,
-                    color: "#94a3b8",
+                    color: "var(--text-muted)",
                     marginTop: 3,
                     fontWeight: 500,
                   }}
@@ -318,24 +599,24 @@ function FreeStandupPaywall({ navigate }) {
           ))}
         </div>
 
-        {/* ── Main paywall card ── */}
+        {/* Paywall card */}
         <div
           style={{
             position: "relative",
-            background: "#fff",
-            border: "1px solid #e2e8f0",
+            background: "var(--bg-card)",
+            border: "1px solid var(--border)",
             borderRadius: 20,
             overflow: "hidden",
           }}
         >
-          {/* Blurred mock standup UI */}
+          {/* Blurred mock UI */}
           <div
             style={{
               filter: "blur(5px)",
               pointerEvents: "none",
               userSelect: "none",
               opacity: 0.3,
-              borderBottom: "1px solid #e2e8f0",
+              borderBottom: "1px solid var(--border)",
               overflow: "hidden",
             }}
           >
@@ -344,9 +625,9 @@ function FreeStandupPaywall({ navigate }) {
               <div
                 style={{
                   width: 200,
-                  borderRight: "1px solid #f1f5f9",
+                  borderRight: "1px solid var(--border-subtle)",
                   padding: "16px 12px",
-                  background: "#fafbfc",
+                  background: "var(--bg-card-alt)",
                   flexShrink: 0,
                 }}
               >
@@ -354,7 +635,7 @@ function FreeStandupPaywall({ navigate }) {
                   style={{
                     fontSize: 10,
                     fontWeight: 700,
-                    color: "#94a3b8",
+                    color: "var(--text-muted)",
                     letterSpacing: "0.06em",
                     marginBottom: 10,
                     paddingLeft: 8,
@@ -369,9 +650,9 @@ function FreeStandupPaywall({ navigate }) {
                       padding: "9px 10px",
                       borderRadius: 10,
                       marginBottom: 3,
-                      background: s.active ? "#eff6ff" : "transparent",
+                      background: s.active ? "var(--accent-bg)" : "transparent",
                       border: s.active
-                        ? "1px solid #bfdbfe"
+                        ? "1px solid var(--accent-border)"
                         : "1px solid transparent",
                     }}
                   >
@@ -391,7 +672,9 @@ function FreeStandupPaywall({ navigate }) {
                         style={{
                           fontSize: 12,
                           fontWeight: 600,
-                          color: s.active ? "#1d4ed8" : "#374151",
+                          color: s.active
+                            ? "var(--accent)"
+                            : "var(--text-secondary)",
                           flex: 1,
                           overflow: "hidden",
                           textOverflow: "ellipsis",
@@ -404,7 +687,7 @@ function FreeStandupPaywall({ navigate }) {
                     <div
                       style={{
                         fontSize: 10,
-                        color: "#94a3b8",
+                        color: "var(--text-muted)",
                         paddingLeft: 13,
                         marginTop: 1,
                       }}
@@ -414,8 +697,7 @@ function FreeStandupPaywall({ navigate }) {
                   </div>
                 ))}
               </div>
-
-              {/* Main area */}
+              {/* Main */}
               <div style={{ flex: 1, padding: "16px 20px", minWidth: 0 }}>
                 <div
                   style={{
@@ -430,7 +712,7 @@ function FreeStandupPaywall({ navigate }) {
                       style={{
                         fontSize: 14,
                         fontWeight: 800,
-                        color: "#0f172a",
+                        color: "var(--text-primary)",
                       }}
                     >
                       Daily Engineering Standup
@@ -438,7 +720,7 @@ function FreeStandupPaywall({ navigate }) {
                     <div
                       style={{
                         fontSize: 11,
-                        color: "#64748b",
+                        color: "var(--text-tertiary)",
                         display: "flex",
                         gap: 8,
                         marginTop: 2,
@@ -451,37 +733,6 @@ function FreeStandupPaywall({ navigate }) {
                       </span>
                     </div>
                   </div>
-                  <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-                    <div
-                      style={{
-                        padding: "5px 12px",
-                        borderRadius: 8,
-                        background: "#f0fdf4",
-                        border: "1px solid #bbf7d0",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: "#16a34a",
-                      }}
-                    >
-                      Send Reminder
-                    </div>
-                    <div
-                      style={{
-                        padding: "5px 12px",
-                        borderRadius: 8,
-                        background: "#f5f3ff",
-                        border: "1px solid #ddd6fe",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: "#7c3aed",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                      }}
-                    >
-                      <Sparkles size={10} /> AI Summary
-                    </div>
-                  </div>
                 </div>
                 <div
                   style={{ display: "flex", flexDirection: "column", gap: 8 }}
@@ -490,8 +741,8 @@ function FreeStandupPaywall({ navigate }) {
                     <div
                       key={i}
                       style={{
-                        background: "#fff",
-                        border: "1px solid #f1f5f9",
+                        background: "var(--bg-card)",
+                        border: "1px solid var(--border-subtle)",
                         borderRadius: 12,
                         padding: "12px 14px",
                         display: "flex",
@@ -529,72 +780,66 @@ function FreeStandupPaywall({ navigate }) {
                             style={{
                               fontSize: 12,
                               fontWeight: 700,
-                              color: "#0f172a",
+                              color: "var(--text-primary)",
                             }}
                           >
                             {m.name}
                           </span>
-                          <span style={{ fontSize: 10, color: "#94a3b8" }}>
+                          <span
+                            style={{ fontSize: 10, color: "var(--text-muted)" }}
+                          >
                             {m.role}
                           </span>
                           <span
                             style={{
                               marginLeft: "auto",
                               fontSize: 10,
-                              color: "#94a3b8",
+                              color: "var(--text-muted)",
                             }}
                           >
                             {m.time}
                           </span>
                         </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 3,
-                          }}
-                        >
-                          {[
-                            {
-                              label: "Yesterday",
-                              text: m.yesterday,
-                              color: "#3b82f6",
-                            },
-                            { label: "Today", text: m.today, color: "#22c55e" },
-                            ...(m.blockers
-                              ? [
-                                  {
-                                    label: "Blockers",
-                                    text: m.blockers,
-                                    color: "#ef4444",
-                                  },
-                                ]
-                              : []),
-                          ].map((row, j) => (
-                            <div key={j} style={{ display: "flex", gap: 6 }}>
-                              <span
-                                style={{
-                                  fontSize: 10,
-                                  fontWeight: 700,
-                                  color: row.color,
-                                  width: 54,
-                                  flexShrink: 0,
-                                }}
-                              >
-                                {row.label}
-                              </span>
-                              <span
-                                style={{
-                                  fontSize: 11,
-                                  color: "#475569",
-                                  lineHeight: 1.5,
-                                }}
-                              >
-                                {row.text}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
+                        {[
+                          {
+                            label: "Yesterday",
+                            text: m.yesterday,
+                            color: "#3b82f6",
+                          },
+                          { label: "Today", text: m.today, color: "#22c55e" },
+                          ...(m.blockers
+                            ? [
+                                {
+                                  label: "Blockers",
+                                  text: m.blockers,
+                                  color: "#ef4444",
+                                },
+                              ]
+                            : []),
+                        ].map((row, j) => (
+                          <div key={j} style={{ display: "flex", gap: 6 }}>
+                            <span
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 700,
+                                color: row.color,
+                                width: 54,
+                                flexShrink: 0,
+                              }}
+                            >
+                              {row.label}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: 11,
+                                color: "var(--text-secondary)",
+                                lineHeight: 1.5,
+                              }}
+                            >
+                              {row.text}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   ))}
@@ -603,14 +848,14 @@ function FreeStandupPaywall({ navigate }) {
             </div>
           </div>
 
-          {/* Gradient bleed over the mock */}
+          {/* Gradient overlay */}
           <div
             style={{
               position: "relative",
               padding: "48px 40px 44px",
               marginTop: -400,
               background:
-                "linear-gradient(180deg, rgba(255,255,255,0) 0%, #fff 8%)",
+                "linear-gradient(180deg, transparent 0%, var(--bg-card) 8%)",
             }}
           >
             {/* Pro badge */}
@@ -627,9 +872,8 @@ function FreeStandupPaywall({ navigate }) {
                   alignItems: "center",
                   gap: 7,
                   padding: "6px 14px",
-                  background:
-                    "linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%)",
-                  border: "1px solid #ddd6fe",
+                  background: "var(--accent-bg)",
+                  border: "1px solid var(--accent-border)",
                   borderRadius: 30,
                 }}
               >
@@ -638,7 +882,7 @@ function FreeStandupPaywall({ navigate }) {
                     width: 20,
                     height: 20,
                     borderRadius: "50%",
-                    background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                    background: "linear-gradient(135deg,#3b82f6,#8b5cf6)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -650,7 +894,7 @@ function FreeStandupPaywall({ navigate }) {
                   style={{
                     fontSize: 12,
                     fontWeight: 700,
-                    background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                    background: "linear-gradient(135deg,#3b82f6,#8b5cf6)",
                     WebkitBackgroundClip: "text",
                     WebkitTextFillColor: "transparent",
                   }}
@@ -667,7 +911,7 @@ function FreeStandupPaywall({ navigate }) {
                   margin: 0,
                   fontSize: 30,
                   fontWeight: 900,
-                  color: "#0f172a",
+                  color: "var(--text-primary)",
                   letterSpacing: "-0.04em",
                   lineHeight: 1.15,
                 }}
@@ -677,7 +921,7 @@ function FreeStandupPaywall({ navigate }) {
                 <span
                   style={{
                     background:
-                      "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                      "linear-gradient(135deg,#3b82f6 0%,#8b5cf6 100%)",
                     WebkitBackgroundClip: "text",
                     WebkitTextFillColor: "transparent",
                   }}
@@ -690,7 +934,7 @@ function FreeStandupPaywall({ navigate }) {
               style={{
                 textAlign: "center",
                 fontSize: 15,
-                color: "#64748b",
+                color: "var(--text-tertiary)",
                 maxWidth: 480,
                 margin: "0 auto 36px",
                 lineHeight: 1.6,
@@ -705,7 +949,7 @@ function FreeStandupPaywall({ navigate }) {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(3, 1fr)",
+                gridTemplateColumns: "repeat(3,1fr)",
                 gap: 12,
                 maxWidth: 760,
                 margin: "0 auto 36px",
@@ -716,8 +960,8 @@ function FreeStandupPaywall({ navigate }) {
                   key={i}
                   style={{
                     padding: "16px 18px",
-                    background: "#f8fafc",
-                    border: "1px solid #e2e8f0",
+                    background: "var(--bg-card-alt)",
+                    border: "1px solid var(--border)",
                     borderRadius: 12,
                     display: "flex",
                     flexDirection: "column",
@@ -729,12 +973,12 @@ function FreeStandupPaywall({ navigate }) {
                       width: 34,
                       height: 34,
                       borderRadius: 9,
-                      background: "#fff",
-                      border: "1px solid #e2e8f0",
+                      background: "var(--bg-card)",
+                      border: "1px solid var(--border)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      color: "#3b82f6",
+                      color: "var(--accent)",
                       flexShrink: 0,
                     }}
                   >
@@ -745,7 +989,7 @@ function FreeStandupPaywall({ navigate }) {
                       style={{
                         fontSize: 13,
                         fontWeight: 700,
-                        color: "#0f172a",
+                        color: "var(--text-primary)",
                         marginBottom: 3,
                       }}
                     >
@@ -754,7 +998,7 @@ function FreeStandupPaywall({ navigate }) {
                     <div
                       style={{
                         fontSize: 12,
-                        color: "#64748b",
+                        color: "var(--text-tertiary)",
                         lineHeight: 1.5,
                       }}
                     >
@@ -765,13 +1009,13 @@ function FreeStandupPaywall({ navigate }) {
               ))}
             </div>
 
-            {/* How it works flow */}
+            {/* How it works */}
             <div
               style={{
                 maxWidth: 760,
                 margin: "0 auto 36px",
-                background: "#f8fafc",
-                border: "1px solid #e2e8f0",
+                background: "var(--bg-card-alt)",
+                border: "1px solid var(--border)",
                 borderRadius: 14,
                 padding: "20px 24px",
               }}
@@ -780,14 +1024,14 @@ function FreeStandupPaywall({ navigate }) {
                 style={{
                   fontSize: 11,
                   fontWeight: 700,
-                  color: "#94a3b8",
+                  color: "var(--text-muted)",
                   letterSpacing: "0.07em",
                   marginBottom: 16,
                 }}
               >
                 HOW IT WORKS
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+              <div style={{ display: "flex", alignItems: "center" }}>
                 {[
                   {
                     label: "Create Standup",
@@ -829,8 +1073,8 @@ function FreeStandupPaywall({ navigate }) {
                           width: 40,
                           height: 40,
                           borderRadius: 12,
-                          background: `${s.color}12`,
-                          border: `1.5px solid ${s.color}30`,
+                          background: `${s.color}18`,
+                          border: `1.5px solid ${s.color}35`,
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
@@ -844,7 +1088,7 @@ function FreeStandupPaywall({ navigate }) {
                         style={{
                           fontSize: 12,
                           fontWeight: 700,
-                          color: "#0f172a",
+                          color: "var(--text-primary)",
                           marginBottom: 2,
                         }}
                       >
@@ -853,7 +1097,7 @@ function FreeStandupPaywall({ navigate }) {
                       <div
                         style={{
                           fontSize: 11,
-                          color: "#94a3b8",
+                          color: "var(--text-muted)",
                           lineHeight: 1.4,
                         }}
                       >
@@ -865,7 +1109,7 @@ function FreeStandupPaywall({ navigate }) {
                         style={{
                           flexShrink: 0,
                           padding: "0 4px",
-                          color: "#d1d5db",
+                          color: "var(--text-faint)",
                         }}
                       >
                         <ChevronRight size={16} />
@@ -876,12 +1120,12 @@ function FreeStandupPaywall({ navigate }) {
               </div>
             </div>
 
-            {/* Sample standup responses table */}
+            {/* Sample standup table */}
             <div
               style={{
                 maxWidth: 760,
                 margin: "0 auto 36px",
-                border: "1px solid #e2e8f0",
+                border: "1px solid var(--border)",
                 borderRadius: 12,
                 overflow: "hidden",
               }}
@@ -889,23 +1133,27 @@ function FreeStandupPaywall({ navigate }) {
               <div
                 style={{
                   padding: "12px 16px",
-                  borderBottom: "1px solid #f1f5f9",
-                  background: "#f8fafc",
+                  borderBottom: "1px solid var(--border-subtle)",
+                  background: "var(--bg-card-alt)",
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
                 }}
               >
                 <span
-                  style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "var(--text-primary)",
+                  }}
                 >
                   Sample Standup
                 </span>
                 <span
                   style={{
                     fontSize: 11,
-                    color: "#64748b",
-                    background: "#e2e8f0",
+                    color: "var(--text-tertiary)",
+                    background: "var(--bg-muted)",
                     padding: "1px 7px",
                     borderRadius: 5,
                     fontWeight: 600,
@@ -918,11 +1166,11 @@ function FreeStandupPaywall({ navigate }) {
                     marginLeft: "auto",
                     fontSize: 11,
                     fontWeight: 700,
-                    color: "#16a34a",
-                    background: "#f0fdf4",
+                    color: "var(--present-color)",
+                    background: "var(--present-bg)",
                     padding: "2px 9px",
                     borderRadius: 5,
-                    border: "1px solid #bbf7d0",
+                    border: "1px solid var(--present-border)",
                   }}
                 >
                   ● 3/3 responded
@@ -938,9 +1186,10 @@ function FreeStandupPaywall({ navigate }) {
                     padding: "14px 16px",
                     borderBottom:
                       i < mockStandups.length - 1
-                        ? "1px solid #f1f5f9"
+                        ? "1px solid var(--border-subtle)"
                         : "none",
-                    background: i % 2 === 0 ? "#fff" : "#fafafa",
+                    background:
+                      i % 2 === 0 ? "var(--bg-card)" : "var(--bg-card-alt)",
                     alignItems: "flex-start",
                   }}
                 >
@@ -974,7 +1223,7 @@ function FreeStandupPaywall({ navigate }) {
                         style={{
                           fontSize: 13,
                           fontWeight: 700,
-                          color: "#0f172a",
+                          color: "var(--text-primary)",
                         }}
                       >
                         {m.name}
@@ -982,8 +1231,8 @@ function FreeStandupPaywall({ navigate }) {
                       <span
                         style={{
                           fontSize: 11,
-                          color: "#64748b",
-                          background: "#f1f5f9",
+                          color: "var(--text-tertiary)",
+                          background: "var(--bg-subtle)",
                           padding: "1px 6px",
                           borderRadius: 4,
                           fontWeight: 600,
@@ -995,7 +1244,7 @@ function FreeStandupPaywall({ navigate }) {
                         style={{
                           marginLeft: "auto",
                           fontSize: 11,
-                          color: "#94a3b8",
+                          color: "var(--text-muted)",
                         }}
                       >
                         {m.time}
@@ -1040,7 +1289,7 @@ function FreeStandupPaywall({ navigate }) {
                           <span
                             style={{
                               fontSize: 12,
-                              color: "#475569",
+                              color: "var(--text-secondary)",
                               lineHeight: 1.5,
                             }}
                           >
@@ -1063,34 +1312,37 @@ function FreeStandupPaywall({ navigate }) {
                   alignItems: "center",
                   gap: 10,
                   padding: "14px 32px",
-                  background:
-                    "linear-gradient(135deg, #1e40af 0%, #7c3aed 100%)",
+                  background: "linear-gradient(135deg,#1e40af 0%,#7c3aed 100%)",
                   color: "#fff",
                   borderRadius: 12,
                   fontWeight: 800,
                   fontSize: 15,
                   textDecoration: "none",
                   letterSpacing: "-0.01em",
-                  boxShadow:
-                    "0 4px 24px rgba(99,102,241,0.35), 0 1px 3px rgba(0,0,0,0.1)",
-                  transition: "all 0.2s",
+                  boxShadow: "0 4px 24px rgba(99,102,241,0.35)",
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = "translateY(-1px)";
                   e.currentTarget.style.boxShadow =
-                    "0 8px 32px rgba(99,102,241,0.45), 0 1px 3px rgba(0,0,0,0.1)";
+                    "0 8px 32px rgba(99,102,241,0.45)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = "translateY(0)";
                   e.currentTarget.style.boxShadow =
-                    "0 4px 24px rgba(99,102,241,0.35), 0 1px 3px rgba(0,0,0,0.1)";
+                    "0 4px 24px rgba(99,102,241,0.35)";
                 }}
               >
                 <Zap size={16} fill="currentColor" />
                 Upgrade to unlock Standups
                 <ArrowRight size={16} />
               </a>
-              <p style={{ margin: "12px 0 0", fontSize: 12, color: "#94a3b8" }}>
+              <p
+                style={{
+                  margin: "12px 0 0",
+                  fontSize: 12,
+                  color: "var(--text-muted)",
+                }}
+              >
                 Upgrade your plan to access the full Standups module and all Pro
                 features.
               </p>
@@ -1102,9 +1354,18 @@ function FreeStandupPaywall({ navigate }) {
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Main Component ────────────────────────────────────────────────────────────
 export default function AdminStandupStats() {
   const navigate = useNavigate();
+  const [dark, setDark] = useState(getIsDarkTheme);
+  const [rootEl, setRootEl] = useState(null); // ref to the root wrapper
+
+  // Derive CSS-variable-based tokens whenever theme or rootEl changes
+  const standupStatusCfg = useMemo(() => getTokens(rootEl), [rootEl, dark]);
+  const projectStatusCfg = useMemo(
+    () => getProjStatusTokens(rootEl),
+    [rootEl, dark],
+  );
 
   const [tenantId, setTenantId] = useState(null);
   const [orgPlan, setOrgPlan] = useState(null);
@@ -1123,7 +1384,6 @@ export default function AdminStandupStats() {
           .eq("id", user.id)
           .single();
         setTenantId(profile?.tenant_id ?? null);
-
         if (profile?.tenant_id) {
           const { data: org } = await supabase
             .from("tenants")
@@ -1145,40 +1405,56 @@ export default function AdminStandupStats() {
   const [view, setView] = useState(VIEW.PROJECTS);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState(null);
-
   const [projects, setProjects] = useState([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [projectSummaries, setProjectSummaries] = useState({});
-
   const [activeProject, setActiveProject] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
-
   const [summaryModal, setSummaryModal] = useState(null);
+
+  // Listen for theme changes
+  useEffect(() => {
+    const update = () => setDark(getIsDarkTheme());
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    window.addEventListener("themeModeChanged", update);
+    mq.addEventListener("change", update);
+    return () => {
+      window.removeEventListener("themeModeChanged", update);
+      mq.removeEventListener("change", update);
+    };
+  }, []);
+
+  // Re-read CSS variables once rootEl and dark are both settled
+  useEffect(() => {
+    if (rootEl) {
+      /* trigger useMemo re-run */
+    }
+  }, [rootEl, dark]);
 
   // ── Load projects ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!tenantId) return;
-    let isMounted = true;
+    let mounted = true;
     (async () => {
       try {
         setLoadingProjects(true);
         const { data, error } = await supabase
           .from("projects")
-          .select("id, name, status, priority, client_name, project_manager_id")
+          .select("id,name,status,priority,client_name,project_manager_id")
           .eq("tenant_id", tenantId)
           .eq("is_archived", false)
           .order("name");
-        if (!isMounted) return;
+        if (!mounted) return;
         if (error) console.error(error.message);
         else setProjects(data ?? []);
       } finally {
-        if (isMounted) setLoadingProjects(false);
+        if (mounted) setLoadingProjects(false);
       }
     })();
     return () => {
-      isMounted = false;
+      mounted = false;
     };
   }, [tenantId]);
 
@@ -1189,7 +1465,7 @@ export default function AdminStandupStats() {
       const end = selectedMonth.endOf("month").format("YYYY-MM-DD");
       const { data: sessData } = await supabase
         .from("standup_sessions")
-        .select("project_id, date, attendance")
+        .select("project_id,date,attendance")
         .in(
           "project_id",
           projects.map((p) => p.id),
@@ -1198,7 +1474,7 @@ export default function AdminStandupStats() {
         .lte("date", end);
       const { data: assigneeData } = await supabase
         .from("project_assignees")
-        .select("project_id, employee_id")
+        .select("project_id,employee_id")
         .in(
           "project_id",
           projects.map((p) => p.id),
@@ -1227,7 +1503,6 @@ export default function AdminStandupStats() {
     })();
   }, [projects, selectedMonth, tenantId]);
 
-  // ── Open detail ────────────────────────────────────────────────────────
   const openDetail = async (project) => {
     setActiveProject(project);
     setView(VIEW.PROJECT_DETAIL);
@@ -1242,7 +1517,7 @@ export default function AdminStandupStats() {
     if (ids.length) {
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("id, full_name, job_title, department, user_photo")
+        .select("id,full_name,job_title,department,user_photo")
         .in("id", ids)
         .eq("tenant_id", tenantId)
         .eq("suspended", false);
@@ -1252,7 +1527,7 @@ export default function AdminStandupStats() {
     const end = selectedMonth.endOf("month").format("YYYY-MM-DD");
     const { data: sess } = await supabase
       .from("standup_sessions")
-      .select("id, date, attendance, summary")
+      .select("id,date,attendance,summary")
       .eq("project_id", project.id)
       .gte("date", start)
       .lte("date", end)
@@ -1268,7 +1543,6 @@ export default function AdminStandupStats() {
     setSessions([]);
   };
 
-  // ── Derived ────────────────────────────────────────────────────────────
   const today = dayjs().format("YYYY-MM-DD");
   const weekdays = useMemo(
     () => getWeekdaysInMonth(selectedMonth.year(), selectedMonth.month() + 1),
@@ -1365,7 +1639,6 @@ export default function AdminStandupStats() {
         .sort((a, b) => dayjs(b.date).unix() - dayjs(a.date).unix()),
     [sessions, today],
   );
-
   const sessionsWithSummary = useMemo(
     () => allPastSessions.filter((s) => s.summary?.trim()),
     [allPastSessions],
@@ -1407,7 +1680,27 @@ export default function AdminStandupStats() {
     [projects, search, statusFilter],
   );
 
-  // ── Calendar columns ───────────────────────────────────────────────────
+  // ── helpers for colour-coded rate ─────────────────────────────────────────
+  const rateColor = (r) =>
+    r >= 80
+      ? "var(--present-color)"
+      : r >= 60
+        ? "var(--late-color)"
+        : "var(--absent-color)";
+  const rateBg = (r) =>
+    r >= 80
+      ? "var(--present-bg)"
+      : r >= 60
+        ? "var(--late-bg)"
+        : "var(--absent-bg)";
+  const rateBd = (r) =>
+    r >= 80
+      ? "var(--present-border)"
+      : r >= 60
+        ? "var(--late-border)"
+        : "var(--absent-border)";
+
+  // ── Calendar columns ──────────────────────────────────────────────────────
   const calendarColumns = useMemo(
     () => [
       {
@@ -1416,7 +1709,7 @@ export default function AdminStandupStats() {
             style={{
               fontSize: 11,
               fontWeight: 700,
-              color: "#64748b",
+              color: "var(--text-muted)",
               textTransform: "uppercase",
               letterSpacing: "0.05em",
             }}
@@ -1446,7 +1739,7 @@ export default function AdminStandupStats() {
                 strong
                 style={{
                   fontSize: 13,
-                  color: "#0f172a",
+                  color: "var(--text-primary)",
                   lineHeight: 1.2,
                   whiteSpace: "nowrap",
                   display: "block",
@@ -1454,7 +1747,7 @@ export default function AdminStandupStats() {
               >
                 {rec.full_name}
               </Text>
-              <Text style={{ fontSize: 11, color: "#94a3b8" }}>
+              <Text style={{ fontSize: 11, color: "var(--text-muted)" }}>
                 {rec.job_title || rec.department || "—"}
               </Text>
             </div>
@@ -1508,7 +1801,7 @@ export default function AdminStandupStats() {
                   gap: 1,
                   padding: "4px 2px",
                   borderRadius: 6,
-                  background: isToday ? "#0f172a" : "transparent",
+                  background: isToday ? "var(--text-primary)" : "transparent",
                   minWidth: 26,
                   cursor: hasSummary ? "pointer" : "default",
                   position: "relative",
@@ -1521,7 +1814,7 @@ export default function AdminStandupStats() {
                     lineHeight: 1,
                     textTransform: "uppercase",
                     letterSpacing: "0.04em",
-                    color: isToday ? "#fff" : "#94a3b8",
+                    color: isToday ? "var(--bg-page)" : "var(--text-muted)",
                   }}
                 >
                   {d.format("dd")[0]}
@@ -1531,7 +1824,7 @@ export default function AdminStandupStats() {
                     fontSize: 11,
                     fontWeight: isToday ? 800 : 600,
                     lineHeight: 1,
-                    color: isToday ? "#fff" : "#475569",
+                    color: isToday ? "var(--bg-page)" : "var(--text-secondary)",
                   }}
                 >
                   {d.format("D")}
@@ -1542,7 +1835,9 @@ export default function AdminStandupStats() {
                       width: 4,
                       height: 4,
                       borderRadius: "50%",
-                      background: isToday ? "#a5b4fc" : "#6366f1",
+                      background: isToday
+                        ? "var(--accent-border)"
+                        : "var(--accent)",
                       marginTop: 1,
                     }}
                   />
@@ -1561,7 +1856,7 @@ export default function AdminStandupStats() {
                     width: 20,
                     height: 20,
                     borderRadius: 5,
-                    background: "#f8fafc",
+                    background: "var(--bg-subtle)",
                     margin: "0 auto",
                   }}
                 />
@@ -1574,8 +1869,8 @@ export default function AdminStandupStats() {
                       width: 20,
                       height: 20,
                       borderRadius: 5,
-                      background: "#f1f5f9",
-                      border: "1px solid #e2e8f0",
+                      background: "var(--bg-subtle)",
+                      border: "1px solid var(--border)",
                       margin: "0 auto",
                       display: "flex",
                       alignItems: "center",
@@ -1583,7 +1878,11 @@ export default function AdminStandupStats() {
                     }}
                   >
                     <Text
-                      style={{ fontSize: 8, color: "#cbd5e1", fontWeight: 700 }}
+                      style={{
+                        fontSize: 8,
+                        color: "var(--text-faint)",
+                        fontWeight: 700,
+                      }}
                     >
                       —
                     </Text>
@@ -1591,7 +1890,7 @@ export default function AdminStandupStats() {
                 </Tooltip>
               );
             const status = sessData.attendance[rec.id];
-            const cfg = STATUS_CFG[status] || STATUS_CFG.none;
+            const cfg = standupStatusCfg[status] || standupStatusCfg.none;
             return (
               <Tooltip
                 title={
@@ -1658,7 +1957,7 @@ export default function AdminStandupStats() {
             style={{
               fontSize: 11,
               fontWeight: 700,
-              color: "#64748b",
+              color: "var(--text-muted)",
               textTransform: "uppercase",
               letterSpacing: "0.05em",
             }}
@@ -1672,34 +1971,35 @@ export default function AdminStandupStats() {
         align: "center",
         sorter: (a, b) => a.rate - b.rate,
         defaultSortOrder: "descend",
-        render: (_, rec) => {
-          const color =
-            rec.rate >= 80 ? "#059669" : rec.rate >= 60 ? "#d97706" : "#e11d48";
-          return (
-            <div
+        render: (_, rec) => (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 3,
+            }}
+          >
+            <Text
               style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 3,
+                fontSize: 15,
+                fontWeight: 800,
+                color: rateColor(rec.rate),
+                lineHeight: 1,
               }}
             >
-              <Text
-                style={{ fontSize: 15, fontWeight: 800, color, lineHeight: 1 }}
-              >
-                {rec.rate}%
-              </Text>
-              <Progress
-                percent={rec.rate}
-                size="small"
-                showInfo={false}
-                strokeColor={color}
-                trailColor="#f1f5f9"
-                style={{ width: 58, margin: 0 }}
-              />
-            </div>
-          );
-        },
+              {rec.rate}%
+            </Text>
+            <Progress
+              percent={rec.rate}
+              size="small"
+              showInfo={false}
+              strokeColor={rateColor(rec.rate)}
+              trailColor="var(--bg-subtle)"
+              style={{ width: 58, margin: 0 }}
+            />
+          </div>
+        ),
       },
       {
         title: (
@@ -1707,7 +2007,7 @@ export default function AdminStandupStats() {
             style={{
               fontSize: 11,
               fontWeight: 700,
-              color: "#64748b",
+              color: "var(--text-muted)",
               textTransform: "uppercase",
               letterSpacing: "0.05em",
             }}
@@ -1721,25 +2021,43 @@ export default function AdminStandupStats() {
         align: "center",
         render: (_, rec) => (
           <Space size={3}>
-            <Text style={{ fontSize: 12, fontWeight: 700, color: "#059669" }}>
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: "var(--present-color)",
+              }}
+            >
               {rec.present}
             </Text>
-            <Text style={{ color: "#e2e8f0", fontSize: 10 }}>·</Text>
-            <Text style={{ fontSize: 12, fontWeight: 700, color: "#e11d48" }}>
+            <Text style={{ color: "var(--border)", fontSize: 10 }}>·</Text>
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: "var(--absent-color)",
+              }}
+            >
               {rec.absent}
             </Text>
-            <Text style={{ color: "#e2e8f0", fontSize: 10 }}>·</Text>
-            <Text style={{ fontSize: 12, fontWeight: 700, color: "#d97706" }}>
+            <Text style={{ color: "var(--border)", fontSize: 10 }}>·</Text>
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: "var(--late-color)",
+              }}
+            >
               {rec.late}
             </Text>
           </Space>
         ),
       },
     ],
-    [weekdays, sessionMap, today],
+    [weekdays, sessionMap, today, standupStatusCfg],
   );
 
-  // ── Projects table columns ─────────────────────────────────────────────
+  // ── Projects table columns ─────────────────────────────────────────────────
   const projectColumns = [
     {
       title: "Project",
@@ -1750,7 +2068,7 @@ export default function AdminStandupStats() {
             strong
             style={{
               fontSize: 14,
-              color: "#0f172a",
+              color: "var(--text-primary)",
               display: "block",
               lineHeight: 1.3,
             }}
@@ -1758,7 +2076,7 @@ export default function AdminStandupStats() {
             {rec.name}
           </Text>
           {rec.client_name && (
-            <Text style={{ fontSize: 12, color: "#94a3b8" }}>
+            <Text style={{ fontSize: 12, color: "var(--text-muted)" }}>
               {rec.client_name}
             </Text>
           )}
@@ -1772,10 +2090,10 @@ export default function AdminStandupStats() {
       width: 130,
       render: (status) => {
         const k = (status || "").toLowerCase();
-        const cfg = PROJ_STATUS_CFG[k] || {
-          color: "#64748b",
-          bg: "#f8fafc",
-          border: "#e2e8f0",
+        const cfg = projectStatusCfg[k] || {
+          color: "var(--text-tertiary)",
+          bg: "var(--bg-card-alt)",
+          border: "var(--border)",
         };
         return (
           <span
@@ -1822,8 +2140,16 @@ export default function AdminStandupStats() {
               justifyContent: "center",
             }}
           >
-            <TeamOutlined style={{ color: "#94a3b8", fontSize: 12 }} />
-            <Text style={{ fontSize: 13, fontWeight: 700, color: "#475569" }}>
+            <TeamOutlined
+              style={{ color: "var(--text-muted)", fontSize: 12 }}
+            />
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: "var(--text-secondary)",
+              }}
+            >
               {s?.teamSize ?? 0}
             </Text>
           </div>
@@ -1840,7 +2166,13 @@ export default function AdminStandupStats() {
         const pastDays = weekdays.filter((d) => d <= today).length;
         if (!s || s.sessions === 0)
           return (
-            <Text style={{ fontSize: 12, color: "#cbd5e1", fontWeight: 600 }}>
+            <Text
+              style={{
+                fontSize: 12,
+                color: "var(--text-faint)",
+                fontWeight: 600,
+              }}
+            >
               0 / {pastDays}
             </Text>
           );
@@ -1856,15 +2188,16 @@ export default function AdminStandupStats() {
             }}
           >
             <Text
-              style={{
-                fontSize: 13,
-                fontWeight: 700,
-                color:
-                  pct >= 80 ? "#059669" : pct >= 50 ? "#d97706" : "#e11d48",
-              }}
+              style={{ fontSize: 13, fontWeight: 700, color: rateColor(pct) }}
             >
               {s.sessions}{" "}
-              <Text style={{ fontSize: 11, fontWeight: 500, color: "#94a3b8" }}>
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: 500,
+                  color: "var(--text-muted)",
+                }}
+              >
                 / {pastDays}
               </Text>
             </Text>
@@ -1872,10 +2205,8 @@ export default function AdminStandupStats() {
               percent={pct}
               size="small"
               showInfo={false}
-              strokeColor={
-                pct >= 80 ? "#059669" : pct >= 50 ? "#d97706" : "#e11d48"
-              }
-              trailColor="#f1f5f9"
+              strokeColor={rateColor(pct)}
+              trailColor="var(--bg-subtle)"
               style={{ width: 70, margin: 0 }}
             />
           </div>
@@ -1893,24 +2224,42 @@ export default function AdminStandupStats() {
         const s = projectSummaries[rec.id];
         if (!s || s.sessions === 0)
           return (
-            <Text style={{ fontSize: 12, color: "#cbd5e1" }}>No standups</Text>
+            <Text style={{ fontSize: 12, color: "var(--text-faint)" }}>
+              No standups
+            </Text>
           );
         const marked = s.p + s.a + s.l;
         const rate = marked > 0 ? Math.round(((s.p + s.l) / marked) * 100) : 0;
-        const rateColor =
-          rate >= 80 ? "#059669" : rate >= 60 ? "#d97706" : "#e11d48";
         return (
           <Space size={8}>
             <Space size={4}>
-              <Text style={{ fontSize: 12, fontWeight: 700, color: "#059669" }}>
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "var(--present-color)",
+                }}
+              >
                 {s.p}P
               </Text>
-              <Text style={{ color: "#e2e8f0" }}>·</Text>
-              <Text style={{ fontSize: 12, fontWeight: 700, color: "#e11d48" }}>
+              <Text style={{ color: "var(--border)" }}>·</Text>
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "var(--absent-color)",
+                }}
+              >
                 {s.a}A
               </Text>
-              <Text style={{ color: "#e2e8f0" }}>·</Text>
-              <Text style={{ fontSize: 12, fontWeight: 700, color: "#d97706" }}>
+              <Text style={{ color: "var(--border)" }}>·</Text>
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "var(--late-color)",
+                }}
+              >
                 {s.l}L
               </Text>
             </Space>
@@ -1918,9 +2267,8 @@ export default function AdminStandupStats() {
               style={{
                 fontSize: 12,
                 fontWeight: 800,
-                color: rateColor,
-                background:
-                  rate >= 80 ? "#ecfdf5" : rate >= 60 ? "#fffbeb" : "#fff1f2",
+                color: rateColor(rate),
+                background: rateBg(rate),
                 padding: "1px 8px",
                 borderRadius: 20,
               }}
@@ -1961,10 +2309,10 @@ export default function AdminStandupStats() {
             paddingInline: 16,
             fontWeight: 600,
             fontSize: 13,
-            background: "#0f172a",
+            background: "var(--text-primary)",
             border: "none",
-            color: "#fff",
-            boxShadow: "0 2px 8px rgba(15,23,42,0.15)",
+            color: "var(--bg-page)",
+            boxShadow: "var(--shadow-btn)",
           }}
         >
           View Stats
@@ -1973,24 +2321,27 @@ export default function AdminStandupStats() {
     },
   ];
 
-  // ── Plan check ─────────────────────────────────────────────────────────
   const isFreePlan = orgPlan != null && orgPlan.trim().toLowerCase() === "free";
 
-  // ── Loading state ──────────────────────────────────────────────────────
+  // ── Loading ────────────────────────────────────────────────────────────────
   if (planLoading) {
     return (
       <div
+        className={`sp-root${dark ? " dark" : ""}`}
         style={{
           minHeight: "100vh",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#f8fafc",
+          background: "var(--bg-page)",
         }}
       >
+        <style>{THEME_STYLES}</style>
         <div style={{ textAlign: "center" }}>
           <Spin size="large" />
-          <p style={{ marginTop: 16, color: "#94a3b8", fontSize: 13 }}>
+          <p
+            style={{ marginTop: 16, color: "var(--text-muted)", fontSize: 13 }}
+          >
             Loading your workspace…
           </p>
         </div>
@@ -1998,198 +2349,180 @@ export default function AdminStandupStats() {
     );
   }
 
-  // ── Free plan paywall ──────────────────────────────────────────────────
+  // ── Free-plan paywall ──────────────────────────────────────────────────────
   if (isFreePlan) {
     return (
       <div
+        ref={setRootEl}
+        className={`sp-root${dark ? " dark" : ""}`}
         style={{
           minHeight: "100vh",
-          background: "#f8fafc",
-          fontFamily: "'Outfit', sans-serif",
+          background: dark ? "#141416" : "var(--bg-page)",
         }}
       >
-        <style>{`@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap'); * { font-family: 'Outfit', sans-serif !important; box-sizing: border-box; }`}</style>
-        <FreeStandupPaywall navigate={navigate} />
+        <style>{THEME_STYLES}</style>
+        <FreeStandupPaywall navigate={navigate} dark={dark} />
       </div>
     );
   }
 
-  // ── Full page (paid) ───────────────────────────────────────────────────
+  // ── Full paid view ─────────────────────────────────────────────────────────
   return (
     <div
-      style={{
-        minHeight: "100vh",
-        background: "#f8fafc",
-        fontFamily: "'Outfit', sans-serif",
-      }}
+      ref={setRootEl}
+      className={`sp-root${dark ? " dark" : ""}`}
+      style={{ minHeight: "100vh", background: "var(--bg-page)" }}
     >
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
-        * { font-family: 'Outfit', sans-serif !important; }
-        .ant-table { background: transparent !important; }
-        .ant-table-thead > tr > th { background: #f9fafb !important; color: #94a3b8 !important; font-size: 11px !important; font-weight: 700 !important; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #f1f5f9 !important; padding: 10px 14px !important; white-space: nowrap; }
-        .ant-table-tbody > tr > td { border-bottom: 1px solid #f9fafb !important; padding: 13px 14px !important; }
-        .ant-table-tbody > tr:last-child > td { border-bottom: none !important; }
-        .ant-table-tbody > tr:hover > td { background: #f8fafc !important; }
-        .heatmap-table .ant-table-thead > tr > th { padding: 10px 5px !important; }
-        .heatmap-table .ant-table-tbody > tr > td { padding: 9px 5px !important; }
-        .ant-table-cell-fix-left { background: #fff !important; }
-        .ant-table-cell-fix-right { background: #fff !important; }
-        .ant-table-tbody > tr:hover .ant-table-cell-fix-left,
-        .ant-table-tbody > tr:hover .ant-table-cell-fix-right { background: #f8fafc !important; }
-        .ant-picker { border-radius: 8px !important; border-color: #e2e8f0 !important; }
-        .ant-input { border-radius: 8px !important; }
-        .ant-select-selector { border-radius: 8px !important; border-color: #e2e8f0 !important; }
-        .ant-table-body { overflow-x: auto !important; }
-        .ant-table-sticky-scroll { display: none !important; }
-        .proj-row:hover > td { background: #f8fafc !important; }
-        .ant-modal-content { border-radius: 16px !important; overflow: hidden; }
-        .ant-modal-header { padding: 20px 24px !important; border-bottom: 1px solid #f1f5f9 !important; }
-        .ant-modal-body { padding: 0 !important; }
-      `}</style>
+      <style>{THEME_STYLES}</style>
 
       {/* ── Header ── */}
-      <div style={{ borderBottom: "1px solid #f1f5f9", padding: "0 40px" }}>
-        <div style={{ margin: "0 auto" }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "20px 0",
-              flexWrap: "wrap",
-              gap: 16,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              {view === VIEW.PROJECT_DETAIL && (
-                <button
-                  onClick={goBack}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    background: "transparent",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: 8,
-                    padding: "6px 12px",
-                    cursor: "pointer",
-                    color: "#64748b",
-                    fontSize: 13,
-                    fontWeight: 600,
-                  }}
-                >
-                  <ArrowLeftOutlined style={{ fontSize: 11 }} /> Back
-                </button>
-              )}
-              <div>
+      <div
+        style={{
+          borderBottom: "1px solid var(--border)",
+          padding: "0 40px",
+          background: "var(--bg-card)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "20px 0",
+            flexWrap: "wrap",
+            gap: 16,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {view === VIEW.PROJECT_DETAIL && (
+              <button
+                onClick={goBack}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: "transparent",
+                  border: "1px solid var(--border)",
+                  borderRadius: 8,
+                  padding: "6px 12px",
+                  cursor: "pointer",
+                  color: "var(--text-tertiary)",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                <ArrowLeftOutlined style={{ fontSize: 11 }} /> Back
+              </button>
+            )}
+            <div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginBottom: 2,
+                }}
+              >
                 <div
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    marginBottom: 2,
+                    width: 7,
+                    height: 7,
+                    borderRadius: "50%",
+                    background: "var(--text-primary)",
                   }}
-                >
-                  <div
-                    style={{
-                      width: 7,
-                      height: 7,
-                      borderRadius: "50%",
-                      background: "#0f172a",
-                    }}
-                  />
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: "#94a3b8",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                    }}
-                  >
-                    {view === VIEW.PROJECT_DETAIL
-                      ? `${activeProject?.name} · Detail`
-                      : "Admin · Standup Stats"}
-                  </Text>
-                </div>
-                <Title
-                  level={4}
+                />
+                <Text
                   style={{
-                    margin: 0,
-                    color: "#0f172a",
-                    fontWeight: 800,
-                    letterSpacing: -0.5,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    color: "var(--text-tertiary)",
                   }}
                 >
                   {view === VIEW.PROJECT_DETAIL
-                    ? `Attendance · ${selectedMonth.format("MMMM YYYY")}`
-                    : "Standup Overview"}
-                </Title>
+                    ? `${activeProject?.name} · Detail`
+                    : "Admin · Standup Stats"}
+                </Text>
               </div>
-            </div>
-            <Space wrap>
-              {view === VIEW.PROJECTS && (
-                <>
-                  <Input
-                    placeholder="Search projects…"
-                    prefix={<SearchOutlined style={{ color: "#94a3b8" }} />}
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    style={{
-                      width: 200,
-                      borderRadius: 8,
-                      borderColor: "#e2e8f0",
-                    }}
-                    allowClear
-                  />
-                  <Select
-                    placeholder="All statuses"
-                    style={{ width: 150 }}
-                    value={statusFilter}
-                    onChange={setStatusFilter}
-                    allowClear
-                  >
-                    {[
-                      "active",
-                      "in progress",
-                      "planning",
-                      "review",
-                      "completed",
-                    ].map((s) => (
-                      <Option key={s} value={s}>
-                        {capitalize(s)}
-                      </Option>
-                    ))}
-                  </Select>
-                </>
-              )}
-              <DatePicker
-                picker="month"
-                value={selectedMonth}
-                onChange={(d) => {
-                  if (d) {
-                    setMonth(d);
-                    if (view === VIEW.PROJECT_DETAIL && activeProject)
-                      openDetail(activeProject);
-                  }
+              <Title
+                level={4}
+                style={{
+                  margin: 0,
+                  fontWeight: 800,
+                  letterSpacing: -0.5,
+                  color: "var(--text-primary)",
                 }}
-                disabledDate={(d) => d && d > dayjs().endOf("month")}
-                format="MMMM YYYY"
-                style={{ width: 155 }}
-                allowClear={false}
-                suffixIcon={<CalendarOutlined style={{ color: "#94a3b8" }} />}
-              />
-            </Space>
+              >
+                {view === VIEW.PROJECT_DETAIL
+                  ? `Attendance · ${selectedMonth.format("MMMM YYYY")}`
+                  : "Standup Overview"}
+              </Title>
+            </div>
           </div>
+          <Space wrap>
+            {view === VIEW.PROJECTS && (
+              <>
+                <Input
+                  placeholder="Search projects…"
+                  prefix={
+                    <SearchOutlined style={{ color: "var(--text-muted)" }} />
+                  }
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  style={{ width: 200, borderRadius: 8 }}
+                  allowClear
+                />
+                <Select
+                  placeholder="All statuses"
+                  style={{ width: 150 }}
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  allowClear
+                  popupClassName="sp-select-dropdown"
+                >
+                  {[
+                    "active",
+                    "in progress",
+                    "planning",
+                    "review",
+                    "completed",
+                  ].map((s) => (
+                    <Option key={s} value={s}>
+                      {capitalize(s)}
+                    </Option>
+                  ))}
+                </Select>
+              </>
+            )}
+            <DatePicker
+              picker="month"
+              value={selectedMonth}
+              onChange={(d) => {
+                if (d) {
+                  setMonth(d);
+                  if (view === VIEW.PROJECT_DETAIL && activeProject)
+                    openDetail(activeProject);
+                }
+              }}
+              disabledDate={(d) => d && d > dayjs().endOf("month")}
+              format="MMMM YYYY"
+              style={{ width: 155 }}
+              allowClear={false}
+              suffixIcon={
+                <CalendarOutlined style={{ color: "var(--text-muted)" }} />
+              }
+            />
+          </Space>
         </div>
       </div>
 
       {/* ── Body ── */}
-      <div style={{ margin: "0 auto", padding: "28px 40px" }}>
-        {/* PROJECTS VIEW */}
+      <div style={{ padding: "28px 40px" }}>
+        {/* ════════════ PROJECTS VIEW ════════════ */}
         {view === VIEW.PROJECTS && (
           <>
+            {/* Stat cards */}
             <div
               style={{
                 display: "flex",
@@ -2204,18 +2537,18 @@ export default function AdminStandupStats() {
                   label: "Total Projects",
                   value: projects.length,
                   sub: `${globalStats.projectsWithStandups} with standups this month`,
-                  color: "#0f172a",
-                  bg: "#f8fafc",
-                  border: "#e2e8f0",
+                  color: "var(--text-primary)",
+                  bg: "var(--bg-card-alt)",
+                  border: "var(--border)",
                 },
                 {
                   icon: <CalendarOutlined />,
                   label: "Total Standups",
                   value: globalStats.totalSessions,
                   sub: selectedMonth.format("MMMM YYYY"),
-                  color: "#6366f1",
-                  bg: "#eef2ff",
-                  border: "#c7d2fe",
+                  color: "var(--accent)",
+                  bg: "var(--accent-bg)",
+                  border: "var(--accent-border)",
                 },
                 {
                   icon: <CheckOutlined />,
@@ -2228,9 +2561,9 @@ export default function AdminStandupStats() {
                     0
                       ? `${Math.round((globalStats.totalP / (globalStats.totalP + globalStats.totalA + globalStats.totalL)) * 100)}% of marked`
                       : "No data",
-                  color: "#059669",
-                  bg: "#ecfdf5",
-                  border: "#a7f3d0",
+                  color: "var(--present-color)",
+                  bg: "var(--present-bg)",
+                  border: "var(--present-border)",
                 },
                 {
                   icon: <CloseOutlined />,
@@ -2243,33 +2576,18 @@ export default function AdminStandupStats() {
                     0
                       ? `${Math.round((globalStats.totalA / (globalStats.totalP + globalStats.totalA + globalStats.totalL)) * 100)}% of marked`
                       : "No data",
-                  color: "#e11d48",
-                  bg: "#fff1f2",
-                  border: "#fecdd3",
+                  color: "var(--absent-color)",
+                  bg: "var(--absent-bg)",
+                  border: "var(--absent-border)",
                 },
                 {
                   icon: <RiseOutlined />,
                   label: "Overall Attend. Rate",
                   value: `${globalStats.overallRate}%`,
                   sub: "present + late / total marked",
-                  color:
-                    globalStats.overallRate >= 80
-                      ? "#059669"
-                      : globalStats.overallRate >= 60
-                        ? "#d97706"
-                        : "#e11d48",
-                  bg:
-                    globalStats.overallRate >= 80
-                      ? "#ecfdf5"
-                      : globalStats.overallRate >= 60
-                        ? "#fffbeb"
-                        : "#fff1f2",
-                  border:
-                    globalStats.overallRate >= 80
-                      ? "#a7f3d0"
-                      : globalStats.overallRate >= 60
-                        ? "#fde68a"
-                        : "#fecdd3",
+                  color: rateColor(globalStats.overallRate),
+                  bg: rateBg(globalStats.overallRate),
+                  border: rateBd(globalStats.overallRate),
                 },
               ].map(({ icon, label, value, sub, color, bg, border }) => (
                 <div
@@ -2296,7 +2614,7 @@ export default function AdminStandupStats() {
                       style={{
                         fontSize: 10,
                         fontWeight: 700,
-                        color: "#94a3b8",
+                        color: "var(--text-muted)",
                         textTransform: "uppercase",
                         letterSpacing: "0.06em",
                       }}
@@ -2316,40 +2634,46 @@ export default function AdminStandupStats() {
                   >
                     {value}
                   </Text>
-                  <Text style={{ fontSize: 11, color: "#94a3b8" }}>{sub}</Text>
+                  <Text style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                    {sub}
+                  </Text>
                 </div>
               ))}
             </div>
 
+            {/* Projects table */}
             <div
               style={{
-                background: "#fff",
+                background: "var(--bg-card)",
                 borderRadius: 14,
-                border: "1px solid #f1f5f9",
+                border: "1px solid var(--border)",
                 overflow: "hidden",
-                boxShadow: "0 1px 4px rgba(15,23,42,0.04)",
+                boxShadow: "var(--shadow-card)",
               }}
             >
               <div
                 style={{
                   padding: "16px 20px",
-                  borderBottom: "1px solid #f9fafb",
+                  borderBottom: "1px solid var(--border-faint)",
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
                 }}
               >
                 <Space>
-                  <FolderOutlined style={{ color: "#94a3b8" }} />
-                  <Text strong style={{ fontSize: 14, color: "#0f172a" }}>
+                  <FolderOutlined style={{ color: "var(--text-muted)" }} />
+                  <Text
+                    strong
+                    style={{ fontSize: 14, color: "var(--text-primary)" }}
+                  >
                     All Projects
                   </Text>
                   <span
                     style={{
                       fontSize: 12,
                       fontWeight: 700,
-                      color: "#64748b",
-                      background: "#f1f5f9",
+                      color: "var(--text-tertiary)",
+                      background: "var(--bg-subtle)",
                       borderRadius: 20,
                       padding: "1px 10px",
                     }}
@@ -2357,14 +2681,12 @@ export default function AdminStandupStats() {
                     {filteredProjects.length}
                   </span>
                 </Space>
-                <Text style={{ fontSize: 12, color: "#94a3b8" }}>
+                <Text style={{ fontSize: 12, color: "var(--text-muted)" }}>
                   Click "View Stats" to drill into any project
                 </Text>
               </div>
               {loadingProjects ? (
-                <div style={{ textAlign: "center", padding: 64 }}>
-                  <Spin size="large" />
-                </div>
+                <ProjectListSkeleton />
               ) : filteredProjects.length === 0 ? (
                 <Empty
                   description={<Text type="secondary">No projects found</Text>}
@@ -2388,21 +2710,21 @@ export default function AdminStandupStats() {
           </>
         )}
 
-        {/* PROJECT DETAIL VIEW */}
+        {/* ════════════ PROJECT DETAIL VIEW ════════════ */}
         {view === VIEW.PROJECT_DETAIL && (
           <>
             {loadingDetail ? (
-              <div style={{ textAlign: "center", padding: "80px 0" }}>
-                <Spin size="large" />
+              <div style={{ paddingTop: 10 }}>
+                <ProjectDetailSkeleton />
               </div>
             ) : (
               <>
                 {/* Project strip */}
                 <div
                   style={{
-                    background: "#fff",
+                    background: "var(--bg-card)",
                     borderRadius: 12,
-                    border: "1px solid #f1f5f9",
+                    border: "1px solid var(--border)",
                     padding: "16px 20px",
                     marginBottom: 20,
                     display: "flex",
@@ -2419,7 +2741,7 @@ export default function AdminStandupStats() {
                         width: 40,
                         height: 40,
                         borderRadius: 10,
-                        background: "#f1f5f9",
+                        background: "var(--bg-subtle)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -2427,7 +2749,7 @@ export default function AdminStandupStats() {
                       }}
                     >
                       <FolderOutlined
-                        style={{ color: "#475569", fontSize: 18 }}
+                        style={{ color: "var(--text-secondary)", fontSize: 18 }}
                       />
                     </div>
                     <div>
@@ -2435,7 +2757,7 @@ export default function AdminStandupStats() {
                         strong
                         style={{
                           fontSize: 15,
-                          color: "#0f172a",
+                          color: "var(--text-primary)",
                           display: "block",
                           lineHeight: 1.2,
                         }}
@@ -2443,23 +2765,29 @@ export default function AdminStandupStats() {
                         {activeProject?.name}
                       </Text>
                       {activeProject?.client_name && (
-                        <Text style={{ fontSize: 12, color: "#94a3b8" }}>
+                        <Text
+                          style={{ fontSize: 12, color: "var(--text-muted)" }}
+                        >
                           {activeProject.client_name}
                         </Text>
                       )}
                     </div>
                   </div>
                   <div
-                    style={{ height: 32, width: 1, background: "#f1f5f9" }}
+                    style={{
+                      height: 32,
+                      width: 1,
+                      background: "var(--border)",
+                    }}
                   />
                   {[
                     {
                       label: "Status",
                       value: capitalize(activeProject?.status || "—"),
                       color:
-                        PROJ_STATUS_CFG[
+                        projectStatusCfg[
                           (activeProject?.status || "").toLowerCase()
-                        ]?.color || "#64748b",
+                        ]?.color || "var(--text-tertiary)",
                     },
                     {
                       label: "Team Size",
@@ -2475,7 +2803,7 @@ export default function AdminStandupStats() {
                         style={{
                           fontSize: 10,
                           fontWeight: 700,
-                          color: "#94a3b8",
+                          color: "var(--text-muted)",
                           textTransform: "uppercase",
                           letterSpacing: "0.06em",
                           display: "block",
@@ -2488,7 +2816,7 @@ export default function AdminStandupStats() {
                         style={{
                           fontSize: 14,
                           fontWeight: 700,
-                          color: color || "#0f172a",
+                          color: color || "var(--text-primary)",
                         }}
                       >
                         {value}
@@ -2506,62 +2834,64 @@ export default function AdminStandupStats() {
                     flexWrap: "wrap",
                   }}
                 >
-                  {[
-                    {
-                      icon: <CalendarOutlined />,
-                      label: "Standups Held",
-                      value: overall.totalSessions,
-                      sub: `of ${overall.pastDays} weekdays`,
-                      color: "#0f172a",
-                      bg: "#f8fafc",
-                      border: "#e2e8f0",
-                    },
-                    {
-                      icon: <CheckOutlined />,
-                      label: "Present",
-                      value: overall.p,
-                      sub:
-                        overall.p + overall.a + overall.l > 0
-                          ? `${Math.round((overall.p / (overall.p + overall.a + overall.l)) * 100)}% of marked`
-                          : "No data",
-                      color: "#059669",
-                      bg: "#ecfdf5",
-                      border: "#a7f3d0",
-                    },
-                    {
-                      icon: <CloseOutlined />,
-                      label: "Absent",
-                      value: overall.a,
-                      sub:
-                        overall.p + overall.a + overall.l > 0
-                          ? `${Math.round((overall.a / (overall.p + overall.a + overall.l)) * 100)}% of marked`
-                          : "No data",
-                      color: "#e11d48",
-                      bg: "#fff1f2",
-                      border: "#fecdd3",
-                    },
-                    {
-                      icon: <ClockCircleOutlined />,
-                      label: "Late",
-                      value: overall.l,
-                      sub:
-                        overall.p + overall.a + overall.l > 0
-                          ? `${Math.round((overall.l / (overall.p + overall.a + overall.l)) * 100)}% of marked`
-                          : "No data",
-                      color: "#d97706",
-                      bg: "#fffbeb",
-                      border: "#fde68a",
-                    },
-                    {
-                      icon: <RiseOutlined />,
-                      label: "Attend. Rate",
-                      value: `${overall.p + overall.a + overall.l > 0 ? Math.round(((overall.p + overall.l) / (overall.p + overall.a + overall.l)) * 100) : 0}%`,
-                      sub: "team avg (present + late)",
-                      color: "#0ea5e9",
-                      bg: "#f0f9ff",
-                      border: "#bae6fd",
-                    },
-                  ].map(({ icon, label, value, sub, color, bg, border }) => (
+                  {(() => {
+                    const marked = overall.p + overall.a + overall.l;
+                    const pct = (v) =>
+                      marked > 0
+                        ? `${Math.round((v / marked) * 100)}% of marked`
+                        : "No data";
+                    const attRate =
+                      marked > 0
+                        ? Math.round(((overall.p + overall.l) / marked) * 100)
+                        : 0;
+                    return [
+                      {
+                        icon: <CalendarOutlined />,
+                        label: "Standups Held",
+                        value: overall.totalSessions,
+                        sub: `of ${overall.pastDays} weekdays`,
+                        color: "var(--text-primary)",
+                        bg: "var(--bg-card-alt)",
+                        border: "var(--border)",
+                      },
+                      {
+                        icon: <CheckOutlined />,
+                        label: "Present",
+                        value: overall.p,
+                        sub: pct(overall.p),
+                        color: "var(--present-color)",
+                        bg: "var(--present-bg)",
+                        border: "var(--present-border)",
+                      },
+                      {
+                        icon: <CloseOutlined />,
+                        label: "Absent",
+                        value: overall.a,
+                        sub: pct(overall.a),
+                        color: "var(--absent-color)",
+                        bg: "var(--absent-bg)",
+                        border: "var(--absent-border)",
+                      },
+                      {
+                        icon: <ClockCircleOutlined />,
+                        label: "Late",
+                        value: overall.l,
+                        sub: pct(overall.l),
+                        color: "var(--late-color)",
+                        bg: "var(--late-bg)",
+                        border: "var(--late-border)",
+                      },
+                      {
+                        icon: <RiseOutlined />,
+                        label: "Attend. Rate",
+                        value: `${attRate}%`,
+                        sub: "team avg (present + late)",
+                        color: "#0ea5e9",
+                        bg: "rgba(14,165,233,0.1)",
+                        border: "rgba(14,165,233,0.25)",
+                      },
+                    ];
+                  })().map(({ icon, label, value, sub, color, bg, border }) => (
                     <div
                       key={label}
                       style={{
@@ -2586,7 +2916,7 @@ export default function AdminStandupStats() {
                           style={{
                             fontSize: 10,
                             fontWeight: 700,
-                            color: "#94a3b8",
+                            color: "var(--text-muted)",
                             textTransform: "uppercase",
                             letterSpacing: "0.06em",
                           }}
@@ -2606,7 +2936,9 @@ export default function AdminStandupStats() {
                       >
                         {value}
                       </Text>
-                      <Text style={{ fontSize: 11, color: "#94a3b8" }}>
+                      <Text
+                        style={{ fontSize: 11, color: "var(--text-muted)" }}
+                      >
                         {sub}
                       </Text>
                     </div>
@@ -2627,7 +2959,7 @@ export default function AdminStandupStats() {
                     style={{
                       fontSize: 11,
                       fontWeight: 700,
-                      color: "#94a3b8",
+                      color: "var(--text-muted)",
                       textTransform: "uppercase",
                       letterSpacing: "0.06em",
                     }}
@@ -2635,9 +2967,13 @@ export default function AdminStandupStats() {
                     {activeProject?.name} · {selectedMonth.format("MMMM YYYY")}
                   </Text>
                   <div
-                    style={{ height: 12, width: 1, background: "#e2e8f0" }}
+                    style={{
+                      height: 12,
+                      width: 1,
+                      background: "var(--border)",
+                    }}
                   />
-                  {Object.entries(STATUS_CFG).map(([key, cfg]) => (
+                  {Object.entries(standupStatusCfg).map(([key, cfg]) => (
                     <div
                       key={key}
                       style={{ display: "flex", alignItems: "center", gap: 5 }}
@@ -2660,7 +2996,7 @@ export default function AdminStandupStats() {
                       <Text
                         style={{
                           fontSize: 12,
-                          color: "#64748b",
+                          color: "var(--text-tertiary)",
                           fontWeight: 500,
                         }}
                       >
@@ -2676,14 +3012,14 @@ export default function AdminStandupStats() {
                         width: 13,
                         height: 13,
                         borderRadius: 3,
-                        background: "#f1f5f9",
-                        border: "1px solid #e2e8f0",
+                        background: "var(--bg-subtle)",
+                        border: "1px solid var(--border)",
                       }}
                     />
                     <Text
                       style={{
                         fontSize: 12,
-                        color: "#64748b",
+                        color: "var(--text-tertiary)",
                         fontWeight: 500,
                       }}
                     >
@@ -2693,7 +3029,11 @@ export default function AdminStandupStats() {
                   {sessionsWithSummary.length > 0 && (
                     <>
                       <div
-                        style={{ height: 12, width: 1, background: "#e2e8f0" }}
+                        style={{
+                          height: 12,
+                          width: 1,
+                          background: "var(--border)",
+                        }}
                       />
                       <div
                         style={{
@@ -2707,13 +3047,13 @@ export default function AdminStandupStats() {
                             width: 5,
                             height: 5,
                             borderRadius: "50%",
-                            background: "#6366f1",
+                            background: "var(--accent)",
                           }}
                         />
                         <Text
                           style={{
                             fontSize: 12,
-                            color: "#64748b",
+                            color: "var(--text-tertiary)",
                             fontWeight: 500,
                           }}
                         >
@@ -2730,25 +3070,25 @@ export default function AdminStandupStats() {
                     description="No team members assigned"
                     style={{
                       padding: 64,
-                      background: "#fff",
+                      background: "var(--bg-card)",
                       borderRadius: 14,
-                      border: "1px solid #f1f5f9",
+                      border: "1px solid var(--border)",
                     }}
                   />
                 ) : (
                   <div
                     style={{
-                      background: "#fff",
+                      background: "var(--bg-card)",
                       borderRadius: 14,
-                      border: "1px solid #f1f5f9",
+                      border: "1px solid var(--border)",
                       overflow: "hidden",
-                      boxShadow: "0 1px 4px rgba(15,23,42,0.04)",
+                      boxShadow: "var(--shadow-card)",
                     }}
                   >
                     <div
                       style={{
                         padding: "10px 20px 0",
-                        borderBottom: "1px solid #f8fafc",
+                        borderBottom: "1px solid var(--border-faint)",
                         display: "flex",
                         alignItems: "center",
                       }}
@@ -2769,14 +3109,17 @@ export default function AdminStandupStats() {
                               minWidth: week.length * 34,
                               textAlign: "center",
                               padding: "0 2px",
-                              borderLeft: wi > 0 ? "1px solid #f1f5f9" : "none",
+                              borderLeft:
+                                wi > 0
+                                  ? "1px solid var(--border-subtle)"
+                                  : "none",
                             }}
                           >
                             <Text
                               style={{
                                 fontSize: 10,
                                 fontWeight: 700,
-                                color: "#cbd5e1",
+                                color: "var(--text-faint)",
                                 textTransform: "uppercase",
                                 letterSpacing: "0.06em",
                               }}
@@ -2801,7 +3144,7 @@ export default function AdminStandupStats() {
                   </div>
                 )}
 
-                {/* Daily Standup Summaries Timeline */}
+                {/* Daily summaries timeline */}
                 <div style={{ marginTop: 28 }}>
                   <div
                     style={{
@@ -2820,7 +3163,7 @@ export default function AdminStandupStats() {
                         style={{
                           fontSize: 11,
                           fontWeight: 700,
-                          color: "#94a3b8",
+                          color: "var(--text-muted)",
                           textTransform: "uppercase",
                           letterSpacing: "0.08em",
                         }}
@@ -2831,18 +3174,18 @@ export default function AdminStandupStats() {
                         style={{
                           fontSize: 12,
                           fontWeight: 700,
-                          color: "#6366f1",
-                          background: "#eef2ff",
+                          color: "var(--accent)",
+                          background: "var(--accent-bg)",
                           borderRadius: 20,
                           padding: "1px 10px",
-                          border: "1px solid #c7d2fe",
+                          border: "1px solid var(--accent-border)",
                         }}
                       >
                         {sessionsWithSummary.length} / {allPastSessions.length}{" "}
                         have notes
                       </span>
                     </div>
-                    <Text style={{ fontSize: 12, color: "#94a3b8" }}>
+                    <Text style={{ fontSize: 12, color: "var(--text-muted)" }}>
                       {selectedMonth.format("MMMM YYYY")} · most recent first
                     </Text>
                   </div>
@@ -2850,9 +3193,9 @@ export default function AdminStandupStats() {
                   {allPastSessions.length === 0 ? (
                     <div
                       style={{
-                        background: "#fff",
+                        background: "var(--bg-card)",
                         borderRadius: 14,
-                        border: "1px solid #f1f5f9",
+                        border: "1px solid var(--border)",
                         padding: "48px 24px",
                         textAlign: "center",
                       }}
@@ -2860,23 +3203,23 @@ export default function AdminStandupStats() {
                       <MessageOutlined
                         style={{
                           fontSize: 32,
-                          color: "#e2e8f0",
+                          color: "var(--border)",
                           display: "block",
                           marginBottom: 10,
                         }}
                       />
-                      <Text style={{ color: "#94a3b8" }}>
+                      <Text style={{ color: "var(--text-muted)" }}>
                         No standups recorded this month yet
                       </Text>
                     </div>
                   ) : (
                     <div
                       style={{
-                        background: "#fff",
+                        background: "var(--bg-card)",
                         borderRadius: 14,
-                        border: "1px solid #f1f5f9",
+                        border: "1px solid var(--border)",
                         overflow: "hidden",
-                        boxShadow: "0 1px 4px rgba(15,23,42,0.04)",
+                        boxShadow: "var(--shadow-card)",
                       }}
                     >
                       {allPastSessions.map((sess, idx) => {
@@ -2898,14 +3241,6 @@ export default function AdminStandupStats() {
                           total > 0
                             ? Math.round(((pCount + lCount) / total) * 100)
                             : null;
-                        const rateColor =
-                          rate === null
-                            ? "#94a3b8"
-                            : rate >= 80
-                              ? "#059669"
-                              : rate >= 60
-                                ? "#d97706"
-                                : "#e11d48";
                         return (
                           <div
                             key={sess.id}
@@ -2913,29 +3248,32 @@ export default function AdminStandupStats() {
                               display: "flex",
                               borderBottom:
                                 idx < allPastSessions.length - 1
-                                  ? "1px solid #f9fafb"
+                                  ? "1px solid var(--border-faint)"
                                   : "none",
                             }}
                           >
+                            {/* Date column */}
                             <div
                               style={{
                                 width: 88,
                                 flexShrink: 0,
                                 padding: "18px 12px",
-                                borderRight: "1px solid #f4f4f5",
+                                borderRight: "1px solid var(--border-subtle)",
                                 display: "flex",
                                 flexDirection: "column",
                                 alignItems: "center",
                                 justifyContent: "flex-start",
                                 gap: 2,
-                                background: isToday ? "#f8faff" : "transparent",
+                                background: isToday
+                                  ? "var(--accent-bg)"
+                                  : "transparent",
                               }}
                             >
                               <Text
                                 style={{
                                   fontSize: 10,
                                   fontWeight: 700,
-                                  color: "#94a3b8",
+                                  color: "var(--text-muted)",
                                   textTransform: "uppercase",
                                   letterSpacing: "0.08em",
                                 }}
@@ -2946,13 +3284,20 @@ export default function AdminStandupStats() {
                                 style={{
                                   fontSize: 24,
                                   fontWeight: 800,
-                                  color: isToday ? "#6366f1" : "#0f172a",
+                                  color: isToday
+                                    ? "var(--accent)"
+                                    : "var(--text-primary)",
                                   lineHeight: 1,
                                 }}
                               >
                                 {d.format("D")}
                               </Text>
-                              <Text style={{ fontSize: 11, color: "#94a3b8" }}>
+                              <Text
+                                style={{
+                                  fontSize: 11,
+                                  color: "var(--text-muted)",
+                                }}
+                              >
                                 {d.format("MMM")}
                               </Text>
                               {isToday && (
@@ -2960,11 +3305,11 @@ export default function AdminStandupStats() {
                                   style={{
                                     fontSize: 9,
                                     fontWeight: 700,
-                                    color: "#6366f1",
-                                    background: "#eef2ff",
+                                    color: "var(--accent)",
+                                    background: "var(--accent-bg)",
                                     borderRadius: 20,
                                     padding: "1px 6px",
-                                    border: "1px solid #c7d2fe",
+                                    border: "1px solid var(--accent-border)",
                                     marginTop: 3,
                                   }}
                                 >
@@ -2972,6 +3317,7 @@ export default function AdminStandupStats() {
                                 </span>
                               )}
                             </div>
+                            {/* Summary column */}
                             <div
                               style={{
                                 flex: 1,
@@ -2994,7 +3340,7 @@ export default function AdminStandupStats() {
                                         width: 6,
                                         height: 6,
                                         borderRadius: "50%",
-                                        background: "#6366f1",
+                                        background: "var(--accent)",
                                         flexShrink: 0,
                                       }}
                                     />
@@ -3002,7 +3348,7 @@ export default function AdminStandupStats() {
                                       style={{
                                         fontSize: 11,
                                         fontWeight: 700,
-                                        color: "#6366f1",
+                                        color: "var(--accent)",
                                         textTransform: "uppercase",
                                         letterSpacing: "0.06em",
                                       }}
@@ -3013,7 +3359,7 @@ export default function AdminStandupStats() {
                                   <Text
                                     style={{
                                       fontSize: 13.5,
-                                      color: "#1e293b",
+                                      color: "var(--text-secondary)",
                                       lineHeight: 1.75,
                                       display: "block",
                                       whiteSpace: "pre-wrap",
@@ -3036,14 +3382,14 @@ export default function AdminStandupStats() {
                                       width: 6,
                                       height: 6,
                                       borderRadius: "50%",
-                                      background: "#e2e8f0",
+                                      background: "var(--border)",
                                       flexShrink: 0,
                                     }}
                                   />
                                   <Text
                                     style={{
                                       fontSize: 13,
-                                      color: "#cbd5e1",
+                                      color: "var(--text-faint)",
                                       fontStyle: "italic",
                                     }}
                                   >
@@ -3052,12 +3398,13 @@ export default function AdminStandupStats() {
                                 </div>
                               )}
                             </div>
+                            {/* Attendance column */}
                             <div
                               style={{
                                 width: 130,
                                 flexShrink: 0,
                                 padding: "18px 16px",
-                                borderLeft: "1px solid #f4f4f5",
+                                borderLeft: "1px solid var(--border-subtle)",
                                 display: "flex",
                                 flexDirection: "column",
                                 alignItems: "flex-end",
@@ -3080,8 +3427,8 @@ export default function AdminStandupStats() {
                                         style={{
                                           fontSize: 11,
                                           fontWeight: 700,
-                                          color: "#059669",
-                                          background: "#ecfdf5",
+                                          color: "var(--present-color)",
+                                          background: "var(--present-bg)",
                                           borderRadius: 6,
                                           padding: "2px 7px",
                                         }}
@@ -3094,8 +3441,8 @@ export default function AdminStandupStats() {
                                         style={{
                                           fontSize: 11,
                                           fontWeight: 700,
-                                          color: "#e11d48",
-                                          background: "#fff1f2",
+                                          color: "var(--absent-color)",
+                                          background: "var(--absent-bg)",
                                           borderRadius: 6,
                                           padding: "2px 7px",
                                         }}
@@ -3108,8 +3455,8 @@ export default function AdminStandupStats() {
                                         style={{
                                           fontSize: 11,
                                           fontWeight: 700,
-                                          color: "#d97706",
-                                          background: "#fffbeb",
+                                          color: "var(--late-color)",
+                                          background: "var(--late-bg)",
                                           borderRadius: 6,
                                           padding: "2px 7px",
                                         }}
@@ -3123,7 +3470,7 @@ export default function AdminStandupStats() {
                                       style={{
                                         fontSize: 20,
                                         fontWeight: 800,
-                                        color: rateColor,
+                                        color: rateColor(rate),
                                         lineHeight: 1,
                                       }}
                                     >
@@ -3133,7 +3480,7 @@ export default function AdminStandupStats() {
                                   <Text
                                     style={{
                                       fontSize: 10,
-                                      color: "#94a3b8",
+                                      color: "var(--text-muted)",
                                       fontWeight: 600,
                                     }}
                                   >
@@ -3142,7 +3489,10 @@ export default function AdminStandupStats() {
                                 </>
                               ) : (
                                 <Text
-                                  style={{ fontSize: 11, color: "#e2e8f0" }}
+                                  style={{
+                                    fontSize: 11,
+                                    color: "var(--border)",
+                                  }}
                                 >
                                   —
                                 </Text>
@@ -3162,7 +3512,7 @@ export default function AdminStandupStats() {
                       style={{
                         fontSize: 11,
                         fontWeight: 700,
-                        color: "#94a3b8",
+                        color: "var(--text-muted)",
                         textTransform: "uppercase",
                         letterSpacing: "0.08em",
                         display: "block",
@@ -3179,195 +3529,180 @@ export default function AdminStandupStats() {
                         gap: 12,
                       }}
                     >
-                      {sortedStats.map((emp, i) => {
-                        const rc =
-                          emp.rate >= 80
-                            ? "#059669"
-                            : emp.rate >= 60
-                              ? "#d97706"
-                              : "#e11d48";
-                        const rb =
-                          emp.rate >= 80
-                            ? "#ecfdf5"
-                            : emp.rate >= 60
-                              ? "#fffbeb"
-                              : "#fff1f2";
-                        const rd =
-                          emp.rate >= 80
-                            ? "#a7f3d0"
-                            : emp.rate >= 60
-                              ? "#fde68a"
-                              : "#fecdd3";
-                        return (
+                      {sortedStats.map((emp, i) => (
+                        <div
+                          key={emp.id}
+                          style={{
+                            background: "var(--bg-card)",
+                            borderRadius: 12,
+                            border: "1px solid var(--border)",
+                            padding: "16px 18px",
+                            boxShadow: "var(--shadow-card)",
+                          }}
+                        >
                           <div
-                            key={emp.id}
                             style={{
-                              background: "#fff",
-                              borderRadius: 12,
-                              border: "1px solid #f1f5f9",
-                              padding: "16px 18px",
-                              boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "flex-start",
+                              marginBottom: 12,
                             }}
                           >
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "flex-start",
-                                marginBottom: 12,
-                              }}
-                            >
-                              <Space size={10}>
-                                <Avatar
-                                  size={36}
-                                  src={emp.user_photo}
-                                  style={{
-                                    background:
-                                      AVATAR_COLORS[i % AVATAR_COLORS.length],
-                                    fontSize: 12,
-                                    fontWeight: 700,
-                                    flexShrink: 0,
-                                  }}
-                                >
-                                  {!emp.user_photo &&
-                                    getInitials(emp.full_name)}
-                                </Avatar>
-                                <div>
-                                  <Text
-                                    strong
-                                    style={{
-                                      fontSize: 13,
-                                      color: "#0f172a",
-                                      display: "block",
-                                      lineHeight: 1.2,
-                                    }}
-                                  >
-                                    {emp.full_name}
-                                  </Text>
-                                  <Text
-                                    style={{ fontSize: 11, color: "#94a3b8" }}
-                                  >
-                                    {emp.job_title || emp.department || "—"}
-                                  </Text>
-                                </div>
-                              </Space>
-                              <div
+                            <Space size={10}>
+                              <Avatar
+                                size={36}
+                                src={emp.user_photo}
                                 style={{
-                                  padding: "3px 10px",
-                                  borderRadius: 20,
-                                  border: `1px solid ${rd}`,
-                                  background: rb,
+                                  background:
+                                    AVATAR_COLORS[i % AVATAR_COLORS.length],
+                                  fontSize: 12,
+                                  fontWeight: 700,
                                   flexShrink: 0,
                                 }}
                               >
+                                {!emp.user_photo && getInitials(emp.full_name)}
+                              </Avatar>
+                              <div>
                                 <Text
+                                  strong
                                   style={{
-                                    fontSize: 14,
-                                    fontWeight: 800,
-                                    color: rc,
+                                    fontSize: 13,
+                                    color: "var(--text-primary)",
+                                    display: "block",
+                                    lineHeight: 1.2,
                                   }}
                                 >
-                                  {emp.rate}%
+                                  {emp.full_name}
                                 </Text>
-                              </div>
-                            </div>
-                            <Progress
-                              percent={emp.rate}
-                              showInfo={false}
-                              strokeColor={rc}
-                              trailColor="#f1f5f9"
-                              size="small"
-                              style={{ marginBottom: 12 }}
-                            />
-                            <div
-                              style={{
-                                display: "grid",
-                                gridTemplateColumns: "1fr 1fr 1fr",
-                                gap: 6,
-                              }}
-                            >
-                              {[
-                                {
-                                  label: "Present",
-                                  value: emp.present,
-                                  color: "#059669",
-                                  bg: "#ecfdf5",
-                                },
-                                {
-                                  label: "Absent",
-                                  value: emp.absent,
-                                  color: "#e11d48",
-                                  bg: "#fff1f2",
-                                },
-                                {
-                                  label: "Late",
-                                  value: emp.late,
-                                  color: "#d97706",
-                                  bg: "#fffbeb",
-                                },
-                              ].map(({ label, value, color, bg }) => (
-                                <div
-                                  key={label}
-                                  style={{
-                                    textAlign: "center",
-                                    padding: "8px 4px",
-                                    borderRadius: 8,
-                                    background: bg,
-                                  }}
-                                >
-                                  <Text
-                                    style={{
-                                      fontSize: 18,
-                                      fontWeight: 800,
-                                      color,
-                                      display: "block",
-                                      lineHeight: 1,
-                                    }}
-                                  >
-                                    {value}
-                                  </Text>
-                                  <Text
-                                    style={{
-                                      fontSize: 10,
-                                      fontWeight: 600,
-                                      color,
-                                      textTransform: "uppercase",
-                                      letterSpacing: "0.04em",
-                                    }}
-                                  >
-                                    {label}
-                                  </Text>
-                                </div>
-                              ))}
-                            </div>
-                            {i === 0 && (
-                              <div
-                                style={{
-                                  marginTop: 10,
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 5,
-                                  paddingTop: 10,
-                                  borderTop: "1px solid #f8fafc",
-                                }}
-                              >
-                                <TrophyOutlined
-                                  style={{ color: "#d97706", fontSize: 12 }}
-                                />
                                 <Text
                                   style={{
                                     fontSize: 11,
-                                    color: "#d97706",
-                                    fontWeight: 700,
+                                    color: "var(--text-muted)",
                                   }}
                                 >
-                                  Top Attendee this month
+                                  {emp.job_title || emp.department || "—"}
                                 </Text>
                               </div>
-                            )}
+                            </Space>
+                            <div
+                              style={{
+                                padding: "3px 10px",
+                                borderRadius: 20,
+                                border: `1px solid ${rateBd(emp.rate)}`,
+                                background: rateBg(emp.rate),
+                                flexShrink: 0,
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  fontSize: 14,
+                                  fontWeight: 800,
+                                  color: rateColor(emp.rate),
+                                }}
+                              >
+                                {emp.rate}%
+                              </Text>
+                            </div>
                           </div>
-                        );
-                      })}
+                          <Progress
+                            percent={emp.rate}
+                            showInfo={false}
+                            strokeColor={rateColor(emp.rate)}
+                            trailColor="var(--bg-subtle)"
+                            size="small"
+                            style={{ marginBottom: 12 }}
+                          />
+                          <div
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "1fr 1fr 1fr",
+                              gap: 6,
+                            }}
+                          >
+                            {[
+                              {
+                                label: "Present",
+                                value: emp.present,
+                                color: "var(--present-color)",
+                                bg: "var(--present-bg)",
+                              },
+                              {
+                                label: "Absent",
+                                value: emp.absent,
+                                color: "var(--absent-color)",
+                                bg: "var(--absent-bg)",
+                              },
+                              {
+                                label: "Late",
+                                value: emp.late,
+                                color: "var(--late-color)",
+                                bg: "var(--late-bg)",
+                              },
+                            ].map(({ label, value, color, bg }) => (
+                              <div
+                                key={label}
+                                style={{
+                                  textAlign: "center",
+                                  padding: "8px 4px",
+                                  borderRadius: 8,
+                                  background: bg,
+                                }}
+                              >
+                                <Text
+                                  style={{
+                                    fontSize: 18,
+                                    fontWeight: 800,
+                                    color,
+                                    display: "block",
+                                    lineHeight: 1,
+                                  }}
+                                >
+                                  {value}
+                                </Text>
+                                <Text
+                                  style={{
+                                    fontSize: 10,
+                                    fontWeight: 600,
+                                    color,
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.04em",
+                                  }}
+                                >
+                                  {label}
+                                </Text>
+                              </div>
+                            ))}
+                          </div>
+                          {i === 0 && (
+                            <div
+                              style={{
+                                marginTop: 10,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 5,
+                                paddingTop: 10,
+                                borderTop: "1px solid var(--border-faint)",
+                              }}
+                            >
+                              <TrophyOutlined
+                                style={{
+                                  color: "var(--late-color)",
+                                  fontSize: 12,
+                                }}
+                              />
+                              <Text
+                                style={{
+                                  fontSize: 11,
+                                  color: "var(--late-color)",
+                                  fontWeight: 700,
+                                }}
+                              >
+                                Top Attendee this month
+                              </Text>
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -3377,7 +3712,7 @@ export default function AdminStandupStats() {
         )}
       </div>
 
-      {/* Summary Detail Modal */}
+      {/* Summary modal */}
       <Modal
         open={!!summaryModal}
         onCancel={() => setSummaryModal(null)}
@@ -3391,22 +3726,24 @@ export default function AdminStandupStats() {
                   width: 40,
                   height: 40,
                   borderRadius: 10,
-                  background: "#eef2ff",
-                  border: "1px solid #c7d2fe",
+                  background: "var(--accent-bg)",
+                  border: "1px solid var(--accent-border)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   flexShrink: 0,
                 }}
               >
-                <FileTextOutlined style={{ color: "#6366f1", fontSize: 18 }} />
+                <FileTextOutlined
+                  style={{ color: "var(--accent)", fontSize: 18 }}
+                />
               </div>
               <div>
                 <Text
                   style={{
                     fontSize: 11,
                     fontWeight: 700,
-                    color: "#94a3b8",
+                    color: "var(--text-muted)",
                     textTransform: "uppercase",
                     letterSpacing: "0.08em",
                     display: "block",
@@ -3414,7 +3751,10 @@ export default function AdminStandupStats() {
                 >
                   Standup Summary
                 </Text>
-                <Text strong style={{ fontSize: 15, color: "#0f172a" }}>
+                <Text
+                  strong
+                  style={{ fontSize: 15, color: "var(--text-primary)" }}
+                >
                   {dayjs(summaryModal.date).format("dddd, MMMM D, YYYY")}
                 </Text>
               </div>
@@ -3426,8 +3766,8 @@ export default function AdminStandupStats() {
           <div style={{ padding: "20px 24px 24px" }}>
             <div
               style={{
-                background: "#f8faff",
-                border: "1px solid #e0e7ff",
+                background: "var(--accent-bg)",
+                border: "1px solid var(--accent-border)",
                 borderRadius: 10,
                 padding: "16px 18px",
                 marginBottom: 20,
@@ -3436,7 +3776,7 @@ export default function AdminStandupStats() {
               <Text
                 style={{
                   fontSize: 14,
-                  color: "#1e293b",
+                  color: "var(--text-secondary)",
                   lineHeight: 1.8,
                   whiteSpace: "pre-wrap",
                 }}
@@ -3451,7 +3791,7 @@ export default function AdminStandupStats() {
                     style={{
                       fontSize: 11,
                       fontWeight: 700,
-                      color: "#94a3b8",
+                      color: "var(--text-muted)",
                       textTransform: "uppercase",
                       letterSpacing: "0.08em",
                       display: "block",
@@ -3465,23 +3805,23 @@ export default function AdminStandupStats() {
                       {
                         key: "present",
                         label: "Present",
-                        color: "#059669",
-                        bg: "#ecfdf5",
-                        border: "#a7f3d0",
+                        color: "var(--present-color)",
+                        bg: "var(--present-bg)",
+                        border: "var(--present-border)",
                       },
                       {
                         key: "absent",
                         label: "Absent",
-                        color: "#e11d48",
-                        bg: "#fff1f2",
-                        border: "#fecdd3",
+                        color: "var(--absent-color)",
+                        bg: "var(--absent-bg)",
+                        border: "var(--absent-border)",
                       },
                       {
                         key: "late",
                         label: "Late",
-                        color: "#d97706",
-                        bg: "#fffbeb",
-                        border: "#fde68a",
+                        color: "var(--late-color)",
+                        bg: "var(--late-bg)",
+                        border: "var(--late-border)",
                       },
                     ].map(({ key, label, color, bg, border }) => {
                       const count = Object.values(

@@ -85,7 +85,82 @@ const { TextArea } = Input;
 const STORAGE_BUCKET = "training-materials";
 const GROQ_API_KEY = import.meta.env.VITE_GROK_API_KEY;
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
-const TENANT_NAME = import.meta.env.VITE_TENANT_NAME || "Acme Corp";
+const TENANT_NAME = import.meta.env.VITE_TENANT_NAME || "Organization";
+
+const getIsDarkTheme = () => {
+  if (typeof window === "undefined") return false;
+  const mode = localStorage.getItem("themeMode") || "system";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
+
+const trainingDarkCss = `
+  .training-dark { color: #e5e7eb; }
+  .training-dark .bg-white { background: #1a1b1f !important; }
+  .training-dark .bg-slate-50 { background: #17181c !important; }
+  .training-dark .bg-slate-100 { background: #202127 !important; }
+  .training-dark .bg-slate-200 { background: #2a2b31 !important; }
+  .training-dark .border-slate-100,
+  .training-dark .border-slate-200,
+  .training-dark .border-slate-300 { border-color: #2a2b31 !important; }
+  .training-dark .text-slate-900,
+  .training-dark .text-slate-800,
+  .training-dark .text-slate-700,
+  .training-dark .text-slate-600,
+  .training-dark .text-slate-500 { color: #e5e7eb !important; }
+  .training-dark .text-slate-400,
+  .training-dark .text-slate-300,
+  .training-dark .text-slate-200 { color: #9ca3af !important; }
+  .training-dark .hover\\:bg-slate-50:hover { background: #202127 !important; }
+  .training-dark .hover\\:bg-slate-100:hover { background: #262730 !important; }
+  .training-dark .bg-slate-900.hover\\:bg-slate-800:hover { background: #f3f4f6 !important; color: #111111 !important; }
+  .training-dark .focus\\:bg-white:focus { background: #17181c !important; }
+  .training-dark .ant-select-selector,
+  .training-dark .ant-modal-content,
+  .training-dark .ant-modal-header,
+  .training-dark .ant-modal-body,
+  .training-dark .ant-modal-footer {
+    background: #1a1b1f !important;
+    border-color: #2a2b31 !important;
+    color: #e5e7eb !important;
+  }
+  .training-dark .ant-modal-title,
+  .training-dark .ant-select-selection-item,
+  .training-dark .ant-select-selection-placeholder { color: #e5e7eb !important; }
+  .training-dark input:not([type="checkbox"]):not([type="radio"]),
+  .training-dark textarea {
+    background: #17181c !important;
+    color: #e5e7eb !important;
+    border-color: #2a2b31 !important;
+  }
+  .training-dark input:not([type="checkbox"]):not([type="radio"])::placeholder,
+  .training-dark textarea::placeholder {
+    color: #9ca3af !important;
+  }
+  .training-dark input:not([type="checkbox"]):not([type="radio"]):focus,
+  .training-dark textarea:focus {
+    border-color: #4f46e5 !important;
+    box-shadow: none !important;
+  }
+`;
+
+function useDarkThemeMode() {
+  const [dark, setDark] = useState(getIsDarkTheme);
+  useEffect(() => {
+    const syncTheme = () => setDark(getIsDarkTheme());
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    window.addEventListener("storage", syncTheme);
+    window.addEventListener("themeModeChanged", syncTheme);
+    mediaQuery.addEventListener("change", syncTheme);
+    return () => {
+      window.removeEventListener("storage", syncTheme);
+      window.removeEventListener("themeModeChanged", syncTheme);
+      mediaQuery.removeEventListener("change", syncTheme);
+    };
+  }, []);
+  return dark;
+}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const CATEGORIES = [
@@ -163,16 +238,19 @@ const DIFF_META = {
     color: "text-emerald-700",
     bg: "bg-emerald-50",
     border: "border-emerald-200",
+    hex: "#10b981",
   },
   Intermediate: {
     color: "text-amber-700",
     bg: "bg-amber-50",
     border: "border-amber-200",
+    hex: "#f59e0b",
   },
   Advanced: {
     color: "text-red-700",
     bg: "bg-red-50",
     border: "border-red-200",
+    hex: "#ef4444",
   },
 };
 
@@ -285,6 +363,37 @@ const isPreviewable = (mime) => isImage(mime) || isVideo(mime) || isPDF(mime);
 // ── FREE PLAN PAYWALL ─────────────────────────────────────────────────────────
 function TrainingPaywall() {
   const navigate = useNavigate();
+  const dark = useDarkThemeMode();
+  const pw = dark
+    ? {
+        page: "#141416",
+        surface: "#1a1b1f",
+        surfaceAlt: "#17181c",
+        surfaceMuted: "#202127",
+        border: "#2a2b31",
+        text: "#f3f4f6",
+        textMuted: "#9ca3af",
+        textSubtle: "#818897",
+        proBadgeBg:
+          "linear-gradient(135deg, rgba(59,130,246,0.2) 0%, rgba(139,92,246,0.2) 100%)",
+        proBadgeBorder: "#4b4f61",
+        lockOverlay:
+          "linear-gradient(to bottom, rgba(20,20,22,0) 0%, rgba(20,20,22,0.88) 40%, rgba(20,20,22,1) 100%)",
+      }
+    : {
+        page: "#f8fafc",
+        surface: "#ffffff",
+        surfaceAlt: "#f8fafc",
+        surfaceMuted: "#f1f5f9",
+        border: "#e2e8f0",
+        text: "#0f172a",
+        textMuted: "#64748b",
+        textSubtle: "#94a3b8",
+        proBadgeBg: "linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%)",
+        proBadgeBorder: "#ddd6fe",
+        lockOverlay:
+          "linear-gradient(to bottom, rgba(248,250,252,0) 0%, rgba(248,250,252,0.85) 40%, rgba(248,250,252,1) 100%)",
+      };
 
   const mockCourses = [
     {
@@ -366,9 +475,10 @@ function TrainingPaywall() {
 
   return (
     <div
+      className={`training-paywall ${dark ? "dark training-dark" : ""}`}
       style={{
         minHeight: "100vh",
-        background: "#f8fafc",
+        background: pw.page,
         position: "relative",
         overflow: "hidden",
       }}
@@ -435,6 +545,9 @@ function TrainingPaywall() {
         .feature-card:hover {
           transform: translateY(-3px);
           box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+        }
+        .training-paywall.dark .feature-card:hover {
+          box-shadow: 0 8px 24px rgba(0,0,0,0.35);
         }
 
         .blur-overlay {
@@ -511,8 +624,8 @@ function TrainingPaywall() {
               alignItems: "center",
               gap: 7,
               padding: "8px 18px",
-              background: "linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%)",
-              border: "1px solid #ddd6fe",
+              background: pw.proBadgeBg,
+              border: `1px solid ${pw.proBadgeBorder}`,
               borderRadius: 30,
               backdropFilter: "blur(2px)",
               boxShadow: "0 4px 16px rgba(99,102,241,0.15)",
@@ -553,7 +666,7 @@ function TrainingPaywall() {
                 margin: 0,
                 fontSize: 30,
                 fontWeight: 900,
-                color: "#0f172a",
+                color: pw.text,
                 letterSpacing: "-0.04em",
                 lineHeight: 1.15,
               }}
@@ -577,7 +690,7 @@ function TrainingPaywall() {
             style={{
               textAlign: "center",
               fontSize: 15,
-              color: "#64748b",
+              color: pw.textMuted,
               maxWidth: 480,
               margin: "0 auto 36px",
               lineHeight: 1.6,
@@ -601,7 +714,7 @@ function TrainingPaywall() {
               fontWeight: 700,
               textTransform: "uppercase",
               letterSpacing: "0.1em",
-              color: "#94a3b8",
+              color: pw.textSubtle,
               textAlign: "center",
               marginBottom: 20,
             }}
@@ -612,9 +725,9 @@ function TrainingPaywall() {
           {/* Mock browser chrome */}
           <div
             style={{
-              background: "#fff",
+              background: pw.surface,
               borderRadius: 20,
-              border: "1px solid #e2e8f0",
+              border: `1px solid ${pw.border}`,
               boxShadow:
                 "0 24px 80px rgba(0,0,0,0.10), 0 4px 16px rgba(0,0,0,0.06)",
               overflow: "hidden",
@@ -624,8 +737,8 @@ function TrainingPaywall() {
             <div
               style={{
                 padding: "12px 20px",
-                background: "#f8fafc",
-                borderBottom: "1px solid #e2e8f0",
+                background: pw.surfaceAlt,
+                borderBottom: `1px solid ${pw.border}`,
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
@@ -648,9 +761,9 @@ function TrainingPaywall() {
                 style={{
                   flex: 1,
                   height: 26,
-                  background: "#fff",
+                  background: pw.surface,
                   borderRadius: 6,
-                  border: "1px solid #e2e8f0",
+                  border: `1px solid ${pw.border}`,
                   display: "flex",
                   alignItems: "center",
                   paddingLeft: 10,
@@ -658,8 +771,8 @@ function TrainingPaywall() {
                 }}
               >
                 <Shield size={10} style={{ color: "#22c55e" }} />
-                <span style={{ fontSize: 11, color: "#94a3b8" }}>
-                  app.resosyncer.com/training
+                <span style={{ fontSize: 11, color: pw.textSubtle }}>
+                  app.ryzent.co/training
                 </span>
               </div>
             </div>
@@ -668,8 +781,8 @@ function TrainingPaywall() {
             <div
               style={{
                 padding: "14px 24px",
-                background: "#fff",
-                borderBottom: "1px solid #f1f5f9",
+                background: pw.surface,
+                borderBottom: `1px solid ${pw.border}`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
@@ -691,11 +804,11 @@ function TrainingPaywall() {
                 </div>
                 <div>
                   <div
-                    style={{ fontWeight: 800, fontSize: 14, color: "#0f172a" }}
+                    style={{ fontWeight: 800, fontSize: 14, color: pw.text }}
                   >
                     Courses
                   </div>
-                  <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                  <div style={{ fontSize: 11, color: pw.textSubtle }}>
                     6 active courses
                   </div>
                 </div>
@@ -706,8 +819,8 @@ function TrainingPaywall() {
                   style={{
                     height: 34,
                     width: 160,
-                    background: "#f8fafc",
-                    border: "1px solid #e2e8f0",
+                    background: pw.surfaceAlt,
+                    border: `1px solid ${pw.border}`,
                     borderRadius: 10,
                     display: "flex",
                     alignItems: "center",
@@ -716,7 +829,7 @@ function TrainingPaywall() {
                   }}
                 >
                   <Search size={12} style={{ color: "#94a3b8" }} />
-                  <span style={{ fontSize: 12, color: "#cbd5e1" }}>
+                  <span style={{ fontSize: 12, color: dark ? "#6b7280" : "#cbd5e1" }}>
                     Search courses…
                   </span>
                 </div>
@@ -742,10 +855,10 @@ function TrainingPaywall() {
             </div>
 
             {/* Mock stats row */}
-            <div style={{ padding: "16px 24px 0", background: "#fff" }}>
+            <div style={{ padding: "16px 24px 0", background: pw.surface }}>
               <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
                 {[
-                  { label: "Total", value: "6", color: "#0f172a" },
+                  { label: "Total", value: "6", color: dark ? pw.text : "#0f172a" },
                   { label: "Beginner", value: "2", color: "#10b981" },
                   { label: "Intermediate", value: "2", color: "#f59e0b" },
                   { label: "Advanced", value: "2", color: "#ef4444" },
@@ -757,8 +870,8 @@ function TrainingPaywall() {
                       alignItems: "baseline",
                       gap: 6,
                       padding: "8px 14px",
-                      background: "#f8fafc",
-                      border: "1px solid #e2e8f0",
+                      background: pw.surfaceAlt,
+                      border: `1px solid ${pw.border}`,
                       borderRadius: 10,
                     }}
                   >
@@ -767,7 +880,7 @@ function TrainingPaywall() {
                     >
                       {s.value}
                     </span>
-                    <span style={{ fontSize: 11, color: "#94a3b8" }}>
+                    <span style={{ fontSize: 11, color: pw.textSubtle }}>
                       {s.label}
                     </span>
                   </div>
@@ -796,8 +909,8 @@ function TrainingPaywall() {
                             : ""
                     }
                     style={{
-                      background: "#fff",
-                      border: "1px solid #e2e8f0",
+                      background: pw.surface,
+                      border: `1px solid ${pw.border}`,
                       borderRadius: 14,
                       overflow: "hidden",
                       opacity: i >= 3 ? 0.5 : 1,
@@ -809,7 +922,7 @@ function TrainingPaywall() {
                         style={{
                           fontWeight: 700,
                           fontSize: 12,
-                          color: "#0f172a",
+                          color: pw.text,
                           marginBottom: 6,
                           lineHeight: 1.3,
                         }}
@@ -825,8 +938,8 @@ function TrainingPaywall() {
                             fontWeight: 700,
                             padding: "2px 7px",
                             borderRadius: 99,
-                            background: "#f1f5f9",
-                            color: "#475569",
+                            background: pw.surfaceMuted,
+                            color: dark ? "#cbd5e1" : "#475569",
                           }}
                         >
                           {c.category}
@@ -839,16 +952,28 @@ function TrainingPaywall() {
                             borderRadius: 99,
                             background:
                               c.difficulty === "Advanced"
-                                ? "#fef2f2"
+                                ? dark
+                                  ? "rgba(239,68,68,0.18)"
+                                  : "#fef2f2"
                                 : c.difficulty === "Intermediate"
-                                  ? "#fffbeb"
-                                  : "#f0fdf4",
+                                  ? dark
+                                    ? "rgba(245,158,11,0.2)"
+                                    : "#fffbeb"
+                                  : dark
+                                    ? "rgba(16,185,129,0.18)"
+                                    : "#f0fdf4",
                             color:
                               c.difficulty === "Advanced"
-                                ? "#dc2626"
+                                ? dark
+                                  ? "#fca5a5"
+                                  : "#dc2626"
                                 : c.difficulty === "Intermediate"
-                                  ? "#d97706"
-                                  : "#16a34a",
+                                  ? dark
+                                    ? "#fcd34d"
+                                    : "#d97706"
+                                  : dark
+                                    ? "#6ee7b7"
+                                    : "#16a34a",
                           }}
                         >
                           {c.difficulty}
@@ -857,7 +982,7 @@ function TrainingPaywall() {
                       <div
                         style={{
                           fontSize: 10,
-                          color: "#94a3b8",
+                          color: pw.textSubtle,
                           display: "flex",
                           gap: 10,
                           marginBottom: 10,
@@ -903,8 +1028,7 @@ function TrainingPaywall() {
               left: 0,
               right: 0,
               height: "45%",
-              background:
-                "linear-gradient(to bottom, rgba(248,250,252,0) 0%, rgba(248,250,252,0.85) 40%, rgba(248,250,252,1) 100%)",
+              background: pw.lockOverlay,
               borderRadius: "0 0 20px 20px",
               display: "flex",
               alignItems: "flex-end",
@@ -919,13 +1043,19 @@ function TrainingPaywall() {
                 gap: 8,
                 padding: "8px 20px",
                 borderRadius: 99,
-                background: "#fff",
-                border: "1px solid #e2e8f0",
+                background: pw.surface,
+                border: `1px solid ${pw.border}`,
                 boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
               }}
             >
               <Lock size={13} style={{ color: "#6366f1" }} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: dark ? "#cbd5e1" : "#475569",
+                }}
+              >
                 Upgrade to access your training dashboard
               </span>
             </div>
@@ -940,7 +1070,7 @@ function TrainingPaywall() {
               fontWeight: 700,
               textTransform: "uppercase",
               letterSpacing: "0.1em",
-              color: "#94a3b8",
+              color: pw.textSubtle,
               textAlign: "center",
               marginBottom: 32,
             }}
@@ -959,8 +1089,8 @@ function TrainingPaywall() {
                 key={i}
                 className="feature-card"
                 style={{
-                  background: "#fff",
-                  border: "1px solid #e2e8f0",
+                  background: pw.surface,
+                  border: `1px solid ${pw.border}`,
                   borderRadius: 16,
                   padding: "20px 22px",
                   display: "flex",
@@ -975,7 +1105,9 @@ function TrainingPaywall() {
                     height: 40,
                     borderRadius: 12,
                     flexShrink: 0,
-                    background: "linear-gradient(135deg, #eef2ff, #e0e7ff)",
+                    background: dark
+                      ? "linear-gradient(135deg, #252736, #202233)"
+                      : "linear-gradient(135deg, #eef2ff, #e0e7ff)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -989,14 +1121,18 @@ function TrainingPaywall() {
                     style={{
                       fontWeight: 700,
                       fontSize: 14,
-                      color: "#0f172a",
+                      color: pw.text,
                       marginBottom: 4,
                     }}
                   >
                     {f.title}
                   </div>
                   <div
-                    style={{ fontSize: 13, color: "#64748b", lineHeight: 1.5 }}
+                    style={{
+                      fontSize: 13,
+                      color: pw.textMuted,
+                      lineHeight: 1.5,
+                    }}
                   >
                     {f.desc}
                   </div>
@@ -1094,9 +1230,9 @@ function TrainingPaywall() {
                   gap: 10,
                   padding: "14px 32px",
                   borderRadius: 14,
-                  border: "none",
-                  background: "#fff",
-                  color: "#0f172a",
+                  border: dark ? `1px solid ${pw.border}` : "none",
+                  background: dark ? pw.surfaceMuted : "#fff",
+                  color: dark ? pw.text : "#0f172a",
                   fontSize: 15,
                   fontWeight: 700,
                   cursor: "pointer",
@@ -1123,6 +1259,7 @@ function TrainingPaywall() {
 
 // ── Document Viewer Modal ─────────────────────────────────────────────────────
 function DocumentViewerModal({ material, onClose }) {
+  const dark = useDarkThemeMode();
   const [url, setUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -1178,12 +1315,23 @@ function DocumentViewerModal({ material, onClose }) {
       footer={null}
       width={isImage(mime) ? 760 : isPDF(mime) ? 900 : 600}
       destroyOnClose
-      styles={{ body: { padding: 0 } }}
+      rootClassName={dark ? "training-dark" : undefined}
+      styles={{
+        body: { padding: 0, background: dark ? "#1a1b1f" : "#ffffff" },
+        content: {
+          background: dark ? "#1a1b1f" : "#ffffff",
+          border: dark ? "1px solid #2a2b31" : "1px solid #e2e8f0",
+          borderRadius: 16,
+          overflow: "hidden",
+        },
+      }}
       style={{ top: 24 }}
       title={null}
       closable={false}
     >
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-white rounded-t-2xl">
+      <div
+        className={`flex items-center justify-between px-5 py-3.5 border-b rounded-t-2xl ${dark ? "border-[#2a2b31] bg-[#1a1b1f]" : "border-slate-100 bg-white"}`}
+      >
         <div className="flex items-center gap-3 min-w-0">
           <div
             className={`w-9 h-9 rounded-xl ${ft.bc} flex items-center justify-center shrink-0`}
@@ -1243,7 +1391,7 @@ function DocumentViewerModal({ material, onClose }) {
         </div>
       </div>
       <div
-        className="bg-slate-50 rounded-b-2xl overflow-hidden"
+        className={`rounded-b-2xl overflow-hidden ${dark ? "bg-[#17181c]" : "bg-slate-50"}`}
         style={{ minHeight: 400 }}
       >
         {loading && (
@@ -1282,7 +1430,7 @@ function DocumentViewerModal({ material, onClose }) {
                 src={url}
                 title={material?.title}
                 className="w-full border-0"
-                style={{ height: "75vh" }}
+                style={{ height: "75vh", background: dark ? "#17181c" : "#f8fafc" }}
                 onError={() => setError("PDF preview failed.")}
               />
             )}
@@ -1503,6 +1651,7 @@ function emptyQuestion() {
 
 // ── Quiz Editor ───────────────────────────────────────────────────────────────
 function QuizEditor({ quiz, onChange, onRegenerate, generating, title }) {
+  const dark = useDarkThemeMode();
   const hasQuestions = !!quiz?.questions?.length;
 
   const startManual = () => onChange(() => ({ questions: [emptyQuestion()] }));
@@ -1520,9 +1669,11 @@ function QuizEditor({ quiz, onChange, onRegenerate, generating, title }) {
 
   if (!hasQuestions) {
     return (
-      <div className="border-2 border-dashed border-slate-200 rounded-2xl p-10 text-center">
+      <div
+        className={`border-2 border-dashed rounded-2xl p-10 text-center ${dark ? "border-[#2a2b31] bg-[#17181c]" : "border-slate-200"}`}
+      >
         <FileQuestion size={40} className="mx-auto text-slate-300 mb-3" />
-        <p className="font-semibold text-slate-700 text-lg mb-1">No quiz yet</p>
+        <p className={`font-semibold text-lg mb-1 ${dark ? "text-slate-100" : "text-slate-700"}`}>No quiz yet</p>
         <p className="text-sm text-slate-400 mb-6">
           Choose how you'd like to create this quiz
         </p>
@@ -1542,7 +1693,7 @@ function QuizEditor({ quiz, onChange, onRegenerate, generating, title }) {
           </button>
           <button
             onClick={startManual}
-            className="flex-1 flex flex-col items-center gap-2 px-4 py-4 bg-white border-2 border-slate-200 hover:border-slate-300 text-slate-700 rounded-xl transition-all"
+            className={`flex-1 flex flex-col items-center gap-2 px-4 py-4 border-2 rounded-xl transition-all ${dark ? "bg-[#1a1b1f] border-[#2a2b31] hover:border-[#3b3d46] text-slate-100" : "bg-white border-slate-200 hover:border-slate-300 text-slate-700"}`}
           >
             <PenLine size={20} />
             <span className="text-[13px] font-bold">Manual</span>
@@ -1559,7 +1710,7 @@ function QuizEditor({ quiz, onChange, onRegenerate, generating, title }) {
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between mb-1">
         <div>
-          <p className="text-sm font-bold text-slate-800">{title}</p>
+          <p className={`text-sm font-bold ${dark ? "text-slate-100" : "text-slate-800"}`}>{title}</p>
           <p className="text-xs text-slate-400 mt-0.5">
             {quiz.questions?.length || 0} questions — click circles to set
             correct answer
@@ -1568,14 +1719,14 @@ function QuizEditor({ quiz, onChange, onRegenerate, generating, title }) {
         <div className="flex items-center gap-2">
           <button
             onClick={addQuestion}
-            className="flex items-center gap-1.5 px-3 h-8 border border-emerald-200 bg-emerald-50 text-emerald-600 text-xs font-semibold rounded-lg hover:bg-emerald-100 transition-all"
+            className={`flex items-center gap-1.5 px-3 h-8 border text-xs font-semibold rounded-lg transition-all ${dark ? "border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/50" : "border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100"}`}
           >
             <Plus size={12} /> Add Question
           </button>
           <button
             onClick={onRegenerate}
             disabled={generating}
-            className="flex items-center gap-1.5 px-3 h-8 border border-indigo-200 bg-indigo-50 text-indigo-600 text-xs font-semibold rounded-lg hover:bg-indigo-100 transition-all disabled:opacity-40"
+            className={`flex items-center gap-1.5 px-3 h-8 border text-xs font-semibold rounded-lg transition-all disabled:opacity-40 ${dark ? "border-indigo-700/60 bg-indigo-950/40 text-indigo-300 hover:bg-indigo-900/50" : "border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100"}`}
           >
             {generating ? (
               <Spin size="small" />
@@ -1591,7 +1742,7 @@ function QuizEditor({ quiz, onChange, onRegenerate, generating, title }) {
         {(quiz.questions || []).map((q, qi) => (
           <div
             key={qi}
-            className="border border-slate-200 rounded-xl p-4 bg-white shadow-sm"
+            className={`border rounded-xl p-4 shadow-sm ${dark ? "border-[#2a2b31] bg-[#1a1b1f]" : "border-slate-200 bg-white"}`}
           >
             <div className="flex items-start gap-2 mb-3">
               <span className="w-6 h-6 rounded-lg bg-slate-900 text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
@@ -1608,7 +1759,7 @@ function QuizEditor({ quiz, onChange, onRegenerate, generating, title }) {
                   }))
                 }
                 placeholder="Enter your question here…"
-                className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-[13px] font-semibold text-slate-800 outline-none focus:border-indigo-400 transition-all"
+                className={`flex-1 border rounded-lg px-3 py-1.5 text-[13px] font-semibold outline-none focus:border-indigo-400 transition-all ${dark ? "border-[#2a2b31] bg-[#17181c] text-slate-100" : "border-slate-200 text-slate-800"}`}
               />
               <button
                 onClick={() => removeQuestion(qi)}
@@ -1621,7 +1772,15 @@ function QuizEditor({ quiz, onChange, onRegenerate, generating, title }) {
               {(q.options || []).map((opt, oi) => (
                 <div
                   key={oi}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-[12px] font-medium transition-all ${q.correct_index === oi ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-[12px] font-medium transition-all ${
+                    q.correct_index === oi
+                      ? dark
+                        ? "border-emerald-700/60 bg-emerald-950/35 text-emerald-300"
+                        : "border-emerald-300 bg-emerald-50 text-emerald-700"
+                      : dark
+                        ? "border-[#2a2b31] bg-[#17181c] text-slate-300"
+                        : "border-slate-200 bg-slate-50 text-slate-600"
+                  }`}
                 >
                   <button
                     onClick={() =>
@@ -1635,9 +1794,9 @@ function QuizEditor({ quiz, onChange, onRegenerate, generating, title }) {
                     className="shrink-0"
                   >
                     {q.correct_index === oi ? (
-                      <CheckCircle size={14} className="text-emerald-500" />
+                      <CheckCircle size={14} className={dark ? "text-emerald-300" : "text-emerald-500"} />
                     ) : (
-                      <Circle size={14} className="text-slate-300" />
+                      <Circle size={14} className={dark ? "text-slate-500" : "text-slate-300"} />
                     )}
                   </button>
                   <input
@@ -1674,13 +1833,17 @@ function QuizEditor({ quiz, onChange, onRegenerate, generating, title }) {
                 }))
               }
               placeholder="Explanation (optional) — shown after answering"
-              className="w-full border border-dashed border-slate-200 rounded-lg px-3 py-1.5 text-[11px] text-slate-400 outline-none focus:border-indigo-300 transition-all mt-1"
+              className={`w-full border border-dashed rounded-lg px-3 py-1.5 text-[11px] outline-none focus:border-indigo-300 transition-all mt-1 ${dark ? "border-[#2a2b31] bg-[#17181c] text-slate-300" : "border-slate-200 text-slate-400"}`}
             />
           </div>
         ))}
         <button
           onClick={addQuestion}
-          className="flex items-center justify-center gap-2 border-2 border-dashed border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50 rounded-xl py-3 text-[13px] font-semibold text-slate-400 hover:text-indigo-500 transition-all"
+          className={`flex items-center justify-center gap-2 border-2 border-dashed rounded-xl py-3 text-[13px] font-semibold transition-all ${
+            dark
+              ? "border-[#2a2b31] hover:border-indigo-700 hover:bg-indigo-950/30 text-slate-400 hover:text-indigo-300"
+              : "border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50 text-slate-400 hover:text-indigo-500"
+          }`}
         >
           <PlusCircle size={15} /> Add Question
         </button>
@@ -1806,6 +1969,7 @@ function CourseDetailView({
   onBack,
   onUpdate,
 }) {
+  const dark = useDarkThemeMode();
   const [modules, setModules] = useState([]);
   const [moduleQuizzes, setModuleQuizzes] = useState({});
   const [finalQuiz, setFinalQuiz] = useState(null);
@@ -2017,10 +2181,10 @@ function CourseDetailView({
   if (loadingCourse)
     return (
       <div
-        className="min-h-screen bg-[#f8fafc]"
+        className={`training-page training-scope min-h-screen ${dark ? "training-dark bg-[#141416]" : "bg-[#f8fafc]"}`}
         style={{ fontFamily: "'DM Sans', sans-serif" }}
       >
-        <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&display=swap');*{font-family:'DM Sans',sans-serif!important}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.animate-pulse{animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}`}</style>
+        <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&display=swap');*{font-family:'DM Sans',sans-serif!important}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.animate-pulse{animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}${trainingDarkCss}`}</style>
         <header className="bg-white border-b border-slate-100 sticky top-0 z-40 px-6 h-[60px] flex items-center justify-between">
           <div className="flex items-center gap-4">
             <SkeletonPulse className="h-4 w-24" />
@@ -2039,10 +2203,10 @@ function CourseDetailView({
 
   return (
     <div
-      className="min-h-screen bg-[#f8fafc]"
+      className={`training-page training-scope min-h-screen ${dark ? "training-dark bg-[#141416]" : "bg-[#f8fafc]"}`}
       style={{ fontFamily: "'DM Sans', sans-serif" }}
     >
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&display=swap');*{font-family:'DM Sans',sans-serif!important}.ant-select-selector{border-radius:10px!important;border-color:#e2e8f0!important}.ant-modal-content{border-radius:16px!important;padding:0!important;overflow:hidden!important}.ant-modal-header{padding:20px 24px 0!important;border-bottom:none!important}.ant-modal-body{padding:0!important}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.animate-pulse{animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&display=swap');*{font-family:'DM Sans',sans-serif!important}.ant-select-selector{border-radius:10px!important;border-color:#e2e8f0!important}.ant-modal-content{border-radius:16px!important;padding:0!important;overflow:hidden!important}.ant-modal-header{padding:20px 24px 0!important;border-bottom:none!important}.ant-modal-body{padding:0!important}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.animate-pulse{animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}${trainingDarkCss}`}</style>
 
       {viewingMaterial && (
         <DocumentViewerModal
@@ -2074,7 +2238,16 @@ function CourseDetailView({
               const d = DIFF_META[course.difficulty] || DIFF_META.Beginner;
               return (
                 <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${d.color} ${d.bg} ${d.border}`}
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${dark ? "" : `${d.color} ${d.bg} ${d.border}`}`}
+                  style={
+                    dark
+                      ? {
+                          color: d.hex,
+                          background: `${d.hex}1f`,
+                          borderColor: `${d.hex}55`,
+                        }
+                      : undefined
+                  }
                 >
                   {course.difficulty}
                 </span>
@@ -2085,7 +2258,7 @@ function CourseDetailView({
         <button
           onClick={handleSave}
           disabled={saving}
-          className="flex items-center gap-2 px-5 h-9 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white text-[13px] font-bold rounded-xl transition-all"
+          className={`flex items-center gap-2 px-5 h-9 disabled:opacity-40 text-[13px] font-bold rounded-xl transition-all ${dark ? "bg-[#ffffff] text-[#111111] hover:bg-[#e5e7eb]" : "bg-slate-900 hover:bg-slate-800 text-white"}`}
         >
           {saving ? (
             <>
@@ -2119,7 +2292,15 @@ function CourseDetailView({
               <button
                 key={i}
                 onClick={() => setActiveStep(i)}
-                className={`w-full text-left px-5 py-3 flex items-center gap-3 transition-all border-l-2 ${active ? "border-l-slate-900 bg-slate-50" : "border-l-transparent hover:bg-slate-50/60"}`}
+                className={`w-full text-left px-5 py-3 flex items-center gap-3 transition-all border-l-2 ${
+                  active
+                    ? dark
+                      ? "border-l-[#f3f4f6] bg-[#202127]"
+                      : "border-l-slate-900 bg-slate-50"
+                    : dark
+                      ? "border-l-transparent hover:bg-[#202127]"
+                      : "border-l-transparent hover:bg-slate-50/60"
+                }`}
               >
                 <div
                   className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-all ${active ? "bg-slate-900 text-white" : hasContent && !isModules ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : "bg-slate-100 text-slate-400"}`}
@@ -2654,6 +2835,7 @@ function CourseDetailView({
 
 // ── Courses List View ─────────────────────────────────────────────────────────
 function CoursesListView({ tenantId, allMaterials, onOpenCourse }) {
+  const dark = useDarkThemeMode();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -2761,10 +2943,10 @@ function CoursesListView({ tenantId, allMaterials, onOpenCourse }) {
 
   return (
     <div
-      className="min-h-screen bg-[#f8fafc]"
+      className={`training-page training-scope min-h-screen ${dark ? "training-dark bg-[#141416]" : "bg-[#f8fafc]"}`}
       style={{ fontFamily: "'DM Sans', sans-serif" }}
     >
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&display=swap');*{font-family:'DM Sans',sans-serif!important}.ant-select-selector{border-radius:10px!important;border-color:#e2e8f0!important}.ant-modal-content{border-radius:16px!important;padding:0!important;overflow:hidden!important}.ant-modal-header{padding:20px 24px 0!important;border-bottom:none!important}.ant-modal-body{padding:16px 24px 24px!important}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.animate-pulse{animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&display=swap');*{font-family:'DM Sans',sans-serif!important}.ant-select-selector{border-radius:10px!important;border-color:#e2e8f0!important}.ant-modal-content{border-radius:16px!important;padding:0!important;overflow:hidden!important}.ant-modal-header{padding:20px 24px 0!important;border-bottom:none!important}.ant-modal-body{padding:16px 24px 24px!important}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.animate-pulse{animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}${trainingDarkCss}`}</style>
 
       <header className="bg-white border-b border-slate-100 sticky top-0 z-40 px-6 h-[60px] flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -2934,7 +3116,16 @@ function CoursesListView({ tenantId, allMaterials, onOpenCourse }) {
                         </div>
                         <div className="flex flex-wrap gap-1.5 mb-4">
                           <span
-                            className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full border ${cm.color} ${cm.bg} ${cm.border}`}
+                            className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full border ${dark ? "" : `${cm.color} ${cm.bg} ${cm.border}`}`}
+                            style={
+                              dark
+                                ? {
+                                    color: cm.hex,
+                                    background: `${cm.hex}1f`,
+                                    borderColor: `${cm.hex}55`,
+                                  }
+                                : undefined
+                            }
                           >
                             <span
                               className="w-1.5 h-1.5 rounded-full"
@@ -2943,7 +3134,16 @@ function CoursesListView({ tenantId, allMaterials, onOpenCourse }) {
                             {course.category}
                           </span>
                           <span
-                            className={`inline-flex text-[10px] font-bold px-2.5 py-1 rounded-full border ${dm.color} ${dm.bg} ${dm.border}`}
+                            className={`inline-flex text-[10px] font-bold px-2.5 py-1 rounded-full border ${dark ? "" : `${dm.color} ${dm.bg} ${dm.border}`}`}
+                            style={
+                              dark
+                                ? {
+                                    color: dm.hex,
+                                    background: `${dm.hex}1f`,
+                                    borderColor: `${dm.hex}55`,
+                                  }
+                                : undefined
+                            }
                           >
                             {course.difficulty}
                           </span>
@@ -3002,7 +3202,7 @@ function CoursesListView({ tenantId, allMaterials, onOpenCourse }) {
                   setForm((f) => ({ ...f, title: e.target.value }))
                 }
                 placeholder="e.g. Security Awareness Training"
-                className="flex-1 border border-slate-200 rounded-xl px-3.5 py-2.5 text-[13px] outline-none focus:border-indigo-400 transition-all"
+                className={`flex-1 border rounded-xl px-3.5 py-2.5 text-[13px] outline-none focus:border-indigo-400 transition-all ${dark ? "bg-[#17181c] text-slate-100 border-[#2a2b31] placeholder:text-slate-400" : "border-slate-200"}`}
               />
               <button
                 onClick={generateOutline}
@@ -3030,7 +3230,7 @@ function CoursesListView({ tenantId, allMaterials, onOpenCourse }) {
               }
               placeholder="What will learners achieve?"
               rows={3}
-              className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-[13px] outline-none focus:border-indigo-400 transition-all resize-none"
+              className={`w-full border rounded-xl px-3.5 py-2.5 text-[13px] outline-none focus:border-indigo-400 transition-all resize-none ${dark ? "bg-[#17181c] text-slate-100 border-[#2a2b31] placeholder:text-slate-400" : "border-slate-200"}`}
             />
           </div>
           <div className="flex gap-3">
@@ -3100,6 +3300,7 @@ function CoursesListView({ tenantId, allMaterials, onOpenCourse }) {
 
 // ── ROOT EXPORT ───────────────────────────────────────────────────────────────
 export default function AdminTrainingCourses() {
+  const dark = useDarkThemeMode();
   const [tenantId, setTenantId] = useState(undefined);
   const [orgPlan, setOrgPlan] = useState(null);
   const [allMaterials, setAllMats] = useState([]);
@@ -3162,10 +3363,10 @@ export default function AdminTrainingCourses() {
   if (tenantId === undefined)
     return (
       <div
-        className="min-h-screen bg-[#f8fafc]"
+        className={`training-page training-scope min-h-screen ${dark ? "training-dark bg-[#141416]" : "bg-[#f8fafc]"}`}
         style={{ fontFamily: "'DM Sans', sans-serif" }}
       >
-        <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&display=swap');*{font-family:'DM Sans',sans-serif!important}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.animate-pulse{animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}`}</style>
+        <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&display=swap');*{font-family:'DM Sans',sans-serif!important}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.animate-pulse{animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}${trainingDarkCss}`}</style>
         <header className="bg-white border-b border-slate-100 px-6 h-[60px] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <SkeletonPulse className="w-8 h-8 rounded-xl" />
@@ -3187,7 +3388,10 @@ export default function AdminTrainingCourses() {
   // Auth error
   if (tenantId === null)
     return (
-      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center">
+      <div
+        className={`training-page training-scope min-h-screen flex items-center justify-center ${dark ? "training-dark bg-[#141416]" : "bg-[#f8fafc]"}`}
+      >
+        <style>{`${trainingDarkCss}`}</style>
         <div className="text-center max-w-sm">
           <div className="w-14 h-14 rounded-2xl bg-red-50 border border-red-200 flex items-center justify-center mx-auto mb-4">
             <AlertCircle size={24} className="text-red-500" />

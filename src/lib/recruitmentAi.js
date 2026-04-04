@@ -1,4 +1,5 @@
-const GROQ_API_KEY = import.meta.env.VITE_GROK_API_KEY;
+const GROQ_API_KEY =
+  import.meta.env.VITE_GROQ_API_KEY || import.meta.env.VITE_GROK_API_KEY;
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const PUBLIC_DOMAIN =
   import.meta.env.VITE_PUBLIC_DOMAIN || window.location.origin;
@@ -55,7 +56,7 @@ function readAsArrayBuffer(file) {
 }
 
 function cleanJson(raw) {
-  return raw
+  return String(raw || "")
     .trim()
     .replace(/^```json\s*/i, "")
     .replace(/^```\s*/i, "")
@@ -63,20 +64,39 @@ function cleanJson(raw) {
     .trim();
 }
 
+function coerceToSingleObject(parsed) {
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+    return parsed;
+  }
+
+  if (Array.isArray(parsed)) {
+    const firstObject = parsed.find(
+      (item) => item && typeof item === "object" && !Array.isArray(item),
+    );
+    if (firstObject) return firstObject;
+  }
+
+  throw new Error("AI returned JSON, but not as a single object.");
+}
+
 function parseJsonResponse(raw) {
   const cleaned = cleanJson(raw);
   try {
-    return JSON.parse(cleaned);
+    return coerceToSingleObject(JSON.parse(cleaned));
   } catch {
-    const match = cleaned.match(/\{[\s\S]*\}/);
-    if (match) return JSON.parse(match[0]);
+    const objectMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (objectMatch) return coerceToSingleObject(JSON.parse(objectMatch[0]));
+
+    const arrayMatch = cleaned.match(/\[[\s\S]*\]/);
+    if (arrayMatch) return coerceToSingleObject(JSON.parse(arrayMatch[0]));
+
     throw new Error("AI returned invalid JSON.");
   }
 }
 
 async function callGroqJson(systemPrompt, userContent) {
   if (!GROQ_API_KEY) {
-    throw new Error("VITE_GROK_API_KEY not set in .env");
+    throw new Error("VITE_GROQ_API_KEY not set in environment");
   }
 
   const res = await fetch(GROQ_URL, {
@@ -98,7 +118,13 @@ async function callGroqJson(systemPrompt, userContent) {
 
   const payload = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(payload?.error?.message || "Groq API error");
+    const apiMessage = payload?.error?.message || "Groq API error";
+    if (/Cannot coerce the result to a single JSON object/i.test(apiMessage)) {
+      throw new Error(
+        "The AI provider returned JSON in an unexpected shape. Please try again.",
+      );
+    }
+    throw new Error(apiMessage);
   }
 
   return parseJsonResponse(payload?.choices?.[0]?.message?.content || "");
@@ -221,8 +247,12 @@ Rules:
   };
 }
 
-export function createAiInterviewLink(applicantId) {
-  return `${PUBLIC_DOMAIN}/ai-interview/${applicantId}`;
+export function createAiInterviewLink(accessToken) {
+  return `${PUBLIC_DOMAIN}/ai-interview/${accessToken}`;
+}
+
+export function createApplicationTrackingLink(accessToken) {
+  return `${PUBLIC_DOMAIN}/track/${accessToken}`;
 }
 
 export function buildScreeningNote(screening) {
