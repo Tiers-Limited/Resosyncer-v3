@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+﻿import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Button,
   message,
@@ -8,7 +8,6 @@ import {
   Drawer,
   Modal,
   Popover,
-  Skeleton,
   Switch,
   TimePicker,
 } from "antd";
@@ -42,6 +41,10 @@ import {
   Sparkles,
   Copy,
   Check,
+  Lock,
+  ArrowRight,
+  Zap,
+  ChevronRight,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
@@ -244,6 +247,638 @@ const getIsDarkTheme = () => {
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
+
+const normalizePlanTier = (planName) => {
+  const value = String(planName || "").trim().toLowerCase();
+  if (value.includes("free") || value.includes("starter")) return "starter";
+  if (value.includes("growth")) return "growth";
+  if (value.includes("pro")) return "pro";
+  if (value.includes("enterprise")) return "enterprise";
+  return "unknown";
+};
+
+const LeadsStarterPaywall = ({ dark = false }) => {
+  const colors = dark
+    ? {
+        page: "#141416",
+        header: "#1a1b1f",
+        panel: "#1a1b1f",
+        panelAlt: "#17181c",
+        panelMuted: "#202127",
+        border: "#2a2b31",
+        text: "#f3f4f6",
+        textMuted: "#9ca3af",
+        textSubtle: "#818897",
+        overlay: "linear-gradient(180deg, rgba(20,20,22,0) 0%, #1a1b1f 8%)",
+        proBadgeBg:
+          "linear-gradient(135deg, rgba(59,130,246,0.2) 0%, rgba(139,92,246,0.2) 100%)",
+        proBadgeBorder: "#4b4f61",
+      }
+    : {
+        page: "#f8fafc",
+        header: "#fff",
+        panel: "#fff",
+        panelAlt: "#f8fafc",
+        panelMuted: "#f1f5f9",
+        border: "#e2e8f0",
+        text: "#0f172a",
+        textMuted: "#64748b",
+        textSubtle: "#94a3b8",
+        overlay: "linear-gradient(180deg, rgba(255,255,255,0) 0%, #fff 8%)",
+        proBadgeBg: "linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%)",
+        proBadgeBorder: "#ddd6fe",
+      };
+
+  const features = [
+    {
+      icon: <Users size={16} />,
+      title: "Leads Pipeline",
+      desc: "Track prospects, status, follow-ups, close rate, and source in one place.",
+    },
+    {
+      icon: <BellOutlined style={{ fontSize: 16 }} />,
+      title: "Smart Follow-up Reminders",
+      desc: "Get notified when leads go cold so your team never misses outreach.",
+    },
+    {
+      icon: <Sparkles size={16} />,
+      title: "AI Lead Insights (Pro/Enterprise)",
+      desc: "Prioritized recommendations and suggested actions to close more deals.",
+    },
+    {
+      icon: <CheckCircleFilled style={{ fontSize: 16 }} />,
+      title: "Growth Plan Access",
+      desc: "Use Leads fully on Growth with manual workflow and no AI insights.",
+    },
+    {
+      icon: <RiseOutlined style={{ fontSize: 16 }} />,
+      title: "Performance Visibility",
+      desc: "See hot leads, average close %, and conversion trends across your pipeline.",
+    },
+    {
+      icon: <MessageCircle size={16} />,
+      title: "Team Coordination",
+      desc: "Capture notes, next steps, and ownership to keep sales activity aligned.",
+    },
+  ];
+
+  const mockLeads = [
+    {
+      name: "Brenna New Projects",
+      remarks: "Waiting to start",
+      followup: "03/14/2026",
+      status: { label: "Closed", color: "#10b981" },
+      source: "Upwork",
+      close: "100%",
+      added: "Mar 14, 26",
+    },
+    {
+      name: "Allison $ Websites",
+      remarks: "Waiting to start",
+      followup: "03/14/2026",
+      status: { label: "In Progress", color: "#3b82f6" },
+      source: "Upwork",
+      close: "100%",
+      added: "Mar 14, 26",
+    },
+    {
+      name: "tru_stu",
+      remarks: "Waiting for response",
+      followup: "02/03/2026",
+      status: { label: "In Progress", color: "#3b82f6" },
+      source: "Fiverr",
+      close: "100%",
+      added: "Jan 16, 26",
+    },
+  ];
+
+  return (
+    <div style={{ minHeight: "100vh", background: colors.page }}>
+      <div
+        style={{
+          background: colors.header,
+          borderBottom: `1px solid ${colors.border}`,
+          padding: "20px 28px",
+          marginBottom: 24,
+        }}
+      >
+        <h1
+          style={{
+            margin: "0 0 4px",
+            fontSize: 26,
+            fontWeight: 800,
+            color: colors.text,
+            letterSpacing: "-0.04em",
+            lineHeight: 1,
+          }}
+        >
+          Leads Pipeline
+        </h1>
+        <p style={{ margin: 0, color: colors.textMuted, fontSize: 13 }}>
+          Starter locked · Growth manual · Pro/Enterprise with AI insights
+        </p>
+      </div>
+
+      <div style={{ padding: "0 28px 40px" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: 12,
+            marginBottom: 24,
+            filter: "blur(6px)",
+            pointerEvents: "none",
+            userSelect: "none",
+            opacity: 0.45,
+          }}
+        >
+          {[
+            ["#3b82f6", "42", "Active Leads"],
+            ["#8b5cf6", "18", "In Progress"],
+            ["#10b981", "17", "Closed Deals"],
+            ["#f59e0b", "74%", "Avg Close %"],
+          ].map(([color, val, label]) => (
+            <div
+              key={label}
+              style={{
+                background: colors.panel,
+                border: `1px solid ${colors.border}`,
+                borderRadius: 14,
+                padding: "18px 20px",
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+              }}
+            >
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 12,
+                  background: `${color}15`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color,
+                }}
+              >
+                <Users size={18} />
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 26,
+                    fontWeight: 800,
+                    color: colors.text,
+                    lineHeight: 1,
+                  }}
+                >
+                  {val}
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: colors.textSubtle,
+                    marginTop: 3,
+                    fontWeight: 500,
+                  }}
+                >
+                  {label}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div
+          style={{
+            position: "relative",
+            background: colors.panel,
+            border: `1px solid ${colors.border}`,
+            borderRadius: 20,
+            overflow: "hidden",
+          }}
+        >
+          <div style={{ position: "relative" }}>
+            <div
+              style={{
+                filter: "blur(5px)",
+                pointerEvents: "none",
+                userSelect: "none",
+                opacity: 0.3,
+                borderBottom: `1px solid ${colors.border}`,
+                overflow: "hidden",
+                padding: "24px 24px 0",
+              }}
+            >
+              <div
+                style={{
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  marginBottom: 20,
+                }}
+              >
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "2fr 1.5fr 1fr 1fr 1fr 1fr 1fr",
+                    gap: 10,
+                    padding: "10px 14px",
+                    borderBottom: `1px solid ${colors.border}`,
+                    background: colors.panelAlt,
+                    color: colors.textSubtle,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  <span>Lead</span>
+                  <span>Remarks</span>
+                  <span>Last Followup</span>
+                  <span>Status</span>
+                  <span>Source</span>
+                  <span>Close %</span>
+                  <span>Added</span>
+                </div>
+                {mockLeads.map((lead, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "2fr 1.5fr 1fr 1fr 1fr 1fr 1fr",
+                      gap: 10,
+                      alignItems: "center",
+                      padding: "14px",
+                      borderBottom:
+                        i < mockLeads.length - 1
+                          ? `1px solid ${colors.border}`
+                          : "none",
+                      fontSize: 13,
+                      color: colors.text,
+                      background: i % 2 === 0 ? colors.panel : colors.panelAlt,
+                    }}
+                  >
+                    <span style={{ fontWeight: 700 }}>{lead.name}</span>
+                    <span
+                      style={{
+                        background: colors.panelMuted,
+                        borderRadius: 8,
+                        padding: "5px 8px",
+                        color: colors.textMuted,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {lead.remarks}
+                    </span>
+                    <span>{lead.followup}</span>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderRadius: 20,
+                        border: `1px solid ${lead.status.color}50`,
+                        color: lead.status.color,
+                        background: `${lead.status.color}15`,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        padding: "4px 8px",
+                        width: "fit-content",
+                      }}
+                    >
+                      {lead.status.label}
+                    </span>
+                    <span>{lead.source}</span>
+                    <span style={{ fontWeight: 700 }}>{lead.close}</span>
+                    <span style={{ color: colors.textMuted }}>{lead.added}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                zIndex: 10,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 7,
+                padding: "8px 18px",
+                background: colors.proBadgeBg,
+                border: `1px solid ${colors.proBadgeBorder}`,
+                borderRadius: 30,
+                backdropFilter: "blur(2px)",
+                boxShadow: "0 4px 16px rgba(99,102,241,0.15)",
+                whiteSpace: "nowrap",
+                marginTop: -80,
+              }}
+            >
+              <div
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <Lock size={11} color="#fff" />
+              </div>
+              <span
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
+                Locked Feature
+              </span>
+            </div>
+          </div>
+
+          <div
+            style={{
+              position: "relative",
+              padding: "48px 40px 44px",
+              marginTop: -230,
+              background: colors.overlay,
+            }}
+          >
+            <div style={{ textAlign: "center", marginBottom: 12 }}>
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: 30,
+                  fontWeight: 900,
+                  color: colors.text,
+                  letterSpacing: "-0.04em",
+                  lineHeight: 1.15,
+                }}
+              >
+                Track and close opportunities with
+                <br />
+                <span
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  a modern Leads pipeline
+                </span>
+              </h2>
+            </div>
+            <p
+              style={{
+                textAlign: "center",
+                fontSize: 15,
+                color: colors.textMuted,
+                maxWidth: 600,
+                margin: "0 auto 36px",
+                lineHeight: 1.6,
+              }}
+            >
+              Starter plan does not include Leads. Growth unlocks manual lead
+              management. Pro and Enterprise unlock full AI insights and AI
+              prioritization.
+            </p>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gap: 12,
+                maxWidth: 760,
+                margin: "0 auto 36px",
+              }}
+            >
+              {features.map((f, i) => (
+                <div
+                  key={i}
+                  style={{
+                    padding: "16px 18px",
+                    background: colors.panelAlt,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: 12,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 9,
+                      background: colors.panel,
+                      border: `1px solid ${colors.border}`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#3b82f6",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {f.icon}
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: colors.text,
+                        marginBottom: 3,
+                      }}
+                    >
+                      {f.title}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: colors.textMuted,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {f.desc}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div
+              style={{
+                maxWidth: 760,
+                margin: "0 auto 36px",
+                background: colors.panelAlt,
+                border: `1px solid ${colors.border}`,
+                borderRadius: 14,
+                padding: "20px 24px",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: colors.textSubtle,
+                  letterSpacing: "0.07em",
+                  marginBottom: 16,
+                }}
+              >
+                HOW IT WORKS
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                {[
+                  {
+                    label: "Capture Leads",
+                    sub: "Save source and details",
+                    color: "#3b82f6",
+                    icon: <Users size={14} />,
+                  },
+                  {
+                    label: "Manage Follow-ups",
+                    sub: "Track deadlines and remarks",
+                    color: "#6366f1",
+                    icon: <BellOutlined style={{ fontSize: 14 }} />,
+                  },
+                  {
+                    label: "Prioritize Deals",
+                    sub: "AI insights in Pro/Enterprise",
+                    color: "#8b5cf6",
+                    icon: <Sparkles size={14} />,
+                  },
+                  {
+                    label: "Close Faster",
+                    sub: "Focus on highest potential",
+                    color: "#10b981",
+                    icon: <RiseOutlined style={{ fontSize: 14 }} />,
+                  },
+                ].map((s, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      flex: 1,
+                      minWidth: 0,
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
+                      <div
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 12,
+                          background: `${s.color}12`,
+                          border: `1.5px solid ${s.color}30`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: s.color,
+                          margin: "0 auto 8px",
+                        }}
+                      >
+                        {s.icon}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color: colors.text,
+                          marginBottom: 2,
+                        }}
+                      >
+                        {s.label}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: colors.textSubtle,
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {s.sub}
+                      </div>
+                    </div>
+                    {i < 3 && (
+                      <div
+                        style={{
+                          flexShrink: 0,
+                          padding: "0 4px",
+                          color: dark ? "#4b5563" : "#d1d5db",
+                        }}
+                      >
+                        <ChevronRight size={16} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ textAlign: "center" }}>
+              <a
+                href="/subscription"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "14px 32px",
+                  background:
+                    "linear-gradient(135deg, #1e40af 0%, #7c3aed 100%)",
+                  color: "#fff",
+                  borderRadius: 12,
+                  fontWeight: 800,
+                  fontSize: 15,
+                  textDecoration: "none",
+                  letterSpacing: "-0.01em",
+                  boxShadow:
+                    "0 4px 24px rgba(99,102,241,0.35), 0 1px 3px rgba(0,0,0,0.1)",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                  e.currentTarget.style.boxShadow =
+                    "0 8px 32px rgba(99,102,241,0.45), 0 1px 3px rgba(0,0,0,0.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow =
+                    "0 4px 24px rgba(99,102,241,0.35), 0 1px 3px rgba(0,0,0,0.1)";
+                }}
+              >
+                <Zap size={16} fill="currentColor" />
+                Upgrade to unlock Leads
+                <ArrowRight size={16} />
+              </a>
+              <p
+                style={{
+                  margin: "12px 0 0",
+                  fontSize: 12,
+                  color: colors.textSubtle,
+                }}
+              >
+                Upgrade your plan to access Leads and unlock AI insights on Pro
+                and Enterprise.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 // ── CSS Variables approach ─────────────────────────────────────────────────
@@ -736,6 +1371,8 @@ const Leads = () => {
   const { profile } = useAuth();
   const [dark, setDark] = useState(getIsDarkTheme);
   const [tenantId, setTenantId] = useState(null);
+  const [orgPlan, setOrgPlan] = useState(null);
+  const [planLoading, setPlanLoading] = useState(true);
   const [leads, setLeads] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -750,6 +1387,9 @@ const Leads = () => {
 
   const [localEdits, setLocalEdits] = useState({});
   const saveTimers = useRef({});
+  const planTier = normalizePlanTier(orgPlan);
+  const isStarterPlan = planTier === "starter";
+  const leadsAiEnabled = planTier === "pro" || planTier === "enterprise";
 
   useEffect(() => {
     const syncTheme = () => setDark(getIsDarkTheme());
@@ -764,27 +1404,44 @@ const Leads = () => {
 
   useEffect(() => {
     const init = async () => {
+      setPlanLoading(true);
       try {
         const {
           data: { user },
         } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user) {
+          setPlanLoading(false);
+          return;
+        }
         const { data: p } = await supabase
           .from("profiles")
           .select("tenant_id")
           .eq("id", user.id)
           .single();
-        setTenantId(p?.tenant_id ?? null);
+        const tid = p?.tenant_id ?? null;
+        setTenantId(tid);
+        if (tid) {
+          const { data: org } = await supabase
+            .from("tenants")
+            .select("plan")
+            .eq("id", tid)
+            .single();
+          setOrgPlan(org?.plan ?? null);
+        } else {
+          setOrgPlan(null);
+        }
       } catch (e) {
         console.error(e);
+      } finally {
+        setPlanLoading(false);
       }
     };
     init();
   }, []);
 
   useEffect(() => {
-    if (tenantId) fetchLeads();
-  }, [tenantId, showArchived]);
+    if (tenantId && !isStarterPlan) fetchLeads();
+  }, [tenantId, showArchived, isStarterPlan]);
 
   useEffect(() => {
     const merged = leads.map((l) => ({ ...l, ...(localEdits[l.id] || {}) }));
@@ -980,6 +1637,22 @@ const Leads = () => {
     bg: dark ? pctDarkBg(pct) : pctBg(pct),
     border: dark ? pctDarkBd(pct) : pctBord(pct),
   });
+
+  if (planLoading) {
+    return (
+      <div
+        className={`leads-page${dark ? " dark" : ""}`}
+        style={{ minHeight: "100vh", background: "var(--bg-page)" }}
+      >
+        <style>{GLOBAL_CSS}</style>
+        <div style={{ height: "100%" }} />
+      </div>
+    );
+  }
+
+  if (isStarterPlan) {
+    return <LeadsStarterPaywall dark={dark} />;
+  }
 
   return (
     <div
@@ -1191,12 +1864,37 @@ const Leads = () => {
                     marginBottom: 18,
                   }}
                 >
-                  <Skeleton.Avatar active size={34} />
-                  <Skeleton
-                    active
-                    paragraph={{ rows: 1 }}
-                    style={{ flex: 1 }}
+                  <div
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 10,
+                      background: "var(--bg-muted)",
+                      border: "1px solid var(--border)",
+                      flexShrink: 0,
+                    }}
                   />
+                  <div style={{ flex: 1 }}>
+                    <div
+                      style={{
+                        height: 12,
+                        width: "55%",
+                        borderRadius: 6,
+                        background: "var(--bg-muted)",
+                        border: "1px solid var(--border)",
+                        marginBottom: 8,
+                      }}
+                    />
+                    <div
+                      style={{
+                        height: 10,
+                        width: "35%",
+                        borderRadius: 6,
+                        background: "var(--bg-subtle)",
+                        border: "1px solid var(--border)",
+                      }}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -1796,6 +2494,7 @@ const Leads = () => {
           profile={profile}
           tenantId={tenantId}
           dark={dark}
+          aiEnabled={leadsAiEnabled}
           onClose={() => {
             setDrawerOpen(false);
             setEditingLead(null);
@@ -1856,6 +2555,7 @@ const Leads = () => {
           tenantId={tenantId}
           leads={leads}
           dark={dark}
+          aiEnabled={leadsAiEnabled}
         />
       </Drawer>
     </div>
@@ -1863,7 +2563,7 @@ const Leads = () => {
 };
 
 // ── LeadForm ──────────────────────────────────────────────────────────────
-const LeadForm = ({ lead, profile, tenantId, dark, onClose }) => {
+const LeadForm = ({ lead, profile, tenantId, dark, onClose, aiEnabled = true }) => {
   const [form, setForm] = useState({
     name: lead?.name || "",
     status: lead?.status || "in_progress",
@@ -2307,6 +3007,7 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
       </div>
 
       {/* AI Panel */}
+      {aiEnabled ? (
       <div className="ai-panel">
         <div
           style={{
@@ -2492,6 +3193,14 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
           </p>
         )}
       </div>
+      ) : (
+        <div
+          className="ai-panel"
+          style={{ fontSize: 12, color: "var(--text-muted)", fontStyle: "italic" }}
+        >
+          AI insights are available on Pro and Enterprise plans.
+        </div>
+      )}
 
       {/* Save/Cancel */}
       <div
@@ -2533,7 +3242,7 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
 };
 
 // ── LeadsSettings ─────────────────────────────────────────────────────────
-const LeadsSettings = ({ profile, tenantId, leads, dark }) => {
+const LeadsSettings = ({ profile, tenantId, leads, dark, aiEnabled = true }) => {
   const [settings, setSettings] = useState({
     followup_reminders_enabled: false,
     reminder_days_overdue: 7,
@@ -2636,32 +3345,34 @@ const LeadsSettings = ({ profile, tenantId, leads, dark }) => {
       }
 
       let toNotify = overdue;
-      try {
-        const TRIAGE_SYSTEM = `You are a sales prioritization assistant. Given a list of overdue leads, decide which ones genuinely need a follow-up reminder. Skip leads that are clearly dead, very low priority, or where a reminder adds no value. Be selective. Respond ONLY with valid JSON: {"recommend": [<id>, ...]}`;
-        const raw = await groq(
-          TRIAGE_SYSTEM,
-          `Overdue leads:\n${JSON.stringify(
-            overdue.map((l) => ({
-              id: l.id,
-              name: l.name,
-              status: l.status,
-              closing_percentage: l.closing_percentage || 0,
-              remarks: l.remarks || "",
-              days_since_followup: l.last_followup_date
-                ? dayjs().diff(dayjs(l.last_followup_date), "day")
-                : null,
-            })),
-            null,
-            2,
-          )}`,
-        );
-        const json = JSON.parse(raw.replace(/```json|```/g, "").trim());
-        if (Array.isArray(json.recommend) && json.recommend.length > 0) {
-          const recommended = new Set(json.recommend);
-          toNotify = overdue.filter((l) => recommended.has(l.id));
+      if (aiEnabled) {
+        try {
+          const TRIAGE_SYSTEM = `You are a sales prioritization assistant. Given a list of overdue leads, decide which ones genuinely need a follow-up reminder. Skip leads that are clearly dead, very low priority, or where a reminder adds no value. Be selective. Respond ONLY with valid JSON: {"recommend": [<id>, ...]}`;
+          const raw = await groq(
+            TRIAGE_SYSTEM,
+            `Overdue leads:\n${JSON.stringify(
+              overdue.map((l) => ({
+                id: l.id,
+                name: l.name,
+                status: l.status,
+                closing_percentage: l.closing_percentage || 0,
+                remarks: l.remarks || "",
+                days_since_followup: l.last_followup_date
+                  ? dayjs().diff(dayjs(l.last_followup_date), "day")
+                  : null,
+              })),
+              null,
+              2,
+            )}`,
+          );
+          const json = JSON.parse(raw.replace(/```json|```/g, "").trim());
+          if (Array.isArray(json.recommend) && json.recommend.length > 0) {
+            const recommended = new Set(json.recommend);
+            toNotify = overdue.filter((l) => recommended.has(l.id));
+          }
+        } catch (e) {
+          console.warn("AI triage failed, using all overdue leads:", e);
         }
-      } catch (e) {
-        console.warn("AI triage failed, using all overdue leads:", e);
       }
 
       if (!toNotify.length) {
@@ -2673,7 +3384,7 @@ const LeadsSettings = ({ profile, tenantId, leads, dark }) => {
       }
 
       let aiSummary = "";
-      if (settings.reminder_include_ai_message) {
+      if (aiEnabled && settings.reminder_include_ai_message) {
         try {
           const SYSTEM = `You are a sales assistant. Write a brief 2-3 sentence overall summary for a sales rep about their overdue leads that need attention today. Be direct and motivating. No lists, no lead names — just a high-level nudge.`;
           aiSummary = await groq(
@@ -2696,6 +3407,7 @@ const LeadsSettings = ({ profile, tenantId, leads, dark }) => {
         leads: toNotify,
         totalOverdue: overdue.length,
         aiSummary,
+        aiEnabled,
         senderName: profile?.full_name || "Admin",
         companyName: "Resosyncer",
         dashboardUrl: window.location.origin,
@@ -2725,6 +3437,7 @@ const LeadsSettings = ({ profile, tenantId, leads, dark }) => {
     leads,
     totalOverdue,
     aiSummary,
+    aiEnabled,
     senderName,
     companyName,
     dashboardUrl,
@@ -2762,7 +3475,7 @@ const LeadsSettings = ({ profile, tenantId, leads, dark }) => {
       <tr><td style="background:#fff;border-radius:8px;border:1px solid #e5e7eb;padding:28px 32px;">
         <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;">Follow-up Digest</p>
         <h2 style="margin:0 0 6px;font-size:20px;font-weight:800;color:#0f172a;">${leads.length} lead${leads.length !== 1 ? "s" : ""} need attention</h2>
-        <p style="margin:0 0 24px;font-size:12px;color:#94a3b8;">${totalOverdue} overdue · ${leads.length} prioritized by AI · ${reminderDays}+ days without contact</p>
+        <p style="margin:0 0 24px;font-size:12px;color:#94a3b8;">${totalOverdue} overdue · ${leads.length} prioritized ${aiEnabled ? "by AI" : "by rules"} · ${reminderDays}+ days without contact</p>
         ${aiSummary ? `<div style="background:#f8faff;border:1px solid #e0e7ff;border-radius:8px;padding:14px 16px;margin-bottom:24px;"><p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#4338ca;text-transform:uppercase;letter-spacing:0.06em;">✦ AI Summary</p><p style="margin:0;font-size:13px;color:#1e293b;line-height:1.65;">${aiSummary}</p></div>` : ""}
         <table width="100%" cellpadding="0" cellspacing="0"><tbody>${leadItems}</tbody></table>
         <div style="margin-top:24px;padding-top:20px;border-top:1px solid #f1f5f9;">
@@ -2777,7 +3490,19 @@ const LeadsSettings = ({ profile, tenantId, leads, dark }) => {
   if (loading)
     return (
       <div style={{ padding: 24 }}>
-        <Skeleton active paragraph={{ rows: 6 }} />
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div
+            key={i}
+            style={{
+              height: 14,
+              width: i % 2 === 0 ? "82%" : "68%",
+              borderRadius: 7,
+              background: "var(--bg-muted)",
+              border: "1px solid var(--border)",
+              marginBottom: 10,
+            }}
+          />
+        ))}
       </div>
     );
 
@@ -2868,6 +3593,7 @@ const LeadsSettings = ({ profile, tenantId, leads, dark }) => {
           </div>
         </div>
 
+        {aiEnabled && (
         <div className="settings-row">
           <SettingLabel
             title={
@@ -2883,6 +3609,7 @@ const LeadsSettings = ({ profile, tenantId, leads, dark }) => {
             onChange={(v) => set("reminder_include_ai_message", v)}
           />
         </div>
+        )}
       </div>
 
       {/* Hot Lead Alerts */}
@@ -2970,7 +3697,7 @@ const LeadsSettings = ({ profile, tenantId, leads, dark }) => {
           >
             Immediately scan all active leads and send follow-up reminder emails
             for any that are overdue.
-            {settings.reminder_include_ai_message &&
+            {aiEnabled && settings.reminder_include_ai_message &&
               " Each reminder will include an AI-generated suggestion."}
           </div>
           <div style={{ display: "flex", gap: 10 }}>

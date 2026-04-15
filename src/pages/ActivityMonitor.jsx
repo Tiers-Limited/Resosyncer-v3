@@ -12,6 +12,8 @@ import {
   message,
   Empty,
   Button,
+  Input,
+  Modal,
 } from "antd";
 import {
   Clock,
@@ -31,12 +33,12 @@ import {
   Timer,
   LogIn,
   LogOut,
-  MessageSquare,
   Coffee,
   AlertTriangle,
   TrendingUp,
   Zap,
   PenLine,
+  Search,
 } from "lucide-react";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
@@ -293,7 +295,7 @@ const autoAtt = (log, now, ws, effectiveHours, manualSecs = 0) => {
   if (!log && manualSecs === 0) return "absent";
   const hours = netSecs(log, now, manualSecs) / 3600;
   if (log?.status === "active") return "working";
-  if (log?.status === "break") return "paused";
+  if (log?.status === "break" || log?.status === "paused") return "paused";
   const target = effectiveHours || parseFloat(ws?.working_hours) || 8;
   const half = parseFloat(ws?.half_day_hours) || 4;
   if (hours >= target) return "present";
@@ -1711,6 +1713,16 @@ export default function EmployeeTimingStats() {
   const [holidayLoading, setHolidayLoading] = useState(true);
   const [ws, setWs] = useState(DEFAULT_WS);
   const [wsLoading, setWsLoading] = useState(true);
+  const [forceStoppingId, setForceStoppingId] = useState(null);
+  const [forceStopModal, setForceStopModal] = useState({
+    open: false,
+    employee: null,
+  });
+  const [tableSearch, setTableSearch] = useState("");
+  const [actionDrawer, setActionDrawer] = useState({
+    open: false,
+    employee: null,
+  });
   const ivRef = useRef(null);
 
   /* ── Theme ──────────────────────────────────────────────────────────── */
@@ -1844,8 +1856,6 @@ export default function EmployeeTimingStats() {
         { data: appUsage },
         { data: shots },
         { data: attRows },
-        // ── FIXED: single query scoped by tenant_id + work_date + status ──
-        { data: manualReqsRaw, error: manualReqsErr },
       ] = await Promise.all([
         supabase
           .from("time_logs")
@@ -1868,19 +1878,20 @@ export default function EmployeeTimingStats() {
           .lte("taken_at", to),
         supabase
           .from("attendance")
-          .select("user_id,status")
+          .select("id,user_id,status,hours_worked,standup_message")
           .in("user_id", idsForQuery)
           .eq("date", d),
-        // ── KEY FIX: filter by work_date = d in the DB query, not in JS ──
-        supabase
-          .from("manual_time_requests")
-          .select("id,user_id,requested_hours,status,work_date")
-          .eq("tenant_id", tid)
-          .eq("work_date", d)
-          .in("status", ["approved", "pending", "rejected"]),
       ]);
 
-      // Log error but don't blow up the whole fetch
+      
+      const { data: manualReqsRaw, error: manualReqsErr } = await supabase
+        .from("manual_time_requests")
+        .select("*")
+        .eq("tenant_id", tid)
+        .eq("work_date", d);
+      
+      console.log(manualReqsRaw, d);
+
       if (manualReqsErr) {
         console.error("manual_time_requests fetch error:", manualReqsErr);
       }
@@ -1912,33 +1923,35 @@ export default function EmployeeTimingStats() {
         }
       }
 
-      // Update attendance overrides from DB
-      if (attRows?.length) {
-        const m = {};
-        attRows.forEach((o) => {
-          m[o.user_id] = o.status;
-        });
-        setAttOver(m);
-      }
+      // Attendance map (record means day already finalized for that user)
+      const attendanceMap = {};
+      const m = {};
+      (attRows || []).forEach((o) => {
+        attendanceMap[o.user_id] = o;
+        m[o.user_id] = o.status;
+      });
+      if (Object.keys(m).length) setAttOver(m);
 
-      // ── Build manual time maps (no JS date filtering needed — DB already filtered) ──
+      // Build manual time maps
       const manualMap = {};
       const pendingMap = {};
       const rejectedMap = {};
-
       manualReqs.forEach((r) => {
         // Only include rows belonging to known employees in this tenant
         if (!idsSet.has(r.user_id)) return;
+        const reqStatus = String(r.status || "").toLowerCase().trim();
+        const requestedHours = parseFloat(
+          r.requested_hours ?? r.hours ?? r.manual_hours ?? 0,
+        );
 
-        if (r.status === "approved") {
+        if (reqStatus === "approved") {
           manualMap[r.user_id] =
-            (manualMap[r.user_id] || 0) +
-            (parseFloat(r.requested_hours) || 0) * 3600;
+            (manualMap[r.user_id] || 0) + (requestedHours || 0) * 3600;
         }
-        if (r.status === "pending") {
+        if (reqStatus === "pending") {
           pendingMap[r.user_id] = r;
         }
-        if (r.status === "rejected") {
+        if (reqStatus === "rejected") {
           rejectedMap[r.user_id] = r;
         }
       });
@@ -1946,7 +1959,22 @@ export default function EmployeeTimingStats() {
       // Build lookup maps for logs, apps, screenshots
       const logMap = {};
       (logs || []).forEach((l) => {
-        logMap[l.user_id] = l;
+        const prev = logMap[l.user_id];
+        if (!prev) {
+          logMap[l.user_id] = l;
+          return;
+        }
+        const prevLive = prev.status === "active" || prev.status === "break";
+        const currLive = l.status === "active" || l.status === "break";
+        if (currLive && !prevLive) {
+          logMap[l.user_id] = l;
+          return;
+        }
+        if (currLive === prevLive) {
+          const prevTs = dayjs(prev.start_time || prev.created_at || 0).valueOf();
+          const currTs = dayjs(l.start_time || l.created_at || 0).valueOf();
+          if (currTs > prevTs) logMap[l.user_id] = l;
+        }
       });
 
       const appMap = {};
@@ -1980,6 +2008,8 @@ export default function EmployeeTimingStats() {
           manualSecs,
           pendingManual,
           rejectedManual,
+          attendanceRecord: attendanceMap[p.id] || null,
+          hasAttendanceRecord: !!attendanceMap[p.id],
           hasManualRequest:
             !!pendingManual || !!rejectedManual || manualSecs > 0,
         };
@@ -2087,10 +2117,192 @@ export default function EmployeeTimingStats() {
 
   const getEffHours = (r) => getEffectiveWorkingHours(r, ws);
   const getManualSecs = (r) => r.manualSecs || 0;
+  const hasFinalAttendance = (r) => !!r?.hasAttendanceRecord;
+  const isLiveTimer = (r) =>
+    !hasFinalAttendance(r) &&
+    (r?.log?.status === "active" ||
+      r?.log?.status === "break" ||
+      r?.log?.status === "paused");
+
+  const handleForceStop = useCallback((r) => {
+    if (!r?.id) return;
+    if (r?.hasAttendanceRecord) {
+      message.warning("Attendance already recorded for this day");
+      return;
+    }
+    setForceStopModal({ open: true, employee: r });
+  }, []);
+
+  const confirmForceStop = useCallback(
+    async (r) => {
+      const log = r?.log;
+      if (r?.hasAttendanceRecord) {
+        message.warning("Attendance already recorded for this day");
+        return;
+      }
+      if (!log?.id || !log?.start_time) return;
+      const liveStatuses = ["active", "break", "paused"];
+      if (!liveStatuses.includes(log.status)) return;
+
+      const allowedRoles = [
+        "admin",
+        "superadmin",
+        "super_admin",
+        "project_manager",
+      ];
+      if (!allowedRoles.includes(profile?.role)) {
+        message.error("You are not authorized to force stop timers");
+        return;
+      }
+
+      setForceStoppingId(r.id);
+      try {
+        const endedAt = new Date();
+        const endedAtIso = new Date(endedAt).toISOString();
+        const breaks = Array.isArray(log.breaks) ? [...log.breaks] : [];
+
+        for (let i = breaks.length - 1; i >= 0; i--) {
+          if (breaks[i]?.pause_time && !breaks[i]?.resume_time) {
+            breaks[i] = { ...breaks[i], resume_time: endedAtIso };
+            break;
+          }
+        }
+
+        const breakSeconds = breaks.reduce((acc, b) => {
+          const st = b?.pause_time ? dayjs(b.pause_time) : null;
+          const en = b?.resume_time ? dayjs(b.resume_time) : null;
+          if (!st || !en) return acc;
+          return acc + Math.max(0, en.diff(st, "second"));
+        }, 0);
+
+        const workedSeconds = Math.max(
+          0,
+          dayjs(endedAtIso).diff(dayjs(log.start_time), "second") - breakSeconds,
+        );
+        const totalHours = Number((workedSeconds / 3600).toFixed(2));
+        const standupMessage = log.standup_message || null;
+        const timeLogStatus = "completed";
+        const apps = Array.isArray(log.apps) ? log.apps : [];
+        const today = log.date || date;
+        const fullLogUpdate = {
+          end_time: new Date(endedAt).toISOString(),
+          total_hours: totalHours,
+          standup_message: standupMessage || null,
+          status: timeLogStatus,
+          apps,
+          breaks,
+        };
+        const fallbackLogUpdate = {
+          end_time: new Date(endedAt).toISOString(),
+          total_hours: totalHours,
+          standup_message: standupMessage || null,
+          status: timeLogStatus,
+        };
+
+        // Force-stop every currently live row for this employee/date to avoid lingering active sessions.
+        let updateQuery = supabase
+          .from("time_logs")
+          .update(fullLogUpdate)
+          .eq("user_id", r.id)
+          .eq("date", today)
+          .in("status", liveStatuses);
+        let { error } = await updateQuery;
+        if (error) {
+          // Fallback for schemas where one or more optional columns (apps/breaks) don't exist.
+          const retry = await supabase
+            .from("time_logs")
+            .update(fallbackLogUpdate)
+            .eq("user_id", r.id)
+            .eq("date", today)
+            .in("status", liveStatuses);
+          error = retry.error;
+        }
+        if (error) throw error;
+
+        const finalAtt = autoAtt(
+          {
+            ...log,
+            end_time: endedAtIso,
+            total_hours: totalHours,
+            status: timeLogStatus,
+            standup_message: standupMessage,
+            apps,
+            breaks,
+          },
+          dayjs(endedAtIso),
+          ws,
+          getEffHours(r),
+          getManualSecs(r),
+        );
+        const status =
+          finalAtt === "working" || finalAtt === "paused" ? "present" : finalAtt;
+        const employeeId = r.id;
+        let { error: attError } = await supabase
+          .from("attendance")
+          .upsert(
+            {
+              user_id: employeeId,
+              date: today,
+              hours_worked: totalHours,
+              standup_message: standupMessage || null,
+              status,
+            },
+            { onConflict: "user_id,date" },
+          );
+        if (attError) {
+          // Fallback where (user_id,date) unique constraint is missing.
+          const { data: existingAtt } = await supabase
+            .from("attendance")
+            .select("id")
+            .eq("user_id", employeeId)
+            .eq("date", today)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (existingAtt?.id) {
+            const { error: updErr } = await supabase
+              .from("attendance")
+              .update({
+                hours_worked: totalHours,
+                standup_message: standupMessage || null,
+                status,
+              })
+              .eq("id", existingAtt.id);
+            attError = updErr;
+          } else {
+            const { error: insErr } = await supabase.from("attendance").insert({
+              user_id: employeeId,
+              date: today,
+              hours_worked: totalHours,
+              standup_message: standupMessage || null,
+              status,
+            });
+            attError = insErr;
+          }
+        }
+        if (attError) throw attError;
+
+        setAttOver((prev) => ({ ...prev, [r.id]: status }));
+        message.success(`Timer force stopped for ${r.full_name}`);
+      } catch (err) {
+        console.error(err);
+        message.error(`Force stop failed: ${err.message || "Unknown error"}`);
+      } finally {
+        fetchData(date, tenantId);
+        setForceStoppingId(null);
+        setForceStopModal({ open: false, employee: null });
+      }
+    },
+    [date, fetchData, profile?.role, tenantId, ws],
+  );
 
   const getAtt = (r) => {
+    if (hasFinalAttendance(r)) {
+      return attOver[r.id] || r.attendanceRecord?.status || "absent";
+    }
     if (r.log?.status === "active") return "working";
-    if (r.log?.status === "break") return "paused";
+    if (r.log?.status === "break" || r.log?.status === "paused") return "paused";
     return (
       attOver[r.id] || autoAtt(r.log, now, ws, getEffHours(r), getManualSecs(r))
     );
@@ -2109,6 +2321,16 @@ export default function EmployeeTimingStats() {
     : 0;
 
   const manualCount = rows.filter((r) => getManualSecs(r) > 0).length;
+  const filteredRows = rows.filter((r) => {
+    const q = tableSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      (r.full_name || "").toLowerCase().includes(q) ||
+      (r.email || "").toLowerCase().includes(q) ||
+      (r.job_title || "").toLowerCase().includes(q) ||
+      (r.department || "").toLowerCase().includes(q)
+    );
+  });
 
   /* ── KPIs ───────────────────────────────────────────────────────────── */
   const KPIs = [
@@ -2217,13 +2439,14 @@ export default function EmployeeTimingStats() {
                 height: 9,
                 borderRadius: "50%",
                 background:
-                  r.log?.status === "active"
+                  isLiveTimer(r) && r.log?.status === "active"
                     ? "#22c55e"
-                    : r.log?.status === "break"
+                    : isLiveTimer(r) &&
+                        (r.log?.status === "break" || r.log?.status === "paused")
                       ? "#8b5cf6"
-                      : r.hasLog
-                        ? "#94a3b8"
-                        : "var(--ets-border)",
+                    : r.hasLog
+                      ? "#94a3b8"
+                      : "var(--ets-border)",
                 border: "2px solid var(--ets-card)",
               }}
             />
@@ -2299,6 +2522,29 @@ export default function EmployeeTimingStats() {
       key: "status",
       width: 112,
       render: (_, r) => {
+        if (hasFinalAttendance(r)) {
+          return (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                fontSize: 11,
+                fontWeight: 600,
+                padding: "3px 9px",
+                borderRadius: 6,
+                background: dark ? "rgba(148,163,184,0.16)" : "#f1f5f9",
+                color: dark ? "#cbd5e1" : "#475569",
+                border: dark
+                  ? "1px solid rgba(148,163,184,0.35)"
+                  : "1px solid #cbd5e1",
+                fontFamily: "'DM Sans',sans-serif",
+              }}
+            >
+              Recorded
+            </span>
+          );
+        }
         if (!r.hasLog && r.manualSecs > 0) {
           return (
             <span
@@ -2460,7 +2706,9 @@ export default function EmployeeTimingStats() {
       render: (_, r) => {
         const live = r.log?.status;
         const val =
-          live === "active"
+          hasFinalAttendance(r)
+            ? attOver[r.id] || r.attendanceRecord?.status || "absent"
+            : live === "active"
             ? "working"
             : live === "break"
               ? "paused"
@@ -2470,7 +2718,7 @@ export default function EmployeeTimingStats() {
           <AttCell
             value={val}
             onChange={(s) => handleAtt(r.id, s)}
-            disabled={live === "active" || live === "break"}
+            disabled={isLiveTimer(r)}
           />
         );
       },
@@ -2536,12 +2784,15 @@ export default function EmployeeTimingStats() {
               </span>
             </div>
           );
-        if (r.log.status === "active")
+        if (isLiveTimer(r))
           return (
             <span
               style={{
                 fontSize: 11,
-                color: "#22c55e",
+                color:
+                  r.log.status === "break" || r.log.status === "paused"
+                    ? "#a78bfa"
+                    : "#22c55e",
                 fontWeight: 600,
                 fontFamily: "'DM Sans',sans-serif",
                 display: "flex",
@@ -2555,11 +2806,16 @@ export default function EmployeeTimingStats() {
                   width: 5,
                   height: 5,
                   borderRadius: "50%",
-                  background: "#22c55e",
+                  background:
+                    r.log.status === "break" || r.log.status === "paused"
+                      ? "#8b5cf6"
+                      : "#22c55e",
                   display: "inline-block",
                 }}
               />
-              Live
+              {r.log.status === "break" || r.log.status === "paused"
+                ? "On Break"
+                : "Live"}
             </span>
           );
         return (
@@ -2639,45 +2895,18 @@ export default function EmployeeTimingStats() {
       ),
     },
     {
-      title: "Standup",
-      key: "standup",
-      width: 200,
-      render: (_, r) =>
-        r.log?.standup_message ? (
-          <Tooltip title={r.log.standup_message} placement="topLeft">
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 5 }}>
-              <MessageSquare
-                size={11}
-                color="var(--ets-muted)"
-                style={{ marginTop: 2, flexShrink: 0 }}
-              />
-              <span
-                style={{
-                  fontSize: 11,
-                  color: "var(--ets-sub)",
-                  display: "-webkit-box",
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                  fontFamily: "'DM Sans',sans-serif",
-                  lineHeight: 1.5,
-                }}
-              >
-                {r.log.standup_message}
-              </span>
-            </div>
-          </Tooltip>
-        ) : (
-          <span
-            style={{
-              fontSize: 11,
-              color: "var(--ets-muted)",
-              fontFamily: "'DM Sans',sans-serif",
-            }}
-          >
-            —
-          </span>
-        ),
+      title: "Actions",
+      key: "actions",
+      width: 110,
+      fixed: "right",
+      render: (_, r) => (
+        <Button
+          size="small"
+          onClick={() => setActionDrawer({ open: true, employee: r })}
+        >
+          Details
+        </Button>
+      ),
     },
   ];
 
@@ -2966,21 +3195,40 @@ export default function EmployeeTimingStats() {
                 overflow: "hidden",
               }}
             >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  padding: "12px 14px",
+                  borderBottom: "1px solid var(--ets-border)",
+                  background: "var(--ets-card)",
+                  flexWrap: "wrap",
+                }}
+              >
+                <Input
+                  allowClear
+                  value={tableSearch}
+                  onChange={(e) => setTableSearch(e.target.value)}
+                  prefix={<Search size={14} color="var(--ets-muted)" />}
+                  placeholder="Search employee, email, role, department"
+                  style={{ width: 320, maxWidth: "100%" }}
+                />
+              </div>
               <Table
                 className="ets-table"
                 columns={columns}
-                dataSource={rows}
+                dataSource={filteredRows}
                 loading={loading && rows.length > 0}
                 pagination={{
-                  pageSize: 20,
+                  pageSize: 15,
                   showSizeChanger: true,
                   pageSizeOptions: ["15", "20", "50"],
                   style: { padding: "12px 20px" },
                 }}
                 scroll={{ x: ws.overtime_enabled ? 1520 : 1400 }}
-                rowClassName={(r) =>
-                  `ets-row${!r.hasLog && !r.hasManualRequest ? " ets-row-dim" : ""}`
-                }
+                rowClassName={() => "ets-row"}
                 locale={{
                   emptyText: (
                     <Empty
@@ -3003,6 +3251,155 @@ export default function EmployeeTimingStats() {
         </div>
       )}
 
+      <Modal
+        open={forceStopModal.open}
+        onCancel={() => setForceStopModal({ open: false, employee: null })}
+        onOk={() => confirmForceStop(forceStopModal.employee)}
+        okText="Force Stop"
+        cancelText="Cancel"
+        okButtonProps={{
+          danger: true,
+          loading:
+            !!forceStopModal.employee &&
+            forceStoppingId === forceStopModal.employee.id,
+        }}
+        title="Confirm Force Stop"
+        styles={{
+          content: {
+            background: "var(--ets-card)",
+            border: "1px solid var(--ets-border)",
+          },
+          header: {
+            background: "var(--ets-card)",
+            color: "var(--ets-text)",
+            borderBottom: "1px solid var(--ets-border)",
+          },
+          body: {
+            background: "var(--ets-card)",
+            color: "var(--ets-sub)",
+            paddingTop: 14,
+          },
+        }}
+      >
+        <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+          <div style={{ marginBottom: 8 }}>
+            You are about to force stop timer for{" "}
+            <b style={{ color: "var(--ets-text)" }}>
+              {forceStopModal.employee?.full_name || "this employee"}
+            </b>
+            .
+          </div>
+          <div style={{ color: "var(--ets-muted)" }}>
+            This will end the active time log and upsert attendance for{" "}
+            <b>{date}</b>.
+          </div>
+        </div>
+      </Modal>
+
+      <Drawer
+        open={actionDrawer.open}
+        onClose={() => setActionDrawer({ open: false, employee: null })}
+        width={420}
+        title="Employee Details"
+        rootClassName={dark ? "ets-drawer-dark" : undefined}
+      >
+        {actionDrawer.employee && (
+          <div style={{ display: "grid", gap: 14 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                paddingBottom: 10,
+                borderBottom: "1px solid var(--ets-border)",
+              }}
+            >
+              <Avatar
+                src={
+                  actionDrawer.employee.user_photo ||
+                  actionDrawer.employee.profile_picture_url
+                }
+                icon={<User size={14} />}
+                size={34}
+              />
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ets-text)" }}>
+                  {actionDrawer.employee.full_name}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--ets-muted)" }}>
+                  {actionDrawer.employee.job_title || actionDrawer.employee.role}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div style={{ fontSize: 11, color: "var(--ets-muted)", marginBottom: 5 }}>
+                Standup
+              </div>
+              <div
+                style={{
+                  background: "var(--ets-hover)",
+                  border: "1px solid var(--ets-border)",
+                  borderRadius: 8,
+                  padding: "10px 12px",
+                  fontSize: 12,
+                  color: "var(--ets-sub)",
+                  lineHeight: 1.45,
+                }}
+              >
+                {actionDrawer.employee.log?.standup_message || "No standup message"}
+              </div>
+            </div>
+
+            <div>
+              <div style={{ fontSize: 11, color: "var(--ets-muted)", marginBottom: 6 }}>
+                Manual Request
+              </div>
+              <div style={{ fontSize: 12, color: "var(--ets-sub)" }}>
+                {actionDrawer.employee.pendingManual
+                  ? `Pending ${parseFloat(
+                      actionDrawer.employee.pendingManual.requested_hours,
+                    ).toFixed(1)}h`
+                  : actionDrawer.employee.rejectedManual
+                    ? `Rejected ${parseFloat(
+                        actionDrawer.employee.rejectedManual.requested_hours,
+                      ).toFixed(1)}h`
+                    : actionDrawer.employee.manualSecs > 0
+                      ? `Approved ${Math.round(
+                          (actionDrawer.employee.manualSecs / 3600) * 10,
+                        ) / 10}h`
+                      : "No manual time request"}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <Button
+                onClick={() => {
+                  setDrawer({ open: true, employee: actionDrawer.employee });
+                }}
+              >
+                View Screenshots
+              </Button>
+              <Button
+                danger
+                onClick={() => handleForceStop(actionDrawer.employee)}
+                loading={forceStoppingId === actionDrawer.employee.id}
+                disabled={
+                  actionDrawer.employee.hasAttendanceRecord ||
+                  !(
+                    actionDrawer.employee.log?.status === "active" ||
+                    actionDrawer.employee.log?.status === "break" ||
+                    actionDrawer.employee.log?.status === "paused"
+                  )
+                }
+              >
+                Force Stop Timer
+              </Button>
+            </div>
+          </div>
+        )}
+      </Drawer>
+
       {/* Drawer */}
       <ShotsDrawer
         open={drawer.open}
@@ -3013,3 +3410,5 @@ export default function EmployeeTimingStats() {
     </div>
   );
 }
+
+

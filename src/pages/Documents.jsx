@@ -776,7 +776,7 @@ const Documents = () => {
       a.download = record.name;
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
+      a.remove();
       URL.revokeObjectURL(url);
     } catch {
       message.error("Failed to download");

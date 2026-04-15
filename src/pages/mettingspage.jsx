@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+﻿import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import {
@@ -44,7 +44,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 
-// ─── ICE Config ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ ICE Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const ICE_SERVERS = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
@@ -54,12 +54,13 @@ const ICE_SERVERS = {
   ],
 };
 
-// ─── Groq ─────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Groq â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_API_KEY = import.meta.env.VITE_GROK_API_KEY;
 const EMAIL_API = import.meta.env.VITE_EMAIL_API_URL;
 
-const groq = async (systemPrompt, userContent) => {
+const groq = async (systemPrompt, userContent, options = {}) => {
+  const { maxTokens = 1024 } = options;
   const res = await fetch(GROQ_URL, {
     method: "POST",
     headers: {
@@ -73,7 +74,7 @@ const groq = async (systemPrompt, userContent) => {
         { role: "user", content: userContent },
       ],
       temperature: 0.25,
-      max_tokens: 1024,
+      max_tokens: maxTokens,
     }),
   });
   if (!res.ok) throw new Error("Groq failed");
@@ -94,7 +95,7 @@ const sendEmail = async ({ to, subject, body, companyName }) => {
   }
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const AVATAR_COLORS = [
   ["#e0e7ff", "#4338ca"],
   ["#dcfce7", "#15803d"],
@@ -189,7 +190,7 @@ function createGuestProfile(roomId, name = "") {
   };
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -401,7 +402,7 @@ const styles = `
   .drawer-backdrop.open { opacity: 1; pointer-events: all; }
 `;
 
-// ─── Avatar ───────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Avatar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function UserAvatar({ profile, size = 32, online = false }) {
   const [bg, fg] = avatarColor(profile?.full_name || profile?.email || "");
   const avatar = profile?.user_photo ? (
@@ -459,7 +460,7 @@ function UserAvatar({ profile, size = 32, online = false }) {
   );
 }
 
-// ─── RemoteAudio: dedicated component that attaches a remote audio stream ─────
+// â”€â”€â”€ RemoteAudio: dedicated component that attaches a remote audio stream â”€â”€â”€â”€â”€
 // This is KEY - audio must be played via its own <audio> element, not piggy-backed on video
 function RemoteAudio({ stream }) {
   const audioRef = useRef(null);
@@ -481,7 +482,7 @@ function RemoteAudio({ stream }) {
   );
 }
 
-// ─── VideoTile ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ VideoTile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function VideoTile({
   participant,
   isLocal,
@@ -492,6 +493,7 @@ function VideoTile({
   isSpeaking,
   profilesMap,
   handRaised,
+  selectedBg = "none",
 }) {
   const videoRef = useRef(null);
   const resolvedProfile =
@@ -559,8 +561,13 @@ function VideoTile({
           width: "100%",
           height: "100%",
           objectFit: "cover",
+          borderRadius: 0,
+          margin: 0,
           transform: isLocal && !isScreenShare ? "scaleX(-1)" : "none",
           display: showVideo || isScreenShare ? "block" : "none",
+          position: "static",
+          zIndex: "auto",
+          boxShadow: "none",
         }}
       />
 
@@ -613,11 +620,11 @@ function VideoTile({
           "Guest"}
         {isLocal ? " (You)" : ""}
         {participant.isHost && (
-          <span style={{ color: "var(--amber)", marginLeft: 4 }}>· Host</span>
+          <span style={{ color: "var(--amber)", marginLeft: 4 }}>Â· Host</span>
         )}
         {isScreenShare && (
           <span style={{ color: "var(--accent)", marginLeft: 4 }}>
-            · Screen
+            Â· Screen
           </span>
         )}
       </div>
@@ -693,7 +700,7 @@ function VideoTile({
   );
 }
 
-// ─── Control Button ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Control Button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function CtrlBtn({
   onClick,
   activeMuted,
@@ -748,7 +755,15 @@ function CtrlBtn({
   );
 }
 
-// ─── Background Options ───────────────────────────────────────────────────────
+// â”€â”€â”€ Background Options â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+const MEETING_BG_IMAGES = {
+  bg1: "/meetings-bg/bg1.webp",
+  bg2: "/meetings-bg/bg2.avif",
+  bg3: "/meetings-bg/bg3.jpg",
+  bg4: "/meetings-bg/bg4.jpg",
+};
+
 const BG_OPTIONS = [
   { id: "none", label: "None", style: { background: "#e6e5e0" } },
   {
@@ -787,16 +802,178 @@ const BG_OPTIONS = [
     label: "Space",
     style: { background: "linear-gradient(135deg,#0d0d2b,#1a1a4e,#16213e)" },
   },
+  {
+    id: "bg1",
+    label: "Image 1",
+    isImage: true,
+    imageSrc: MEETING_BG_IMAGES.bg1,
+    style: {
+      backgroundImage: `url("${MEETING_BG_IMAGES.bg1}")`,
+      backgroundSize: "contain",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+      backgroundColor: "#111827",
+    },
+  },
+  {
+    id: "bg2",
+    label: "Image 2",
+    isImage: true,
+    imageSrc: MEETING_BG_IMAGES.bg2,
+    style: {
+      backgroundImage: `url("${MEETING_BG_IMAGES.bg2}")`,
+      backgroundSize: "contain",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+      backgroundColor: "#111827",
+    },
+  },
+  {
+    id: "bg3",
+    label: "Image 3",
+    isImage: true,
+    imageSrc: MEETING_BG_IMAGES.bg3,
+    style: {
+      backgroundImage: `url("${MEETING_BG_IMAGES.bg3}")`,
+      backgroundSize: "contain",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+      backgroundColor: "#111827",
+    },
+  },
+  {
+    id: "bg4",
+    label: "Image 4",
+    isImage: true,
+    imageSrc: MEETING_BG_IMAGES.bg4,
+    style: {
+      backgroundImage: `url("${MEETING_BG_IMAGES.bg4}")`,
+      backgroundSize: "contain",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+      backgroundColor: "#111827",
+    },
+  },
 ];
 
-// ─── Meeting Created Modal ────────────────────────────────────────────────────
+let selfieSegmentationScriptPromise = null;
+function loadSelfieSegmentationScript() {
+  if (typeof window === "undefined") return Promise.reject(new Error("No window"));
+  if (window.SelfieSegmentation) return Promise.resolve(window.SelfieSegmentation);
+  if (selfieSegmentationScriptPromise) return selfieSegmentationScriptPromise;
+
+  selfieSegmentationScriptPromise = new Promise((resolve, reject) => {
+    const existing = document.getElementById("mp-selfie-segmentation-script");
+    if (existing) {
+      existing.addEventListener("load", () => {
+        if (window.SelfieSegmentation) resolve(window.SelfieSegmentation);
+        else reject(new Error("SelfieSegmentation failed to load"));
+      });
+      existing.addEventListener("error", () =>
+        reject(new Error("Failed to load SelfieSegmentation script")),
+      );
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = "mp-selfie-segmentation-script";
+    script.src =
+      "https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js";
+    script.async = true;
+    script.onload = () => {
+      if (window.SelfieSegmentation) resolve(window.SelfieSegmentation);
+      else reject(new Error("SelfieSegmentation global missing"));
+    };
+    script.onerror = () =>
+      reject(new Error("Failed to load SelfieSegmentation script"));
+    document.head.appendChild(script);
+  });
+
+  return selfieSegmentationScriptPromise;
+}
+
+function drawVirtualBackground(ctx, w, h, bgId, sourceVideo, bgImage) {
+  const drawFittedImage = (image) => {
+    const iw = image?.naturalWidth || image?.videoWidth || w;
+    const ih = image?.naturalHeight || image?.videoHeight || h;
+    if (!iw || !ih) {
+      ctx.drawImage(image, 0, 0, w, h);
+      return;
+    }
+
+    // Keep the entire background image visible (no stretching/cropping).
+    const scale = Math.min(w / iw, h / ih);
+    const dw = iw * scale;
+    const dh = ih * scale;
+    const dx = (w - dw) / 2;
+    const dy = (h - dh) / 2;
+
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(0, 0, w, h);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(image, dx, dy, dw, dh);
+  };
+
+  const grad = (a, b, c = null) => {
+    const g = ctx.createLinearGradient(0, 0, w, h);
+    g.addColorStop(0, a);
+    g.addColorStop(c ? 0.55 : 1, b);
+    if (c) g.addColorStop(1, c);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+  };
+
+  if (bgImage && bgImage.complete) {
+    drawFittedImage(bgImage);
+    return;
+  }
+
+  switch (bgId) {
+    case "blur":
+      ctx.save();
+      ctx.filter = "blur(18px)";
+      ctx.drawImage(sourceVideo, 0, 0, w, h);
+      ctx.restore();
+      break;
+    case "office":
+      grad("#667eea", "#764ba2");
+      break;
+    case "nature":
+      grad("#11998e", "#38ef7d");
+      break;
+    case "dark":
+      grad("#1a1a2e", "#16213e", "#0f3460");
+      break;
+    case "sunset":
+      grad("#f093fb", "#f5576c");
+      break;
+    case "ocean":
+      grad("#0093E9", "#80D0C7");
+      break;
+    case "space":
+      grad("#0d0d2b", "#1a1a4e", "#16213e");
+      break;
+    default:
+      ctx.fillStyle = "#e6e5e0";
+      ctx.fillRect(0, 0, w, h);
+      break;
+  }
+}
+
+// â”€â”€â”€ Meeting Created Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function MeetingCreatedModal({ meeting, onJoin, onClose }) {
   const [copied, setCopied] = useState(false);
   const link = `${window.location.origin}/meet/${meeting.room_id || meeting.id}`;
-  const copyLink = () => {
-    navigator.clipboard?.writeText(link);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard?.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      // Clipboard operations can be pre-empted by another lock request.
+      console.warn("Clipboard write failed:", err);
+    }
   };
   return (
     <div className="modal-overlay">
@@ -968,7 +1145,7 @@ function MeetingCreatedModal({ meeting, onJoin, onClose }) {
   );
 }
 
-// ─── Lobby Screen ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Lobby Screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function LobbyScreen({
   meeting,
   currentUser,
@@ -1164,7 +1341,7 @@ function LobbyScreen({
                 }}
               />
               {currentUser?.full_name || "You"}
-              {isHost && <span style={{ color: "var(--amber)" }}>· Host</span>}
+              {isHost && <span style={{ color: "var(--amber)" }}>Â· Host</span>}
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
@@ -1431,9 +1608,9 @@ function LobbyScreen({
                 <LogIn size={15} />
               )}
               {joining
-                ? "Connecting…"
+                ? "Connectingâ€¦"
                 : guestJoinStatus === "pending"
-                  ? "Waiting For Host Approval…"
+                  ? "Waiting For Host Approvalâ€¦"
                   : isHost
                     ? "Start Meeting"
                     : guestJoinStatus === "rejected"
@@ -1528,7 +1705,7 @@ function LobbyScreen({
               (e.currentTarget.style.color = "var(--text-3)")
             }
           >
-            ← Back to meetings
+            â† Back to meetings
           </button>
         </div>
       </div>
@@ -1536,7 +1713,7 @@ function LobbyScreen({
   );
 }
 
-// ─── Main Room ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Main Room â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function MeetingRoom() {
   const { roomId } = useParams();
   const [dark, setDark] = useState(getIsDarkTheme);
@@ -1568,6 +1745,7 @@ export default function MeetingRoom() {
   const [summaryData, setSummaryData] = useState(null);
   const [unreadChat, setUnreadChat] = useState(0);
   const [selectedBg, setSelectedBg] = useState("none");
+  const [bgApplying, setBgApplying] = useState(false);
   const [guestJoinRequests, setGuestJoinRequests] = useState([]);
   const [guestJoinStatus, setGuestJoinStatus] = useState("idle");
 
@@ -1605,6 +1783,222 @@ export default function MeetingRoom() {
   const meetingAudioChunksRef = useRef([]);
   const meetingAudioBlobRef = useRef(null);
   const approvalSoundCtxRef = useRef(null);
+  const selectedBgRef = useRef("none");
+  const bgApplySeqRef = useRef(0);
+  const bgImageCacheRef = useRef({});
+  const virtualBgRef = useRef({
+    active: false,
+    sourceVideo: null,
+    processingCanvas: null,
+    processingCtx: null,
+    selfieSegmentation: null,
+    rafId: null,
+    processing: false,
+    outputStream: null,
+    outputTrack: null,
+  });
+
+  const applyOutgoingVideoTrack = useCallback(async (track) => {
+    for (const pc of Object.values(peerConnectionsRef.current)) {
+      const sender = pc.getSenders().find((s) => s.track?.kind === "video");
+      if (sender) {
+        try {
+          await sender.replaceTrack(track || null);
+        } catch (e) {
+          console.warn("replaceTrack failed:", e);
+        }
+      }
+    }
+  }, []);
+
+  const ensureBackgroundAsset = useCallback(async (bgId) => {
+    const bg = BG_OPTIONS.find((b) => b.id === bgId);
+    if (!bg?.isImage) return null;
+    const src = bg.imageSrc;
+    if (!src) return null;
+    const cached = bgImageCacheRef.current[bgId];
+    if (cached?.img?.complete) return cached.img;
+    if (cached?.promise) return cached.promise;
+
+    const promise = new Promise((resolve, reject) => {
+      const img = new window.Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        bgImageCacheRef.current[bgId] = { img };
+        resolve(img);
+      };
+      img.onerror = () => reject(new Error(`Failed to load background image: ${bgId}`));
+      img.src = src;
+    });
+    bgImageCacheRef.current[bgId] = { promise };
+    return promise;
+  }, []);
+
+  const stopVirtualBackground = useCallback(() => {
+    const vb = virtualBgRef.current;
+    vb.active = false;
+    if (vb.rafId) cancelAnimationFrame(vb.rafId);
+    vb.rafId = null;
+    vb.processing = false;
+    try {
+      vb.outputTrack?.stop();
+    } catch {}
+    vb.outputTrack = null;
+    vb.outputStream = null;
+    if (vb.sourceVideo) {
+      try {
+        vb.sourceVideo.pause?.();
+      } catch {}
+      vb.sourceVideo.srcObject = null;
+    }
+    vb.sourceVideo = null;
+    vb.processingCanvas = null;
+    vb.processingCtx = null;
+    vb.selfieSegmentation = null;
+  }, []);
+
+  const syncLocalDisplayStream = useCallback(
+    (videoTrack) => {
+      const cameraStream = cameraStreamRef.current;
+      if (!cameraStream) return;
+      const audioTracks = cameraStream.getAudioTracks() || [];
+      const displayStream = new MediaStream([
+        ...(videoTrack ? [videoTrack] : []),
+        ...audioTracks,
+      ]);
+      localStreamRef.current = displayStream;
+      setParticipants((prev) =>
+        prev.map((p) =>
+          p.isLocal
+            ? {
+                ...p,
+                stream: displayStream,
+                camOn: camOnRef.current,
+              }
+            : p,
+        ),
+      );
+    },
+    [setParticipants],
+  );
+
+  const startVirtualBackground = useCallback(
+    async (bgId) => {
+      const cameraStream = cameraStreamRef.current;
+      const camTrack = cameraStream?.getVideoTracks?.()[0];
+      if (!cameraStream || !camTrack || !camOnRef.current || screenOnRef.current) {
+        return;
+      }
+      const SelfieSegmentation = await loadSelfieSegmentationScript();
+
+      const bgImage = await ensureBackgroundAsset(bgId);
+      const settings = camTrack.getSettings?.() || {};
+
+      const sourceVideo = document.createElement("video");
+      sourceVideo.autoplay = true;
+      sourceVideo.muted = true;
+      sourceVideo.playsInline = true;
+      sourceVideo.srcObject = new MediaStream([camTrack]);
+      await sourceVideo.play();
+
+      const width = Math.max(
+        settings.width || 0,
+        sourceVideo.videoWidth || 0,
+        1280,
+      );
+      const height = Math.max(
+        settings.height || 0,
+        sourceVideo.videoHeight || 0,
+        720,
+      );
+
+      const processingCanvas = document.createElement("canvas");
+      processingCanvas.width = width;
+      processingCanvas.height = height;
+      const processingCtx = processingCanvas.getContext("2d");
+      if (!processingCtx) return;
+      processingCtx.imageSmoothingEnabled = true;
+      processingCtx.imageSmoothingQuality = "high";
+
+      const selfieSegmentation = new SelfieSegmentation({
+        locateFile: (file) =>
+          `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`,
+      });
+      selfieSegmentation.setOptions({ modelSelection: 1 });
+
+      const vb = virtualBgRef.current;
+      vb.active = true;
+      vb.sourceVideo = sourceVideo;
+      vb.processingCanvas = processingCanvas;
+      vb.processingCtx = processingCtx;
+      vb.selfieSegmentation = selfieSegmentation;
+
+      let firstFrameResolved = false;
+      let resolveFirstFrame = null;
+      const firstFramePromise = new Promise((resolve) => {
+        resolveFirstFrame = resolve;
+      });
+
+      selfieSegmentation.onResults((results) => {
+        if (!vb.active || !vb.processingCtx || !vb.processingCanvas) return;
+        const ctx = vb.processingCtx;
+        const w = vb.processingCanvas.width;
+        const h = vb.processingCanvas.height;
+        ctx.save();
+        ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(results.segmentationMask, 0, 0, w, h);
+        ctx.globalCompositeOperation = "source-out";
+        drawVirtualBackground(
+          ctx,
+          w,
+          h,
+          selectedBgRef.current,
+          results.image,
+          bgImage || bgImageCacheRef.current[selectedBgRef.current]?.img || null,
+        );
+        ctx.globalCompositeOperation = "destination-atop";
+        ctx.drawImage(results.image, 0, 0, w, h);
+        ctx.restore();
+        if (!firstFrameResolved && resolveFirstFrame) {
+          firstFrameResolved = true;
+          resolveFirstFrame(true);
+        }
+      });
+
+      const outputStream = processingCanvas.captureStream(24);
+      const outputTrack = outputStream.getVideoTracks()[0];
+      vb.outputStream = outputStream;
+      vb.outputTrack = outputTrack;
+
+      syncLocalDisplayStream(outputTrack);
+      await applyOutgoingVideoTrack(camOnRef.current ? outputTrack : null);
+
+      const renderLoop = async () => {
+        if (!vb.active || !vb.sourceVideo || !vb.selfieSegmentation) return;
+        if (!camOnRef.current || screenOnRef.current || selectedBgRef.current === "none") {
+          return;
+        }
+        if (!vb.processing && vb.sourceVideo.readyState >= 2) {
+          vb.processing = true;
+          try {
+            await vb.selfieSegmentation.send({ image: vb.sourceVideo });
+          } catch (err) {
+            console.warn("Virtual background frame failed:", err);
+          } finally {
+            vb.processing = false;
+          }
+        }
+        vb.rafId = requestAnimationFrame(renderLoop);
+      };
+      vb.rafId = requestAnimationFrame(renderLoop);
+
+      await Promise.race([
+        firstFramePromise,
+        new Promise((resolve) => setTimeout(resolve, 900)),
+      ]);
+    },
+    [applyOutgoingVideoTrack, ensureBackgroundAsset, syncLocalDisplayStream],
+  );
 
   useEffect(() => {
     loadInitialData();
@@ -1621,6 +2015,54 @@ export default function MeetingRoom() {
       mediaQuery.removeEventListener("change", syncTheme);
     };
   }, []);
+
+  useEffect(() => {
+    selectedBgRef.current = selectedBg;
+    let cancelled = false;
+    const seq = ++bgApplySeqRef.current;
+
+    const applyBgSelection = async () => {
+      setBgApplying(true);
+      if (screenOnRef.current) return;
+      const cameraTrack = cameraStreamRef.current?.getVideoTracks?.()[0] || null;
+
+      if (!selectedBg || selectedBg === "none") {
+        stopVirtualBackground();
+        if (!cancelled) {
+          syncLocalDisplayStream(cameraTrack);
+          await applyOutgoingVideoTrack(camOnRef.current ? cameraTrack : null);
+        }
+        return;
+      }
+
+      if (!camOnRef.current || !cameraTrack) return;
+
+      stopVirtualBackground();
+      if (!cancelled) {
+        try {
+          await startVirtualBackground(selectedBg);
+        } catch (err) {
+          console.warn("Virtual background init failed:", err);
+        }
+      }
+    };
+
+    applyBgSelection().finally(() => {
+      if (!cancelled && bgApplySeqRef.current === seq) {
+        setBgApplying(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    selectedBg,
+    startVirtualBackground,
+    stopVirtualBackground,
+    applyOutgoingVideoTrack,
+    syncLocalDisplayStream,
+  ]);
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
@@ -1762,6 +2204,7 @@ export default function MeetingRoom() {
     meetingMixDestRef.current = null;
     meetingAudioRecorderRef.current = null;
     approvalSoundCtxRef.current = null;
+    stopVirtualBackground();
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     screenStreamRef.current?.getTracks().forEach((t) => t.stop());
     Object.values(peerConnectionsRef.current).forEach((pc) => {
@@ -1773,7 +2216,7 @@ export default function MeetingRoom() {
     if (signalingRef.current) supabase.removeChannel(signalingRef.current);
     if (approvalChannelRef.current) supabase.removeChannel(approvalChannelRef.current);
     clearInterval(timerRef.current);
-  }, []);
+  }, [stopVirtualBackground]);
 
   const playApprovalRequestSound = useCallback(() => {
     try {
@@ -1891,7 +2334,7 @@ export default function MeetingRoom() {
     };
   }, [roomId, phase, currentUser?.id]);
 
-  // ─── createPC: clean peer connection setup ────────────────────────────────
+  // â”€â”€â”€ createPC: clean peer connection setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const createPC = useCallback((peerId, userId) => {
     // Close existing connection for this peer
     if (peerConnectionsRef.current[peerId]) {
@@ -1998,7 +2441,7 @@ export default function MeetingRoom() {
     return pc;
   }, []);
 
-  // ─── setupSignaling ───────────────────────────────────────────────────────
+  // â”€â”€â”€ setupSignaling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const setupSignaling = useCallback(
     async (roomId, userId, profile) => {
       if (signalingRef.current)
@@ -2232,7 +2675,7 @@ export default function MeetingRoom() {
 
         .on("broadcast", { event: "hand-raised" }, ({ payload }) => {
           if (payload.userId === userId) return;
-          addSysMsg(`✋ ${payload.name || "Guest"} raised their hand`);
+          addSysMsg(`âœ‹ ${payload.name || "Guest"} raised their hand`);
           setParticipants((prev) =>
             prev.map((p) =>
               p.peerId === payload.userId ? { ...p, handRaised: true } : p,
@@ -2771,7 +3214,7 @@ export default function MeetingRoom() {
     ]);
   };
 
-  // ─── Toggle Mic ───────────────────────────────────────────────────────────
+  // â”€â”€â”€ Toggle Mic â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const toggleMic = useCallback(async () => {
     const activeStream = localStreamRef.current;
     const cameraStream = cameraStreamRef.current;
@@ -2821,7 +3264,7 @@ export default function MeetingRoom() {
     });
   }, []);
 
-  // ─── Toggle Cam ───────────────────────────────────────────────────────────
+  // â”€â”€â”€ Toggle Cam â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Strategy: keep a camera stream reference and swap video output as needed.
   // Avoid mutating the live screen-sharing stream. Use cameraStreamRef for camera management.
   const toggleCam = useCallback(async () => {
@@ -2882,15 +3325,32 @@ export default function MeetingRoom() {
 
     setCamOn(newState);
     camOnRef.current = newState;
+
+    if (!screenOnRef.current) {
+      if (!newState) {
+        stopVirtualBackground();
+        await applyOutgoingVideoTrack(null);
+        syncLocalDisplayStream(null);
+      } else if (selectedBgRef.current && selectedBgRef.current !== "none") {
+        try {
+          await startVirtualBackground(selectedBgRef.current);
+        } catch (err) {
+          console.warn("Virtual background init failed:", err);
+        }
+      } else {
+        const camTrackNow = cameraStreamRef.current?.getVideoTracks?.()[0] || null;
+        await applyOutgoingVideoTrack(camTrackNow);
+        syncLocalDisplayStream(camTrackNow);
+      }
+    }
+
     setParticipants((prev) =>
       prev.map((p) =>
         p.isLocal
           ? {
               ...p,
               camOn: newState,
-              stream: screenOnRef.current
-                ? localStreamRef.current
-                : cameraStreamRef.current,
+              stream: localStreamRef.current || cameraStreamRef.current,
             }
           : p,
       ),
@@ -2935,41 +3395,44 @@ export default function MeetingRoom() {
         }
       }
     }
-  }, []);
+  }, [
+    applyOutgoingVideoTrack,
+    startVirtualBackground,
+    stopVirtualBackground,
+    syncLocalDisplayStream,
+  ]);
 
-  // ─── Screen Share ─────────────────────────────────────────────────────────
+  // â”€â”€â”€ Screen Share â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Strategy: use a SEPARATE screen stream. Replace only the video sender track.
   // Never mutate localStreamRef tracks - keep camera track intact for restoration.
   const toggleScreen = useCallback(async () => {
     const userId = currentUserRef.current?.id;
 
     if (screenOnRef.current) {
-      // ── Stop screen sharing ──
+      // â”€â”€ Stop screen sharing â”€â”€
       const screenTracks = screenStreamRef.current?.getTracks() || [];
       screenTracks.forEach((t) => t.stop());
       screenStreamRef.current = null;
 
-      // Restore camera stream and camera track in all senders
-      localStreamRef.current = cameraStreamRef.current;
       const camTrack = cameraStreamRef.current?.getVideoTracks()[0] || null;
-      for (const [peerId, pc] of Object.entries(peerConnectionsRef.current)) {
-        const sender = pc.getSenders().find((s) => s.track?.kind === "video");
-        if (sender) {
-          try {
-            await sender.replaceTrack(camOnRef.current ? camTrack : null);
-          } catch (e) {
-            console.warn("Failed to restore camera track:", e);
-          }
+      if (camOnRef.current && selectedBgRef.current !== "none") {
+        try {
+          await startVirtualBackground(selectedBgRef.current);
+        } catch (err) {
+          console.warn("Virtual background init failed:", err);
         }
+      } else {
+        stopVirtualBackground();
+        await applyOutgoingVideoTrack(camOnRef.current ? camTrack : null);
+        syncLocalDisplayStream(camOnRef.current ? camTrack : null);
       }
 
-      // Update local participant stream ref
       setParticipants((prev) =>
         prev.map((p) =>
           p.isLocal
             ? {
                 ...p,
-                stream: cameraStreamRef.current,
+                stream: localStreamRef.current || cameraStreamRef.current,
                 isScreenShare: false,
               }
             : p,
@@ -2994,8 +3457,9 @@ export default function MeetingRoom() {
       setScreenOn(false);
       screenOnRef.current = false;
     } else {
-      // ── Start screen sharing ──
+      // â”€â”€ Start screen sharing â”€â”€
       try {
+        stopVirtualBackground();
         const ss = await navigator.mediaDevices.getDisplayMedia({
           video: { cursor: "always" },
           audio: false,
@@ -3054,33 +3518,29 @@ export default function MeetingRoom() {
         }
 
         // When user stops via browser's built-in stop button
-        screenTrack.onended = () => {
+        screenTrack.onended = async () => {
           if (screenOnRef.current) {
             setScreenOn(false);
             screenOnRef.current = false;
             screenStreamRef.current = null;
-            // Restore camera
-            const camTrack = localStreamRef.current?.getVideoTracks()[0];
-            Object.entries(peerConnectionsRef.current).forEach(
-              async ([peerId, pc]) => {
-                const sender = pc
-                  .getSenders()
-                  .find((s) => s.track?.kind === "video");
-                if (sender && camTrack) {
-                  try {
-                    await sender.replaceTrack(
-                      camOnRef.current ? camTrack : null,
-                    );
-                  } catch {}
-                }
-              },
-            );
+            const camTrack = cameraStreamRef.current?.getVideoTracks?.()[0] || null;
+            if (camOnRef.current && selectedBgRef.current !== "none") {
+              try {
+                await startVirtualBackground(selectedBgRef.current);
+              } catch (err) {
+                console.warn("Virtual background init failed:", err);
+              }
+            } else {
+              stopVirtualBackground();
+              await applyOutgoingVideoTrack(camOnRef.current ? camTrack : null);
+              syncLocalDisplayStream(camOnRef.current ? camTrack : null);
+            }
             setParticipants((prev) =>
               prev.map((p) =>
                 p.isLocal
                   ? {
                       ...p,
-                      stream: localStreamRef.current,
+                      stream: localStreamRef.current || cameraStreamRef.current,
                       isScreenShare: false,
                     }
                   : p,
@@ -3131,13 +3591,18 @@ export default function MeetingRoom() {
       } catch (e) {
         if (e.name !== "NotAllowedError") {
           console.error("Screen share error:", e);
-          addSysMsg("❌ Screen sharing failed");
+          addSysMsg("âŒ Screen sharing failed");
         }
       }
     }
-  }, []);
+  }, [
+    applyOutgoingVideoTrack,
+    startVirtualBackground,
+    stopVirtualBackground,
+    syncLocalDisplayStream,
+  ]);
 
-  // ─── Recording ────────────────────────────────────────────────────────────
+  // â”€â”€â”€ Recording â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const toggleRec = useCallback(() => {
     if (!recOn) {
       try {
@@ -3158,14 +3623,14 @@ export default function MeetingRoom() {
         };
         recorder.start(1000);
         mediaRecorderRef.current = recorder;
-        addSysMsg("🔴 Recording started");
+        addSysMsg("ðŸ”´ Recording started");
       } catch (e) {
         console.error("Recording failed:", e);
       }
     } else {
       mediaRecorderRef.current?.stop();
       mediaRecorderRef.current = null;
-      addSysMsg("⏹ Recording stopped, saving…");
+      addSysMsg("â¹ Recording stopped, savingâ€¦");
     }
     setRecOn((p) => !p);
   }, [recOn]);
@@ -3194,7 +3659,7 @@ export default function MeetingRoom() {
           name: currentUserRef.current?.full_name,
         },
       });
-      addSysMsg("✋ You raised your hand");
+      addSysMsg("âœ‹ You raised your hand");
       setTimeout(() => {
         setHandRaised(false);
         setParticipants((prev) =>
@@ -3218,7 +3683,7 @@ export default function MeetingRoom() {
           name: currentUserRef.current?.full_name,
         },
       });
-      addSysMsg("👇 You lowered your hand");
+      addSysMsg("ðŸ‘‡ You lowered your hand");
     }
   };
 
@@ -3246,11 +3711,16 @@ export default function MeetingRoom() {
     setChatInput("");
   };
 
-  const copyLink = () => {
+  const copyLink = async () => {
     const link = `${window.location.origin}/meet/${roomId}`;
-    navigator.clipboard?.writeText(link);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
+    try {
+      await navigator.clipboard?.writeText(link);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch (err) {
+      // Avoid uncaught AbortError from overlapping clipboard lock requests.
+      console.warn("Clipboard write failed:", err);
+    }
   };
 
   const handleLeaveInternal = useCallback(
@@ -3348,10 +3818,72 @@ export default function MeetingRoom() {
         .join("\n");
       const contextBlock =
         `Meeting Title: ${mtg.title || "Team Meeting"}\nDuration: ${dur || "?"} minutes\nParticipants: ${attendeeNames || "Unknown"}\nAgenda: ${agendaItems.map((a, i) => `${i + 1}. ${a.text} (${a.dur} min)`).join("; ") || "None set"}\nSpeaker Timeline:\n${speakerTimeline || "No speaker timeline captured"}\nSpoken Transcript:\n${attributedTranscript || transcription?.text || "No spoken transcript captured"}\nChat Log:\n${chatLog.length ? chatLog.map((m) => `[${m.sender}]: ${m.text}`).join("\n") : "No chat messages recorded"}`.trim();
-      const systemPrompt = `You are an expert meeting analyst. Analyze the full meeting using spoken transcript first, speaker timeline second, and chat log last. Attribute decisions and action items to speakers when the evidence is clear; otherwise use "Unassigned". Return ONLY valid JSON (no markdown, no backticks) with this exact shape:\n{\n  "summary": "2-4 sentence summary of what was discussed and accomplished",\n  "actionItems": [{"text": "...", "assignee": "...", "due": "..."}],\n  "decisions": ["decision 1", "decision 2"],\n  "keyTopics": ["topic 1", "topic 2", "topic 3"],\n  "sentiment": {"engagement": 75, "positivity": 70, "resolution": 80}\n}`;
-      const raw = await groq(systemPrompt, contextBlock);
+      const systemPrompt = `You are an expert meeting analyst and note-taker. Analyze spoken transcript first, speaker timeline second, and chat log last.
+Generate an in-depth, practical meeting summary similar to professional meeting tools.
+Rules:
+- Include what happened in the meeting, not generic filler.
+- Keep facts grounded in the provided meeting data.
+- Attribute actions/decisions to specific people when clear; otherwise use "Unassigned".
+- If dates are unclear, set due to "TBD".
+- Return ONLY valid JSON (no markdown, no backticks) with this exact shape:
+{
+  "summary": "1-2 short paragraphs (at least 120 words) covering context, discussion flow, outcomes, blockers, and status",
+  "meetingNotes": ["chronological note 1", "chronological note 2", "chronological note 3"],
+  "actionItems": [{"text": "...", "assignee": "...", "due": "...", "priority": "High|Medium|Low"}],
+  "decisions": ["confirmed decision 1", "confirmed decision 2"],
+  "futureDecisions": ["decision still pending 1", "decision still pending 2"],
+  "nextSteps": ["next step 1", "next step 2"],
+  "keyTopics": ["topic 1", "topic 2", "topic 3"],
+  "sentiment": {"engagement": 75, "positivity": 70, "resolution": 80}
+}`;
+      const raw = await groq(systemPrompt, contextBlock, { maxTokens: 2200 });
       const clean = raw.replace(/```json|```/g, "").trim();
-      const parsed = JSON.parse(clean);
+      const parsedRaw = JSON.parse(clean);
+      const parsed = {
+        summary:
+          typeof parsedRaw.summary === "string" && parsedRaw.summary.trim()
+            ? parsedRaw.summary.trim()
+            : "Detailed summary was unavailable.",
+        meetingNotes: Array.isArray(parsedRaw.meetingNotes)
+          ? parsedRaw.meetingNotes.filter(Boolean).slice(0, 18)
+          : [],
+        actionItems: Array.isArray(parsedRaw.actionItems)
+          ? parsedRaw.actionItems
+              .filter((a) => a && a.text)
+              .map((a) => ({
+                text: String(a.text || "").trim(),
+                assignee: String(a.assignee || "Unassigned").trim(),
+                due: String(a.due || "TBD").trim(),
+                priority: String(a.priority || "Medium").trim(),
+              }))
+          : [],
+        decisions: Array.isArray(parsedRaw.decisions)
+          ? parsedRaw.decisions.filter(Boolean).slice(0, 12)
+          : [],
+        futureDecisions: Array.isArray(parsedRaw.futureDecisions)
+          ? parsedRaw.futureDecisions.filter(Boolean).slice(0, 12)
+          : [],
+        nextSteps: Array.isArray(parsedRaw.nextSteps)
+          ? parsedRaw.nextSteps.filter(Boolean).slice(0, 12)
+          : [],
+        keyTopics: Array.isArray(parsedRaw.keyTopics)
+          ? parsedRaw.keyTopics.filter(Boolean).slice(0, 10)
+          : [],
+        sentiment: {
+          engagement: Math.max(
+            0,
+            Math.min(100, Number(parsedRaw?.sentiment?.engagement || 0)),
+          ),
+          positivity: Math.max(
+            0,
+            Math.min(100, Number(parsedRaw?.sentiment?.positivity || 0)),
+          ),
+          resolution: Math.max(
+            0,
+            Math.min(100, Number(parsedRaw?.sentiment?.resolution || 0)),
+          ),
+        },
+      };
       if (meetingDbId) {
         await supabase
           .from("meetings")
@@ -3384,11 +3916,20 @@ export default function MeetingRoom() {
     const actionHtml = (summary.actionItems || [])
       .map(
         (a) =>
-          `<tr><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">${a.text}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#2563eb;font-weight:600;">${a.assignee}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#6b7280;">${a.due}</td></tr>`,
+          `<tr><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">${a.text}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#2563eb;font-weight:600;">${a.assignee}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#6b7280;">${a.due}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#b45309;font-weight:600;">${a.priority || "Medium"}</td></tr>`,
       )
       .join("");
     const decisionsHtml = (summary.decisions || [])
       .map((d) => `<li style="padding:4px 0;color:#374151;">${d}</li>`)
+      .join("");
+    const meetingNotesHtml = (summary.meetingNotes || [])
+      .map((n) => `<li style="padding:4px 0;color:#374151;">${n}</li>`)
+      .join("");
+    const futureDecisionsHtml = (summary.futureDecisions || [])
+      .map((d) => `<li style="padding:4px 0;color:#374151;">${d}</li>`)
+      .join("");
+    const nextStepsHtml = (summary.nextSteps || [])
+      .map((s) => `<li style="padding:4px 0;color:#374151;">${s}</li>`)
       .join("");
     const topicsHtml = (summary.keyTopics || [])
       .map(
@@ -3396,7 +3937,9 @@ export default function MeetingRoom() {
           `<span style="display:inline-block;padding:4px 12px;background:#ede9fe;color:#7c3aed;border-radius:999px;font-size:12px;margin:3px;">${t}</span>`,
       )
       .join("");
-    const body = `<!DOCTYPE html><html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f9fafb;margin:0;padding:24px;"><div style="max-width:600px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);"><div style="background:linear-gradient(135deg,#2d6ef5,#7c3aed);padding:32px 32px 24px;"><h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 8px;">${mtg.title || "Team Meeting"}</h1><div style="color:rgba(255,255,255,0.75);font-size:13px;">🕐 ${mtg.duration || "—"} minutes &nbsp;|&nbsp; 👥 ${emails.length} participants</div></div><div style="padding:28px 32px 0;"><h2 style="font-size:13px;font-weight:700;color:#2d6ef5;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 10px;">Summary</h2><p style="color:#374151;line-height:1.7;background:#f9fafb;border-radius:12px;padding:16px;margin:0;font-size:14px;">${summary.summary}</p></div>${topicsHtml ? `<div style="padding:24px 32px 0;">${topicsHtml}</div>` : ""}${actionHtml ? `<div style="padding:24px 32px 0;"><table style="width:100%;border-collapse:collapse;">${actionHtml}</table></div>` : ""}${decisionsHtml ? `<div style="padding:24px 32px 0;"><ul>${decisionsHtml}</ul></div>` : ""}<div style="padding:24px 32px 32px;margin-top:24px;border-top:1px solid #f0f0f0;"><p style="color:#9ca3af;font-size:12px;margin:0;">AI-generated summary · Participants: ${attendeeNames}</p></div></div></body></html>`;
+
+    const body = `<!DOCTYPE html><html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f9fafb;margin:0;padding:24px;"><div style="max-width:760px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);"><div style="background:linear-gradient(135deg,#2d6ef5,#7c3aed);padding:32px 32px 24px;"><h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 8px;">${mtg.title || "Team Meeting"}</h1><div style="color:rgba(255,255,255,0.75);font-size:13px;">${mtg.duration || "-"} minutes &nbsp;|&nbsp; ${emails.length} participants</div></div><div style="padding:28px 32px 0;"><h2 style="font-size:13px;font-weight:700;color:#2d6ef5;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 10px;">Summary</h2><p style="color:#374151;line-height:1.7;background:#f9fafb;border-radius:12px;padding:16px;margin:0;font-size:14px;">${summary.summary}</p></div>${topicsHtml ? `<div style="padding:24px 32px 0;"><h2 style="font-size:13px;font-weight:700;color:#2d6ef5;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 10px;">Key Topics</h2>${topicsHtml}</div>` : ""}${meetingNotesHtml ? `<div style="padding:24px 32px 0;"><h2 style="font-size:13px;font-weight:700;color:#2d6ef5;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 10px;">Meeting Notes</h2><ul>${meetingNotesHtml}</ul></div>` : ""}${actionHtml ? `<div style="padding:24px 32px 0;"><h2 style="font-size:13px;font-weight:700;color:#2d6ef5;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 10px;">Action Items</h2><table style="width:100%;border-collapse:collapse;"><thead><tr><th style="text-align:left;padding:8px 12px;font-size:12px;color:#6b7280;">Task</th><th style="text-align:left;padding:8px 12px;font-size:12px;color:#6b7280;">Owner</th><th style="text-align:left;padding:8px 12px;font-size:12px;color:#6b7280;">Due</th><th style="text-align:left;padding:8px 12px;font-size:12px;color:#6b7280;">Priority</th></tr></thead><tbody>${actionHtml}</tbody></table></div>` : ""}${decisionsHtml ? `<div style="padding:24px 32px 0;"><h2 style="font-size:13px;font-weight:700;color:#2d6ef5;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 10px;">Decisions Made</h2><ul>${decisionsHtml}</ul></div>` : ""}${futureDecisionsHtml ? `<div style="padding:24px 32px 0;"><h2 style="font-size:13px;font-weight:700;color:#2d6ef5;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 10px;">Pending / Future Decisions</h2><ul>${futureDecisionsHtml}</ul></div>` : ""}${nextStepsHtml ? `<div style="padding:24px 32px 0;"><h2 style="font-size:13px;font-weight:700;color:#2d6ef5;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 10px;">Next Steps</h2><ul>${nextStepsHtml}</ul></div>` : ""}<div style="padding:24px 32px 32px;margin-top:24px;border-top:1px solid #f0f0f0;"><p style="color:#9ca3af;font-size:12px;margin:0;">AI-generated summary · Participants: ${attendeeNames}</p></div></div></body></html>`;
+
     await Promise.allSettled(
       emails.map((email) =>
         sendEmail({
@@ -3438,7 +3981,7 @@ export default function MeetingRoom() {
     setOpenDrawer((prev) => (prev === name ? null : name));
   };
 
-  // ─── PHASE: LOBBY ──────────────────────────────────────────────────────────
+  // â”€â”€â”€ PHASE: LOBBY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (phase === "lobby") {
     if (!currentUser || !meeting) {
       return (
@@ -3474,7 +4017,7 @@ export default function MeetingRoom() {
             <span
               style={{ fontSize: 13, color: "var(--text-3)", fontWeight: 500 }}
             >
-              Loading meeting…
+              Loading meetingâ€¦
             </span>
           </div>
         </div>
@@ -3494,7 +4037,7 @@ export default function MeetingRoom() {
     );
   }
 
-  // ─── PHASE: ENDED ──────────────────────────────────────────────────────────
+  // â”€â”€â”€ PHASE: ENDED â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (phase === "ended") {
     return (
       <div className={`meet-root ended-root${dark ? " dark" : ""}`}>
@@ -3546,7 +4089,7 @@ export default function MeetingRoom() {
                   lineHeight: 1.6,
                 }}
               >
-                Analyzing your meeting and emailing participants…
+                Analyzing your meeting and emailing participantsâ€¦
               </div>
             </div>
           ) : summaryData ? (
@@ -3634,6 +4177,37 @@ export default function MeetingRoom() {
                     </div>
                   </div>
                 )}
+                {(summaryData.meetingNotes || []).length > 0 && (
+                  <div className="summary-section">
+                    <div className="summary-label">
+                      <ListChecks size={9} /> Meeting Notes
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 7,
+                      }}
+                    >
+                      {summaryData.meetingNotes.map((note, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            padding: "10px 13px",
+                            background: "var(--surface)",
+                            borderRadius: 10,
+                            border: "1px solid var(--border)",
+                            fontSize: 12,
+                            color: "var(--text-2)",
+                            lineHeight: 1.6,
+                          }}
+                        >
+                          {note}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {(summaryData.actionItems || []).length > 0 && (
                   <div className="summary-section">
                     <div className="summary-label">
@@ -3686,9 +4260,103 @@ export default function MeetingRoom() {
                                 fontWeight: 600,
                               }}
                             >
-                              {a.assignee} · {a.due}
+                              {a.assignee} | {a.due}
+                              {a.priority ? ` | ${a.priority}` : ""}
                             </div>
                           </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {(summaryData.decisions || []).length > 0 && (
+                  <div className="summary-section">
+                    <div className="summary-label">
+                      <Check size={9} /> Decisions Made
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 7,
+                      }}
+                    >
+                      {summaryData.decisions.map((decision, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            padding: "10px 13px",
+                            background: "var(--surface)",
+                            borderRadius: 10,
+                            border: "1px solid var(--border)",
+                            fontSize: 12,
+                            color: "var(--text-2)",
+                            lineHeight: 1.6,
+                          }}
+                        >
+                          {decision}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {(summaryData.futureDecisions || []).length > 0 && (
+                  <div className="summary-section">
+                    <div className="summary-label">
+                      <AlertCircle size={9} /> Pending Decisions
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 7,
+                      }}
+                    >
+                      {summaryData.futureDecisions.map((decision, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            padding: "10px 13px",
+                            background: "var(--surface)",
+                            borderRadius: 10,
+                            border: "1px solid var(--border)",
+                            fontSize: 12,
+                            color: "var(--text-2)",
+                            lineHeight: 1.6,
+                          }}
+                        >
+                          {decision}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {(summaryData.nextSteps || []).length > 0 && (
+                  <div className="summary-section">
+                    <div className="summary-label">
+                      <ArrowRight size={9} /> Next Steps
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 7,
+                      }}
+                    >
+                      {summaryData.nextSteps.map((step, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            padding: "10px 13px",
+                            background: "var(--surface)",
+                            borderRadius: 10,
+                            border: "1px solid var(--border)",
+                            fontSize: 12,
+                            color: "var(--text-2)",
+                            lineHeight: 1.6,
+                          }}
+                        >
+                          {step}
                         </div>
                       ))}
                     </div>
@@ -3839,7 +4507,7 @@ export default function MeetingRoom() {
     );
   }
 
-  // ─── PHASE: ROOM ────────────────────────────────────────────────────────────
+  // â”€â”€â”€ PHASE: ROOM â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   return (
     <div className={`meet-root room-root${dark ? " dark" : ""}`}>
       <style>{styles}</style>
@@ -3862,7 +4530,7 @@ export default function MeetingRoom() {
         />
       )}
 
-      {/* ── Top bar ── */}
+      {/* â”€â”€ Top bar â”€â”€ */}
       <div className="room-topbar">
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div
@@ -4046,7 +4714,7 @@ export default function MeetingRoom() {
         </div>
       )}
 
-      {/* ── Content ── */}
+      {/* â”€â”€ Content â”€â”€ */}
       <div className="room-content">
         <div className="room-videos">
           {screenSharer ? (
@@ -4080,6 +4748,7 @@ export default function MeetingRoom() {
                   }
                   profilesMap={profilesMap}
                   handRaised={screenSharer.handRaised || false}
+                  selectedBg={selectedBg}
                 />
               </div>
               <div
@@ -4112,6 +4781,7 @@ export default function MeetingRoom() {
                         isSpeaking={speakingId === p.peerId}
                         profilesMap={profilesMap}
                         handRaised={p.handRaised || false}
+                        selectedBg={selectedBg}
                       />
                     </div>
                   ))}
@@ -4147,6 +4817,7 @@ export default function MeetingRoom() {
                       }
                       profilesMap={profilesMap}
                       handRaised={p.handRaised || false}
+                      selectedBg={selectedBg}
                     />
                   </div>
                 );
@@ -4175,7 +4846,7 @@ export default function MeetingRoom() {
             </div>
           )}
 
-          {/* ── Bottom Controls ── */}
+          {/* â”€â”€ Bottom Controls â”€â”€ */}
           <div className="room-controls">
             <CtrlBtn
               onClick={toggleMic}
@@ -4198,7 +4869,7 @@ export default function MeetingRoom() {
               <CtrlBtn
                 onClick={toggleRec}
                 activeRec={recOn}
-                label={recOn ? "● REC" : "Record"}
+                label={recOn ? "â— REC" : "Record"}
               >
                 <Circle
                   size={17}
@@ -4236,13 +4907,13 @@ export default function MeetingRoom() {
             >
               <ListChecks size={17} />
             </CtrlBtn>
-            {/* <CtrlBtn
+            <CtrlBtn
               onClick={() => toggleDrawer("bg")}
               activeOn={openDrawer === "bg"}
               label="Background"
             >
               <ImageIcon size={17} />
-            </CtrlBtn> */}
+            </CtrlBtn>
 
             <div className="divider" />
 
@@ -4256,13 +4927,13 @@ export default function MeetingRoom() {
           </div>
         </div>
 
-        {/* ── Drawer backdrop ── */}
+        {/* â”€â”€ Drawer backdrop â”€â”€ */}
         <div
           className={`drawer-backdrop${openDrawer ? " open" : ""}`}
           onClick={() => setOpenDrawer(null)}
         />
 
-        {/* ── Drawer ── */}
+        {/* â”€â”€ Drawer â”€â”€ */}
         <div className={`room-drawer${openDrawer ? " open" : ""}`}>
           <div className="drawer-header">
             <div className="drawer-title">
@@ -4398,7 +5069,7 @@ export default function MeetingRoom() {
                   onKeyDown={(e) =>
                     e.key === "Enter" && !e.shiftKey && sendChat()
                   }
-                  placeholder="Message everyone…"
+                  placeholder="Message everyoneâ€¦"
                   className="chat-input"
                 />
                 <button
@@ -4643,6 +5314,35 @@ export default function MeetingRoom() {
           {/* Background */}
           {openDrawer === "bg" && (
             <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
+              {bgApplying && (
+                <div
+                  style={{
+                    marginBottom: 12,
+                    padding: "8px 10px",
+                    borderRadius: 10,
+                    background: "var(--accent-subtle)",
+                    border: "1px solid rgba(45,110,245,0.25)",
+                    color: "var(--accent)",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: "50%",
+                      border: "2px solid rgba(45,110,245,0.25)",
+                      borderTopColor: "var(--accent)",
+                      animation: "spin 0.8s linear infinite",
+                    }}
+                  />
+                  Applying background...
+                </div>
+              )}
               <p
                 style={{
                   fontSize: 12,
@@ -4663,8 +5363,35 @@ export default function MeetingRoom() {
                     key={bg.id}
                     className={`bg-option${selectedBg === bg.id ? " selected" : ""}`}
                     style={bg.style}
-                    onClick={() => setSelectedBg(bg.id)}
+                    onClick={() => {
+                      if (bgApplying) return;
+                      setSelectedBg(bg.id);
+                    }}
                   >
+                    {bgApplying && selectedBg === bg.id && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          background: "rgba(0,0,0,0.25)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          zIndex: 2,
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: "50%",
+                            border: "2px solid rgba(255,255,255,0.45)",
+                            borderTopColor: "white",
+                            animation: "spin 0.8s linear infinite",
+                          }}
+                        />
+                      </div>
+                    )}
                     {bg.isBlur && (
                       <div
                         style={{
@@ -4753,7 +5480,7 @@ export default function MeetingRoom() {
                       color: "var(--text)",
                     }}
                   >
-                    {currentUser?.full_name || "You"} ·{" "}
+                    {currentUser?.full_name || "You"} Â·{" "}
                     {selectedBg === "none"
                       ? "No background"
                       : BG_OPTIONS.find((b) => b.id === selectedBg)?.label}
@@ -4767,3 +5494,5 @@ export default function MeetingRoom() {
     </div>
   );
 }
+
+

@@ -189,6 +189,16 @@ const getIsDarkTheme = () => {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 };
 
+const normalizePlanTier = (planName) => {
+  const value = String(planName || "").trim().toLowerCase();
+  if (value.includes("free")) return "starter";
+  if (value.includes("starter")) return "starter";
+  if (value.includes("growth")) return "growth";
+  if (value.includes("pro")) return "pro";
+  if (value.includes("enterprise")) return "enterprise";
+  return "unknown";
+};
+
 const RECRUITMENT_THEME_CSS = `
   .rec-page, .rec-portal {
     --rec-bg-page: #f8fafc;
@@ -344,6 +354,14 @@ const mapJob = (r) => ({
   deadline: r.deadline,
   fields: r.fields || [],
   branding: r.branding || null,
+  aiSelection:
+    typeof r?.branding?.aiSelection === "boolean" ? r.branding.aiSelection : true,
+  aiDesiredSkills: Array.isArray(r?.branding?.aiDesiredSkills)
+    ? r.branding.aiDesiredSkills
+    : [],
+  aiCustomQuestions: Array.isArray(r?.branding?.aiCustomQuestions)
+    ? r.branding.aiCustomQuestions
+    : [],
   tenantId: r.tenant_id,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
@@ -2018,7 +2036,14 @@ const FormBuilderModal = ({
 };
 
 /* ── EmailModal ──────────────────────────────────────────────────────────── */
-const EmailModal = ({ open, applicant, job, onClose, dark = false }) => {
+const EmailModal = ({
+  open,
+  applicant,
+  job,
+  onClose,
+  dark = false,
+  aiEnabled = true,
+}) => {
   const [form] = Form.useForm();
   const [sending, setSending] = useState(false);
   const [template, setTemplate] = useState("custom");
@@ -2040,11 +2065,16 @@ const EmailModal = ({ open, applicant, job, onClose, dark = false }) => {
       logoUrl: branding.logo_url || "",
       interviewDate: applicant.interviewDate?.split(" ")[0] || "",
       interviewTime: applicant.interviewDate?.split(" ")[1] || "",
-      interviewFormat: applicant.answers?.__aiInterview?.interviewLink
+      interviewFormat:
+        aiEnabled && applicant.answers?.__aiInterview?.interviewLink
         ? "Agentic AI interview"
         : "Video Call",
-      meetingLink: applicant.answers?.__aiInterview?.interviewLink || "",
-      interviewerName: applicant.answers?.__aiInterview?.interviewLink
+      meetingLink:
+        aiEnabled && applicant.answers?.__aiInterview?.interviewLink
+          ? applicant.answers?.__aiInterview?.interviewLink
+          : "",
+      interviewerName:
+        aiEnabled && applicant.answers?.__aiInterview?.interviewLink
         ? `${company} AI Interviewer`
         : "",
       salary: "",
@@ -2054,7 +2084,7 @@ const EmailModal = ({ open, applicant, job, onClose, dark = false }) => {
       customMessage: "",
       body: "",
     });
-  }, [open, applicant, job, template]);
+  }, [open, applicant, job, template, aiEnabled]);
 
   const handleTemplateChange = (val) => {
     setTemplate(val);
@@ -2345,19 +2375,42 @@ const EmailModal = ({ open, applicant, job, onClose, dark = false }) => {
 };
 
 /* ── NewJobModal ─────────────────────────────────────────────────────────── */
-const NewJobModal = ({ open, onClose, onCreate, saving, dark = false }) => {
+const NewJobModal = ({
+  open,
+  onClose,
+  onCreate,
+  saving,
+  dark = false,
+  aiAvailable = true,
+}) => {
   const [form] = Form.useForm();
+  useEffect(() => {
+    if (open) {
+      form.setFieldsValue({ aiSelection: aiAvailable });
+    }
+  }, [open, aiAvailable, form]);
   const submit = () => {
     form.validateFields().then((values) => {
+      const parseList = (input) =>
+        String(input || "")
+          .split(/\r?\n|,/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .slice(0, 12);
+
       onCreate({
         title: values.title,
         department: values.department,
         deadline: values.deadline?.format("YYYY-MM-DD") || null,
         fields: DEFAULT_FIELDS,
+        aiSelection: !!values.aiSelection && aiAvailable,
+        aiDesiredSkills: parseList(values.aiDesiredSkills),
+        aiCustomQuestions: parseList(values.aiCustomQuestions),
       });
       form.resetFields();
     });
   };
+  const aiSelectionOn = Form.useWatch("aiSelection", form);
   return (
     <Modal
       rootClassName={`rec-portal${dark ? " dark" : ""}`}
@@ -2425,10 +2478,56 @@ const NewJobModal = ({ open, onClose, onCreate, saving, dark = false }) => {
         >
           <DatePicker style={{ width: "100%", height: 38 }} />
         </Form.Item>
+        <Form.Item
+          name="aiSelection"
+          label={<span style={lbl}>AI Selection</span>}
+          valuePropName="checked"
+        >
+          <Switch
+            checkedChildren="AI ON"
+            unCheckedChildren="Manual"
+            disabled={!aiAvailable}
+          />
+        </Form.Item>
+        {aiSelectionOn && aiAvailable && (
+          <>
+            <Form.Item
+              name="aiDesiredSkills"
+              label={<span style={lbl}>Skills you are looking for (optional)</span>}
+              tooltip="Use comma or new line separated skills"
+            >
+              <TextArea
+                rows={3}
+                placeholder={"React\nTypeScript\nSupabase"}
+              />
+            </Form.Item>
+            <Form.Item
+              name="aiCustomQuestions"
+              label={
+                <span style={lbl}>
+                  Questions you specifically want to ask (optional)
+                </span>
+              }
+              tooltip="Use comma or new line separated questions"
+            >
+              <TextArea
+                rows={3}
+                placeholder={
+                  "How have you handled production incidents?\nWhat is your testing strategy for APIs?"
+                }
+              />
+            </Form.Item>
+          </>
+        )}
       </Form>
       <div style={{ fontSize: 12, color: "var(--rec-text-3)", marginTop: -8 }}>
         Default form fields (name, email, phone, CV) are added automatically.
         Customise in Form Builder.
+        <div style={{ marginTop: 6 }}>
+          {aiAvailable
+            ? "When AI Selection is ON, resumes are screened automatically and shortlisted candidates get AI interview links."
+            : "AI Selection is unavailable on your current plan. Applications will stay manual."}
+        </div>
       </div>
     </Modal>
   );
@@ -2669,9 +2768,10 @@ const InterviewBlock = ({
   setInterviewDate,
   onEmail,
   aiInterview,
+  aiEnabled = true,
 }) => (
   <Card style={{ padding: "14px 16px", overflow: "visible" }}>
-    {aiInterview?.interviewLink ? (
+    {aiEnabled && aiInterview?.interviewLink ? (
       <div
         style={{
           display: "flex",
@@ -2802,6 +2902,7 @@ const OverviewTab = ({
   setNotes,
   onEmail,
   trackingUrl,
+  aiEnabled = true,
 }) => {
   const info = stageInfo(stage);
   return (
@@ -2823,14 +2924,14 @@ const OverviewTab = ({
         <StatCard
           label="Interview"
           value={
-            applicant.answers?.__aiInterview?.interviewLink
+            aiEnabled && applicant.answers?.__aiInterview?.interviewLink
               ? "AI interview"
               : applicant.interviewDate
                 ? "Scheduled"
                 : "Pending"
           }
           color={
-            applicant.answers?.__aiInterview?.interviewLink
+            aiEnabled && applicant.answers?.__aiInterview?.interviewLink
               ? "#185FA5"
               : applicant.interviewDate
                 ? "#854F0B"
@@ -2854,6 +2955,7 @@ const OverviewTab = ({
           setInterviewDate={setInterviewDate}
           onEmail={onEmail}
           aiInterview={applicant.answers?.__aiInterview || null}
+          aiEnabled={aiEnabled}
         />
       </div>
 
@@ -3133,6 +3235,7 @@ const ApplicantDrawer = ({
   open,
   applicant,
   job,
+  aiEnabled = true,
   onClose,
   onUpdate,
   onDelete,
@@ -3159,6 +3262,12 @@ const ApplicantDrawer = ({
       setActiveTab("Overview");
     }
   }, [applicant]);
+
+  useEffect(() => {
+    if (!aiEnabled && activeTab === "AI Insights") {
+      setActiveTab("Overview");
+    }
+  }, [aiEnabled, activeTab]);
 
   if (!applicant) return null;
 
@@ -3245,18 +3354,23 @@ const ApplicantDrawer = ({
         setNotes={setNotes}
         onEmail={onEmail}
         trackingUrl={trackingUrl}
+        aiEnabled={aiEnabled}
       />
     ),
     Application: (
       <ApplicationTab answerRows={answerRows} onOpenFile={openFile} />
     ),
-    "AI Insights": (
-      <AIInsightsTab
-        applicant={applicant}
-        screening={screening}
-        aiInterview={aiInterview}
-      />
-    ),
+    ...(aiEnabled
+      ? {
+          "AI Insights": (
+            <AIInsightsTab
+              applicant={applicant}
+              screening={screening}
+              aiInterview={aiInterview}
+            />
+          ),
+        }
+      : {}),
     Manage: (
       <ManageTab
         stage={stage}
@@ -3413,7 +3527,7 @@ const ApplicantDrawer = ({
             zIndex: 10,
           }}
         >
-          {TABS.map((tab) => (
+          {tabs.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -3735,6 +3849,7 @@ const JobCard = ({
   onDelete,
   onCopyLink,
   dark = false,
+  aiEnabled = true,
 }) => {
   const brand = job.branding || DEFAULT_BRANDING;
   const accent = brand.accent_color || "#3b82f6";
@@ -4111,6 +4226,14 @@ export function RecruitmentPage({ initialView = "jobs" }) {
   const [emailApplicant, setEmailApplicant] = useState(null);
   const [TENANT_ID, setTenantId] = useState(null);
   const [orgPlan, setOrgPlan] = useState(null);
+  const planTier = normalizePlanTier(orgPlan);
+  const isStarterPlan = planTier === "starter";
+  const recruitmentAiEnabled =
+    planTier === "pro" || planTier === "enterprise";
+  const isAiSelectionEnabledForJob = useCallback(
+    (job) => recruitmentAiEnabled && job?.aiSelection !== false,
+    [recruitmentAiEnabled],
+  );
 
   useEffect(() => {
     const syncTheme = () => setDark(getIsDarkTheme());
@@ -4229,17 +4352,17 @@ export function RecruitmentPage({ initialView = "jobs" }) {
   useEffect(() => {
     if (orgPlan === null) return;
 
-    if (orgPlan === "Free") {
+    if (isStarterPlan) {
       setLoading(false);
       return;
     }
 
     fetchAll();
-  }, [fetchAll, orgPlan]);
+  }, [fetchAll, orgPlan, isStarterPlan]);
 
   /* ── Realtime ────────────────────────────────────────────────────── */
   useEffect(() => {
-    if (orgPlan === "Free" || !TENANT_ID) return;
+    if (isStarterPlan || !TENANT_ID) return;
     const ch = supabase
       .channel(`recruitment-realtime-${TENANT_ID}`)
       .on(
@@ -4282,7 +4405,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
       )
       .subscribe();
     return () => supabase.removeChannel(ch);
-  }, [TENANT_ID, orgPlan]);
+  }, [TENANT_ID, orgPlan, isStarterPlan]);
 
   /* ── CRUD ────────────────────────────────────────────────────────── */
   const createJob = async (values) => {
@@ -4295,7 +4418,19 @@ export function RecruitmentPage({ initialView = "jobs" }) {
           department: values.department,
           deadline: values.deadline || null,
           fields: values.fields,
-          branding: DEFAULT_BRANDING,
+          branding: {
+            ...DEFAULT_BRANDING,
+            aiSelection:
+              typeof values.aiSelection === "boolean"
+                ? values.aiSelection
+                : recruitmentAiEnabled,
+            aiDesiredSkills: Array.isArray(values.aiDesiredSkills)
+              ? values.aiDesiredSkills
+              : [],
+            aiCustomQuestions: Array.isArray(values.aiCustomQuestions)
+              ? values.aiCustomQuestions
+              : [],
+          },
           status: "active",
         },
       ]);
@@ -4477,12 +4612,20 @@ export function RecruitmentPage({ initialView = "jobs" }) {
         : null,
     [viewApplicant, jobs],
   );
+  const drawerJobAiEnabled = useMemo(
+    () => isAiSelectionEnabledForJob(drawerJob),
+    [drawerJob, isAiSelectionEnabledForJob],
+  );
   const emailJob = useMemo(
     () =>
       emailApplicant
         ? jobs.find((j) => j.id === emailApplicant.jobId) || null
         : null,
     [emailApplicant, jobs],
+  );
+  const emailJobAiEnabled = useMemo(
+    () => isAiSelectionEnabledForJob(emailJob),
+    [emailJob, isAiSelectionEnabledForJob],
   );
 
   /* ── Applicant table columns ──────────────────────────────────────── */
@@ -4679,7 +4822,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
     );
 
   /* ── FREE PLAN GATE ───────────────────────────────────────────────── */
-  if (orgPlan === "Free") {
+  if (isStarterPlan) {
     return <RecruitmentPaywall dark={dark} />;
   }
 
@@ -5211,6 +5354,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
         onCreate={createJob}
         saving={saving}
         dark={dark}
+        aiAvailable={recruitmentAiEnabled}
       />
       {formBuilderJob && (
         <FormBuilderModal
@@ -5233,6 +5377,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
           saving={saving}
           onEmail={() => setEmailApplicant(viewApplicant)}
           dark={dark}
+          aiEnabled={drawerJobAiEnabled}
         />
       )}
       <EmailModal
@@ -5241,6 +5386,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
         job={emailJob}
         onClose={() => setEmailApplicant(null)}
         dark={dark}
+        aiEnabled={emailJobAiEnabled}
       />
     </div>
   );

@@ -294,9 +294,9 @@ const SignIn = () => {
 
     await sendEmail({
       to: profile.email,
-      subject: "Your Resosyncer login code",
+      subject: "Your Ryzent login code",
       body: otpEmailHtml(otp, profile.full_name || "there"),
-      companyName: "Resosyncer",
+      companyName: "Ryzent",
     });
   };
 
@@ -613,7 +613,7 @@ const SignIn = () => {
         </h2>
         <p className="text-slate-400 text-sm leading-relaxed">
           Open your authenticator app and enter the 6-digit code for{" "}
-          <span className="font-semibold text-slate-600">Resosyncer</span>.
+          <span className="font-semibold text-slate-600">Ryzent AI</span>.
         </p>
       </div>
 
@@ -682,17 +682,8 @@ const SignIn = () => {
 
         <div className="relative z-10 flex flex-col h-full p-12">
           <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-white"
-              style={{
-                background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
-                fontSize: 18,
-              }}
-            >
-              R
-            </div>
             <span className="text-white font-bold text-xl tracking-tight">
-              Resosyncer
+              Ryzent
             </span>
           </div>
 
@@ -779,14 +770,8 @@ const SignIn = () => {
       <div className="flex-1 flex flex-col bg-white">
         {/* Mobile logo */}
         <div className="lg:hidden flex items-center gap-2 p-6 border-b border-slate-100">
-          <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-white text-sm"
-            style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }}
-          >
-            R
-          </div>
           <span className="text-slate-900 font-bold text-lg tracking-tight">
-            Resosyncer
+            Ryzent AI
           </span>
         </div>
 
@@ -1043,7 +1028,7 @@ const SignIn = () => {
 
         {/* Footer */}
         <div className="px-8 py-5 border-t border-slate-50 flex items-center justify-between">
-          <span className="text-xs text-slate-300">© 2025 Resosyncer</span>
+          <span className="text-xs text-slate-300">© 2025 Ryzent AI</span>
           <div className="flex items-center gap-4">
             {["Privacy", "Terms", "Help"].map((l) => (
               <a

@@ -45,10 +45,11 @@ const INTERVIEW_SECTIONS = [
 
 const MIN_QUESTIONS = INTERVIEW_SECTIONS.length;
 const MAX_QUESTIONS = 10;
-const AUTO_SUBMIT_SILENCE_MS = 1800;
 const MAX_TURN_CAPTURE_MS = 45000;
-const VOICE_RMS_THRESHOLD = 0.008;
-const NO_VOICE_TIMEOUT_MS = 7000;
+const VOICE_RMS_THRESHOLD = 0.0045;
+const NO_VOICE_TIMEOUT_MS = 15000;
+const INTEGRITY_SCAN_INTERVAL_MS = 380;
+const ENABLE_ADVANCED_INTEGRITY = false;
 const GROQ_API_KEY =
   import.meta.env.VITE_GROQ_API_KEY || import.meta.env.VITE_GROK_API_KEY;
 const GROQ_TRANSCRIBE_URL = "https://api.groq.com/openai/v1/audio/transcriptions";
@@ -57,13 +58,20 @@ const WARMUP_QUESTION = (name) =>
   `Hi ${name || "there"}, hello. It's great to meet you today. How are you doing?`;
 const MOBILE_DEVICE_REGEX =
   /Android|iPhone|iPad|iPod|Mobile|Tablet|IEMobile|Opera Mini/i;
-
 function getSR() {
   return window.SpeechRecognition || window.webkitSpeechRecognition || null;
 }
 function fmtTime(idx) {
   const s = 20 + idx * 25;
   return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+}
+
+function normalizeQuestionText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1003,6 +1011,8 @@ function ActiveSession({
   draftStatus,
   warningNotice,
   focusWarnings,
+  onToggleMic,
+  onSendAnswer,
   onReplay,
   onEnd,
   bottomRef,
@@ -1383,7 +1393,7 @@ function ActiveSession({
             rows={3}
             placeholder={
               listening
-                ? "Speak naturally. We will submit when you pause."
+                ? "Speak naturally, then click Send Answer."
                 : "Wait for Rexa to finish, then answer naturally."
             }
           />
@@ -1432,7 +1442,7 @@ function ActiveSession({
               marginTop: 4,
             }}
           >
-            Answers are submitted automatically after a short pause.
+            Click Send Answer when your response is ready.
           </div>
         </div>
       </div>
@@ -1468,19 +1478,38 @@ function ActiveSession({
           <Mic size={14} color={listening ? "#22c55e" : "rgba(255,255,255,.45)"} />
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-1)" }}>
-              Autonomous voice reply
+              Manual voice reply
             </span>
             <span style={{ fontSize: 11, color: "var(--text-3)" }}>
               {listening
-                ? "Listening now and auto-submitting on silence"
+                ? "Listening now. Click Send Answer when done."
                 : speaking
                   ? "Waiting for Rexa to finish speaking"
                   : processing
                     ? "Preparing the next question"
-                    : "Voice capture starts automatically"}
+                    : "Use Open Mic to start voice capture"}
             </span>
           </div>
         </div>
+
+        <button
+          className={`rxa-btn ${listening ? "rxa-btn-mic-active" : "rxa-btn-ghost"}`}
+          onClick={onToggleMic}
+          style={{ minWidth: 110 }}
+        >
+          <Mic size={14} />
+          {listening ? "Stop Mic" : "Open Mic"}
+        </button>
+
+        <button
+          className="rxa-btn rxa-btn-blue"
+          onClick={onSendAnswer}
+          disabled={processing}
+          style={{ minWidth: 122 }}
+        >
+          <ChevronRight size={14} />
+          Send Answer
+        </button>
 
         <button
           className="rxa-btn rxa-btn-ghost"
@@ -1835,6 +1864,8 @@ export default function AiInterviewPage() {
   const [draftStatus, setDraftStatus] = useState("Waiting for your answer");
 
   const recognitionRef = useRef(null);
+  const srFinalTextRef = useRef("");
+  const srInterimTextRef = useRef("");
   const transcriptRef = useRef([]);
   const videoRef = useRef(null);
   const pipVideoRef = useRef(null);
@@ -2030,6 +2061,10 @@ export default function AiInterviewPage() {
   }, [started, completed]);
 
   const ensureIntegrityModels = useCallback(async () => {
+    if (!ENABLE_ADVANCED_INTEGRITY) {
+      setIntegrityStatus("Light integrity mode active.");
+      return null;
+    }
     if (integrityModelPromiseRef.current) {
       return integrityModelPromiseRef.current;
     }
@@ -2127,7 +2162,7 @@ export default function AiInterviewPage() {
         activeVideo.readyState < 2 ||
         !ctx
       ) {
-        integrityLoopRef.current = requestAnimationFrame(inspectFrame);
+        integrityLoopRef.current = setTimeout(inspectFrame, INTEGRITY_SCAN_INTERVAL_MS);
         return;
       }
 
@@ -2261,15 +2296,19 @@ export default function AiInterviewPage() {
         offCenterStreakRef.current = 0;
       }
 
-      integrityLoopRef.current = requestAnimationFrame(inspectFrame);
+      integrityLoopRef.current = setTimeout(inspectFrame, INTEGRITY_SCAN_INTERVAL_MS);
     };
 
-    ensureIntegrityModels();
-    integrityLoopRef.current = requestAnimationFrame(inspectFrame);
+    if (ENABLE_ADVANCED_INTEGRITY) {
+      setTimeout(() => {
+        if (!cancelled) ensureIntegrityModels();
+      }, 15000);
+    }
+    integrityLoopRef.current = setTimeout(inspectFrame, INTEGRITY_SCAN_INTERVAL_MS);
 
     return () => {
       cancelled = true;
-      cancelAnimationFrame(integrityLoopRef.current);
+      clearTimeout(integrityLoopRef.current);
       integrityLoopRef.current = null;
       faceMissingStreakRef.current = 0;
       offCenterStreakRef.current = 0;
@@ -2283,6 +2322,20 @@ export default function AiInterviewPage() {
     [accessToken],
   );
   const screening = applicant?.answers?.__aiScreening || null;
+  const recruiterDesiredSkills = useMemo(
+    () =>
+      Array.isArray(job?.branding?.aiDesiredSkills)
+        ? job.branding.aiDesiredSkills
+        : [],
+    [job],
+  );
+  const recruiterCustomQuestions = useMemo(
+    () =>
+      Array.isArray(job?.branding?.aiCustomQuestions)
+        ? job.branding.aiCustomQuestions
+        : [],
+    [job],
+  );
 
   // ── CAMERA ─────────────────────────────────────────────────────────────────
   const stopCamera = () => {
@@ -2367,23 +2420,43 @@ export default function AiInterviewPage() {
 
   const uploadRecording = async () => {
     if (!chunksRef.current.length) return null;
+    if (!BUCKET) {
+      setRecordingStatus("Storage not configured");
+      return null;
+    }
     setUploadingRecording(true);
     setRecordingStatus("Uploading…");
     try {
       const blob = new Blob(chunksRef.current, { type: "video/webm" });
-      const path = `${applicant?.id || "public"}/${Date.now()}-interview.webm`;
-      const { error: ue } = await supabase.storage
-        .from(BUCKET)
-        .upload(path, blob, { contentType: "video/webm", upsert: false });
-      if (ue) throw ue;
-      const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-      const url = data?.publicUrl || path;
-      setRecordingUrl(url);
-      setRecordingStatus("Uploaded");
-      return { filePath: path, url };
-    } catch {
+      const prefix = applicant?.id || "public";
+      const paths = [
+        `${prefix}/${Date.now()}-interview.webm`,
+        `${prefix}/${Date.now()}-interview-fallback.webm`,
+      ];
+
+      let lastError = null;
+      for (const path of paths) {
+        const { error: ue } = await supabase.storage
+          .from(BUCKET)
+          .upload(path, blob, { contentType: "video/webm", upsert: true });
+        if (ue) {
+          lastError = ue;
+          continue;
+        }
+        const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+        const url = data?.publicUrl || path;
+        setRecordingUrl(url);
+        setRecordingStatus("Uploaded");
+        return { filePath: path, url };
+      }
+
+      throw lastError || new Error("Unknown storage upload error");
+    } catch (error) {
       setRecordingStatus("Upload failed");
-      message.warning("Recording upload failed.");
+      const reason = String(error?.message || "").trim();
+      message.warning(
+        reason ? `Recording upload failed: ${reason}` : "Recording upload failed.",
+      );
       return null;
     } finally {
       setUploadingRecording(false);
@@ -2475,21 +2548,30 @@ export default function AiInterviewPage() {
     clearAutoSubmit();
     keepRef.current = false;
     manualRef.current = true;
-    recognitionRef.current?.stop?.();
+    try {
+      recognitionRef.current?.stop?.();
+    } catch {}
+    recognitionRef.current = null;
     stopTurnCapture();
     setListening(false);
     setDraftStatus("Microphone paused");
   }, [clearAutoSubmit, stopTurnCapture]);
 
-  const startListening = useCallback(() => {
-    if (processingRef.current || completed) return;
+  const startListening = useCallback((options = {}) => {
+    const force = Boolean(options.force);
+    if ((processingRef.current && !force) || completed) return;
     keepRef.current = true;
     manualRef.current = false;
     clearAutoSubmit();
-    recognitionRef.current?.stop?.();
+    try {
+      recognitionRef.current?.stop?.();
+    } catch {}
+    recognitionRef.current = null;
     stopTurnCapture();
     setListening(true);
     setDraftStatus("Starting microphone...");
+    srFinalTextRef.current = "";
+    srInterimTextRef.current = "";
 
     (async () => {
       try {
@@ -2529,6 +2611,40 @@ export default function AiInterviewPage() {
         setListening(true);
         setDraftStatus("Listening...");
 
+        const SR = getSR();
+        if (SR) {
+          try {
+            const rec = new SR();
+            rec.lang = "en-US";
+            rec.continuous = true;
+            rec.interimResults = true;
+            rec.onresult = (event) => {
+              let interim = "";
+              for (let i = event.resultIndex; i < event.results.length; i += 1) {
+                const text = String(event.results[i]?.[0]?.transcript || "").trim();
+                if (!text) continue;
+                if (event.results[i].isFinal) {
+                  srFinalTextRef.current = `${srFinalTextRef.current} ${text}`.trim();
+                } else {
+                  interim = `${interim} ${text}`.trim();
+                }
+              }
+              srInterimTextRef.current = interim;
+              const combined = `${srFinalTextRef.current} ${srInterimTextRef.current}`.trim();
+              if (combined) setInterimText(combined);
+            };
+            rec.onerror = () => {};
+            rec.onend = () => {
+              if (!keepRef.current || manualRef.current || processingRef.current) return;
+              try {
+                rec.start();
+              } catch {}
+            };
+            recognitionRef.current = rec;
+            rec.start();
+          } catch {}
+        }
+
         const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
           ? "audio/webm;codecs=opus"
           : MediaRecorder.isTypeSupported("audio/webm")
@@ -2545,6 +2661,10 @@ export default function AiInterviewPage() {
 
         recorder.onstop = async () => {
           setListening(false);
+          try {
+            recognitionRef.current?.stop?.();
+          } catch {}
+          recognitionRef.current = null;
           if (turnLoopRef.current) cancelAnimationFrame(turnLoopRef.current);
           turnLoopRef.current = null;
           turnSourceRef.current?.disconnect?.();
@@ -2567,11 +2687,21 @@ export default function AiInterviewPage() {
             return;
           }
 
-          setDraftStatus("Transcribing your answer...");
+          const speechRecognitionText = `${srFinalTextRef.current} ${srInterimTextRef.current}`.trim();
+          let text = speechRecognitionText;
+          if (text) {
+            setDraftStatus("Submitting your answer...");
+          } else {
+            setDraftStatus("Transcribing your answer...");
+          }
           const blob = new Blob(turnChunksRef.current, {
             type: mime || "audio/webm",
           });
-          const text = await transcribeTurnAudio(blob);
+          if (!text) {
+            text = await transcribeTurnAudio(blob);
+          }
+          srFinalTextRef.current = "";
+          srInterimTextRef.current = "";
           if (!text) {
             setDraftStatus("Could not transcribe. Please answer again.");
             if (!processingRef.current) {
@@ -2622,16 +2752,10 @@ export default function AiInterviewPage() {
               turnLastVoiceAtRef.current = now;
             }
 
-            const silentTooLong =
-              turnDetectedVoiceRef.current &&
-              now - turnLastVoiceAtRef.current >= AUTO_SUBMIT_SILENCE_MS;
-            const noVoiceTimeout =
-              !turnDetectedVoiceRef.current &&
-              now - turnCaptureStartedAtRef.current >= NO_VOICE_TIMEOUT_MS;
             const maxTurnReached =
               now - turnCaptureStartedAtRef.current >= MAX_TURN_CAPTURE_MS;
 
-            if (silentTooLong || noVoiceTimeout || maxTurnReached) {
+            if (maxTurnReached) {
               try {
                 if (turnRecorderRef.current?.state === "recording") {
                   turnRecorderRef.current.stop();
@@ -2651,7 +2775,7 @@ export default function AiInterviewPage() {
                 turnRecorderRef.current.stop();
               }
             } catch {}
-          }, AUTO_SUBMIT_SILENCE_MS + 1200);
+          }, NO_VOICE_TIMEOUT_MS);
         }
       } catch {
         setListening(false);
@@ -2671,15 +2795,54 @@ export default function AiInterviewPage() {
     processingRef.current = true;
     setProcessing(true);
     try {
+      if (questionCount >= MAX_QUESTIONS) {
+        await finishInterview();
+        return;
+      }
+
       const nextSectionIndex = Math.min(
         questionCount,
         INTERVIEW_SECTIONS.length - 1,
       );
       const requiredSection = INTERVIEW_SECTIONS[nextSectionIndex];
+
+      const assistantQuestionHistory = transcriptRef.current
+        .filter((entry) => entry.role === "assistant")
+        .map((entry) => normalizeQuestionText(entry.content));
+      const pendingCustomQuestion = recruiterCustomQuestions.find((question) => {
+        const normalized = normalizeQuestionText(question);
+        if (!normalized) return false;
+        return !assistantQuestionHistory.some(
+          (asked) => asked === normalized || asked.includes(normalized),
+        );
+      });
+
+      if (pendingCustomQuestion) {
+        setCurrentQuestion(pendingCustomQuestion);
+        transcriptRef.current = [
+          ...transcriptRef.current,
+          {
+            role: "assistant",
+            content: pendingCustomQuestion,
+            speaker: AGENT_NAME,
+            section: requiredSection,
+            focusAreas: ["recruiter_custom_question"],
+            evaluationNote: "Recruiter custom question asked explicitly.",
+            provisionalScore: 0,
+          },
+        ];
+        setQuestionCount((p) => p + 1);
+        setTick((t) => t + 1);
+        speakText(pendingCustomQuestion);
+        return;
+      }
+
       const turn = await generateInterviewTurn({
         job,
         candidate: applicant,
         screening,
+        desiredSkills: recruiterDesiredSkills,
+        customQuestions: recruiterCustomQuestions,
         transcript: transcriptRef.current,
         lastAnswer,
         requiredSection,
@@ -2687,10 +2850,6 @@ export default function AiInterviewPage() {
           .filter((entry) => entry.role === "assistant" && entry.section)
           .map((entry) => entry.section),
       });
-      if (questionCount >= MAX_QUESTIONS) {
-        await finishInterview();
-        return;
-      }
       if (turn.shouldEnd && questionCount >= MIN_QUESTIONS) {
         await finishInterview();
         return;
@@ -2721,7 +2880,13 @@ export default function AiInterviewPage() {
 
   const submitAnswer = async (options = {}) => {
     if (processingRef.current) return;
-    const ans = [options.prefilled, currentAnswerRef.current, interimTextRef.current]
+    const ans = [
+      options.prefilled,
+      currentAnswer,
+      interimText,
+      currentAnswerRef.current,
+      interimTextRef.current,
+    ]
       .filter(Boolean)
       .join(" ")
       .trim();
@@ -2913,6 +3078,11 @@ export default function AiInterviewPage() {
       draftStatus={draftStatus}
       warningNotice={warningNotice}
       focusWarnings={focusWarnings}
+      onToggleMic={() => {
+        if (listening) stopListening();
+        else startListening({ force: true });
+      }}
+      onSendAnswer={() => submitAnswer({ silent: false })}
       onReplay={() => speakText(currentQuestion)}
       onEnd={finishInterview}
       bottomRef={bottomRef}

@@ -9,6 +9,8 @@ import {
   DatePicker,
   Select,
   InputNumber,
+  Modal,
+  Tag,
 } from "antd";
 import {
   User,
@@ -23,12 +25,47 @@ import {
   Check,
   DollarSign,
   Building2,
+  FileText,
+  Download,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import dayjs from "dayjs";
 
 const { TextArea } = Input;
+const EMAIL_API = import.meta.env.VITE_EMAIL_API_URL;
+
+const sendEmail = async ({ to, subject, body, companyName }) => {
+  try {
+    const res = await fetch(`${EMAIL_API}/api/email/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to, subject, html: body, companyName }),
+    });
+    const data = await res.json();
+    return res.ok ? { success: true, data } : { success: false, error: data };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+};
+
+const generateOtp = () =>
+  Math.floor(100000 + Math.random() * 900000).toString();
+
+const otpEmailHtml = (otp, name) => `
+  <div style="font-family:Arial,Helvetica,sans-serif;max-width:460px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+    <div style="background:#0b1f5e;color:#fff;padding:20px 24px;">
+      <h2 style="margin:0;font-size:18px;font-weight:700;">Email verification code</h2>
+      <p style="margin:8px 0 0;font-size:13px;opacity:0.9;">Hi ${name}, use this code to enable email 2FA.</p>
+    </div>
+    <div style="padding:22px 24px;background:#f8fafc;">
+      <div style="background:#fff;border:1px dashed #cbd5e1;border-radius:10px;padding:18px;text-align:center;">
+        <div style="font-size:34px;font-weight:800;letter-spacing:8px;color:#0f172a;font-family:monospace;">${otp}</div>
+        <p style="margin:8px 0 0;font-size:12px;color:#64748b;">Expires in 10 minutes</p>
+      </div>
+    </div>
+  </div>
+`;
 
 /* ─── Constants ─────────────────────────────────────────────────────── */
 const CURRENCIES = [
@@ -191,6 +228,13 @@ const getAvatarColor = (name = "") => {
   return AVATAR_PALETTE[Math.abs(h) % AVATAR_PALETTE.length];
 };
 
+const isDarkModeActive = () => {
+  const mode = localStorage.getItem("themeMode") || "system";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
+
 /* ─── CSS ─────────────────────────────────────────────────────────────── */
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap');
@@ -247,6 +291,314 @@ const CSS = `
 .ep-prof .ant-input, .ep-prof .ant-input-number, .ep-prof .ant-picker,
 .ep-prof .ant-select-selector { border-radius:9px !important; font-family:'DM Sans',sans-serif !important; }
 .ep-prof .ant-form-item { margin-bottom:14px; }
+
+.ep-prof.dark { color:#e5e7eb; }
+.ep-prof.dark .ep-prof-title { color:#f3f4f6; }
+.ep-prof.dark .ep-prof-sub { color:#9ca3af; }
+.ep-prof.dark .ep-hero,
+.ep-prof.dark .ep-sec,
+.ep-prof.dark .ep-pw-card {
+  background:#1a1b1f;
+  border-color:#2a2b31;
+}
+.ep-prof.dark .ep-hero-name { color:#f3f4f6; }
+.ep-prof.dark .ep-hero-role { color:#9ca3af; }
+.ep-prof.dark .ep-chip {
+  background:#202127;
+  color:#d1d5db;
+}
+.ep-prof.dark .ep-chip svg { color:#9ca3af; }
+.ep-prof.dark .ep-tabs {
+  background:#202127;
+  border:1px solid #2a2b31;
+}
+.ep-prof.dark .ep-tab { color:#9ca3af; }
+.ep-prof.dark .ep-tab.active {
+  background:#141416;
+  color:#f3f4f6;
+  box-shadow:none;
+}
+.ep-prof.dark .ep-tab:hover:not(.active) { color:#e5e7eb; }
+.ep-prof.dark .ep-sec-title { color:#9ca3af; }
+.ep-prof.dark .ep-sec-title svg { color:#9ca3af; }
+.ep-prof.dark .ep-info-row { border-bottom-color:#2a2b31; }
+.ep-prof.dark .ep-info-label { color:#9ca3af; }
+.ep-prof.dark .ep-info-val { color:#f3f4f6; }
+.ep-prof.dark .ep-pw-note {
+  background:#202127;
+  border-color:#2a2b31;
+  color:#d1d5db;
+}
+.ep-prof.dark .ep-pw-note svg { color:#9ca3af; }
+.ep-prof.dark .ant-form-item-label > label { color:#d1d5db !important; }
+.ep-prof.dark .ant-input,
+.ep-prof.dark .ant-input-number,
+.ep-prof.dark .ant-input-number-input,
+.ep-prof.dark .ant-picker,
+.ep-prof.dark .ant-input-affix-wrapper,
+.ep-prof.dark .ant-select-selector {
+  background:#17181c !important;
+  border-color:#2a2b31 !important;
+  color:#f3f4f6 !important;
+}
+.ep-prof.dark .ant-input::placeholder,
+.ep-prof.dark .ant-input-number-input::placeholder,
+.ep-prof.dark .ant-input-affix-wrapper input::placeholder {
+  color:#6b7280 !important;
+}
+.ep-prof.dark .ant-select-selection-placeholder { color:#6b7280 !important; }
+.ep-prof.dark .ant-select-arrow,
+.ep-prof.dark .ant-picker-suffix,
+.ep-prof.dark .ant-picker-input > input,
+.ep-prof.dark .ant-input-number-handler-wrap {
+  color:#9ca3af !important;
+}
+.ep-prof.dark .ep-save-btn {
+  background:#1d4ed8 !important;
+  border-color:#1d4ed8 !important;
+}
+.ep-prof.dark .ep-save-btn:hover {
+  background:#2563eb !important;
+  border-color:#2563eb !important;
+}
+.ep-payslip-card {
+  background:#fff;
+  border:1px solid #ebebeb;
+  border-radius:16px;
+  padding:24px;
+}
+.ep-prof.dark .ep-payslip-card {
+  background:#1a1b1f;
+  border-color:#2a2b31;
+}
+.ep-payslip-head {
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:16px;
+  border-bottom:1px solid #ebebeb;
+  padding-bottom:16px;
+  margin-bottom:20px;
+}
+.ep-prof.dark .ep-payslip-head { border-bottom-color:#2a2b31; }
+.ep-payslip-brand {
+  font-size:19px;
+  font-weight:800;
+  letter-spacing:-.2px;
+  color:#111827;
+}
+.ep-prof.dark .ep-payslip-brand { color:#f3f4f6; }
+.ep-payslip-period {
+  font-size:12.5px;
+  color:#6b7280;
+  margin-top:4px;
+}
+.ep-payslip-slugno {
+  margin-top:8px;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:4px 10px;
+  border-radius:999px;
+  background:#f3f4f6;
+  color:#4b5563;
+  font-size:11px;
+  font-weight:600;
+  border:1px solid #e5e7eb;
+}
+.ep-prof.dark .ep-payslip-slugno {
+  background:#202127;
+  color:#9ca3af;
+  border-color:#2a2b31;
+}
+.ep-payslip-grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px 14px;
+}
+@media(max-width:700px){ .ep-payslip-grid{grid-template-columns:1fr;} }
+.ep-payslip-item {
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+  border-radius:10px;
+  padding:12px 14px;
+}
+.ep-prof.dark .ep-payslip-item {
+  background:#202127;
+  border-color:#2a2b31;
+}
+.ep-payslip-label { font-size:11px; color:#6b7280; margin-bottom:3px; }
+.ep-prof.dark .ep-payslip-label { color:#9ca3af; }
+.ep-payslip-value { font-size:14px; font-weight:600; color:#111827; }
+.ep-prof.dark .ep-payslip-value { color:#f3f4f6; }
+.ep-payslip-summary {
+  margin-top:16px;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  overflow:hidden;
+}
+.ep-prof.dark .ep-payslip-summary { border-color:#2a2b31; }
+.ep-payslip-row {
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:10px;
+  align-items:center;
+  padding:12px 14px;
+  font-size:13px;
+  border-bottom:1px solid #eef2f7;
+}
+.ep-prof.dark .ep-payslip-row { border-bottom-color:#2a2b31; }
+.ep-payslip-row:last-child { border-bottom:none; }
+.ep-payslip-row span:first-child { color:#6b7280; }
+.ep-prof.dark .ep-payslip-row span:first-child { color:#9ca3af; }
+.ep-payslip-row span:last-child { color:#111827; font-weight:700; }
+.ep-prof.dark .ep-payslip-row span:last-child { color:#f3f4f6; }
+.ep-payslip-row.total {
+  background:#f9fafb;
+}
+.ep-prof.dark .ep-payslip-row.total { background:#17181c; }
+.ep-payslip-note {
+  margin-top:14px;
+  font-size:12px;
+  color:#6b7280;
+  line-height:1.6;
+}
+.ep-prof.dark .ep-payslip-note { color:#9ca3af; }
+.ep-payslip-brand-wrap {
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+}
+.ep-payslip-logo {
+  width:52px;
+  height:52px;
+  border-radius:10px;
+  border:1px solid #e5e7eb;
+  object-fit:cover;
+  background:#fff;
+}
+.ep-prof.dark .ep-payslip-logo {
+  border-color:#2a2b31;
+  background:#202127;
+}
+.ep-payslip-logo-fallback {
+  width:52px;
+  height:52px;
+  border-radius:10px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:18px;
+  font-weight:800;
+  color:#fff;
+  background:#1f2937;
+}
+.ep-payslip-table-wrap {
+  margin-top:16px;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  overflow:hidden;
+}
+.ep-prof.dark .ep-payslip-table-wrap { border-color:#2a2b31; }
+.ep-payslip-table {
+  width:100%;
+  border-collapse:collapse;
+}
+.ep-payslip-table th,
+.ep-payslip-table td {
+  padding:10px 12px;
+  font-size:12.5px;
+  border-bottom:1px solid #eef2f7;
+}
+.ep-prof.dark .ep-payslip-table th,
+.ep-prof.dark .ep-payslip-table td {
+  border-bottom-color:#2a2b31;
+}
+.ep-payslip-table th {
+  background:#f8fafc;
+  color:#6b7280;
+  font-weight:700;
+  text-align:left;
+}
+.ep-prof.dark .ep-payslip-table th {
+  background:#202127;
+  color:#9ca3af;
+}
+.ep-payslip-table td {
+  color:#111827;
+}
+.ep-prof.dark .ep-payslip-table td {
+  color:#f3f4f6;
+}
+.ep-payslip-table tr:last-child td {
+  border-bottom:none;
+}
+.ep-payslip-table td.amount {
+  text-align:right;
+  font-variant-numeric: tabular-nums;
+}
+.ep-payslip-table tr.total td {
+  font-weight:700;
+  background:#f9fafb;
+}
+.ep-prof.dark .ep-payslip-table tr.total td {
+  background:#17181c;
+}
+.ep-slip-btn {
+  background:#0b1f5e !important;
+  border-color:#0b1f5e !important;
+  color:#fff !important;
+}
+.ep-slip-btn:hover {
+  background:#102a7a !important;
+  border-color:#102a7a !important;
+}
+.ep-prof.dark .ep-slip-btn {
+  background:#ffffff !important;
+  border-color:#ffffff !important;
+  color:#141416 !important;
+}
+.ep-prof.dark .ep-slip-btn:hover {
+  background:#f3f4f6 !important;
+  border-color:#f3f4f6 !important;
+}
+.ep-2fa-card {
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  padding:14px;
+  margin-bottom:12px;
+}
+.ep-prof.dark .ep-2fa-card {
+  background:#202127;
+  border-color:#2a2b31;
+}
+.ep-2fa-title {
+  font-size:13px;
+  font-weight:700;
+  color:#111827;
+}
+.ep-prof.dark .ep-2fa-title { color:#f3f4f6; }
+.ep-2fa-desc {
+  font-size:12px;
+  color:#6b7280;
+  margin-top:2px;
+  line-height:1.5;
+}
+.ep-prof.dark .ep-2fa-desc { color:#9ca3af; }
+.ep-2fa-row {
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+}
+.ep-2fa-badge {
+  margin-left:8px;
+  border-radius:999px;
+  font-size:10px;
+  font-weight:700;
+  border:0;
+}
 `;
 
 /* ─── Salary display helper ─────────────────────────────────────────── */
@@ -308,6 +660,25 @@ const EmployeeProfile = () => {
   const [uploading, setUploading] = useState(false);
   const [profilePicUrl, setProfilePicUrl] = useState(null);
   const [activeTab, setActiveTab] = useState("personal");
+  const [dark, setDark] = useState(isDarkModeActive());
+  const [companyBrand, setCompanyBrand] = useState("Your Company");
+  const [companyLogoUrl, setCompanyLogoUrl] = useState("");
+  const [generatingSlip, setGeneratingSlip] = useState(false);
+  const [emailOtpEnabled, setEmailOtpEnabled] = useState(false);
+  const [totpEnabled, setTotpEnabled] = useState(false);
+  const [totpSetupVisible, setTotpSetupVisible] = useState(false);
+  const [emailOtpSetupVisible, setEmailOtpSetupVisible] = useState(false);
+  const [totpStep, setTotpStep] = useState(0);
+  const [qrData, setQrData] = useState(null);
+  const [totpSecret, setTotpSecret] = useState(null);
+  const [totpFactorId, setTotpFactorId] = useState(null);
+  const [verifyCode, setVerifyCode] = useState("");
+  const [loadingTotp, setLoadingTotp] = useState(false);
+  const [loadingEmailOtp, setLoadingEmailOtp] = useState(false);
+  const [emailOtpCode, setEmailOtpCode] = useState("");
+  const [storedOtp, setStoredOtp] = useState(null);
+  const [otpExpiry, setOtpExpiry] = useState(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const { profile, refreshProfile } = useAuth();
 
   // ─── This ref holds ALL field values across all tabs at all times ───
@@ -356,6 +727,94 @@ const EmployeeProfile = () => {
     form.setFieldsValue(initialValues);
     setProfilePicUrl(profile.user_photo);
   }, [profile, form]);
+
+  useEffect(() => {
+    const syncTheme = () => setDark(isDarkModeActive());
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    window.addEventListener("storage", syncTheme);
+    window.addEventListener("themeModeChanged", syncTheme);
+    mediaQuery.addEventListener("change", syncTheme);
+    return () => {
+      window.removeEventListener("storage", syncTheme);
+      window.removeEventListener("themeModeChanged", syncTheme);
+      mediaQuery.removeEventListener("change", syncTheme);
+    };
+  }, []);
+
+  useEffect(() => {
+    const resolveCompanyBrand = async () => {
+      if (!profile) return;
+      const profileCompany = profile.company_name || "";
+      let resolvedName = profileCompany || "Your Company";
+      let resolvedLogo = "";
+
+      if (profileCompany) setCompanyBrand(profileCompany);
+
+      if (!profile.tenant_id) {
+        setCompanyBrand(resolvedName);
+        setCompanyLogoUrl("");
+        return;
+      }
+      try {
+        const { data: tenantData } = await supabase
+          .from("tenants")
+          .select("*")
+          .eq("id", profile.tenant_id)
+          .single();
+
+        resolvedName = profileCompany || tenantData?.name || "Your Company";
+        resolvedLogo =
+          tenantData?.logo_url ||
+          tenantData?.logo ||
+          tenantData?.company_logo ||
+          "";
+
+        if (!resolvedLogo) {
+          const { data: wsData } = await supabase
+            .from("workspace_settings")
+            .select("*")
+            .eq("tenant_id", profile.tenant_id)
+            .maybeSingle();
+          resolvedLogo =
+            wsData?.logo_url ||
+            wsData?.company_logo ||
+            wsData?.brand_logo_url ||
+            "";
+        }
+
+        setCompanyBrand(resolvedName);
+        setCompanyLogoUrl(resolvedLogo || "");
+      } catch {
+        setCompanyBrand(resolvedName);
+        setCompanyLogoUrl("");
+      }
+    };
+    resolveCompanyBrand();
+  }, [profile]);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
+
+  useEffect(() => {
+    const loadTwoFactorStatus = async () => {
+      if (!profile?.id) return;
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("totp_enabled, email_otp_enabled")
+          .eq("id", profile.id)
+          .single();
+        setTotpEnabled(Boolean(data?.totp_enabled));
+        setEmailOtpEnabled(Boolean(data?.email_otp_enabled));
+      } catch {
+        // no-op
+      }
+    };
+    loadTwoFactorStatus();
+  }, [profile?.id]);
 
   // ─── Sync form → ref on every field change ─────────────────────────
   const handleValuesChange = (_, allCurrentValues) => {
@@ -499,8 +958,517 @@ const EmployeeProfile = () => {
     { key: "work", label: "Work", icon: <Briefcase size={13} /> },
     { key: "emergency", label: "Emergency", icon: <AlertCircle size={13} /> },
     { key: "bank", label: "Banking", icon: <Building2 size={13} /> },
+    { key: "payslip", label: "Pay Slip", icon: <FileText size={13} /> },
+    { key: "security", label: "Security", icon: <Shield size={13} /> },
     { key: "password", label: "Password", icon: <Shield size={13} /> },
   ];
+
+  const currencyCode = profile?.currency || "PKR";
+  const currencySymbol =
+    CURRENCIES.find((c) => c.code === currencyCode)?.symbol || currencyCode;
+  const baseSalary =
+    profile?.salary_type === "fixed"
+      ? Number(profile?.salary_amount || 0)
+      : Number(profile?.base_salary || 0);
+  const allowanceItemsRaw =
+    Array.isArray(profile?.allowance_items) && profile.allowance_items.length > 0
+      ? profile.allowance_items
+      : Number(profile?.allowances || 0) > 0
+        ? [{ label: "General Allowance", amount: Number(profile.allowances) }]
+        : [];
+  const deductionItemsRaw =
+    Array.isArray(profile?.tax_deduction_items) &&
+    profile.tax_deduction_items.length > 0
+      ? profile.tax_deduction_items
+      : Number(profile?.tax_deductions || 0) > 0
+        ? [{ label: "Tax Deduction", amount: Number(profile.tax_deductions) }]
+        : [];
+  const allowanceItems = allowanceItemsRaw
+    .map((item) => ({
+      label: String(item?.label || "").trim() || "Allowance",
+      amount: Number(item?.amount || 0),
+    }))
+    .filter((item) => item.amount >= 0);
+  const deductionItems = deductionItemsRaw
+    .map((item) => ({
+      label: String(item?.label || "").trim() || "Deduction",
+      amount: Number(item?.amount || 0),
+    }))
+    .filter((item) => item.amount >= 0);
+  const totalAllowances = allowanceItems.reduce(
+    (sum, item) => sum + Number(item.amount || 0),
+    0,
+  );
+  const totalDeductions = deductionItems.reduce(
+    (sum, item) => sum + Number(item.amount || 0),
+    0,
+  );
+  const grossSalary = baseSalary + totalAllowances;
+  const netSalary = grossSalary - totalDeductions;
+  const lastMonth = dayjs().subtract(1, "month");
+  const payrollMonthLabel = lastMonth.format("MMMM YYYY");
+  const payrollPeriodLabel = `${lastMonth.startOf("month").format("MMM D, YYYY")} - ${lastMonth.endOf("month").format("MMM D, YYYY")}`;
+  const salaryTypeLabel =
+    profile?.salary_type === "base_commission" ? "Base + Commission" : "Fixed";
+  const totalEarnings = grossSalary;
+  const currencyDisplay = `${currencySymbol} ${Number(netSalary || 0).toLocaleString()}`;
+  const salarySlipNumber = `PS-${lastMonth.format("YYYYMM")}-${String(
+    profile?.id || "EMP",
+  )
+    .slice(0, 6)
+    .toUpperCase()}`;
+  const earningsRows = [
+    { label: "Base Salary", amount: baseSalary },
+    ...allowanceItems,
+  ];
+  const deductionsRows = [...deductionItems];
+
+  const formatCurrency = (amount = 0) =>
+    `${currencySymbol} ${Number(amount || 0).toLocaleString()}`;
+
+  const handleSetupTotp = async () => {
+    setLoadingTotp(true);
+    try {
+      const { data, error } = await supabase.auth.mfa.enroll({
+        factorType: "totp",
+      });
+      if (error) throw error;
+      setTotpFactorId(data.id);
+      setQrData(data.totp.qr_code);
+      setTotpSecret(data.totp.secret);
+      setTotpStep(0);
+      setTotpSetupVisible(true);
+    } catch (e) {
+      message.error("Failed to start authenticator setup");
+    } finally {
+      setLoadingTotp(false);
+    }
+  };
+
+  const handleVerifyTotp = async () => {
+    setLoadingTotp(true);
+    try {
+      if (!totpFactorId) throw new Error("Setup expired");
+      const { data: challengeData, error: challengeError } =
+        await supabase.auth.mfa.challenge({ factorId: totpFactorId });
+      if (challengeError) throw challengeError;
+      const { error: verifyError } = await supabase.auth.mfa.verify({
+        factorId: totpFactorId,
+        challengeId: challengeData.id,
+        code: verifyCode,
+      });
+      if (verifyError) throw verifyError;
+      await supabase
+        .from("profiles")
+        .update({ totp_enabled: true })
+        .eq("id", profile.id);
+      setTotpEnabled(true);
+      setTotpSetupVisible(false);
+      setVerifyCode("");
+      setTotpFactorId(null);
+      message.success("Authenticator app enabled");
+    } catch {
+      message.error("Verification failed");
+    } finally {
+      setLoadingTotp(false);
+    }
+  };
+
+  const handleDisableTotp = () => {
+    Modal.confirm({
+      title: "Disable authenticator app?",
+      content: "You will no longer use app-generated codes at login.",
+      okText: "Disable",
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          const factors = await supabase.auth.mfa.listFactors();
+          const factor = factors.data?.totp?.[0];
+          if (factor) await supabase.auth.mfa.unenroll({ factorId: factor.id });
+          await supabase
+            .from("profiles")
+            .update({ totp_enabled: false })
+            .eq("id", profile.id);
+          setTotpEnabled(false);
+          message.success("Authenticator app disabled");
+        } catch {
+          message.error("Failed to disable authenticator");
+        }
+      },
+    });
+  };
+
+  const sendOtpEmail = async () => {
+    const otp = generateOtp();
+    const expiry = Date.now() + 10 * 60 * 1000;
+    setStoredOtp(otp);
+    setOtpExpiry(expiry);
+    setEmailOtpCode("");
+    setResendCooldown(60);
+    const emailRes = await sendEmail({
+      to: profile?.email,
+      subject: "Your verification code",
+      body: otpEmailHtml(otp, profile?.full_name || "there"),
+      companyName: companyBrand || "Resosyncer",
+    });
+    if (!emailRes.success) throw new Error("Email send failed");
+  };
+
+  const handleSetupEmailOtp = async () => {
+    setLoadingEmailOtp(true);
+    try {
+      await sendOtpEmail();
+      setEmailOtpSetupVisible(true);
+      message.success("Verification code sent");
+    } catch {
+      message.error("Failed to send verification code");
+    } finally {
+      setLoadingEmailOtp(false);
+    }
+  };
+
+  const handleResendEmailOtp = async () => {
+    if (resendCooldown > 0) return;
+    setLoadingEmailOtp(true);
+    try {
+      await sendOtpEmail();
+      message.success("New code sent");
+    } catch {
+      message.error("Failed to resend code");
+    } finally {
+      setLoadingEmailOtp(false);
+    }
+  };
+
+  const handleVerifyEmailOtp = async () => {
+    setLoadingEmailOtp(true);
+    try {
+      if (!storedOtp || !otpExpiry) throw new Error("No pending code");
+      if (Date.now() > otpExpiry) throw new Error("Code expired");
+      if (emailOtpCode !== storedOtp) throw new Error("Invalid code");
+      await supabase
+        .from("profiles")
+        .update({ email_otp_enabled: true })
+        .eq("id", profile.id);
+      setEmailOtpEnabled(true);
+      setEmailOtpSetupVisible(false);
+      setEmailOtpCode("");
+      setStoredOtp(null);
+      message.success("Email OTP enabled");
+    } catch (e) {
+      if (String(e.message).includes("expired")) {
+        message.error("Code expired. Please request a new one.");
+      } else if (String(e.message).includes("Invalid")) {
+        message.error("Incorrect code");
+      } else {
+        message.error("Verification failed");
+      }
+    } finally {
+      setLoadingEmailOtp(false);
+    }
+  };
+
+  const handleDisableEmailOtp = () => {
+    Modal.confirm({
+      title: "Disable email OTP?",
+      content: "You will stop receiving email verification codes at login.",
+      okText: "Disable",
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await supabase
+            .from("profiles")
+            .update({ email_otp_enabled: false })
+            .eq("id", profile.id);
+          setEmailOtpEnabled(false);
+          message.success("Email OTP disabled");
+        } catch {
+          message.error("Failed to disable email OTP");
+        }
+      },
+    });
+  };
+
+  const handleGenerateLastMonthSlip = async () => {
+    setGeneratingSlip(true);
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const doc = new jsPDF({ unit: "pt", format: "a4" });
+
+      const PAGE_W = 595.28;
+      const PAGE_H = 841.89;
+      const MARGIN = 44;
+      const CONTENT_W = PAGE_W - MARGIN * 2;
+
+      const company = companyBrand || "Your Company";
+      const employeeName = profile?.full_name || "Employee";
+      const employeeEmail = profile?.email || "-";
+      const employeeRole =
+        profile?.role === "project_manager" ? "Project Manager" : "Employee";
+      const pdfCurrencyCode = profile?.currency || "PKR";
+      const formatPdfCurrency = (amount = 0) =>
+        `${pdfCurrencyCode} ${Number(amount || 0).toLocaleString("en-US")}`;
+      const amountText = formatPdfCurrency(netSalary);
+      const slipNo = salarySlipNumber;
+      const truncateToWidth = (text, maxWidth) => {
+        const value = String(text || "-");
+        if (doc.getTextWidth(value) <= maxWidth) return value;
+        const ellipsis = "...";
+        let out = value;
+        while (out.length > 0 && doc.getTextWidth(`${out}${ellipsis}`) > maxWidth) {
+          out = out.slice(0, -1);
+        }
+        return `${out}${ellipsis}`;
+      };
+
+      const loadImageAsDataUrl = async (url) =>
+        new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            try {
+              const canvas = document.createElement("canvas");
+              canvas.width = img.naturalWidth;
+              canvas.height = img.naturalHeight;
+              const ctx = canvas.getContext("2d");
+              if (!ctx) return reject(new Error("Canvas context unavailable"));
+              ctx.drawImage(img, 0, 0);
+              resolve(canvas.toDataURL("image/png"));
+            } catch (err) {
+              reject(err);
+            }
+          };
+          img.onerror = reject;
+          img.src = url;
+        });
+
+      // ── White background ──────────────────────────────────────────
+      doc.setFillColor(255, 255, 255);
+      doc.rect(0, 0, PAGE_W, PAGE_H, "F");
+
+      // ── Top navy bar ──────────────────────────────────────────────
+      doc.setFillColor(10, 15, 36);
+      doc.rect(0, 0, PAGE_W, 4, "F");
+
+      // ── Header ────────────────────────────────────────────────────
+      const HEADER_Y = 28;
+      const BADGE = 34;
+
+      if (companyLogoUrl) {
+        try {
+          const logoData = await loadImageAsDataUrl(companyLogoUrl);
+          doc.addImage(logoData, "PNG", MARGIN, HEADER_Y, BADGE, BADGE);
+        } catch {
+          // fallback initials
+          doc.setFillColor(10, 15, 36);
+          doc.roundedRect(MARGIN, HEADER_Y, BADGE, BADGE, 5, 5, "F");
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(12);
+          doc.setTextColor(255, 255, 255);
+          doc.text(
+            company.slice(0, 2).toUpperCase(),
+            MARGIN + BADGE / 2,
+            HEADER_Y + BADGE / 2 + 4,
+            { align: "center" },
+          );
+        }
+      } else {
+        doc.setFillColor(10, 15, 36);
+        doc.roundedRect(MARGIN, HEADER_Y, BADGE, BADGE, 5, 5, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.setTextColor(255, 255, 255);
+        doc.text(
+          company.slice(0, 2).toUpperCase(),
+          MARGIN + BADGE / 2,
+          HEADER_Y + BADGE / 2 + 4,
+          { align: "center" },
+        );
+      }
+
+      // Company name + doc type
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.setTextColor(10, 15, 36);
+      doc.text(company, MARGIN + BADGE + 10, HEADER_Y + 13);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(160, 160, 170);
+      doc.text(
+        `Salary Slip  ·  ${payrollMonthLabel}`,
+        MARGIN + BADGE + 10,
+        HEADER_Y + 26,
+      );
+
+      // Right meta
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(190, 190, 200);
+      doc.text("SLIP NO.", PAGE_W - MARGIN, HEADER_Y + 10, { align: "right" });
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(10, 15, 36);
+      doc.text(`#${slipNo}`, PAGE_W - MARGIN, HEADER_Y + 22, {
+        align: "right",
+      });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(190, 190, 200);
+      doc.text(dayjs().format("DD MMM YYYY"), PAGE_W - MARGIN, HEADER_Y + 33, {
+        align: "right",
+      });
+
+      // ── Separator ─────────────────────────────────────────────────
+      const sep = (y) => {
+        doc.setDrawColor(229, 231, 235);
+        doc.setLineWidth(0.4);
+        doc.line(MARGIN, y, PAGE_W - MARGIN, y);
+      };
+
+      let Y = HEADER_Y + BADGE + 12;
+      sep(Y);
+      Y += 10;
+
+      // ── Info grid (4 columns) ─────────────────────────────────────
+      const infoField = (label, value, x, y) => {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
+        doc.setTextColor(190, 190, 200);
+        doc.text(label.toUpperCase(), x, y);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
+        doc.setTextColor(10, 15, 36);
+        const maxW = CONTENT_W / 4 - 6;
+        doc.text(truncateToWidth(value || "-", maxW), x, y + 11);
+      };
+
+      const COL = CONTENT_W / 4;
+      infoField("Employee", employeeName, MARGIN, Y);
+      infoField("Role", employeeRole, MARGIN + COL, Y);
+      infoField("Email", employeeEmail, MARGIN + COL * 2, Y);
+      infoField("Pay Period", payrollPeriodLabel, MARGIN + COL * 3, Y);
+
+      Y += 24;
+      sep(Y);
+      Y += 10;
+
+      // ── Table helper ──────────────────────────────────────────────
+      const drawTable = (title, rows, startY) => {
+        // Section title
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.setTextColor(10, 15, 36);
+        doc.text(title.toUpperCase(), MARGIN, startY);
+
+        // Column headers
+        const CH_Y = startY + 12;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
+        doc.setTextColor(190, 190, 200);
+        doc.text("DESCRIPTION", MARGIN, CH_Y);
+        doc.text("AMOUNT", PAGE_W - MARGIN, CH_Y, { align: "right" });
+        doc.setDrawColor(229, 231, 235);
+        doc.setLineWidth(0.4);
+        doc.line(MARGIN, CH_Y + 4, PAGE_W - MARGIN, CH_Y + 4);
+
+        let rowY = CH_Y + 14;
+        rows.forEach((r) => {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(9);
+          doc.setTextColor(68, 68, 80);
+          doc.text(r.label, MARGIN, rowY);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.setTextColor(10, 15, 36);
+          doc.text(formatPdfCurrency(r.amount), PAGE_W - MARGIN, rowY, {
+            align: "right",
+          });
+          doc.setDrawColor(243, 244, 246);
+          doc.setLineWidth(0.3);
+          doc.line(MARGIN, rowY + 5, PAGE_W - MARGIN, rowY + 5);
+          rowY += 16;
+        });
+
+        // Subtotal
+        const total = rows.reduce((s, r) => s + (r.amount || 0), 0);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(160, 160, 170);
+        doc.text(`Total ${title}`, MARGIN, rowY + 6);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(10, 15, 36);
+        doc.text(formatPdfCurrency(total), PAGE_W - MARGIN, rowY + 6, {
+          align: "right",
+        });
+
+        return rowY + 16;
+      };
+
+      const afterEarnings = drawTable("Earnings", earningsRows, Y);
+      Y = afterEarnings + 6;
+      sep(Y);
+      Y += 10;
+
+      const afterDeductions = drawTable("Deductions", deductionsRows, Y);
+      Y = afterDeductions + 6;
+      sep(Y);
+      Y += 10;
+
+      // ── Net Pay box ───────────────────────────────────────────────
+      doc.setDrawColor(10, 15, 36);
+      doc.setLineWidth(0.5);
+      doc.roundedRect(MARGIN, Y, CONTENT_W, 38, 4, 4, "S");
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(160, 160, 170);
+      doc.text("Net Pay", MARGIN + 12, Y + 14);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(190, 190, 200);
+      doc.text(payrollPeriodLabel, MARGIN + 12, Y + 26);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(20);
+      doc.setTextColor(10, 15, 36);
+      doc.text(amountText, PAGE_W - MARGIN - 12, Y + 25, { align: "right" });
+
+      // ── Footer ────────────────────────────────────────────────────
+      const FOOTER_Y = PAGE_H - 38;
+      sep(FOOTER_Y);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(190, 190, 200);
+      doc.text(
+        "System-generated. For payroll queries, contact your admin.",
+        MARGIN,
+        FOOTER_Y + 12,
+      );
+      doc.text(
+        "Confidential — intended solely for the named employee.",
+        MARGIN,
+        FOOTER_Y + 22,
+      );
+      doc.text("Page 1 of 1", PAGE_W - MARGIN, FOOTER_Y + 17, {
+        align: "right",
+      });
+
+      // ── Bottom navy bar ───────────────────────────────────────────
+      doc.setFillColor(10, 15, 36);
+      doc.rect(0, PAGE_H - 4, PAGE_W, 4, "F");
+
+      const filename = `salary-slip-${lastMonth.format("YYYY-MM")}.pdf`;
+      doc.save(filename);
+      message.success("Salary slip generated");
+    } catch (err) {
+      console.error(err);
+      message.error("Unable to generate salary slip");
+    } finally {
+      setGeneratingSlip(false);
+    }
+  };
 
   // ─── Shared save button ─────────────────────────────────────────────
   const SaveBar = () => (
@@ -518,7 +1486,13 @@ const EmployeeProfile = () => {
   );
 
   return (
-    <div className="ep-prof">
+    <div
+      className={`ep-prof${dark ? " dark" : ""}`}
+      style={{
+        minHeight: "100%",
+        background: dark ? "#141416" : "transparent",
+      }}
+    >
       <style>{CSS}</style>
 
       {/* Page header */}
@@ -868,6 +1842,7 @@ const EmployeeProfile = () => {
                 <Form.Item name="currency" label="Currency">
                   <Select
                     placeholder="Select currency"
+                    disabled
                     showSearch
                     filterOption={(input, option) =>
                       option?.children
@@ -893,17 +1868,26 @@ const EmployeeProfile = () => {
                       <Form.Item
                         name="custom_currency"
                         label="Currency Code / Name"
-                        rules={[
-                          {
-                            required: true,
-                            message: "Please enter a currency",
-                          },
-                        ]}
+                        extra="Currency is managed by admin and is read-only."
                       >
-                        <Input placeholder="e.g. BTC, USDT, XOF…" />
+                        <Input disabled />
                       </Form.Item>
                     ) : (
-                      <div />
+                      <Form.Item
+                        label=" "
+                        extra="Currency is managed by admin and cannot be changed here."
+                      >
+                        <Input
+                          disabled
+                          value={
+                            CURRENCIES.find(
+                              (c) => c.code === getFieldValue("currency"),
+                            )?.name ||
+                            getFieldValue("currency") ||
+                            "-"
+                          }
+                        />
+                      </Form.Item>
                     )
                   }
                 </Form.Item>
@@ -912,7 +1896,349 @@ const EmployeeProfile = () => {
             <SaveBar />
           </>
         )}
+
+        {activeTab === "payslip" && (
+          <div className="ep-payslip-card">
+            <div className="ep-payslip-head">
+              <div className="ep-payslip-brand-wrap">
+                {companyLogoUrl ? (
+                  <img
+                    src={companyLogoUrl}
+                    alt={companyBrand}
+                    className="ep-payslip-logo"
+                  />
+                ) : (
+                  <div className="ep-payslip-logo-fallback">
+                    {(companyBrand || "C").charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <div className="ep-payslip-brand">{companyBrand}</div>
+                  <div className="ep-payslip-period">
+                    Salary Slip for {payrollMonthLabel}
+                  </div>
+                  <div className="ep-payslip-slugno">
+                    Slip #: {salarySlipNumber}
+                  </div>
+                </div>
+              </div>
+              <Button
+                type="primary"
+                className="ep-save-btn ep-slip-btn"
+                icon={<Download size={13} />}
+                loading={generatingSlip}
+                onClick={handleGenerateLastMonthSlip}
+              >
+                Generate Last Month Slip
+              </Button>
+            </div>
+
+            <div className="ep-payslip-grid">
+              <div className="ep-payslip-item">
+                <div className="ep-payslip-label">Employee</div>
+                <div className="ep-payslip-value">
+                  {profile?.full_name || "-"}
+                </div>
+              </div>
+              <div className="ep-payslip-item">
+                <div className="ep-payslip-label">Email</div>
+                <div className="ep-payslip-value">{profile?.email || "-"}</div>
+              </div>
+              <div className="ep-payslip-item">
+                <div className="ep-payslip-label">Payroll Period</div>
+                <div className="ep-payslip-value">{payrollPeriodLabel}</div>
+              </div>
+              <div className="ep-payslip-item">
+                <div className="ep-payslip-label">Salary Type</div>
+                <div className="ep-payslip-value">{salaryTypeLabel}</div>
+              </div>
+              <div className="ep-payslip-item">
+                <div className="ep-payslip-label">Gross Salary</div>
+                <div className="ep-payslip-value">
+                  {currencySymbol} {Number(grossSalary || 0).toLocaleString()}
+                </div>
+              </div>
+              <div className="ep-payslip-item">
+                <div className="ep-payslip-label">Net Salary</div>
+                <div className="ep-payslip-value">{currencyDisplay}</div>
+              </div>
+            </div>
+
+            <div className="ep-payslip-summary">
+              <div className="ep-payslip-row">
+                <span>Total Earnings</span>
+                <span>{formatCurrency(totalEarnings)}</span>
+              </div>
+              <div className="ep-payslip-row">
+                <span>Total Deductions</span>
+                <span>{formatCurrency(totalDeductions)}</span>
+              </div>
+              <div className="ep-payslip-row total">
+                <span>Net Pay</span>
+                <span>{currencyDisplay}</span>
+              </div>
+            </div>
+
+            <div className="ep-payslip-table-wrap">
+              <table className="ep-payslip-table">
+                <thead>
+                  <tr>
+                    <th>Earnings</th>
+                    <th style={{ textAlign: "right" }}>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {earningsRows.map((row) => (
+                    <tr key={row.label}>
+                      <td>{row.label}</td>
+                      <td className="amount">{formatCurrency(row.amount)}</td>
+                    </tr>
+                  ))}
+                  <tr className="total">
+                    <td>Total Earnings</td>
+                    <td className="amount">{formatCurrency(totalEarnings)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="ep-payslip-table-wrap">
+              <table className="ep-payslip-table">
+                <thead>
+                  <tr>
+                    <th>Deductions</th>
+                    <th style={{ textAlign: "right" }}>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {deductionsRows.map((row) => (
+                    <tr key={row.label}>
+                      <td>{row.label}</td>
+                      <td className="amount">{formatCurrency(row.amount)}</td>
+                    </tr>
+                  ))}
+                  <tr className="total">
+                    <td>Total Deductions</td>
+                    <td className="amount">{formatCurrency(totalDeductions)}</td>
+                  </tr>
+                  <tr className="total">
+                    <td>Net Pay</td>
+                    <td className="amount">{currencyDisplay}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="ep-payslip-note">
+              This salary slip is generated for the previous calendar month with
+              your company branding and logo at the top.
+            </div>
+          </div>
+        )}
+        {activeTab === "security" && (
+          <div className="ep-sec">
+            <div className="ep-sec-title">
+              <Shield size={13} />
+              Two-Factor Authentication
+            </div>
+            <p
+              style={{
+                fontSize: 12,
+                color: dark ? "#9ca3af" : "#6b7280",
+                marginBottom: 16,
+              }}
+            >
+              Add an extra verification step for sign-in using email OTP or an
+              authenticator app.
+            </p>
+
+            <div className="ep-2fa-card">
+              <div className="ep-2fa-row">
+                <div>
+                  <div className="ep-2fa-title">
+                    Email OTP
+                    {emailOtpEnabled && (
+                      <Tag color="green" className="ep-2fa-badge">
+                        Enabled
+                      </Tag>
+                    )}
+                  </div>
+                  <div className="ep-2fa-desc">
+                    Send a 6-digit verification code to{" "}
+                    {profile?.email || "your email"} during sign-in.
+                  </div>
+                </div>
+                {emailOtpEnabled ? (
+                  <Button danger size="small" onClick={handleDisableEmailOtp}>
+                    Disable
+                  </Button>
+                ) : (
+                  <Button
+                    type="primary"
+                    size="small"
+                    loading={loadingEmailOtp}
+                    onClick={handleSetupEmailOtp}
+                    className="ep-slip-btn"
+                  >
+                    Enable
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="ep-2fa-card">
+              <div className="ep-2fa-row">
+                <div>
+                  <div className="ep-2fa-title">
+                    Authenticator App
+                    {totpEnabled && (
+                      <Tag color="green" className="ep-2fa-badge">
+                        Enabled
+                      </Tag>
+                    )}
+                  </div>
+                  <div className="ep-2fa-desc">
+                    Use Google Authenticator, Authy, or similar apps for
+                    time-based verification codes.
+                  </div>
+                </div>
+                {totpEnabled ? (
+                  <Button danger size="small" onClick={handleDisableTotp}>
+                    Disable
+                  </Button>
+                ) : (
+                  <Button
+                    type="primary"
+                    size="small"
+                    loading={loadingTotp}
+                    onClick={handleSetupTotp}
+                    className="ep-slip-btn"
+                  >
+                    Set Up
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </Form>
+
+      <Modal
+        title="Set Up Authenticator App"
+        open={totpSetupVisible}
+        footer={null}
+        onCancel={() => {
+          setTotpSetupVisible(false);
+          setVerifyCode("");
+          setTotpStep(0);
+          setTotpFactorId(null);
+        }}
+      >
+        {totpStep === 0 ? (
+          <div>
+            <p style={{ fontSize: 12, color: dark ? "#9ca3af" : "#6b7280" }}>
+              Scan this QR code in your authenticator app, then continue.
+            </p>
+            {qrData ? (
+              <div style={{ textAlign: "center", margin: "12px 0" }}>
+                <img
+                  src={qrData}
+                  alt="Authenticator QR"
+                  style={{ width: 180, height: 180, borderRadius: 8 }}
+                />
+              </div>
+            ) : null}
+            {totpSecret ? (
+              <div
+                style={{
+                  fontSize: 12,
+                  marginBottom: 12,
+                  color: dark ? "#d1d5db" : "#374151",
+                }}
+              >
+                Manual key: <code>{totpSecret}</code>
+              </div>
+            ) : null}
+            <Button
+              type="primary"
+              className="ep-slip-btn"
+              block
+              onClick={() => setTotpStep(1)}
+            >
+              Continue
+            </Button>
+          </div>
+        ) : (
+          <div>
+            <p style={{ fontSize: 12, color: dark ? "#9ca3af" : "#6b7280" }}>
+              Enter the 6-digit code from your authenticator app.
+            </p>
+            <Input
+              maxLength={6}
+              value={verifyCode}
+              onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, ""))}
+              placeholder="000000"
+              style={{ textAlign: "center", marginBottom: 12 }}
+            />
+            <Button
+              type="primary"
+              className="ep-slip-btn"
+              block
+              loading={loadingTotp}
+              disabled={verifyCode.length !== 6}
+              onClick={handleVerifyTotp}
+            >
+              Verify & Enable
+            </Button>
+            <Button
+              block
+              style={{ marginTop: 8 }}
+              onClick={() => setTotpStep(0)}
+            >
+              Back
+            </Button>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        title="Verify Email OTP"
+        open={emailOtpSetupVisible}
+        footer={null}
+        onCancel={() => {
+          setEmailOtpSetupVisible(false);
+          setEmailOtpCode("");
+          setStoredOtp(null);
+        }}
+      >
+        <p style={{ fontSize: 12, color: dark ? "#9ca3af" : "#6b7280" }}>
+          A 6-digit code was sent to {profile?.email}. It expires in 10 minutes.
+        </p>
+        <Input
+          maxLength={6}
+          value={emailOtpCode}
+          onChange={(e) => setEmailOtpCode(e.target.value.replace(/\D/g, ""))}
+          placeholder="000000"
+          style={{ textAlign: "center", marginBottom: 12 }}
+        />
+        <Button
+          type="primary"
+          className="ep-slip-btn"
+          block
+          loading={loadingEmailOtp}
+          disabled={emailOtpCode.length !== 6}
+          onClick={handleVerifyEmailOtp}
+        >
+          Verify & Enable
+        </Button>
+        <Button
+          block
+          style={{ marginTop: 8 }}
+          onClick={handleResendEmailOtp}
+          disabled={resendCooldown > 0 || loadingEmailOtp}
+        >
+          {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend Code"}
+        </Button>
+      </Modal>
 
       {/* ── Password Tab — separate form, no data conflict ── */}
       {activeTab === "password" && (

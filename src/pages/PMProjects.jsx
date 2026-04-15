@@ -3765,6 +3765,7 @@ const PMProjects = () => {
   const [aiProjectBrief, setAiProjectBrief] = useState("");
   const [aiPlannerFile, setAiPlannerFile] = useState(null);
   const [aiPlannerResult, setAiPlannerResult] = useState(null);
+  const [clientProgressInvite, setClientProgressInvite] = useState(null);
 
   const [ticketForm] = Form.useForm();
   const [sprintForm] = Form.useForm();
@@ -3857,11 +3858,103 @@ const PMProjects = () => {
     }
   };
 
+  const fetchClientProgressInvite = async (projectId) => {
+    if (!projectId) {
+      setClientProgressInvite(null);
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from("project_client_invites")
+        .select("id, share_token, client_email, last_sent_at")
+        .eq("project_id", projectId)
+        .order("last_sent_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      setClientProgressInvite(data || null);
+    } catch (err) {
+      console.error("Failed to fetch client progress invite:", err);
+      setClientProgressInvite(null);
+    }
+  };
+
+  const syncClientProgressSnapshot = useCallback(
+    async (projectId, nextTickets = tickets, nextSprints = sprints) => {
+      if (!projectId) return;
+      try {
+        const scopedProject = projects.find((p) => p.id === projectId);
+        const safeTickets = Array.isArray(nextTickets) ? nextTickets : [];
+        const safeSprints = Array.isArray(nextSprints) ? nextSprints : [];
+        const doneCount = safeTickets.filter(
+          (t) => t.status === "completed" || t.status === "closed",
+        ).length;
+
+        const snapshot = {
+          generated_at: new Date().toISOString(),
+          project: {
+            id: scopedProject?.id || projectId,
+            name: scopedProject?.name || "Project",
+            status: scopedProject?.status || "in_progress",
+            client_name: scopedProject?.client_name || null,
+            start_date: scopedProject?.start_date || null,
+            end_date: scopedProject?.end_date || null,
+          },
+          tickets: safeTickets.map((t) => ({
+            id: t.id,
+            title: t.title,
+            status: t.status,
+            priority: t.priority,
+            ticket_type: t.ticket_type,
+            sprint_id: t.sprint_id || null,
+          })),
+          sprints: safeSprints.map((s) => ({
+            id: s.id,
+            name: s.name,
+            status: s.status,
+            start_date: s.start_date || null,
+            end_date: s.end_date || null,
+          })),
+          summary: {
+            total_tickets: safeTickets.length,
+            completed_tickets: doneCount,
+            progress_percent: safeTickets.length
+              ? Math.round((doneCount / safeTickets.length) * 100)
+              : 0,
+          },
+        };
+
+        await supabase
+          .from("project_client_invites")
+          .update({ snapshot, updated_at: new Date().toISOString() })
+          .eq("project_id", projectId);
+      } catch (err) {
+        console.error("Client snapshot sync skipped:", err);
+      }
+    },
+    [projects, tickets, sprints],
+  );
+
   const openProject = (project) => {
     setSelectedProject(project);
     fetchProjectData(project.id);
+    fetchClientProgressInvite(project.id);
     setShowProjectDrawer(true);
   };
+
+  useEffect(() => {
+    if (!selectedProject?.id || loadingData) return;
+    const timer = setTimeout(() => {
+      syncClientProgressSnapshot(selectedProject.id, tickets, sprints);
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [
+    selectedProject?.id,
+    loadingData,
+    tickets,
+    sprints,
+    syncClientProgressSnapshot,
+  ]);
 
   const closeProjectDrawer = () => {
     setShowProjectDrawer(false);
@@ -3875,6 +3968,7 @@ const PMProjects = () => {
     setAiPlannerResult(null);
     setAiProjectBrief("");
     setAiPlannerFile(null);
+    setClientProgressInvite(null);
   };
 
   // ── GROUP DRAG HANDLERS ──
@@ -4728,6 +4822,28 @@ const PMProjects = () => {
         }
         extra={
           <Space>
+            <Tooltip
+              title={
+                clientProgressInvite?.share_token
+                  ? "Open client progress link"
+                  : "No client progress link found for this project yet"
+              }
+            >
+              <Button
+                icon={<ExternalLink size={12} />}
+                size="small"
+                disabled={!clientProgressInvite?.share_token}
+                onClick={() => {
+                  if (!clientProgressInvite?.share_token) return;
+                  window.open(
+                    `${window.location.origin}/client/project-progress/${clientProgressInvite.share_token}`,
+                    "_blank",
+                  );
+                }}
+              >
+                Open Progress Link
+              </Button>
+            </Tooltip>
             <Button
               icon={<Sparkles size={12} />}
               onClick={() => setShowAiPlanner(true)}

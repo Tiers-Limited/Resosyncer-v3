@@ -169,6 +169,34 @@ function getIsDarkTheme() {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
+function parseDateValue(value) {
+  if (value == null || value === "") return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (typeof value === "number") {
+    const ms = value > 1e12 ? value : value * 1000;
+    const d = new Date(ms);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const numeric = Number(value);
+  if (!Number.isNaN(numeric) && String(value).trim() !== "") {
+    const ms = numeric > 1e12 ? numeric : numeric * 1000;
+    const d = new Date(ms);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  let normalized = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{2}$/.test(normalized)) {
+    normalized = normalized.replace(" ", "T") + ":00";
+  } else if (
+    /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/.test(normalized)
+  ) {
+    normalized = normalized.replace(" ", "T");
+  } else if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}Z$/.test(normalized)) {
+    normalized = normalized.replace(" ", "T");
+  }
+  const d = new Date(normalized);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 function UserAvatar({ profile, size = 32 }) {
   const [bg, fg] = avatarColor(profile?.full_name || profile?.email || "");
@@ -1695,7 +1723,7 @@ function MeetingDetailPanel({
                   a.download = `${meeting.title.replace(/[^a-zA-Z0-9]/g, "_")}_recording.webm`;
                   document.body.appendChild(a);
                   a.click();
-                  document.body.removeChild(a);
+                  a.remove();
                   window.URL.revokeObjectURL(url);
                   message.success("Recording downloaded!");
                 } catch (error) {
@@ -2092,9 +2120,8 @@ export default function MeetingsPage() {
   const [copiedLink, setCopiedLink] = useState(null);
   const [search, setSearch] = useState("");
 
-  // ── Plan detection ────────────────────────────────────────────────────────
-  // Reads from organizations.plan for the current user's tenant
-  const [orgPlan, setOrgPlan] = useState(null);
+  // ── Subscription detection ────────────────────────────────────────────────
+  const [tenantSubscription, setTenantSubscription] = useState(null);
   const [planLoading, setPlanLoading] = useState(true);
 
   const [form, setForm] = useState({
@@ -2136,15 +2163,16 @@ export default function MeetingsPage() {
         setCurrentUser(profile);
         setTenantId(profile?.tenant_id ?? null);
 
-        // ── Fetch org plan ───────────────────────────────────────────────────
-        // Reads plan from organizations table for this tenant
+        // ── Fetch tenant subscription validity info ─────────────────────────
         if (profile?.tenant_id) {
-          const { data: org } = await supabase
+          const { data: tenantSubscriptionRow } = await supabase
             .from("tenants")
-            .select("plan")
+            .select(
+              "id, status, current_period_end, subscription_end_date, subscription_end, trial_ends_at, plan_override",
+            )
             .eq("id", profile.tenant_id)
-            .single();
-          setOrgPlan(org?.plan ?? null);
+            .maybeSingle();
+          setTenantSubscription(tenantSubscriptionRow || null);
         }
       } catch (e) {
         console.error(e);
@@ -2271,7 +2299,7 @@ export default function MeetingsPage() {
 
   const openCreate = () => {
     // Double-guard: also block here if somehow the button is still shown
-    if (isFreePlan) {
+    if (isMeetingsLocked) {
       navigate("/subscription");
       return;
     }
@@ -2322,7 +2350,6 @@ export default function MeetingsPage() {
         meeting_date: dateTime.toISOString(),
         duration: form.duration,
         status: "scheduled",
-        meeting_type: form.type,
         attendee_emails: allAttendeeEmails,
         attendees: JSON.stringify(allAttendeeIds),
         agenda_items: JSON.stringify(agendaItems.filter((a) => a.text.trim())),
@@ -2333,13 +2360,32 @@ export default function MeetingsPage() {
         meeting_room_id: roomId,
         meeting_url: meetingUrl,
       };
-
-      const { data: newMeeting, error } = await supabase
-        .from("meetings")
-        .insert([payload])
-        .select()
-        .single();
-      if (error) throw error;
+      const typeCandidates =
+        form.type === "audio"
+          ? ["audio", "voice", "phone", "audio_call", "call"]
+          : [form.type];
+      const isMeetingTypeConstraintError = (err) =>
+        err?.code === "23514" &&
+        `${err?.message || ""} ${err?.details || ""}`
+          .toLowerCase()
+          .includes("meeting_type");
+      let newMeeting = null;
+      let createError = null;
+      for (const meetingType of typeCandidates) {
+        const { data, error } = await supabase
+          .from("meetings")
+          .insert([{ ...payload, meeting_type: meetingType }])
+          .select()
+          .single();
+        if (!error) {
+          newMeeting = data;
+          createError = null;
+          break;
+        }
+        createError = error;
+        if (!isMeetingTypeConstraintError(error)) break;
+      }
+      if (createError) throw createError;
 
       message.success("Meeting created!");
       setMeetings((prev) => [...prev, newMeeting]);
@@ -2475,11 +2521,38 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
     dayjs(m.meeting_date).isSame(dayjs(), "day"),
   );
 
-  console.log(orgPlan);
+  // ── Subscription validity check ──────────────────────────────────────────
+  // Meetings are available on all plans while the subscription is active.
+  const isMeetingsLocked = (() => {
+    if (!tenantId) return false;
+    if (!tenantSubscription) return true;
+    if (tenantSubscription.plan_override === true) return false;
 
-  // ── Plan check ────────────────────────────────────────────────────────────
-  // "Free" plan (case-insensitive) blocks the full meetings feature
-  const isFreePlan = orgPlan != null && orgPlan.trim().toLowerCase() === "free";
+    const now = Date.now();
+    const status = String(tenantSubscription.status || "").toLowerCase();
+    const periodEnd =
+      parseDateValue(tenantSubscription.current_period_end) ||
+      parseDateValue(tenantSubscription.subscription_end_date) ||
+      parseDateValue(tenantSubscription.subscription_end);
+    const trialEnd = parseDateValue(tenantSubscription.trial_ends_at);
+
+    const isInactiveStatus = ["expired", "inactive", "suspended"].includes(
+      status,
+    );
+    const isCancelled = status === "cancelled";
+    const isPeriodEnded = !!(periodEnd && periodEnd.getTime() < now);
+    const hasTrialEnded = !!trialEnd && trialEnd.getTime() < now;
+    const didBillingAdvancePastTrial =
+      !!(trialEnd && periodEnd && periodEnd.getTime() > trialEnd.getTime());
+    const isTrialExpired =
+      hasTrialEnded &&
+      (["trial", "trialing", "on_trial"].includes(status) ||
+        !didBillingAdvancePastTrial);
+    const isCancelledEnded =
+      isCancelled && !!periodEnd && periodEnd.getTime() < now;
+
+    return isInactiveStatus || isPeriodEnded || isTrialExpired || isCancelledEnded;
+  })();
 
   if (!currentUser || planLoading) {
     return (
@@ -2504,7 +2577,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
   }
 
   // ── FREE PLAN: show paywall instead of full page ──────────────────────────
-  if (isFreePlan) {
+  if (isMeetingsLocked) {
     return (
       <div
         className={`meetings-page${dark ? " dark" : ""}`}

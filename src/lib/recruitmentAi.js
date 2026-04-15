@@ -206,6 +206,12 @@ Rules:
       jobTitle: job?.title || "",
       department: job?.department || "",
       deadline: job?.deadline || null,
+      desiredSkills: Array.isArray(job?.aiDesiredSkills)
+        ? job.aiDesiredSkills.slice(0, 20)
+        : [],
+      customInterviewQuestions: Array.isArray(job?.aiCustomQuestions)
+        ? job.aiCustomQuestions.slice(0, 20)
+        : [],
       applicationAnswers: Object.fromEntries(safeAnswers),
       formFields: (job?.fields || []).map((field) => ({
         label: field.label,
@@ -282,6 +288,8 @@ export async function generateInterviewTurn({
   job,
   candidate,
   screening,
+  desiredSkills,
+  customQuestions,
   transcript,
   lastAnswer,
   requiredSection,
@@ -307,6 +315,9 @@ Rules:
 - Use the resume screening context, candidate application details, and prior answers to personalize every question
 - Do not use a fixed interview script and do not ask the same generic questions for every candidate
 - Ask questions that are specifically relevant to this person's background, claimed experience, strengths, missing skills, concerns, and the target role
+- Use recruiter desiredSkills and customQuestions from context as hard guidance
+- Prioritize asking recruiter customQuestions in the first turns, one at a time, if they have not already been covered
+- Ensure technical depth around desiredSkills, including practical examples, tradeoffs, and debugging/decision-making
 - Gradually deepen based on the last answer and avoid repeating the same question style or topic unless you are intentionally probing deeper
 - Use screeningQuestions from context when they are relevant, but adapt them naturally instead of reading them verbatim
 - If the candidate answer is weak, vague, suspiciously generic, or incomplete, ask a sharper follow-up
@@ -326,6 +337,16 @@ Rules:
       jobTitle: job?.title || "",
       department: job?.department || "",
       candidateName: candidate?.name || "",
+      desiredSkills: Array.isArray(desiredSkills)
+        ? desiredSkills.slice(0, 20)
+        : Array.isArray(job?.aiDesiredSkills)
+          ? job.aiDesiredSkills.slice(0, 20)
+          : [],
+      customQuestions: Array.isArray(customQuestions)
+        ? customQuestions.slice(0, 20)
+        : Array.isArray(job?.aiCustomQuestions)
+          ? job.aiCustomQuestions.slice(0, 20)
+          : [],
       candidateApplication: applicationAnswers,
       screening,
       requiredSection: requiredSection || "Background / Experience Questions",

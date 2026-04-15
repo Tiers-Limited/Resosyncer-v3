@@ -5,24 +5,30 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import dayjs from 'dayjs';
 
-const BirthdayWidget = () => {
+const BirthdayWidget = ({ tenantId }) => {
   const [birthdays, setBirthdays] = useState([]);
   const [todayBirthday, setTodayBirthday] = useState(null);
   const [loading, setLoading] = useState(false);
   const { profile } = useAuth();
+  const resolvedTenantId = tenantId || profile?.tenant_id || null;
 
   useEffect(() => {
+    if (!profile?.id) return;
     fetchBirthdays();
-  }, []);
+  }, [profile?.id, resolvedTenantId]);
 
   const fetchBirthdays = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('profiles')
         .select('id, full_name, user_photo, dob')
         .not('dob', 'is', null)
         .order('full_name');
+      if (resolvedTenantId) {
+        query = query.eq('tenant_id', resolvedTenantId);
+      }
+      const { data, error } = await query;
 
       if (error) throw error;
 

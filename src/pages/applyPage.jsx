@@ -291,6 +291,13 @@ function ApplyForm() {
 
   const [answers, setAnswers] = useState({});
   const [files, setFiles] = useState({});
+  const aiSelectionEnabled = job?.branding?.aiSelection !== false;
+  const aiDesiredSkills = Array.isArray(job?.branding?.aiDesiredSkills)
+    ? job.branding.aiDesiredSkills
+    : [];
+  const aiCustomQuestions = Array.isArray(job?.branding?.aiCustomQuestions)
+    ? job.branding.aiCustomQuestions
+    : [];
 
   useEffect(() => {
     if (!jobId) {
@@ -355,7 +362,7 @@ function ApplyForm() {
       for (const field of job.fields || []) {
         if (field.type === "file" && files[field.id]) {
           const file = files[field.id];
-          if (!resumeText) {
+          if (aiSelectionEnabled && !resumeText) {
             resumeText = await extractTextFromUploadedFile(file);
           }
           const ext = file.name.split(".").pop().toLowerCase();
@@ -397,18 +404,25 @@ function ApplyForm() {
       const applicantEmail = answers[emailField?.id] || "unknown@email.com";
       const companyName = job.branding?.company_name || "Resosyncer";
 
-      try {
-        screening = await analyzeResumeAgainstJob({
-          job,
-          answers: answersWithFiles,
-          resumeText,
-        });
-        answersWithFiles.__aiScreening = screening;
-      } catch (screeningError) {
-        console.warn("[ApplyPage] Resume analysis failed:", screeningError.message);
+      if (aiSelectionEnabled) {
+        try {
+          screening = await analyzeResumeAgainstJob({
+            job: {
+              ...job,
+              aiDesiredSkills,
+              aiCustomQuestions,
+            },
+            answers: answersWithFiles,
+            resumeText,
+          });
+          answersWithFiles.__aiScreening = screening;
+        } catch (screeningError) {
+          console.warn("[ApplyPage] Resume analysis failed:", screeningError.message);
+        }
       }
 
-      const isShortlisted = (screening?.confidenceScore || 0) > 0.7;
+      const isShortlisted =
+        aiSelectionEnabled && (screening?.confidenceScore || 0) > 0.7;
       const screeningNote = buildScreeningNote(screening);
 
       // ── Insert applicant and get back the new row's id ────────────────────
@@ -420,11 +434,15 @@ function ApplyForm() {
             name: applicantName,
             email: applicantEmail,
             phone: answers[phoneField?.id] || null,
-            stage: isShortlisted ? "interview" : "screening",
+            stage: aiSelectionEnabled
+              ? isShortlisted
+                ? "interview"
+                : "screening"
+              : "applied",
             answers: answersWithFiles,
             cv_url: cvUrl,
             score: null,
-            notes: screeningNote || null,
+            notes: aiSelectionEnabled ? screeningNote || null : null,
           },
         ])
         .select("id, public_access_token")
@@ -439,14 +457,17 @@ function ApplyForm() {
         ? createAiInterviewLink(publicAccessToken)
         : "";
 
-      if (isShortlisted && applicantId) {
+      if (aiSelectionEnabled && isShortlisted && applicantId) {
         const updatedAnswers = {
           ...answersWithFiles,
           __aiInterview: {
             status: "invited",
             interviewLink,
             invitedAt: new Date().toISOString(),
-            generatedQuestions: screening?.screeningQuestions || [],
+            generatedQuestions: [
+              ...aiCustomQuestions,
+              ...(screening?.screeningQuestions || []),
+            ].slice(0, 10),
           },
         };
 
@@ -556,7 +577,9 @@ function ApplyForm() {
             Thank you for applying for <strong>{job.title}</strong>.<br />
             {submissionOutcome === "shortlisted"
               ? "Your resume matched strongly, so we've sent an AI interview link to your email."
-              : "We'll be in touch soon. A confirmation has been sent to your email."}
+              : aiSelectionEnabled
+                ? "We'll be in touch soon. A confirmation has been sent to your email."
+                : "Your application was submitted for manual review. We will contact you soon."}
           </p>
         </div>
       </div>

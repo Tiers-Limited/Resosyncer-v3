@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Button, Modal, message, Tag, Switch, Tooltip } from "antd";
 import {
   CrownOutlined,
@@ -10,7 +10,6 @@ import {
   CloseCircleOutlined,
   CalendarOutlined,
   TeamOutlined,
-  DatabaseOutlined,
   StarFilled,
   InfoCircleOutlined,
   ReloadOutlined,
@@ -27,204 +26,252 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
+import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
-const PLANS = [
-  {
-    id: "free",
-    name: "Free",
-    price: 0,
-    priceLabel: "$0",
-    period: "forever",
-    tagline: "Try before you commit",
-    icon: <ThunderboltOutlined />,
-    color: "#64748b",
-    features: [
-      "Up to 5 employees",
-      "Basic project tracking",
-      "1 GB storage",
-      "Email support",
-    ],
-    limits: { max_users: 5, storage_gb: 1 },
-    stripePriceId: null,
-  },
-  {
-    id: "starter",
-    name: "Starter",
-    price: 49,
-    priceLabel: "$49",
-    period: "/mo",
-    tagline: "Perfect for small teams",
-    icon: <RocketOutlined />,
-    color: "#3b82f6",
-    features: [
-      "Up to 25 employees",
-      "Full project management",
-      "10 GB storage",
-      "Priority email support",
-      "Attendance & standups",
-      "Document management",
-    ],
-    limits: { max_users: 25, storage_gb: 10 },
-    stripePriceId: import.meta.env.VITE_STRIPE_STARTER_PRICE_ID,
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    price: 149,
-    priceLabel: "$149",
-    period: "/mo",
-    tagline: "For growing businesses",
-    icon: <CrownOutlined />,
-    color: "#8b5cf6",
-    popular: true,
-    features: [
-      "Up to 100 employees",
-      "Advanced analytics",
-      "50 GB storage",
-      "Priority chat support",
-      "Full HR suite",
-      "Contract builder",
-      "Recruitment module",
-      "Custom roles",
-    ],
-    limits: { max_users: 100, storage_gb: 50 },
-    stripePriceId: import.meta.env.VITE_STRIPE_PRO_PRICE_ID,
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    price: 399,
-    priceLabel: "$399",
-    period: "/mo",
-    tagline: "For large organisations",
-    icon: <SafetyCertificateOutlined />,
-    color: "#10b981",
-    features: [
-      "Unlimited employees",
-      "Dedicated account manager",
-      "Unlimited storage",
-      "24/7 phone & chat",
-      "Everything in Pro",
-      "SSO / SAML",
-      "Custom integrations",
-      "SLA guarantee",
-    ],
-    limits: { max_users: null, storage_gb: null },
-    stripePriceId: import.meta.env.VITE_STRIPE_ENTERPRISE_PRICE_ID,
-  },
-];
+const PLAN_ICON_MAP = {
+  Zap: <ThunderboltOutlined />,
+  Rocket: <RocketOutlined />,
+  Crown: <CrownOutlined />,
+  ShieldCheck: <SafetyCertificateOutlined />,
+  Star: <StarFilled style={{ fontSize: 14 }} />,
+  Sparkles: <ThunderboltOutlined />,
+};
+const PLAN_FALLBACK = {
+  id: "free",
+  name: "Free",
+  price: 0,
+  monthlyPrice: 0,
+  yearlyPrice: 0,
+  priceLabel: "$0",
+  period: "forever",
+  periodYearly: "forever",
+  tagline: "Try before you commit",
+  icon: <ThunderboltOutlined />,
+  color: "#64748b",
+  features: ["Basic access"],
+  limits: { max_users: 5 },
+  stripePriceId: null,
+  stripeMonthlyPriceId: null,
+  stripeYearlyPriceId: null,
+};
+const EUROPE_COUNTRIES = new Set([
+  "AT","BE","BG","HR","CY","CZ","DK","EE","FI","FR","DE","GR","HU","IE","IT",
+  "LV","LT","LU","MT","NL","PL","PT","RO","SK","SI","ES","SE","NO","CH","IS",
+  "LI","GB","UK","AL","AD","AM","AZ","BA","BY","GE","GI","IM","JE","XK","MD",
+  "MC","ME","MK","RS","SM","TR","UA","VA",
+]);
 
-const STORAGE_MAP = [
-  {
-    bucket: "attachments",
-    sources: [
-      { table: "tickets", column: null },
-      { table: "ticket_attachments", column: "storage_path" },
-    ],
-  },
-  {
-    bucket: "meeting_recordings",
-    sources: [{ table: "meetings", column: "recording_url" }],
-  },
-  {
-    bucket: "recruitment-cvs",
-    sources: [{ table: "recruitment_applicants", column: "cv_url" }],
-  },
-  {
-    bucket: "training_materials",
-    sources: [{ table: "training_materials", column: "file_path" }],
-  },
-  {
-    bucket: "chat-files",
-    sources: [{ table: "messages", column: "file_url" }],
-  },
-  {
-    bucket: "documents",
-    sources: [{ table: "documents", column: "file_url" }],
-  },
-];
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-const extractPath = (urlOrPath) => {
-  if (!urlOrPath) return null;
+const detectPricingRegion = () => {
   try {
-    const url = new URL(urlOrPath);
-    const parts = url.pathname.split("/");
-    const bucketIndex = parts.findIndex((p) => p === "public");
-    return bucketIndex !== -1
-      ? parts.slice(bucketIndex + 2).join("/")
-      : urlOrPath;
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    if (tz.startsWith("Europe/")) return "EUROPE";
+  } catch {}
+  try {
+    const locale = (navigator.language || "").toUpperCase();
+    const country = locale.split("-")[1];
+    if (country && EUROPE_COUNTRIES.has(country)) return "EUROPE";
+  } catch {}
+  return "GLOBAL";
+};
+
+const formatMoney = (amount, currency = "USD") => {
+  const numeric = Number(amount || 0);
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: String(currency || "USD").toUpperCase(),
+      maximumFractionDigits: numeric % 1 === 0 ? 0 : 2,
+    }).format(numeric);
   } catch {
-    return urlOrPath;
+    return `${currency} ${numeric}`;
   }
 };
 
-const calculateStorageUsed = async (tenantId) => {
-  const results = await Promise.all(
-    STORAGE_MAP.map(async ({ bucket, sources }) => {
-      let totalBytes = 0;
-      let fileCount = 0;
-      for (const { table, column } of sources) {
-        if (!column) continue;
-        const { data, error } = await supabase
-          .from(table)
-          .select(column)
-          .eq("tenant_id", tenantId);
-        if (error || !data) continue;
-        fileCount += data.length;
-        await Promise.all(
-          data.map(async (row) => {
-            const path = extractPath(row[column]);
-            if (!path) return;
-            const folder = path.split("/").slice(0, -1).join("/");
-            const filename = path.split("/").pop();
-            const { data: files } = await supabase.storage
-              .from(bucket)
-              .list(folder, { limit: 1, search: filename });
-            if (files && files.length > 0) {
-              const file = files[0];
-              totalBytes +=
-                file.metadata?.size ?? file.metadata?.contentLength ?? 0;
-            }
-          }),
-        );
-      }
-      return { bucket, bytes: totalBytes, fileCount };
-    }),
-  );
-  const totalBytes = results.reduce((sum, r) => sum + r.bytes, 0);
-  return { totalBytes, breakdown: results };
+const buildRegionalMap = (rows) =>
+  (rows || []).reduce((acc, r) => {
+    const pid = r.plan_id;
+    const cycle = String(r.billing_cycle || "monthly").toLowerCase();
+    const rawRegion = String(r.region || "GLOBAL").toUpperCase();
+    const region =
+      rawRegion === "EU"
+        ? "EUROPE"
+        : rawRegion === "US" || rawRegion === "WORLD"
+          ? "GLOBAL"
+          : rawRegion;
+    if (!acc[pid]) acc[pid] = {};
+    if (!acc[pid][cycle]) acc[pid][cycle] = {};
+    acc[pid][cycle][region] = r;
+    return acc;
+  }, {});
+
+const getFeatureText = (feature) => {
+  if (typeof feature === "string") return feature.trim();
+  if (
+    feature &&
+    typeof feature === "object" &&
+    typeof feature.text === "string"
+  ) {
+    return feature.text.trim();
+  }
+  return "";
 };
 
-const formatBytes = (bytes) => {
-  if (!bytes || bytes === 0) return "0 MB";
-  const gb = bytes / 1_073_741_824;
-  if (gb >= 1) return `${gb.toFixed(2)} GB`;
-  const mb = bytes / 1_048_576;
-  if (mb >= 1) return `${mb.toFixed(1)} MB`;
-  return `${(bytes / 1024).toFixed(0)} KB`;
+const adaptPlan = (row, regionMap = {}, userRegion = "GLOBAL") => {
+  const monthlyPrice = row.monthly_price ?? row.price ?? 0;
+  const yearlyPrice =
+    row.yearly_price ?? (monthlyPrice > 0 ? Number(monthlyPrice) * 12 : 0);
+  const planRegion = regionMap[row.id] || {};
+  const monthlyByRegion = planRegion.monthly || {};
+  const yearlyByRegion = planRegion.yearly || {};
+  const selectedMonthlyRegion =
+    monthlyByRegion[userRegion] || monthlyByRegion.GLOBAL || monthlyByRegion.EUROPE;
+  const selectedYearlyRegion =
+    yearlyByRegion[userRegion] || yearlyByRegion.GLOBAL || yearlyByRegion.EUROPE;
+  const regionCurrency = selectedMonthlyRegion?.currency || "USD";
+  const yearlyCurrency = selectedYearlyRegion?.currency || regionCurrency;
+  const regionPrice =
+    selectedMonthlyRegion?.price != null
+      ? Number(selectedMonthlyRegion.price)
+      : Number(monthlyPrice || 0);
+  const yearlyRegionPrice =
+    selectedYearlyRegion?.price != null
+      ? Number(selectedYearlyRegion.price)
+      : Number(yearlyPrice || 0);
+
+  return {
+    id: row.id,
+    name: row.name,
+    price: regionPrice,
+    monthlyPrice,
+    yearlyPrice,
+    priceLabel: formatMoney(regionPrice, regionCurrency),
+    period: Number(monthlyPrice) === 0 ? "forever" : "/mo",
+    periodYearly: Number(yearlyPrice) === 0 ? "forever" : "/mo billed yearly",
+    tagline: row.tagline ?? "",
+    icon: PLAN_ICON_MAP[row.icon] ?? <ThunderboltOutlined />,
+    color: row.color ?? "#64748b",
+    popular: row.popular ?? false,
+    contactForPricing: !!row.contact_for_pricing,
+    features: Array.isArray(row.features)
+      ? row.features
+          .map(getFeatureText)
+          .filter((f) => f && !/storage/i.test(f))
+      : [],
+    limits: {
+      max_users: row.max_users ?? null,
+    },
+    stripePriceId:
+      selectedMonthlyRegion?.stripe_price_id ??
+      row.stripe_monthly_price_id ??
+      row.stripe_price_id ??
+      null,
+    stripeMonthlyPriceId:
+      selectedMonthlyRegion?.stripe_price_id ??
+      row.stripe_monthly_price_id ??
+      row.stripe_price_id ??
+      null,
+    stripeYearlyPriceId:
+      selectedYearlyRegion?.stripe_price_id ??
+      row.stripe_yearly_price_id ??
+      null,
+    monthlyDisplayPrice: regionPrice,
+    yearlyDisplayPrice: yearlyRegionPrice,
+    yearlyDisplayLabel: formatMoney(yearlyRegionPrice, yearlyCurrency),
+    currency: regionCurrency,
+    currencyYearly: yearlyCurrency,
+  };
+};
+
+const planForCycle = (plan, cycle = "monthly") => {
+  if (!plan) return plan;
+  if (cycle === "yearly") {
+    return {
+      ...plan,
+      billingCycle: "yearly",
+      price: Number(plan.yearlyDisplayPrice ?? plan.yearlyPrice ?? plan.price ?? 0),
+      priceLabel:
+        plan.yearlyDisplayLabel ??
+        formatMoney(plan.yearlyPrice ?? plan.price, plan.currencyYearly || plan.currency),
+      period: plan.periodYearly || "/mo billed yearly",
+      stripePriceId:
+        plan.stripeYearlyPriceId || plan.stripeMonthlyPriceId || plan.stripePriceId,
+      currency: plan.currencyYearly || plan.currency,
+    };
+  }
+  return {
+    ...plan,
+    billingCycle: "monthly",
+    price: Number(plan.monthlyDisplayPrice ?? plan.monthlyPrice ?? plan.price ?? 0),
+    priceLabel: formatMoney(
+      plan.monthlyDisplayPrice ?? plan.monthlyPrice ?? plan.price,
+      plan.currency || "USD",
+    ),
+    period: Number(plan.monthlyDisplayPrice ?? plan.monthlyPrice ?? 0) === 0 ? "forever" : "/mo",
+    stripePriceId: plan.stripeMonthlyPriceId || plan.stripePriceId,
+    currency: plan.currency || "USD",
+  };
+};
+
+const normalizeBillingCycle = (value) => {
+  const raw = String(value || "").toLowerCase();
+  if (["yearly", "annual", "annually", "year"].includes(raw)) return "yearly";
+  return "monthly";
+};
+
+const parseDateValue = (value) => {
+  if (value == null || value === "") return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+
+  if (typeof value === "number") {
+    const ms = value > 1e12 ? value : value * 1000;
+    const d = new Date(ms);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  const numeric = Number(value);
+  if (!Number.isNaN(numeric) && String(value).trim() !== "") {
+    const ms = numeric > 1e12 ? numeric : numeric * 1000;
+    const d = new Date(ms);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+const addBillingCycle = (date, cycle = "monthly") => {
+  if (!date) return null;
+  const next = new Date(date);
+  if (normalizeBillingCycle(cycle) === "yearly") {
+    next.setFullYear(next.getFullYear() + 1);
+  } else {
+    next.setMonth(next.getMonth() + 1);
+  }
+  return Number.isNaN(next.getTime()) ? null : next;
 };
 
 const formatDate = (dateStr) => {
-  if (!dateStr) return "—";
+  const parsed = parseDateValue(dateStr);
+  if (!parsed) return "�";
   try {
-    return new Date(dateStr).toLocaleDateString("en-US", {
+    return parsed.toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
       day: "numeric",
     });
   } catch {
-    return "—";
+    return "�";
   }
 };
 
 const getDaysLeft = (dateStr) => {
-  if (!dateStr) return null;
-  const diff = new Date(dateStr) - new Date();
+  const parsed = parseDateValue(dateStr);
+  if (!parsed) return null;
+  const diff = parsed - new Date();
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 };
 
@@ -351,11 +398,29 @@ const StatCard = ({ icon, label, value, sub, color = "#6366f1", dark = false }) 
 );
 
 // ─── Plan card ────────────────────────────────────────────────────────────────
-const PlanCard = ({ plan, currentPlanName, onSelect, isDowngrade, dark = false }) => {
-  const isCurrent = plan.name.toLowerCase() === currentPlanName?.toLowerCase();
+const PlanCard = ({
+  plan,
+  currentPlanName,
+  currentPlanCycle = "monthly",
+  onSelect,
+  isDowngrade,
+  dark = false,
+}) => {
+  const nameMatches = plan.name.toLowerCase() === currentPlanName?.toLowerCase();
+  const cycleMatches =
+    normalizeBillingCycle(plan.billingCycle) ===
+    normalizeBillingCycle(currentPlanCycle);
+  const isCurrent = nameMatches && (Number(plan.price || 0) === 0 || cycleMatches);
   return (
     <div
-      onClick={() => !isCurrent && onSelect(plan)}
+      onClick={() => {
+        if (isCurrent) return;
+        if (plan.contactForPricing) {
+          window.location.href = "mailto:sales@resosyncer.com";
+          return;
+        }
+        onSelect(plan);
+      }}
       className="relative flex flex-col rounded-2xl transition-all duration-200"
       style={{
         background: isCurrent
@@ -414,24 +479,35 @@ const PlanCard = ({ plan, currentPlanName, onSelect, isDowngrade, dark = false }
           </div>
         </div>
         <div className="mb-3">
-          <span
-            className="text-3xl font-black"
-            style={{ color: dark ? "#f3f4f6" : "#0f172a" }}
-          >
-            {plan.priceLabel}
-          </span>
-          <span className="text-xs ml-1" style={{ color: dark ? "#9ca3af" : "#94a3b8" }}>
-            {plan.period}
-          </span>
+          {plan.contactForPricing ? (
+            <span
+              className="text-3xl font-black"
+              style={{ color: dark ? "#f3f4f6" : "#0f172a" }}
+            >
+              Contact Us
+            </span>
+          ) : (
+            <>
+              <span
+                className="text-3xl font-black"
+                style={{ color: dark ? "#f3f4f6" : "#0f172a" }}
+              >
+                {plan.priceLabel}
+              </span>
+              <span className="text-xs ml-1" style={{ color: dark ? "#9ca3af" : "#94a3b8" }}>
+                {plan.period}
+              </span>
+            </>
+          )}
         </div>
         <div
           className="h-px mb-3"
           style={{ background: dark ? "#2b2f38" : "#f1f5f9" }}
         />
         <ul className="flex flex-col gap-1.5 flex-1 mb-4">
-          {plan.features.slice(0, 4).map((f) => (
+          {plan.features.slice(0, 4).map((f, idx) => (
             <li
-              key={f}
+              key={`${f}-${idx}`}
               className="flex items-center gap-2 text-xs"
               style={{ color: dark ? "#d1d5db" : "#475569" }}
             >
@@ -455,6 +531,17 @@ const PlanCard = ({ plan, currentPlanName, onSelect, isDowngrade, dark = false }
           >
             Active Plan
           </div>
+        ) : plan.contactForPricing ? (
+          <div
+            className="w-full py-2.5 rounded-xl text-xs font-bold text-center"
+            style={{
+              background: `${plan.color}12`,
+              color: plan.color,
+              border: `1.5px solid ${plan.color}30`,
+            }}
+          >
+            Contact Us
+          </div>
         ) : (
           <div
             className="w-full py-2.5 rounded-xl text-xs font-bold text-center"
@@ -477,15 +564,18 @@ const PlanCard = ({ plan, currentPlanName, onSelect, isDowngrade, dark = false }
 // ─── Main ─────────────────────────────────────────────────────────────────────
 const SubscriptionManagement = () => {
   const { user, profile } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [dark, setDark] = useState(getIsDarkTheme);
   const [tenant, setTenant] = useState(null);
+  const [plans, setPlans] = useState([]);
+  const [plansLoading, setPlansLoading] = useState(true);
   const [loadingTenant, setLoadingTenant] = useState(true);
-  const [storageData, setStorageData] = useState(null);
-  const [loadingStorage, setLoadingStorage] = useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
   const [cancelModal, setCancelModal] = useState(false);
   const [reactivateModal, setReactivateModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [billingCycle, setBillingCycle] = useState("monthly");
   const [actionLoading, setActionLoading] = useState(false);
   const [autoRenewLoading, setAutoRenewLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -505,11 +595,53 @@ const SubscriptionManagement = () => {
   }, []);
 
   useEffect(() => {
+    fetchPlans();
     if (user?.id || profile?.tenant_id) {
       fetchTenant();
     }
     setTimeout(() => setMounted(true), 30);
   }, [user?.id, profile?.tenant_id]);
+
+  const fetchPlans = async () => {
+    setPlansLoading(true);
+    try {
+      const userRegion = detectPricingRegion();
+      const { data, error } = await supabase
+        .from("plans")
+        .select("*")
+        .eq("is_active", true);
+      if (error) throw error;
+      const planIds = (data || []).map((p) => p.id).filter(Boolean);
+      let regionMap = {};
+      if (planIds.length) {
+        const { data: regionRows, error: regionErr } = await supabase
+          .from("plan_region_prices")
+          .select("plan_id, billing_cycle, region, currency, price, stripe_price_id")
+          .in("plan_id", planIds);
+        if (!regionErr) regionMap = buildRegionalMap(regionRows);
+      }
+      const nextPlans = (data || [])
+        .map((row) => adaptPlan(row, regionMap, userRegion))
+        .sort((a, b) => {
+          const aUsers =
+            a?.limits?.max_users == null
+              ? Number.MAX_SAFE_INTEGER
+              : Number(a.limits.max_users);
+          const bUsers =
+            b?.limits?.max_users == null
+              ? Number.MAX_SAFE_INTEGER
+              : Number(b.limits.max_users);
+          if (aUsers !== bUsers) return aUsers - bUsers;
+          return Number(a.monthlyPrice || 0) - Number(b.monthlyPrice || 0);
+        });
+      setPlans(nextPlans);
+    } catch (error) {
+      console.error("Failed to load plans:", error);
+      message.error("Failed to load plans.");
+    } finally {
+      setPlansLoading(false);
+    }
+  };
 
   const fetchTenant = async () => {
     setLoadingTenant(true);
@@ -535,7 +667,6 @@ const SubscriptionManagement = () => {
           .maybeSingle();
         if (error) throw error;
         tenantData = data;
-        console.log("tenantData", tenantData);
       }
 
       if (!tenantData) {
@@ -544,7 +675,6 @@ const SubscriptionManagement = () => {
 
       setTenant(tenantData);
       fetchLiveUserCount(tenantData.id);
-      fetchStorage(tenantData.id);
     } catch (error) {
       console.error("Failed to load subscription info:", error);
       message.error("Failed to load subscription info.");
@@ -573,34 +703,111 @@ const SubscriptionManagement = () => {
     }
   };
 
-  const fetchStorage = async (tenantId) => {
-    setLoadingStorage(true);
-    try {
-      const result = await calculateStorageUsed(tenantId);
-      setStorageData(result);
-    } catch (err) {
-      console.error("Storage calc error:", err);
-    } finally {
-      setLoadingStorage(false);
-    }
-  };
+  const currentPlanBase =
+    plans.find((p) => p.name.toLowerCase() === tenant?.plan?.toLowerCase()) ||
+    PLAN_FALLBACK;
+  const inferTenantBillingCycle = () => {
+    const explicitCycle =
+      tenant?.billing_cycle || tenant?.plan_interval || tenant?.subscription_interval;
+    if (explicitCycle) return normalizeBillingCycle(explicitCycle);
 
-  const currentPlan =
-    PLANS.find((p) => p.name.toLowerCase() === tenant?.plan?.toLowerCase()) ||
-    PLANS[0];
+    if (tenant?.stripe_price_id) {
+      if (tenant.stripe_price_id === currentPlanBase?.stripeYearlyPriceId) return "yearly";
+      if (tenant.stripe_price_id === currentPlanBase?.stripeMonthlyPriceId) return "monthly";
+    }
+
+    const mrr = Number(tenant?.mrr);
+    const monthly = Number(currentPlanBase?.monthlyDisplayPrice ?? currentPlanBase?.monthlyPrice);
+    const yearly = Number(currentPlanBase?.yearlyDisplayPrice ?? currentPlanBase?.yearlyPrice);
+    if (!Number.isNaN(mrr) && !Number.isNaN(monthly) && !Number.isNaN(yearly)) {
+      const distMonthly = Math.abs(mrr - monthly);
+      const distYearly = Math.abs(mrr - yearly);
+      return distYearly < distMonthly ? "yearly" : "monthly";
+    }
+    return "monthly";
+  };
+  const currentBillingCycle = inferTenantBillingCycle();
+  const currentPlan = planForCycle(currentPlanBase, currentBillingCycle);
   const getPlanIndex = (name) =>
-    PLANS.findIndex((p) => p.name.toLowerCase() === name?.toLowerCase());
+    plans.findIndex((p) => p.name.toLowerCase() === name?.toLowerCase());
   const isDowngrade =
     getPlanIndex(selectedPlan?.name) < getPlanIndex(tenant?.plan);
   const hasStripe = !!tenant?.stripe_customer_id;
+  const hasStripeSubscription = !!tenant?.stripe_subscription_id;
+  const currentCycleLabel =
+    currentBillingCycle === "yearly" ? "Yearly" : "Monthly";
 
   // ── Dates ───────────────────────────────────────────────────────────────────
   // tenant.current_period_end should be stored as ISO string from Stripe webhook
   const periodEnd =
-    tenant?.current_period_end || tenant?.subscription_end_date || null;
-  const daysLeft = getDaysLeft(periodEnd);
+    tenant?.current_period_end ??
+    tenant?.subscription_end_date ??
+    tenant?.subscription_end ??
+    tenant?.renewal_date ??
+    tenant?.next_billing_date ??
+    tenant?.trial_ends_at ??
+    null;
+  const renewalEstimateBase =
+    tenant?.current_period_start ??
+    tenant?.subscription_start_date ??
+    tenant?.subscription_started_at ??
+    tenant?.trial_ends_at ??
+    tenant?.updated_at ??
+    tenant?.created_at ??
+    null;
+  const estimatedPeriodEnd = addBillingCycle(
+    parseDateValue(renewalEstimateBase),
+    currentBillingCycle,
+  );
+  const periodEndDate = parseDateValue(periodEnd);
+  const displayPeriodEnd = parseDateValue(periodEnd) || estimatedPeriodEnd;
+  const daysLeft = getDaysLeft(displayPeriodEnd);
+  const isPeriodEndInPast =
+    !!periodEndDate && periodEndDate.getTime() < Date.now();
   const isCancelled = tenant?.status === "cancelled";
+  const tenantStatus = String(tenant?.status || "").toLowerCase();
+  const isPlanOverride = tenant?.plan_override === true;
   const autoRenew = tenant?.auto_renew !== false; // default true if not set
+  const isCancellationScheduled =
+    !isPlanOverride &&
+    (isCancelled ||
+    (currentPlan.price > 0 &&
+      !autoRenew &&
+      !!displayPeriodEnd &&
+      (daysLeft === null || daysLeft > 0)));
+  const canReactivate =
+    !isPlanOverride &&
+    hasStripeSubscription &&
+    (isCancellationScheduled ||
+      ["cancelled", "expired", "inactive", "suspended", "past_due", "unpaid"].includes(tenantStatus));
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const action = params.get("action");
+    if (!action) return;
+
+    if (action === "upgrade") {
+      openChangePlanModal();
+      navigate("/subscription", { replace: true });
+      return;
+    }
+
+    if (action === "reactivate") {
+      if (!isPlanOverride && hasStripeSubscription) {
+        setReactivateModal(true);
+      } else {
+        message.info("Reactivation is unavailable for this workspace. Please choose a plan to continue.");
+        openChangePlanModal();
+      }
+      navigate("/subscription", { replace: true });
+    }
+  }, [location.search, navigate, isPlanOverride, hasStripeSubscription]);
+
+  const openChangePlanModal = () => {
+    setBillingCycle(currentBillingCycle);
+    setSelectedPlan(null);
+    setUpgradeModal(true);
+  };
 
   // ── Seat display ────────────────────────────────────────────────────────────
   const unlimitedSeats =
@@ -618,21 +825,6 @@ const SubscriptionManagement = () => {
   const seatDanger = !unlimitedSeats && seatPercent > 80;
 
   // ── Storage display ─────────────────────────────────────────────────────────
-  const unlimitedStorage =
-    tenant?.storage_gb == null && currentPlan.limits.storage_gb === null;
-  const storageUsedBytes = storageData?.totalBytes ?? 0;
-  const storageUsedGB = storageUsedBytes / 1_073_741_824;
-  const storageLimitGB = unlimitedStorage
-    ? null
-    : (tenant?.storage_gb ?? currentPlan.limits.storage_gb ?? 1);
-  const storagePercent = unlimitedStorage
-    ? 0
-    : Math.min(100, (storageUsedGB / (storageLimitGB || 1)) * 100);
-  const storageDanger = !unlimitedStorage && storagePercent > 80;
-  const storageLabel = unlimitedStorage
-    ? `${formatBytes(storageUsedBytes)} / Unlimited`
-    : `${formatBytes(storageUsedBytes)} / ${storageLimitGB} GB`;
-
   // ── Upgrade / Downgrade ─────────────────────────────────────────────────────
   const handleUpgrade = async (paymentMethodId) => {
     setActionLoading(true);
@@ -645,7 +837,6 @@ const SubscriptionManagement = () => {
             newPriceId: selectedPlan.stripePriceId,
             newPlan: selectedPlan.name,
             maxUsers: selectedPlan.limits.max_users,
-            storageGb: selectedPlan.limits.storage_gb,
             mrr: selectedPlan.price,
             ...(paymentMethodId && { paymentMethodId }),
           },
@@ -678,6 +869,67 @@ const SubscriptionManagement = () => {
       if (error)
         throw new Error(await parseEdgeFnError(error, "Failed to cancel."));
       if (data?.error) throw new Error(data.error);
+      const knownEnd =
+        periodEnd ??
+        data?.current_period_end ??
+        data?.subscription_end_date ??
+        tenant?.current_period_end ??
+        tenant?.subscription_end_date ??
+        tenant?.subscription_end ??
+        null;
+      const baseSyncPayload = {
+        auto_renew: false,
+        ...(knownEnd ? { subscription_end_date: knownEnd } : {}),
+        updated_at: new Date().toISOString(),
+      };
+      let syncedTenant = null;
+      let tenantSyncError = null;
+
+      // Try preferred status first.
+      ({
+        data: syncedTenant,
+        error: tenantSyncError,
+      } = await supabase
+        .from("tenants")
+        .update({
+          ...baseSyncPayload,
+          status: "cancelled",
+        })
+        .eq("id", tenant.id)
+        .select("id, status, auto_renew, subscription_end_date, current_period_end")
+        .maybeSingle());
+
+      // Fallback: some workspaces still enforce tenants_status_check without "cancelled".
+      if (tenantSyncError) {
+        console.warn(
+          "Tenant status 'cancelled' rejected, falling back to auto_renew/subscription_end sync:",
+          tenantSyncError,
+        );
+        ({
+          data: syncedTenant,
+          error: tenantSyncError,
+        } = await supabase
+          .from("tenants")
+          .update(baseSyncPayload)
+          .eq("id", tenant.id)
+          .select("id, status, auto_renew, subscription_end_date, current_period_end")
+          .maybeSingle());
+      }
+
+      if (tenantSyncError) {
+        console.error("Failed to persist cancellation on tenant row:", tenantSyncError);
+        setTenant((prev) => ({
+          ...(prev || {}),
+          auto_renew: false,
+          ...(knownEnd ? { subscription_end_date: knownEnd } : {}),
+          status: prev?.status || "active",
+        }));
+        message.info(
+          "Cancellation is confirmed in Stripe. Local DB status will sync automatically.",
+        );
+      } else if (syncedTenant) {
+        setTenant((prev) => ({ ...(prev || {}), ...syncedTenant }));
+      }
       message.success(
         "Subscription cancelled. Access continues until the billing period ends.",
       );
@@ -704,7 +956,8 @@ const SubscriptionManagement = () => {
       if (data?.error) throw new Error(data.error);
       message.success("Subscription reactivated! Auto-renew is back on.");
       setReactivateModal(false);
-      fetchTenant();
+      await fetchTenant();
+      window.location.reload();
     } catch (err) {
       message.error(err.message || "Failed to reactivate. Contact support.");
     } finally {
@@ -740,7 +993,7 @@ const SubscriptionManagement = () => {
     }
   };
 
-  if (loadingTenant)
+  if (loadingTenant || plansLoading)
     return (
       <div
         className="flex items-center justify-center min-h-[400px]"
@@ -821,18 +1074,30 @@ const SubscriptionManagement = () => {
         </div>
 
         {/* ── Cancelled banner ──────────────────────────────────────────────── */}
-        {isCancelled && (
+        {isCancellationScheduled && (
           <div
             className="mb-6 rounded-2xl px-6 py-4 flex items-center justify-between gap-4 flex-wrap"
-            style={{ background: "#fef2f2", border: "1.5px solid #fca5a5" }}
+            style={{
+              background: dark
+                ? "linear-gradient(135deg, rgba(127,29,29,0.26), rgba(69,10,10,0.2))"
+                : "#fef2f2",
+              border: `1.5px solid ${dark ? "#7f1d1d" : "#fca5a5"}`,
+              boxShadow: dark ? "0 10px 24px rgba(0,0,0,0.25)" : "none",
+            }}
           >
             <div className="flex items-center gap-3">
-              <ExclamationCircleOutlined className="text-red-500 text-xl" />
+              <ExclamationCircleOutlined
+                className="text-xl"
+                style={{ color: dark ? "#f87171" : "#ef4444" }}
+              />
               <div>
-                <div className="font-bold text-red-700 text-sm">
+                <div
+                  className="font-bold text-sm"
+                  style={{ color: dark ? "#fecaca" : "#b91c1c" }}
+                >
                   Subscription cancelled
                 </div>
-                <div className="text-red-500 text-xs">
+                <div className="text-xs" style={{ color: dark ? "#fca5a5" : "#ef4444" }}>
                   {periodEnd
                     ? `Your workspace remains active until ${formatDate(periodEnd)}${
                         daysLeft !== null
@@ -850,15 +1115,32 @@ const SubscriptionManagement = () => {
                   onClick={() => setReactivateModal(true)}
                   icon={<PlayCircleOutlined />}
                   className="!rounded-xl !font-semibold !border-emerald-400 !text-emerald-600"
+                  style={
+                    dark
+                      ? {
+                          background: "rgba(16,185,129,0.12)",
+                          borderColor: "#10b981",
+                          color: "#34d399",
+                        }
+                      : undefined
+                  }
                 >
                   Reactivate
                 </Button>
               )}
               <Button
-                onClick={() => setUpgradeModal(true)}
+                onClick={openChangePlanModal}
                 type="primary"
                 className="!rounded-xl !font-semibold !border-0"
-                style={{ background: "#0f172a" }}
+                style={
+                  dark
+                    ? {
+                        background: "#111827",
+                        border: "1px solid #334155",
+                        color: "#e5e7eb",
+                      }
+                    : { background: "#0f172a" }
+                }
               >
                 Change Plan
               </Button>
@@ -867,18 +1149,30 @@ const SubscriptionManagement = () => {
         )}
 
         {/* ── Auto-renew warning banner (if disabled but not cancelled) ──────── */}
-        {!isCancelled && !autoRenew && currentPlan.price > 0 && (
+        {!isCancellationScheduled && !autoRenew && currentPlan.price > 0 && (
           <div
             className="mb-6 rounded-2xl px-6 py-4 flex items-center justify-between gap-4 flex-wrap"
-            style={{ background: "#fffbeb", border: "1.5px solid #fcd34d" }}
+            style={{
+              background: dark
+                ? "linear-gradient(135deg, rgba(120,53,15,0.25), rgba(69,26,3,0.2))"
+                : "#fffbeb",
+              border: `1.5px solid ${dark ? "#92400e" : "#fcd34d"}`,
+              boxShadow: dark ? "0 10px 24px rgba(0,0,0,0.2)" : "none",
+            }}
           >
             <div className="flex items-center gap-3">
-              <SyncOutlined className="text-amber-500 text-xl" />
+              <SyncOutlined
+                className="text-xl"
+                style={{ color: dark ? "#fbbf24" : "#f59e0b" }}
+              />
               <div>
-                <div className="font-bold text-amber-700 text-sm">
+                <div
+                  className="font-bold text-sm"
+                  style={{ color: dark ? "#fde68a" : "#b45309" }}
+                >
                   Auto-renew is off
                 </div>
-                <div className="text-amber-600 text-xs">
+                <div className="text-xs" style={{ color: dark ? "#fcd34d" : "#d97706" }}>
                   Your plan will expire on {formatDate(periodEnd)}
                   {daysLeft !== null
                     ? ` (${daysLeft} day${daysLeft !== 1 ? "s" : ""} left)`
@@ -891,6 +1185,15 @@ const SubscriptionManagement = () => {
               onClick={() => handleAutoRenewToggle(true)}
               loading={autoRenewLoading}
               className="!rounded-xl !font-semibold !border-amber-400 !text-amber-700"
+              style={
+                dark
+                  ? {
+                      background: "rgba(251,191,36,0.12)",
+                      borderColor: "#f59e0b",
+                      color: "#fcd34d",
+                    }
+                  : undefined
+              }
             >
               Enable Auto-Renew
             </Button>
@@ -908,7 +1211,7 @@ const SubscriptionManagement = () => {
             value={tenant?.plan || "Free"}
             sub={
               currentPlan.price > 0
-                ? `${currentPlan.priceLabel}/mo`
+                ? `${currentPlan.priceLabel} ${currentPlan.period}`
                 : "No charge"
             }
             color={currentPlan.color}
@@ -923,15 +1226,27 @@ const SubscriptionManagement = () => {
             dark={dark}
           />
           <StatCard
-            icon={<DatabaseOutlined />}
-            label="Storage Used"
+            icon={<CalendarOutlined />}
+            label="Renewal"
             value={
-              loadingStorage ? "Calculating…" : formatBytes(storageUsedBytes)
+              isPlanOverride
+                ? "Free Granted"
+                : displayPeriodEnd
+                  ? formatDate(displayPeriodEnd)
+                  : currentPlan.price > 0
+                    ? "Not available"
+                    : "-"
             }
             sub={
-              unlimitedStorage
-                ? "Unlimited plan"
-                : `of ${storageLimitGB} GB limit`
+              isPlanOverride
+                ? "plan override active"
+                : isCancellationScheduled
+                  ? "access end date"
+                  : periodEnd
+                    ? "next billing date"
+                    : displayPeriodEnd
+                      ? "estimated next billing date"
+                      : "next billing date"
             }
             color="#10b981"
             dark={dark}
@@ -939,8 +1254,14 @@ const SubscriptionManagement = () => {
           <StatCard
             icon={<CreditCardOutlined />}
             label="Monthly Cost"
-            value={`$${tenant?.mrr ?? 0}`}
-            sub="billed monthly"
+            value={isPlanOverride ? "Free Granted" : `$${tenant?.mrr ?? 0}`}
+            sub={
+              isPlanOverride
+                ? "no billing while override is active"
+                : currentBillingCycle === "yearly"
+                  ? "billed yearly"
+                  : "billed monthly"
+            }
             color="#f59e0b"
             dark={dark}
           />
@@ -971,21 +1292,27 @@ const SubscriptionManagement = () => {
                     {tenant?.plan} Plan
                   </span>
                   <Tag
-                    color={isCancelled ? "red" : autoRenew ? "green" : "orange"}
+                    color={
+                      isCancellationScheduled
+                        ? "red"
+                        : autoRenew
+                          ? "green"
+                          : "orange"
+                    }
                     className="!rounded-full !text-[10px] !font-bold !uppercase"
                   >
-                    {isCancelled
+                    {isCancellationScheduled
                       ? "cancelled"
                       : autoRenew
                         ? "active"
-                        : "expires soon"}
+                        : ""}
                   </Tag>
                 </div>
                 <div className="text-slate-400 text-sm mt-0.5">
                   {currentPlan.tagline}
                   {currentPlan.price > 0 && (
                     <span className="ml-2 font-semibold text-slate-600">
-                      · {currentPlan.priceLabel}/mo
+                      · {currentPlan.priceLabel} {currentPlan.period}
                     </span>
                   )}
                 </div>
@@ -994,11 +1321,13 @@ const SubscriptionManagement = () => {
 
             <div className="flex items-center gap-3 flex-wrap">
               {/* Auto-renew toggle — shown only on paid, non-cancelled plans */}
-              {currentPlan.price > 0 && !isCancelled && (
+              {currentPlan.price > 0 && !isCancellationScheduled && (
                 <Tooltip
                   title={
                     autoRenew
-                      ? "Auto-renew is ON — your plan renews automatically each month"
+                      ? `Auto-renew is ON — your plan renews automatically each ${
+                          currentBillingCycle === "yearly" ? "year" : "month"
+                        }`
                       : "Auto-renew is OFF — your plan will not renew"
                   }
                 >
@@ -1024,10 +1353,10 @@ const SubscriptionManagement = () => {
                 </Tooltip>
               )}
 
-              {!isCancelled && (
+              {!isCancellationScheduled && (
                 <>
                   <Button
-                    onClick={() => setUpgradeModal(true)}
+                    onClick={openChangePlanModal}
                     icon={<ArrowUpOutlined />}
                     className="!rounded-xl !font-semibold !border-slate-200"
                   >
@@ -1046,10 +1375,7 @@ const SubscriptionManagement = () => {
                 </>
               )}
 
-              {isCancelled &&
-                periodEnd &&
-                daysLeft !== null &&
-                daysLeft > 0 && (
+              {canReactivate && (
                   <Button
                     onClick={() => setReactivateModal(true)}
                     icon={<PlayCircleOutlined />}
@@ -1068,9 +1394,9 @@ const SubscriptionManagement = () => {
               What's included
             </div>
             <div className="flex flex-wrap gap-x-6 gap-y-2">
-              {currentPlan.features.map((f) => (
+              {currentPlan.features.map((f, idx) => (
                 <span
-                  key={f}
+                  key={`${f}-${idx}`}
                   className="flex items-center gap-1.5 text-sm text-slate-600"
                 >
                   <CheckOutlined
@@ -1106,12 +1432,17 @@ const SubscriptionManagement = () => {
                 { label: "Email", value: tenant?.owner_email },
                 {
                   label: "Billing cycle",
-                  value: currentPlan.price > 0 ? "Monthly" : "N/A",
+                  value: isPlanOverride
+                    ? "Free Granted"
+                    : currentPlan.price > 0
+                      ? currentCycleLabel
+                      : "N/A",
                 },
                 {
                   label: "Auto-renew",
-                  value:
-                    currentPlan.price > 0
+                  value: isPlanOverride
+                    ? "Free Granted"
+                    : currentPlan.price > 0
                       ? autoRenew
                         ? "Enabled"
                         : "Disabled"
@@ -1124,22 +1455,26 @@ const SubscriptionManagement = () => {
                       : null,
                 },
                 {
-                  label: isCancelled
+                  label: isCancellationScheduled
                     ? "Access until"
                     : autoRenew
                       ? "Next renewal"
                       : "Plan expires",
-                  value: periodEnd
-                    ? formatDate(periodEnd)
-                    : currentPlan.price > 0
-                      ? "Auto-renews monthly"
-                      : "—",
+                  value: isPlanOverride
+                    ? "Free Granted"
+                    : periodEnd
+                      ? formatDate(periodEnd)
+                      : currentPlan.price > 0
+                        ? displayPeriodEnd
+                          ? formatDate(displayPeriodEnd)
+                          : `Auto-renews ${currentBillingCycle}`
+                        : "—",
                   highlight:
-                    periodEnd && daysLeft !== null && daysLeft <= 7
+                    !isPlanOverride && periodEnd && daysLeft !== null && daysLeft <= 7
                       ? "red"
                       : null,
                   sub:
-                    periodEnd && daysLeft !== null
+                    !isPlanOverride && periodEnd && daysLeft !== null
                       ? `${daysLeft} day${daysLeft !== 1 ? "s" : ""} remaining`
                       : null,
                 },
@@ -1185,12 +1520,7 @@ const SubscriptionManagement = () => {
               <div className="font-bold text-slate-900 text-sm">
                 Usage Overview
               </div>
-              <div className="flex items-center gap-2">
-                {loadingStorage && (
-                  <ReloadOutlined spin className="text-slate-400 text-xs" />
-                )}
-                <InfoCircleOutlined className="text-slate-400" />
-              </div>
+              <InfoCircleOutlined className="text-slate-400" />
             </div>
             <div className="space-y-5">
               {/* Seats */}
@@ -1233,103 +1563,6 @@ const SubscriptionManagement = () => {
                   </div>
                 )}
               </div>
-
-              {/* Storage */}
-              <div>
-                <div className="flex justify-between text-xs mb-1.5">
-                  <span className="text-slate-500">Storage</span>
-                  <span
-                    className="font-semibold"
-                    style={{
-                      color:
-                        storageDanger ? "#ef4444" : dark ? "#e5e7eb" : "#1e293b",
-                    }}
-                  >
-                    {loadingStorage ? "Calculating…" : storageLabel}
-                  </span>
-                </div>
-                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                  {unlimitedStorage ? (
-                    <div
-                      className="h-full w-full rounded-full"
-                      style={{ background: `${currentPlan.color}25` }}
-                    />
-                  ) : (
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${storagePercent}%`,
-                        background: storageDanger
-                          ? "#ef4444"
-                          : currentPlan.color,
-                      }}
-                    />
-                  )}
-                </div>
-                {unlimitedStorage && (
-                  <div className="text-[10px] text-slate-400 mt-1">
-                    Unlimited storage included in Enterprise
-                  </div>
-                )}
-                {storageDanger && (
-                  <div className="text-[10px] text-red-500 mt-1">
-                    Approaching storage limit — consider upgrading
-                  </div>
-                )}
-              </div>
-
-              {/* Per-bucket breakdown */}
-              {!loadingStorage &&
-                storageData?.breakdown?.some((b) => b.bytes > 0) && (
-                  <div className="pt-3 border-t border-slate-100">
-                    <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
-                      Storage breakdown
-                    </div>
-                    <div className="space-y-1.5">
-                      {storageData.breakdown
-                        .filter((b) => b.bytes > 0)
-                        .sort((a, b) => b.bytes - a.bytes)
-                        .map((b) => {
-                          const labelMap = {
-                            attachments: "Tickets",
-                            meeting_recordings: "Meetings",
-                            "recruitment-cvs": "Recruitment",
-                            training_materials: "Training",
-                            "chat-files": "Chat",
-                            documents: "Documents",
-                          };
-                          return (
-                            <div
-                              key={b.bucket}
-                              className="flex items-center justify-between text-xs"
-                            >
-                              <span className="text-slate-500">
-                                {labelMap[b.bucket] || b.bucket}
-                              </span>
-                              <div className="flex items-center gap-2">
-                                <span className="text-slate-400 text-[10px]">
-                                  {b.fileCount} file
-                                  {b.fileCount !== 1 ? "s" : ""}
-                                </span>
-                                <span className="font-medium text-slate-700">
-                                  {formatBytes(b.bytes)}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
-                )}
-
-              {!loadingStorage &&
-                storageData &&
-                storageData.totalBytes === 0 && (
-                  <div className="text-[10px] text-slate-400 italic">
-                    No files found in storage buckets for this workspace.
-                  </div>
-                )}
-
               {tenant?.stripe_customer_id && (
                 <div className="pt-2 border-t border-slate-100">
                   <div className="flex items-center gap-2 text-xs text-slate-400">
@@ -1373,15 +1606,48 @@ const SubscriptionManagement = () => {
       >
         {!selectedPlan ? (
           <div className="pt-4">
+            <div className="flex items-center justify-center mb-4">
+              <div
+                className="inline-flex rounded-xl p-1"
+                style={{
+                  background: dark ? "#1b1c21" : "#f1f5f9",
+                  border: `1px solid ${dark ? "#2b2f38" : "#e2e8f0"}`,
+                }}
+              >
+                {[
+                  { key: "monthly", label: "Monthly" },
+                  { key: "yearly", label: "Yearly" },
+                ].map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => {
+                      setBillingCycle(opt.key);
+                      setSelectedPlan(null);
+                    }}
+                    className="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                    style={{
+                      background:
+                        billingCycle === opt.key ? "#0f172a" : "transparent",
+                      color: billingCycle === opt.key ? "#fff" : "#64748b",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mt-2 mb-5">
-              {PLANS.map((plan) => {
+              {plans.map((plan) => {
+                const planView = planForCycle(plan, billingCycle);
                 const ci = getPlanIndex(tenant?.plan);
                 const pi = getPlanIndex(plan.name);
                 return (
                   <PlanCard
                     key={plan.id}
-                    plan={plan}
+                    plan={planView}
                     currentPlanName={tenant?.plan}
+                    currentPlanCycle={currentBillingCycle}
                     onSelect={setSelectedPlan}
                     isDowngrade={pi < ci}
                     dark={dark}
@@ -1453,11 +1719,11 @@ const SubscriptionManagement = () => {
                 <div className="space-y-2.5">
                   {[
                     {
-                      label: "New monthly cost",
+                      label: "New plan cost",
                       value:
                         selectedPlan.price === 0
                           ? "Free"
-                          : `${selectedPlan.priceLabel}/mo`,
+                          : `${selectedPlan.priceLabel} ${selectedPlan.period}`,
                       green: selectedPlan.price < currentPlan.price,
                     },
                     {
@@ -1465,13 +1731,6 @@ const SubscriptionManagement = () => {
                       value:
                         selectedPlan.limits.max_users != null
                           ? `${selectedPlan.limits.max_users} seats`
-                          : "Unlimited",
-                    },
-                    {
-                      label: "Storage",
-                      value:
-                        selectedPlan.limits.storage_gb != null
-                          ? `${selectedPlan.limits.storage_gb} GB`
                           : "Unlimited",
                     },
                     { label: "Effective", value: "Immediately" },
@@ -1515,7 +1774,7 @@ const SubscriptionManagement = () => {
                     <p className="text-sm text-slate-500 mb-5">
                       {selectedPlan.price === 0
                         ? "Switching to Free will cancel your Stripe subscription at the end of the current billing period."
-                        : `Your saved payment method will be charged ${selectedPlan.priceLabel}/mo, prorated for the current period.`}
+                        : `Your saved payment method will be charged ${selectedPlan.priceLabel} ${selectedPlan.period}, prorated for the current period.`}
                     </p>
                     <Button
                       block
@@ -1652,11 +1911,14 @@ const SubscriptionManagement = () => {
               <CalendarOutlined className="text-emerald-500 text-lg flex-shrink-0" />
               <div>
                 <div className="text-xs font-semibold text-emerald-700">
-                  Next charge: {formatDate(periodEnd)}
+                  {isPeriodEndInPast
+                    ? "Next charge date is syncing from Stripe"
+                    : `Next charge: ${formatDate(periodEnd)}`}
                 </div>
                 <div className="text-[10px] text-emerald-600">
-                  {currentPlan.priceLabel}/mo · {daysLeft} day
-                  {daysLeft !== 1 ? "s" : ""} until renewal
+                  {isPeriodEndInPast
+                    ? "Your subscription was reactivated. Refreshing billing cycle details..."
+                    : `${currentPlan.priceLabel} ${currentPlan.period} · ${daysLeft} day${daysLeft !== 1 ? "s" : ""} until renewal`}
                 </div>
               </div>
             </div>
@@ -1703,3 +1965,6 @@ const SubscriptionManagement = () => {
 };
 
 export default SubscriptionManagement;
+
+
+

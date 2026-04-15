@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Table, Button, message, Modal, Input, Select } from "antd";
+import { Table, Button, message, Modal, Input, Select, Spin, Skeleton } from "antd";
 import {
   PlusOutlined,
   SendOutlined,
@@ -9,13 +9,20 @@ import {
   InboxOutlined,
   MessageOutlined,
   FileTextOutlined,
+  LockOutlined,
+  ArrowRightOutlined,
+  TeamOutlined,
+  BellOutlined,
+  BarChartOutlined,
+  SyncOutlined,
+  UsergroupAddOutlined,
 } from "@ant-design/icons";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
 const { TextArea } = Input;
 
-// ─── Theme styles (CSS variables) ────────────────────────────────────────────
+// â”€â”€â”€ Theme styles (CSS variables) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const THEME_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
 
@@ -57,7 +64,7 @@ const THEME_STYLES = `
     --shadow-btn:    0 4px 12px rgba(15,23,42,0.25);
   }
 
-  /* ══ DARK ══ */
+  /* â•â• DARK â•â• */
   .rq-root.dark {
     --bg-page:       #141416;
     --bg-card:       #141416;
@@ -89,10 +96,10 @@ const THEME_STYLES = `
     --shadow-btn:    0 4px 12px rgba(0,0,0,0.4);
   }
 
-  /* ── Font reset ── */
+  /* â”€â”€ Font reset â”€â”€ */
   .rq-root * { font-family: 'Outfit', sans-serif !important; box-sizing: border-box; }
 
-  /* ── Table ── */
+  /* â”€â”€ Table â”€â”€ */
   .rq-root .req-table .ant-table { background: transparent !important; }
   .rq-root .req-table .ant-table-thead > tr > th {
     background: var(--bg-card-alt) !important;
@@ -125,7 +132,7 @@ const THEME_STYLES = `
   .rq-root .req-table .ant-pagination-next button { color: var(--text-tertiary) !important; border-color: var(--border) !important; background: var(--bg-card) !important; }
   .rq-root .req-table .ant-spin-dot-item { background: var(--accent) !important; }
 
-  /* ── Inputs ── */
+  /* â”€â”€ Inputs â”€â”€ */
   .rq-root .req-input .ant-input,
   .rq-root .req-input textarea,
   .rq-root .req-select .ant-select-selector {
@@ -150,7 +157,7 @@ const THEME_STYLES = `
   .rq-root .req-select .ant-select-selection-item { color: var(--text-primary) !important; }
   .rq-root .req-select .ant-select-arrow { color: var(--text-faint) !important; }
 
-  /* ── Modal ── */
+  /* â”€â”€ Modal â”€â”€ */
   .rq-root .req-modal .ant-modal-content {
     border-radius: 18px !important;
     overflow: hidden;
@@ -176,12 +183,12 @@ const THEME_STYLES = `
   .rq-root .req-modal .ant-modal-close-x { color: var(--text-faint) !important; }
   .rq-root .req-modal .ant-modal-title { color: var(--text-primary) !important; }
 
-  /* ── Stat card hover ── */
+  /* â”€â”€ Stat card hover â”€â”€ */
   .rq-root .stat-card { transition: transform 0.15s, box-shadow 0.15s; }
   .rq-root .stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(15,23,42,0.08) !important; }
 `;
 
-// ─── Token accessors ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Token accessors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const STATUS_KEYS = ["pending", "approved", "rejected"];
 const TYPE_KEYS = ["advance_salary", "leave", "other"];
 
@@ -253,7 +260,795 @@ const getIsDarkTheme = () => {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 };
 
-// ─── Component ────────────────────────────────────────────────────────────────
+const normalizePlanTier = (planName) => {
+  const value = String(planName || "").trim().toLowerCase();
+  if (value.includes("starter")) return "starter";
+  if (value.includes("growth")) return "growth";
+  if (value.includes("pro")) return "pro";
+  if (value.includes("enterprise")) return "enterprise";
+  return "unknown";
+};
+
+const RequestsLockedPaywall = ({ dark = false, planName, role }) => {
+  const isNonOwnerRole =
+    role === "employee" || role === "project_manager";
+  const helperText = isNonOwnerRole
+    ? "Ask your company owner to upgrade to unlock Requests"
+    : "Upgrade your workspace plan to unlock Requests.";
+  const features = [
+    {
+      icon: <FileTextOutlined />,
+      title: "Employee Requests",
+      desc: "Handle employee requests in one place with full context and history.",
+    },
+    {
+      icon: <CheckCircleOutlined />,
+      title: "Approve or Reject",
+      desc: "Review requests quickly and respond with clear decisions.",
+    },
+    {
+      icon: <BellOutlined />,
+      title: "Smart Follow-ups",
+      desc: "Keep every request moving with status visibility and response trails.",
+    },
+    {
+      icon: <BarChartOutlined />,
+      title: "Request Insights",
+      desc: "Track pending, approved, and rejected requests across teams.",
+    },
+    {
+      icon: <SyncOutlined />,
+      title: "Workflow Consistency",
+      desc: "Use a structured process for salary advances, leave, and custom cases.",
+    },
+    {
+      icon: <TeamOutlined />,
+      title: "Team Management",
+      desc: "Support managers and HR with one shared request workflow.",
+    },
+  ];
+
+  const mockRequests = [
+    {
+      name: "Lena Park",
+      type: "Leave Request",
+      subject: "2 days personal leave",
+      status: "Pending",
+      statusColor: "#d97706",
+      statusBg: "#fffbeb",
+      statusBorder: "#fde68a",
+      date: "Today",
+    },
+    {
+      name: "James Osei",
+      type: "Advance Salary",
+      subject: "Emergency expense support",
+      status: "Approved",
+      statusColor: "#059669",
+      statusBg: "#ecfdf5",
+      statusBorder: "#a7f3d0",
+      date: "Apr 3",
+    },
+    {
+      name: "Sara Malik",
+      type: "Other",
+      subject: "Flexible schedule request",
+      status: "Rejected",
+      statusColor: "#e11d48",
+      statusBg: "#fff1f2",
+      statusBorder: "#fecdd3",
+      date: "Apr 2",
+    },
+  ];
+
+  const sidebarQueues = [
+    { name: "All Requests", count: 24, color: "#3b82f6", active: true },
+    { name: "Pending Review", count: 7, color: "#f59e0b", active: false },
+    { name: "Approved", count: 13, color: "#22c55e", active: false },
+    { name: "Rejected", count: 4, color: "#ef4444", active: false },
+  ];
+
+  const requestTagStyles = (status = "") => {
+    const key = status.toLowerCase();
+    if (key === "pending") {
+      return dark
+        ? {
+            color: "#fbbf24",
+            background: "rgba(217,119,6,0.16)",
+            border: "rgba(251,191,36,0.35)",
+          }
+        : { color: "#d97706", background: "#fffbeb", border: "#fde68a" };
+    }
+    if (key === "approved") {
+      return dark
+        ? {
+            color: "#4ade80",
+            background: "rgba(34,197,94,0.16)",
+            border: "rgba(74,222,128,0.35)",
+          }
+        : { color: "#059669", background: "#ecfdf5", border: "#a7f3d0" };
+    }
+    return dark
+      ? {
+          color: "#fb7185",
+          background: "rgba(225,29,72,0.16)",
+          border: "rgba(251,113,133,0.35)",
+        }
+      : { color: "#e11d48", background: "#fff1f2", border: "#fecdd3" };
+  };
+
+  return (
+    <div
+      className={`rq-root${dark ? " dark" : ""}`}
+      style={{
+        minHeight: "100vh",
+        background: dark ? "#141416" : "var(--bg-page)",
+        ...(dark
+          ? {
+              "--bg-page": "#141416",
+              "--bg-card": "#1a1b1f",
+              "--bg-card-alt": "#17181c",
+              "--bg-card-hover": "#202127",
+              "--bg-subtle": "#202127",
+              "--bg-muted": "#2a2b31",
+              "--border": "#2a2b31",
+              "--border-subtle": "#2a2b31",
+              "--border-faint": "#242428",
+              "--text-primary": "#f3f4f6",
+              "--text-secondary": "#d1d5db",
+              "--text-tertiary": "#9ca3af",
+              "--text-muted": "#6b7280",
+              "--text-faint": "#4b5563",
+              "--accent": "#818cf8",
+              "--accent-bg": "rgba(99,102,241,0.18)",
+              "--accent-border": "rgba(129,140,248,0.35)",
+            }
+          : {
+              "--accent": "#4f46e5",
+              "--accent-bg": "#eef2ff",
+              "--accent-border": "#c7d2fe",
+            }),
+      }}
+    >
+      <style>{THEME_STYLES}</style>
+
+      <div
+        style={{
+          background: "var(--bg-card)",
+          borderBottom: "1px solid var(--border)",
+          padding: "20px 28px",
+          marginBottom: 24,
+        }}
+      >
+        <h1
+          style={{
+            margin: "0 0 4px",
+            fontSize: 26,
+            fontWeight: 800,
+            color: "var(--text-primary)",
+            letterSpacing: "-0.04em",
+            lineHeight: 1,
+          }}
+        >
+          Requests
+        </h1>
+        <p style={{ margin: 0, color: "var(--text-muted)", fontSize: 13 }}>
+          Employee requests · approvals · response history
+        </p>
+      </div>
+
+      <div style={{ padding: "0 28px 40px" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4,1fr)",
+            gap: 12,
+            marginBottom: 24,
+            filter: "blur(6px)",
+            pointerEvents: "none",
+            userSelect: "none",
+            opacity: 0.45,
+          }}
+        >
+          {[
+            ["#3b82f6", "24", "Total Requests"],
+            ["#f59e0b", "7", "Pending"],
+            ["#22c55e", "13", "Approved"],
+            ["#ef4444", "4", "Rejected"],
+          ].map(([color, val, label]) => (
+            <div
+              key={label}
+              style={{
+                background: "var(--bg-card)",
+                border: "1px solid var(--border)",
+                borderRadius: 14,
+                padding: "18px 20px",
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+              }}
+            >
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 12,
+                  background: `${color}20`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color,
+                }}
+              >
+                <InboxOutlined style={{ fontSize: 18 }} />
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 26,
+                    fontWeight: 800,
+                    color: "var(--text-primary)",
+                    lineHeight: 1,
+                  }}
+                >
+                  {val}
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "var(--text-muted)",
+                    marginTop: 3,
+                    fontWeight: 500,
+                  }}
+                >
+                  {label}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div
+          style={{
+            position: "relative",
+            background: "var(--bg-card)",
+            border: "1px solid var(--border)",
+            borderRadius: 20,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              filter: "blur(5px)",
+              pointerEvents: "none",
+              userSelect: "none",
+              opacity: 0.3,
+              borderBottom: "1px solid var(--border)",
+              overflow: "hidden",
+            }}
+          >
+            <div style={{ display: "flex" }}>
+              <div
+                style={{
+                  width: 220,
+                  borderRight: "1px solid var(--border-subtle)",
+                  padding: "16px 12px",
+                  background: "var(--bg-card-alt)",
+                  flexShrink: 0,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: "var(--text-muted)",
+                    letterSpacing: "0.06em",
+                    marginBottom: 10,
+                    paddingLeft: 8,
+                  }}
+                >
+                  REQUEST QUEUES
+                </div>
+                {sidebarQueues.map((s) => (
+                  <div
+                    key={s.name}
+                    style={{
+                      padding: "9px 10px",
+                      borderRadius: 10,
+                      marginBottom: 3,
+                      background: s.active ? "var(--accent-bg)" : "transparent",
+                      border: s.active
+                        ? "1px solid var(--accent-border)"
+                        : "1px solid transparent",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                      <div
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: "50%",
+                          background: s.color,
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: s.active ? "var(--accent)" : "var(--text-secondary)",
+                          flex: 1,
+                        }}
+                      >
+                        {s.name}
+                      </span>
+                      <span style={{ fontSize: 10, color: "var(--text-muted)" }}>
+                        {s.count}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ flex: 1, padding: "16px 20px", minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 800,
+                    color: "var(--text-primary)",
+                    marginBottom: 12,
+                  }}
+                >
+                  Employee Requests
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {mockRequests.map((r) => (
+                    <div
+                      key={`${r.name}-${r.subject}`}
+                      style={{
+                        background: "var(--bg-card)",
+                        border: "1px solid var(--border-subtle)",
+                        borderRadius: 12,
+                        padding: "12px 14px",
+                        display: "flex",
+                        gap: 12,
+                        alignItems: "center",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 30,
+                          height: 30,
+                          borderRadius: "50%",
+                          background: "linear-gradient(135deg,#6366f1,#0ea5e9)",
+                          color: "#fff",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {r.name[0]}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            marginBottom: 4,
+                          }}
+                        >
+                          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>
+                            {r.name}
+                          </span>
+                          <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{r.type}</span>
+                          <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--text-muted)" }}>
+                            {r.date}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{r.subject}</div>
+                      </div>
+                      <span
+                        style={{
+                          padding: "3px 10px",
+                          borderRadius: 20,
+                          border: `1px solid ${r.statusBorder}`,
+                          background: r.statusBg,
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: r.statusColor,
+                        }}
+                      >
+                        {r.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              position: "relative",
+              padding: "48px 40px 44px",
+              marginTop: -300,
+              background: "linear-gradient(180deg, transparent 0%, var(--bg-card) 10%)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 7,
+                  padding: "6px 14px",
+                  background: "var(--accent-bg)",
+                  border: "1px solid var(--accent-border)",
+                  borderRadius: 30,
+                }}
+              >
+                <LockOutlined style={{ color: "var(--accent)" }} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)" }}>
+                  Locked Feature
+                </span>
+              </div>
+            </div>
+
+            <div style={{ textAlign: "center", marginBottom: 12 }}>
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: 30,
+                  fontWeight: 900,
+                  color: "var(--text-primary)",
+                  letterSpacing: "-0.04em",
+                  lineHeight: 1.15,
+                }}
+              >
+                Manage employee requests
+                <br />
+                <span
+                  style={{
+                    background: "linear-gradient(135deg,#3b82f6 0%,#8b5cf6 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  in one workflow
+                </span>
+              </h2>
+            </div>
+            <p
+              style={{
+                textAlign: "center",
+                fontSize: 15,
+                color: "var(--text-muted)",
+                maxWidth: 520,
+                margin: "0 auto 36px",
+                lineHeight: 1.6,
+              }}
+            >
+              Your current plan is <strong>{planName || "Starter"}</strong>. Upgrade
+              to handle employee requests, approve or reject decisions, and keep a
+              full response history in one place.
+            </p>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3,1fr)",
+                gap: 12,
+                maxWidth: 760,
+                margin: "0 auto 36px",
+              }}
+            >
+              {features.map((f) => (
+                <div
+                  key={f.title}
+                  style={{
+                    padding: "16px 18px",
+                    background: "var(--bg-card-alt)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 12,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 9,
+                      background: "var(--bg-card)",
+                      border: "1px solid var(--border)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "var(--accent)",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {f.icon}
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: "var(--text-primary)",
+                        marginBottom: 3,
+                      }}
+                    >
+                      {f.title}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "var(--text-muted)",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {f.desc}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div
+              style={{
+                maxWidth: 760,
+                margin: "0 auto 36px",
+                border: "1px solid var(--border)",
+                borderRadius: 12,
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  padding: "12px 16px",
+                  borderBottom: "1px solid var(--border-subtle)",
+                  background: "var(--bg-card-alt)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  Sample Requests
+                </span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-tertiary)",
+                    background: "var(--bg-muted)",
+                    padding: "1px 7px",
+                    borderRadius: 5,
+                    fontWeight: 600,
+                  }}
+                >
+                  Preview
+                </span>
+                <span
+                  style={{
+                    marginLeft: "auto",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: dark ? "#fbbf24" : "#d97706",
+                    background: dark ? "rgba(217,119,6,0.16)" : "#fffbeb",
+                    padding: "2px 9px",
+                    borderRadius: 5,
+                    border: `1px solid ${dark ? "rgba(251,191,36,0.35)" : "#fde68a"}`,
+                  }}
+                >
+                  1 pending review
+                </span>
+              </div>
+              {mockRequests.map((r, i) => (
+                <div
+                  key={`${r.name}-${r.subject}-sample`}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "36px 1fr auto",
+                    gap: 12,
+                    padding: "14px 16px",
+                    borderBottom:
+                      i < mockRequests.length - 1
+                        ? "1px solid var(--border-subtle)"
+                        : "none",
+                    background:
+                      i % 2 === 0 ? "var(--bg-card)" : "var(--bg-card-alt)",
+                    alignItems: "center",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: "50%",
+                      background: "linear-gradient(135deg,#6366f1,#0ea5e9)",
+                      color: "#fff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 11,
+                      fontWeight: 800,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {r.name[0]}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        marginBottom: 4,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 700,
+                          color: "var(--text-primary)",
+                        }}
+                      >
+                        {r.name}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "var(--text-tertiary)",
+                          background: "var(--bg-subtle)",
+                          padding: "1px 6px",
+                          borderRadius: 4,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {r.type}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                      {r.subject}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "var(--text-muted)",
+                        marginBottom: 4,
+                      }}
+                    >
+                      {r.date}
+                    </div>
+                    <span
+                      style={{
+                        ...requestTagStyles(r.status),
+                        padding: "3px 10px",
+                        borderRadius: 20,
+                        fontSize: 10,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {r.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ textAlign: "center" }}>
+              <p
+                style={{
+                  margin: "0 0 12px",
+                  color: "var(--text-muted)",
+                  fontSize: 13,
+                  fontWeight: 500,
+                }}
+              >
+                {helperText}
+              </p>
+              <a
+                href="/subscription"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "14px 32px",
+                  background: "linear-gradient(135deg,#1e40af 0%,#7c3aed 100%)",
+                  color: "#fff",
+                  borderRadius: 12,
+                  fontWeight: 800,
+                  fontSize: 15,
+                  textDecoration: "none",
+                  letterSpacing: "-0.01em",
+                  boxShadow: "0 4px 24px rgba(99,102,241,0.35)",
+                }}
+              >
+                <UsergroupAddOutlined />
+                Upgrade to unlock Requests
+                <ArrowRightOutlined />
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const RequestsContentSkeleton = () => {
+  const cardStyles = {
+    background: "var(--bg-card)",
+    border: "1px solid var(--border)",
+    borderRadius: 14,
+  };
+
+  return (
+    <>
+      <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
+        {[1, 2, 3, 4].map((n) => (
+          <div
+            key={n}
+            style={{
+              ...cardStyles,
+              flex: "1 1 120px",
+              minWidth: 110,
+              padding: "16px 18px",
+            }}
+          >
+            <Skeleton.Button active size="small" shape="square" block />
+            <div style={{ height: 10 }} />
+            <Skeleton.Input active size="small" block />
+          </div>
+        ))}
+      </div>
+
+      <div
+        style={{
+          ...cardStyles,
+          borderRadius: 16,
+          boxShadow: "var(--shadow-card)",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            padding: "16px 20px",
+            borderBottom: "1px solid var(--border-faint)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Skeleton.Input active size="small" style={{ width: 180 }} />
+          <Skeleton.Input active size="small" style={{ width: 140 }} />
+        </div>
+        <div style={{ padding: 16 }}>
+          {[1, 2, 3, 4, 5].map((n) => (
+            <div key={n} style={{ marginBottom: n === 5 ? 0 : 14 }}>
+              <Skeleton active paragraph={{ rows: 1 }} title={false} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+};
+
 const Requests = () => {
   const [dark, setDark] = useState(getIsDarkTheme);
   const [rootEl, setRootEl] = useState(null);
@@ -268,12 +1063,15 @@ const Requests = () => {
   );
 
   const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [requestsLoading, setRequestsLoading] = useState(true);
   const [responseModal, setResponseModal] = useState(false);
   const [createModal, setCreateModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [expandedRow, setExpandedRow] = useState(null);
   const [tenantId, setTenantId] = useState(null);
+  const [orgPlan, setOrgPlan] = useState(null);
+  const [planLoading, setPlanLoading] = useState(true);
   const [formData, setFormData] = useState({ status: "", response: "" });
   const [createFormData, setCreateFormData] = useState({
     request_type: "",
@@ -308,19 +1106,33 @@ const Requests = () => {
           .select("tenant_id")
           .eq("id", user.id)
           .single();
-        setTenantId(p?.tenant_id ?? null);
+        const nextTenantId = p?.tenant_id ?? null;
+        setTenantId(nextTenantId);
+        if (nextTenantId) {
+          const { data: tenant } = await supabase
+            .from("tenants")
+            .select("plan")
+            .eq("id", nextTenantId)
+            .maybeSingle();
+          setOrgPlan(tenant?.plan || null);
+        }
       } catch (e) {
         console.error(e);
+      } finally {
+        setPlanLoading(false);
       }
     })();
   }, []);
 
+  const planTier = normalizePlanTier(orgPlan);
+  const isRequestsLocked = planTier === "starter";
+
   useEffect(() => {
-    if (tenantId) fetchRequests();
-  }, [tenantId]);
+    if (tenantId && !isRequestsLocked) fetchRequests();
+  }, [tenantId, isRequestsLocked]);
 
   const fetchRequests = async () => {
-    setLoading(true);
+    setRequestsLoading(true);
     try {
       let query = supabase
         .from("requests")
@@ -338,7 +1150,7 @@ const Requests = () => {
     } catch {
       message.error("Failed to fetch requests");
     } finally {
-      setLoading(false);
+      setRequestsLoading(false);
     }
   };
 
@@ -416,7 +1228,7 @@ const Requests = () => {
     rejected: requests.filter((r) => r.status === "rejected").length,
   };
 
-  // ── Columns ────────────────────────────────────────────────────────────
+  // â”€â”€ Columns â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const columns = [
     {
       title: "Employee",
@@ -458,7 +1270,7 @@ const Requests = () => {
                 lineHeight: 1.2,
               }}
             >
-              {rec.profiles?.full_name || "—"}
+              {rec.profiles?.full_name || "-"}
             </div>
             <div style={{ fontSize: 11, color: "var(--text-faint)" }}>
               {rec.profiles?.email || ""}
@@ -597,7 +1409,7 @@ const Requests = () => {
     },
   ];
 
-  // ── Shared label helper ────────────────────────────────────────────────
+  // â”€â”€ Shared label helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const FieldLabel = ({ children, required }) => (
     <label
       style={{
@@ -613,6 +1425,39 @@ const Requests = () => {
     </label>
   );
 
+  if (planLoading) {
+    return (
+      <div
+        className={`rq-root${dark ? " dark" : ""}`}
+        style={{
+          minHeight: "100vh",
+          background: dark ? "#141416" : "#f8fafc",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <style>{THEME_STYLES}</style>
+        <div style={{ textAlign: "center" }}>
+          <Spin size="large" />
+          <p style={{ marginTop: 12, color: dark ? "#94a3b8" : "#64748b" }}>
+            Loading your workspace...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isRequestsLocked) {
+    return (
+      <RequestsLockedPaywall
+        dark={dark}
+        planName={orgPlan}
+        role={profile?.role}
+      />
+    );
+  }
+
   return (
     <div
       ref={setRootEl}
@@ -625,7 +1470,7 @@ const Requests = () => {
     >
       <style>{THEME_STYLES}</style>
 
-      {/* ── Header ── */}
+      {/* â”€â”€ Header â”€â”€ */}
       <div
         style={{
           display: "flex",
@@ -679,6 +1524,7 @@ const Requests = () => {
         </div>
         {profile?.role === "project_manager" && (
           <Button
+            disabled={requestsLoading}
             icon={<PlusOutlined />}
             onClick={() => setCreateModal(true)}
             style={{
@@ -698,7 +1544,11 @@ const Requests = () => {
         )}
       </div>
 
-      {/* ── Stat Cards ── */}
+      {requestsLoading ? (
+        <RequestsContentSkeleton />
+      ) : (
+        <>
+      {/* â”€â”€ Stat Cards â”€â”€ */}
       <div
         style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}
       >
@@ -779,7 +1629,7 @@ const Requests = () => {
         ))}
       </div>
 
-      {/* ── Table card ── */}
+      {/* â”€â”€ Table card â”€â”€ */}
       <div
         style={{
           background: "var(--bg-card)",
@@ -834,7 +1684,6 @@ const Requests = () => {
           columns={columns}
           dataSource={requests}
           rowKey="id"
-          loading={loading}
           onRow={(rec) => ({
             onClick: () =>
               setExpandedRow(expandedRow === rec.id ? null : rec.id),
@@ -963,8 +1812,10 @@ const Requests = () => {
           style={{ borderRadius: 0 }}
         />
       </div>
+        </>
+      )}
 
-      {/* ── Create Modal ── */}
+      {/* â”€â”€ Create Modal â”€â”€ */}
       <Modal
         className="req-modal"
         title={
@@ -1032,14 +1883,14 @@ const Requests = () => {
               onChange={(v) =>
                 setCreateFormData({ ...createFormData, request_type: v })
               }
-              placeholder="Select a type…"
+              placeholder="Select a type..."
               style={{ width: "100%" }}
             >
               <Select.Option value="advance_salary">
-                💰 Advance Salary
+                Advance Salary
               </Select.Option>
-              <Select.Option value="leave">🏖️ Leave Request</Select.Option>
-              <Select.Option value="other">📋 Other</Select.Option>
+              <Select.Option value="leave">Leave Request</Select.Option>
+              <Select.Option value="other">Other</Select.Option>
             </Select>
           </div>
           <div className="req-input">
@@ -1052,7 +1903,7 @@ const Requests = () => {
                   subject: e.target.value,
                 })
               }
-              placeholder="Brief subject line…"
+              placeholder="Brief subject line..."
             />
           </div>
           <div className="req-input">
@@ -1066,14 +1917,14 @@ const Requests = () => {
                 })
               }
               rows={4}
-              placeholder="Describe your request in detail…"
+              placeholder="Describe your request in detail..."
               style={{ resize: "none" }}
             />
           </div>
         </div>
       </Modal>
 
-      {/* ── Respond Modal ── */}
+      {/* â”€â”€ Respond Modal â”€â”€ */}
       <Modal
         className="req-modal"
         title={
@@ -1166,7 +2017,7 @@ const Requests = () => {
               {selectedRequest.subject}
             </div>
             <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-              {selectedRequest.profiles?.full_name} ·{" "}
+              {selectedRequest.profiles?.full_name} -{" "}
               {typeConfig[selectedRequest.request_type]?.label}
             </div>
           </div>
@@ -1177,21 +2028,21 @@ const Requests = () => {
             <Select
               value={formData.status || undefined}
               onChange={(v) => setFormData({ ...formData, status: v })}
-              placeholder="Approve or reject…"
+              placeholder="Approve or reject..."
               style={{ width: "100%" }}
             >
               <Select.Option value="approved">
                 <span
                   style={{ color: "var(--approved-color)", fontWeight: 600 }}
                 >
-                  ✓ Approve
+                  Approve
                 </span>
               </Select.Option>
               <Select.Option value="rejected">
                 <span
                   style={{ color: "var(--rejected-color)", fontWeight: 600 }}
                 >
-                  ✕ Reject
+                  Reject
                 </span>
               </Select.Option>
             </Select>
@@ -1204,7 +2055,7 @@ const Requests = () => {
                 setFormData({ ...formData, response: e.target.value })
               }
               rows={4}
-              placeholder="Write your response here…"
+              placeholder="Write your response here..."
               style={{ resize: "none" }}
             />
           </div>
@@ -1215,3 +2066,5 @@ const Requests = () => {
 };
 
 export default Requests;
+
+

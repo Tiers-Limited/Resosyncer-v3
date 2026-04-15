@@ -742,6 +742,23 @@ const Employees = () => {
       // Resolve currency: if OTHER selected, use custom_currency field
       const resolvedCurrency =
         values.currency === "OTHER" ? values.custom_currency : values.currency;
+      const normalizeLineItems = (items = []) =>
+        (items || [])
+          .map((item) => ({
+            label: String(item?.label || "").trim(),
+            amount: Number(item?.amount || 0),
+          }))
+          .filter((item) => item.label && item.amount >= 0);
+      const allowanceItems = normalizeLineItems(values.allowance_items);
+      const taxDeductionItems = normalizeLineItems(values.tax_deduction_items);
+      const totalAllowances = allowanceItems.reduce(
+        (sum, item) => sum + Number(item.amount || 0),
+        0,
+      );
+      const totalTaxDeductions = taxDeductionItems.reduce(
+        (sum, item) => sum + Number(item.amount || 0),
+        0,
+      );
 
       const payload = {
         full_name: values.full_name,
@@ -762,6 +779,10 @@ const Employees = () => {
           values.salary_type === "base_commission"
             ? values.commission_rate
             : null,
+        allowances: totalAllowances,
+        tax_deductions: totalTaxDeductions,
+        allowance_items: allowanceItems,
+        tax_deduction_items: taxDeductionItems,
         // Bank: free-text field (worldwide)
         bank_account_name: values.bank_account_name,
         bank_account_number: values.bank_account_number,
@@ -883,6 +904,19 @@ const Employees = () => {
     form.setFieldsValue({
       ...emp,
       dob: emp.dob ? dayjs(emp.dob) : null,
+      allowance_items:
+        Array.isArray(emp.allowance_items) && emp.allowance_items.length > 0
+          ? emp.allowance_items
+          : emp.allowances
+            ? [{ label: "General Allowance", amount: Number(emp.allowances) }]
+            : [],
+      tax_deduction_items:
+        Array.isArray(emp.tax_deduction_items) &&
+        emp.tax_deduction_items.length > 0
+          ? emp.tax_deduction_items
+          : emp.tax_deductions
+            ? [{ label: "Tax Deduction", amount: Number(emp.tax_deductions) }]
+            : [],
       currency: knownCurrency
         ? emp.currency
         : emp.currency
@@ -2013,6 +2047,112 @@ const Employees = () => {
           </Form.Item>
 
           {/* Bank — free text, worldwide */}
+          <p className="ds-sec">Allowances</p>
+          <Form.List name="allowance_items">
+            {(fields, { add, remove }) => (
+              <>
+                {fields.map((field) => (
+                  <div
+                    key={field.key}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 180px auto",
+                      gap: 10,
+                      marginBottom: 10,
+                      alignItems: "start",
+                    }}
+                  >
+                    <Form.Item
+                      {...field}
+                      name={[field.name, "label"]}
+                      rules={[{ required: true, message: "Enter allowance name" }]}
+                    >
+                      <Input placeholder="e.g. Travel Allowance" />
+                    </Form.Item>
+                    <Form.Item
+                      {...field}
+                      name={[field.name, "amount"]}
+                      rules={[{ required: true, message: "Enter amount" }]}
+                    >
+                      <InputNumber
+                        style={{ width: "100%" }}
+                        min={0}
+                        placeholder="0"
+                      />
+                    </Form.Item>
+                    <Button
+                      danger
+                      onClick={() => remove(field.name)}
+                      icon={<X size={13} />}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="dashed"
+                  onClick={() => add({ label: "", amount: 0 })}
+                  icon={<Plus size={14} />}
+                >
+                  Add Allowance
+                </Button>
+              </>
+            )}
+          </Form.List>
+
+          <p className="ds-sec">Tax Deductions</p>
+          <Form.List name="tax_deduction_items">
+            {(fields, { add, remove }) => (
+              <>
+                {fields.map((field) => (
+                  <div
+                    key={field.key}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 180px auto",
+                      gap: 10,
+                      marginBottom: 10,
+                      alignItems: "start",
+                    }}
+                  >
+                    <Form.Item
+                      {...field}
+                      name={[field.name, "label"]}
+                      rules={[{ required: true, message: "Enter deduction name" }]}
+                    >
+                      <Input placeholder="e.g. Income Tax" />
+                    </Form.Item>
+                    <Form.Item
+                      {...field}
+                      name={[field.name, "amount"]}
+                      rules={[{ required: true, message: "Enter amount" }]}
+                    >
+                      <InputNumber
+                        style={{ width: "100%" }}
+                        min={0}
+                        placeholder="0"
+                      />
+                    </Form.Item>
+                    <Button
+                      danger
+                      onClick={() => remove(field.name)}
+                      icon={<X size={13} />}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="dashed"
+                  onClick={() => add({ label: "", amount: 0 })}
+                  icon={<Plus size={14} />}
+                >
+                  Add Tax Deduction
+                </Button>
+              </>
+            )}
+          </Form.List>
+
           <p className="ds-sec">Bank Details</p>
           <div
             style={{

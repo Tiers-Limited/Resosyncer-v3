@@ -526,7 +526,7 @@ const PMDashboard = () => {
         </Col>
 
         <Col xs={24} md={8}>
-          <BirthdayWidget />
+          <BirthdayWidget tenantId={profile?.tenant_id} />
         </Col>
       </Row>
     </div>

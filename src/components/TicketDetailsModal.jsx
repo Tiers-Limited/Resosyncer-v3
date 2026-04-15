@@ -117,7 +117,8 @@ const getFileIcon = (fileName = "") => {
 const PRIORITY_OPTIONS = ["low", "medium", "high", "urgent"];
 const POINTS_OPTIONS = [0, 1, 2, 3, 5, 8, 13, 21];
 const STATUS_OPTIONS = ["open", "in_progress", "completed", "closed"];
-const ACCEPTED_FILE_TYPES = ".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip";
+const ACCEPTED_FILE_TYPES =
+  ".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip";
 const MAX_FILE_SIZE_MB = 10;
 
 const getAssigneeIds = (ticket) => {
@@ -141,12 +142,6 @@ const getAssigneeIds = (ticket) => {
 
 const prettyStatus = (s) => (s ? s.replaceAll("_", " ").toUpperCase() : "—");
 const prettyPriority = (p) => (p ? p[0].toUpperCase() + p.slice(1) : "—");
-const getIsDarkTheme = () => {
-  const mode = localStorage.getItem("themeMode") || "system";
-  if (mode === "dark") return true;
-  if (mode === "light") return false;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
-};
 
 export default function TicketDetailsModal({
   open,
@@ -181,18 +176,6 @@ export default function TicketDetailsModal({
   const [loadingAttachments, setLoadingAttachments] = useState(false);
   const [deletingAttachmentId, setDeletingAttachmentId] = useState(null);
   const [dragOver, setDragOver] = useState(false);
-  const [dark, setDark] = useState(getIsDarkTheme);
-
-  useEffect(() => {
-    const syncTheme = () => setDark(getIsDarkTheme());
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    window.addEventListener("themeModeChanged", syncTheme);
-    mediaQuery.addEventListener?.("change", syncTheme);
-    return () => {
-      window.removeEventListener("themeModeChanged", syncTheme);
-      mediaQuery.removeEventListener?.("change", syncTheme);
-    };
-  }, []);
 
   const assigneeOptions = useMemo(
     () =>
@@ -603,29 +586,6 @@ export default function TicketDetailsModal({
     if (!currentSprintId) return "—";
     return sprintMap.get(currentSprintId) || "—";
   }, [currentSprintId, sprintMap]);
-  const c = dark
-    ? {
-        bg: "#141416",
-        panel: "#17181c",
-        card: "#1d2027",
-        border: "#2a2d36",
-        borderSoft: "#242833",
-        text: "#f3f4f6",
-        textSoft: "#d1d5db",
-        muted: "#9ca3af",
-        input: "#0f1117",
-      }
-    : {
-        bg: "#ffffff",
-        panel: "#fbfbfc",
-        card: "#f8fafc",
-        border: "#e5e7eb",
-        borderSoft: "#f1f5f9",
-        text: "#0f172a",
-        textSoft: "#334155",
-        muted: "#94a3b8",
-        input: "#ffffff",
-      };
 
   const historyIcon = (field) => {
     if (field === "comment_added") return <MessageSquare size={12} />;
@@ -661,80 +621,16 @@ export default function TicketDetailsModal({
       onCancel={onClose}
       footer={null}
       width={1040}
-      rootClassName={dark ? "tdm-root-dark" : undefined}
       styles={{
-        content: {
-          padding: 0,
-          borderRadius: 12,
-          overflow: "hidden",
-          background: c.bg,
-          border: dark ? `1px solid ${c.border}` : "none",
-        },
+        content: { padding: 0, borderRadius: 12, overflow: "hidden" },
       }}
       closeIcon={<X size={16} />}
     >
-      <div style={{ display: "flex", minHeight: 620, background: c.bg }}>
-        <style>{`
-          .tdm-root-dark .ant-modal-close { color: #9ca3af !important; }
-          .tdm-root-dark .ant-modal-close:hover { color: #f3f4f6 !important; }
-          .tdm-root-dark .ant-select-selector,
-          .tdm-root-dark .ant-picker,
-          .tdm-root-dark .ant-input,
-          .tdm-root-dark .ant-input-affix-wrapper,
-          .tdm-root-dark .ant-input-textarea textarea {
-            background: #0f1117 !important;
-            border-color: #2a2d36 !important;
-            color: #f3f4f6 !important;
-          }
-          .tdm-root-dark .ant-select-selection-placeholder,
-          .tdm-root-dark .ant-select-arrow,
-          .tdm-root-dark .ant-picker-suffix,
-          .tdm-root-dark .ant-picker-clear,
-          .tdm-root-dark .ant-input::placeholder,
-          .tdm-root-dark .ant-input-textarea textarea::placeholder {
-            color: #9ca3af !important;
-          }
-          .tdm-root-dark [style*="background: #fff"],
-          .tdm-root-dark [style*="background:#fff"],
-          .tdm-root-dark [style*="background: #ffffff"] {
-            background: #141416 !important;
-          }
-          .tdm-root-dark [style*="background: #fafafa"],
-          .tdm-root-dark [style*="background:#fafafa"],
-          .tdm-root-dark [style*="background: #f8fafc"],
-          .tdm-root-dark [style*="background:#f8fafc"],
-          .tdm-root-dark [style*="background: #f1f5f9"],
-          .tdm-root-dark [style*="background:#f1f5f9"] {
-            background: #1d2027 !important;
-          }
-          .tdm-root-dark [style*="border: 1px solid #e5e7eb"],
-          .tdm-root-dark [style*="border:1px solid #e5e7eb"],
-          .tdm-root-dark [style*="border: 2px solid #e5e7eb"],
-          .tdm-root-dark [style*="border:1px solid #d1d5db"],
-          .tdm-root-dark [style*="borderLeft: 1px solid #e5e7eb"],
-          .tdm-root-dark [style*="borderBottom: 1px solid #e5e7eb"] {
-            border-color: #2a2d36 !important;
-          }
-          .tdm-root-dark [style*="color: #0f172a"],
-          .tdm-root-dark [style*="color:#0f172a"],
-          .tdm-root-dark [style*="color: #334155"],
-          .tdm-root-dark [style*="color:#334155"],
-          .tdm-root-dark [style*="color: #1e293b"] {
-            color: #f3f4f6 !important;
-          }
-          .tdm-root-dark [style*="color: #64748b"],
-          .tdm-root-dark [style*="color:#64748b"],
-          .tdm-root-dark [style*="color: #94a3b8"],
-          .tdm-root-dark [style*="color:#94a3b8"],
-          .tdm-root-dark [style*="color: #9ca3af"],
-          .tdm-root-dark [style*="color:#9ca3af"] {
-            color: #9ca3af !important;
-          }
-        `}</style>
+      <div style={{ display: "flex", minHeight: 620, background: "#fff" }}>
         {/* Left */}
         <div style={{ flex: 1, padding: "20px 22px", overflow: "auto" }}>
           <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 12, color: c.muted, fontWeight: 700 }}>
+            <div style={{ fontSize: 12, color: "#94a3b8", fontWeight: 700 }}>
               {ticket?.ticket_type ? ticket.ticket_type.toUpperCase() : "TASK"}{" "}
               {ticket?.id ? `• #${String(ticket.id).slice(0, 6)}` : ""}
             </div>
@@ -742,7 +638,7 @@ export default function TicketDetailsModal({
               style={{
                 fontSize: 22,
                 fontWeight: 850,
-                color: c.text,
+                color: "#0f172a",
                 marginTop: 2,
                 lineHeight: 1.2,
               }}
@@ -756,7 +652,7 @@ export default function TicketDetailsModal({
               style={{
                 fontSize: 12,
                 fontWeight: 800,
-                color: c.text,
+                color: "#111827",
                 letterSpacing: 0.2,
                 marginBottom: 6,
               }}
@@ -766,10 +662,10 @@ export default function TicketDetailsModal({
             <div
               style={{
                 fontSize: 13,
-                color: c.textSoft,
+                color: "#334155",
                 lineHeight: 1.65,
                 whiteSpace: "pre-wrap",
-                background: "transparent",
+                background: "#fff",
               }}
             >
               {ticket?.description || "—"}
@@ -781,9 +677,9 @@ export default function TicketDetailsModal({
             canReviewCompletion) && (
             <div
               style={{
-                border: `1px solid ${c.border}`,
+                border: "1px solid #e5e7eb",
                 borderRadius: 10,
-                background: c.card,
+                background: "#f8fafc",
                 padding: "12px 12px",
                 marginBottom: 14,
               }}
@@ -792,7 +688,7 @@ export default function TicketDetailsModal({
                 style={{
                   fontSize: 12,
                   fontWeight: 800,
-                  color: c.textSoft,
+                  color: "#334155",
                   marginBottom: 6,
                 }}
               >
@@ -800,7 +696,9 @@ export default function TicketDetailsModal({
               </div>
 
               {completionRequest ? (
-                <div style={{ fontSize: 12, color: c.textSoft, marginBottom: 8 }}>
+                <div
+                  style={{ fontSize: 12, color: "#475569", marginBottom: 8 }}
+                >
                   <strong>Status:</strong>{" "}
                   {completionRequest.status?.toUpperCase() || "—"}
                   {completionRequest.requester?.full_name
@@ -817,7 +715,9 @@ export default function TicketDetailsModal({
                     : ""}
                 </div>
               ) : (
-                <div style={{ fontSize: 12, color: c.muted, marginBottom: 8 }}>
+                <div
+                  style={{ fontSize: 12, color: "#64748b", marginBottom: 8 }}
+                >
                   No completion request yet.
                 </div>
               )}
@@ -838,7 +738,9 @@ export default function TicketDetailsModal({
                     opacity: loadingRequestAction ? 0.7 : 1,
                   }}
                 >
-                  {loadingRequestAction ? "Submitting..." : "Request Completion"}
+                  {loadingRequestAction
+                    ? "Submitting..."
+                    : "Request Completion"}
                 </button>
               )}
 
@@ -863,7 +765,9 @@ export default function TicketDetailsModal({
                         fontWeight: 700,
                         padding: "7px 12px",
                         borderRadius: 8,
-                        cursor: loadingRequestAction ? "not-allowed" : "pointer",
+                        cursor: loadingRequestAction
+                          ? "not-allowed"
+                          : "pointer",
                         opacity: loadingRequestAction ? 0.7 : 1,
                       }}
                     >
@@ -880,7 +784,9 @@ export default function TicketDetailsModal({
                         fontWeight: 700,
                         padding: "7px 12px",
                         borderRadius: 8,
-                        cursor: loadingRequestAction ? "not-allowed" : "pointer",
+                        cursor: loadingRequestAction
+                          ? "not-allowed"
+                          : "pointer",
                         opacity: loadingRequestAction ? 0.7 : 1,
                       }}
                     >
@@ -895,7 +801,7 @@ export default function TicketDetailsModal({
           {/* Tabs */}
           <div
             style={{
-              borderBottom: `1px solid ${c.border}`,
+              borderBottom: "1px solid #e5e7eb",
               display: "flex",
               gap: 0,
               marginBottom: 16,
@@ -938,7 +844,7 @@ export default function TicketDetailsModal({
                   cursor: "pointer",
                   fontSize: 13,
                   fontWeight: 650,
-                  color: activeTab === tab.key ? "#0c66e4" : c.muted,
+                  color: activeTab === tab.key ? "#0c66e4" : "#64748b",
                   marginBottom: -1,
                 }}
               >
@@ -948,26 +854,10 @@ export default function TicketDetailsModal({
                     style={{
                       fontSize: 10,
                       fontWeight: 800,
-                      background:
-                        activeTab === tab.key
-                          ? dark
-                            ? "#1f345e"
-                            : "#e9f2ff"
-                          : dark
-                            ? "#242833"
-                            : "#f1f5f9",
-                      color: activeTab === tab.key ? "#0c66e4" : c.muted,
+                      background: activeTab === tab.key ? "#e9f2ff" : "#f1f5f9",
+                      color: activeTab === tab.key ? "#0c66e4" : "#64748b",
                       padding: "1px 6px",
                       borderRadius: 99,
-                      border: `1px solid ${
-                        activeTab === tab.key
-                          ? dark
-                            ? "#2f4d75"
-                            : "#b8d0f5"
-                          : dark
-                            ? "#2f3440"
-                            : "#e2e8f0"
-                      }`,
                     }}
                   >
                     {tab.count}
@@ -987,7 +877,7 @@ export default function TicketDetailsModal({
                   style={{
                     textAlign: "center",
                     padding: "18px 0",
-                    color: c.muted,
+                    color: "#9ca3af",
                     fontSize: 12,
                   }}
                 >
@@ -1003,14 +893,14 @@ export default function TicketDetailsModal({
                   }}
                   className="custom-scrollbar"
                 >
-                  {comments.map((cm) => (
+                  {comments.map((c) => (
                     <div
-                      key={cm.id}
+                      key={c.id}
                       style={{ display: "flex", gap: 10, marginBottom: 14 }}
                     >
                       <UserAvatar
-                        name={cm.profiles?.full_name || "?"}
-                        image={cm.profiles?.user_photo}
+                        name={c.profiles?.full_name || "?"}
+                        image={c.profiles?.user_photo}
                         size={28}
                       />
                       <div style={{ flex: 1 }}>
@@ -1026,28 +916,28 @@ export default function TicketDetailsModal({
                             style={{
                               fontSize: 12,
                               fontWeight: 800,
-                              color: c.text,
+                              color: "#0f172a",
                             }}
                           >
-                            {cm.profiles?.full_name || "Unknown"}
+                            {c.profiles?.full_name || "Unknown"}
                           </span>
-                          <span style={{ fontSize: 11, color: c.muted }}>
-                            {fmtTime(cm.created_at)}
+                          <span style={{ fontSize: 11, color: "#9ca3af" }}>
+                            {fmtTime(c.created_at)}
                           </span>
                         </div>
                         <div
                           style={{
                             fontSize: 13,
-                            color: c.textSoft,
-                            background: c.card,
-                            border: `1px solid ${c.border}`,
+                            color: "#334155",
+                            background: "#f8fafc",
+                            border: "1px solid #e5e7eb",
                             borderRadius: 8,
                             padding: "10px 12px",
                             whiteSpace: "pre-wrap",
                             lineHeight: 1.6,
                           }}
                         >
-                          {cm.message}
+                          {c.message}
                         </div>
                       </div>
                     </div>
@@ -1055,7 +945,9 @@ export default function TicketDetailsModal({
                 </div>
               )}
 
-              <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <div
+                style={{ display: "flex", gap: 10, alignItems: "flex-start" }}
+              >
                 <UserAvatar
                   name={profile?.full_name || "Me"}
                   image={profile?.user_photo}
@@ -1070,9 +962,7 @@ export default function TicketDetailsModal({
                     style={{
                       fontSize: 13,
                       borderRadius: 8,
-                      borderColor: c.border,
-                      background: c.input,
-                      color: c.text,
+                      borderColor: "#e5e7eb",
                       resize: "none",
                     }}
                     onKeyDown={(e) => {
@@ -1094,13 +984,9 @@ export default function TicketDetailsModal({
                         display: "flex",
                         alignItems: "center",
                         gap: 6,
-                        background: newComment.trim()
-                          ? "#0c66e4"
-                          : dark
-                            ? "#2a2d36"
-                            : "#e5e7eb",
+                        background: newComment.trim() ? "#0c66e4" : "#e5e7eb",
                         border: "none",
-                        color: newComment.trim() ? "#fff" : c.muted,
+                        color: newComment.trim() ? "#fff" : "#9ca3af",
                         fontSize: 12,
                         fontWeight: 700,
                         padding: "7px 14px",
@@ -1121,20 +1007,17 @@ export default function TicketDetailsModal({
             <div>
               {/* Upload zone — available to both PM and Employee */}
               <div
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
                 onDragLeave={() => setDragOver(false)}
                 onDrop={handleDrop}
                 onClick={() => !uploadingFile && fileInputRef.current?.click()}
                 style={{
-                  border: `2px dashed ${dragOver ? "#0c66e4" : dark ? "#3a3f4d" : "#d1d5db"}`,
+                  border: `2px dashed ${dragOver ? "#0c66e4" : "#d1d5db"}`,
                   borderRadius: 10,
-                  background: dragOver
-                    ? dark
-                      ? "#1b2c49"
-                      : "#eff6ff"
-                    : dark
-                      ? "#1d2027"
-                      : "#fafafa",
+                  background: dragOver ? "#eff6ff" : "#fafafa",
                   padding: "20px 16px",
                   textAlign: "center",
                   cursor: uploadingFile ? "not-allowed" : "pointer",
@@ -1145,7 +1028,13 @@ export default function TicketDetailsModal({
               >
                 {uploadingFile ? (
                   <div>
-                    <div style={{ fontSize: 12, color: dark ? "#9ca3af" : "#64748b", marginBottom: 8 }}>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#64748b",
+                        marginBottom: 8,
+                      }}
+                    >
                       Uploading…
                     </div>
                     <Progress
@@ -1159,20 +1048,23 @@ export default function TicketDetailsModal({
                   <>
                     <Upload
                       size={22}
-                      color={dragOver ? "#0c66e4" : dark ? "#9ca3af" : "#94a3b8"}
+                      color={dragOver ? "#0c66e4" : "#94a3b8"}
                       style={{ marginBottom: 6 }}
                     />
                     <div
                       style={{
                         fontSize: 13,
                         fontWeight: 700,
-                        color: dragOver ? "#0c66e4" : dark ? "#f3f4f6" : "#334155",
+                        color: dragOver ? "#0c66e4" : "#334155",
                       }}
                     >
                       Drop a file here or click to upload
                     </div>
-                    <div style={{ fontSize: 11, color: dark ? "#9ca3af" : "#9ca3af", marginTop: 3 }}>
-                      Max {MAX_FILE_SIZE_MB}MB · Images, PDF, Word, Excel, CSV, ZIP
+                    <div
+                      style={{ fontSize: 11, color: "#9ca3af", marginTop: 3 }}
+                    >
+                      Max {MAX_FILE_SIZE_MB}MB · Images, PDF, Word, Excel, CSV,
+                      ZIP
                     </div>
                   </>
                 )}
@@ -1203,7 +1095,9 @@ export default function TicketDetailsModal({
                   No attachments yet
                 </div>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                >
                   {attachments.map((att) => (
                     <div
                       key={att.id}
@@ -1212,9 +1106,9 @@ export default function TicketDetailsModal({
                         alignItems: "center",
                         gap: 10,
                         padding: "10px 12px",
-                        border: `1px solid ${dark ? "#2a2d36" : "#e5e7eb"}`,
+                        border: "1px solid #e5e7eb",
                         borderRadius: 10,
-                        background: dark ? "#1d2027" : "#fafafa",
+                        background: "#fafafa",
                         transition: "border-color 0.15s",
                       }}
                     >
@@ -1226,18 +1120,22 @@ export default function TicketDetailsModal({
                           borderRadius: 8,
                           overflow: "hidden",
                           flexShrink: 0,
-                          background: dark ? "#151821" : "#f1f5f9",
+                          background: "#f1f5f9",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          border: `1px solid ${dark ? "#2a2d36" : "#e5e7eb"}`,
+                          border: "1px solid #e5e7eb",
                         }}
                       >
                         {isImageFile(att.file_name) && att.file_url ? (
                           <img
                             src={att.file_url}
                             alt={att.file_name}
-                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                            }}
                           />
                         ) : (
                           getFileIcon(att.file_name)
@@ -1250,7 +1148,7 @@ export default function TicketDetailsModal({
                           style={{
                             fontSize: 13,
                             fontWeight: 700,
-                            color: dark ? "#f3f4f6" : "#0f172a",
+                            color: "#0f172a",
                             whiteSpace: "nowrap",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
@@ -1258,8 +1156,15 @@ export default function TicketDetailsModal({
                         >
                           {att.file_name}
                         </div>
-                        <div style={{ fontSize: 11, color: dark ? "#9ca3af" : "#94a3b8", marginTop: 2 }}>
-                          {att.profiles?.full_name || "Unknown"} · {fmtTime(att.created_at)}
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "#94a3b8",
+                            marginTop: 2,
+                          }}
+                        >
+                          {att.profiles?.full_name || "Unknown"} ·{" "}
+                          {fmtTime(att.created_at)}
                           {att.file_size ? ` · ${fmtBytes(att.file_size)}` : ""}
                         </div>
                       </div>
@@ -1280,9 +1185,9 @@ export default function TicketDetailsModal({
                                 width: 30,
                                 height: 30,
                                 borderRadius: 6,
-                                background: dark ? "#151821" : "#f1f5f9",
-                                border: `1px solid ${dark ? "#2a2d36" : "#e5e7eb"}`,
-                                color: dark ? "#d1d5db" : "#334155",
+                                background: "#f1f5f9",
+                                border: "1px solid #e5e7eb",
+                                color: "#334155",
                                 textDecoration: "none",
                                 transition: "background 0.15s",
                               }}
@@ -1307,8 +1212,12 @@ export default function TicketDetailsModal({
                                 background: "#fff1f2",
                                 border: "1px solid #fecdd3",
                                 color: "#dc2626",
-                                cursor: deletingAttachmentId === att.id ? "not-allowed" : "pointer",
-                                opacity: deletingAttachmentId === att.id ? 0.6 : 1,
+                                cursor:
+                                  deletingAttachmentId === att.id
+                                    ? "not-allowed"
+                                    : "pointer",
+                                opacity:
+                                  deletingAttachmentId === att.id ? 0.6 : 1,
                               }}
                             >
                               {deletingAttachmentId === att.id ? (
@@ -1414,12 +1323,12 @@ export default function TicketDetailsModal({
         <div
           style={{
             width: 320,
-            borderLeft: `1px solid ${c.border}`,
-            background: c.panel,
+            borderLeft: "1px solid #e5e7eb",
+            background: "#fbfbfc",
             padding: "18px 16px",
           }}
         >
-          <div style={{ fontSize: 11, fontWeight: 900, color: c.muted }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: "#94a3b8" }}>
             ASSIGNEES
           </div>
           {isEmployee ? (
@@ -1441,7 +1350,7 @@ export default function TicketDetailsModal({
                       <span
                         style={{
                           fontSize: 13,
-                          color: c.text,
+                          color: "#0f172a",
                           fontWeight: 600,
                         }}
                       >
@@ -1455,7 +1364,7 @@ export default function TicketDetailsModal({
                   style={{
                     marginTop: 6,
                     fontSize: 13,
-                    color: c.text,
+                    color: "#0f172a",
                     fontWeight: 600,
                   }}
                 >
@@ -1503,8 +1412,8 @@ export default function TicketDetailsModal({
                       display: "inline-flex",
                       alignItems: "center",
                       gap: 6,
-                      background: dark ? "#222734" : "#f1f5f9",
-                      border: `1px solid ${dark ? "#344054" : "#e2e8f0"}`,
+                      background: "#f1f5f9",
+                      border: "1px solid #e2e8f0",
                       borderRadius: 999,
                       padding: "2px 6px",
                       marginRight: 4,
@@ -1519,7 +1428,7 @@ export default function TicketDetailsModal({
                       style={{
                         fontSize: 11,
                         fontWeight: 600,
-                        color: dark ? "#dbe7ff" : "#334155",
+                        color: "#334155",
                       }}
                     >
                       {p?.full_name || value}
@@ -1531,7 +1440,7 @@ export default function TicketDetailsModal({
                         style={{
                           border: "none",
                           background: "transparent",
-                          color: dark ? "#9ca3af" : "#94a3b8",
+                          color: "#94a3b8",
                           cursor: "pointer",
                           padding: 0,
                           lineHeight: 1,
@@ -1549,7 +1458,7 @@ export default function TicketDetailsModal({
 
           <div style={{ height: 14 }} />
 
-          <div style={{ fontSize: 11, fontWeight: 900, color: c.muted }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: "#94a3b8" }}>
             PRIORITY
           </div>
           {isEmployee ? (
@@ -1557,7 +1466,7 @@ export default function TicketDetailsModal({
               style={{
                 marginTop: 6,
                 fontSize: 13,
-                color: c.text,
+                color: "#0f172a",
                 fontWeight: 600,
               }}
             >
@@ -1582,7 +1491,7 @@ export default function TicketDetailsModal({
 
           <div style={{ height: 14 }} />
 
-          <div style={{ fontSize: 11, fontWeight: 900, color: c.muted }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: "#94a3b8" }}>
             STATUS
           </div>
           {isEmployee ? (
@@ -1590,7 +1499,7 @@ export default function TicketDetailsModal({
               style={{
                 marginTop: 6,
                 fontSize: 13,
-                color: c.text,
+                color: "#0f172a",
                 fontWeight: 600,
               }}
             >
@@ -1615,7 +1524,7 @@ export default function TicketDetailsModal({
 
           <div style={{ height: 14 }} />
 
-          <div style={{ fontSize: 11, fontWeight: 900, color: c.muted }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: "#94a3b8" }}>
             SPRINT
           </div>
           {isEmployee ? (
@@ -1623,7 +1532,7 @@ export default function TicketDetailsModal({
               style={{
                 marginTop: 6,
                 fontSize: 13,
-                color: c.text,
+                color: "#0f172a",
                 fontWeight: 600,
               }}
             >
@@ -1645,7 +1554,7 @@ export default function TicketDetailsModal({
 
           <div style={{ height: 14 }} />
 
-          <div style={{ fontSize: 11, fontWeight: 900, color: c.muted }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: "#94a3b8" }}>
             STORY POINTS
           </div>
           {isEmployee ? (
@@ -1653,7 +1562,7 @@ export default function TicketDetailsModal({
               style={{
                 marginTop: 6,
                 fontSize: 13,
-                color: c.text,
+                color: "#0f172a",
                 fontWeight: 600,
               }}
             >
@@ -1682,7 +1591,7 @@ export default function TicketDetailsModal({
 
           <div style={{ height: 14 }} />
 
-          <div style={{ fontSize: 11, fontWeight: 900, color: c.muted }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: "#94a3b8" }}>
             DUE DATE
           </div>
           {isEmployee ? (
@@ -1690,7 +1599,7 @@ export default function TicketDetailsModal({
               style={{
                 marginTop: 6,
                 fontSize: 13,
-                color: c.text,
+                color: "#0f172a",
                 fontWeight: 600,
               }}
             >
@@ -1713,7 +1622,7 @@ export default function TicketDetailsModal({
           )}
 
           <div style={{ height: 14 }} />
-          <div style={{ fontSize: 11, color: c.muted }}>
+          <div style={{ fontSize: 11, color: "#94a3b8" }}>
             Created {ticket?.created_at ? fmtTime(ticket.created_at) : "—"}
             <br />
             Updated {ticket?.updated_at ? fmtTime(ticket.updated_at) : "—"}

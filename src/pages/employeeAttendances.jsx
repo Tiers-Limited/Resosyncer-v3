@@ -79,8 +79,15 @@ const fmtHours = (h) => {
   return `${hrs}h ${mins}m`;
 };
 
+const getIsDarkTheme = () => {
+  const mode = localStorage.getItem("themeMode") || "system";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
+
 // ── Calendar ──────────────────────────────────────────────────────────────────
-const CalendarHeatmap = ({ yearMonth, dailyRecords, workingDays }) => {
+const CalendarHeatmap = ({ yearMonth, dailyRecords, workingDays, dark = false }) => {
   const firstDay = dayjs(`${yearMonth}-01`).day();
   const totalDays = dayjs(`${yearMonth}-01`).daysInMonth();
   const workingSet = new Set(workingDays);
@@ -97,16 +104,16 @@ const CalendarHeatmap = ({ yearMonth, dailyRecords, workingDays }) => {
     const isToday = dayjs().format("YYYY-MM-DD") === dateStr;
 
     let bg = "transparent",
-      textColor = "#cbd5e1";
+      textColor = dark ? "#64748b" : "#cbd5e1";
     if (isSunday) {
-      bg = "#f8fafc";
-      textColor = "#e2e8f0";
+      bg = dark ? "#1b1d23" : "#f8fafc";
+      textColor = dark ? "#3f485a" : "#e2e8f0";
     } else if (rec) {
       bg = colorMap[rec] + "25";
       textColor = colorMap[rec];
     } else if (isPast) {
-      bg = "#f1f5f9";
-      textColor = "#94a3b8";
+      bg = dark ? "#1f2430" : "#f1f5f9";
+      textColor = dark ? "#8b97ab" : "#94a3b8";
     }
 
     cells.push(
@@ -132,7 +139,7 @@ const CalendarHeatmap = ({ yearMonth, dailyRecords, workingDays }) => {
             color: textColor,
             border: isToday
               ? `2px solid ${rec ? colorMap[rec] : "#6366f1"}`
-              : "1px solid transparent",
+              : `1px solid ${dark ? "#232833" : "transparent"}`,
             opacity: isSunday ? 0.35 : 1,
             transition: "all 0.15s",
           }}
@@ -150,7 +157,10 @@ const CalendarHeatmap = ({ yearMonth, dailyRecords, workingDays }) => {
           <div
             key={i}
             className="text-center font-medium"
-            style={{ fontSize: 10, color: i === 0 ? "#fca5a5" : "#cbd5e1" }}
+            style={{
+              fontSize: 10,
+              color: i === 0 ? "#fca5a5" : dark ? "#748094" : "#cbd5e1",
+            }}
           >
             {d}
           </div>
@@ -172,7 +182,9 @@ const CalendarHeatmap = ({ yearMonth, dailyRecords, workingDays }) => {
                 border: `1.5px solid ${l.color}`,
               }}
             />
-            <span className="text-xs text-gray-400">{l.label}</span>
+            <span className="text-xs" style={{ color: dark ? "#94a3b8" : "#94a3b8" }}>
+              {l.label}
+            </span>
           </div>
         ))}
       </div>
@@ -181,9 +193,12 @@ const CalendarHeatmap = ({ yearMonth, dailyRecords, workingDays }) => {
 };
 
 // ── Stat Box ──────────────────────────────────────────────────────────────────
-const StatBox = ({ icon, label, value, color, bg, tip }) => (
+const StatBox = ({ icon, label, value, color, bg, tip, borderColor }) => (
   <Tooltip title={tip}>
-    <div className="rounded-2xl p-4 cursor-default" style={{ background: bg }}>
+    <div
+      className="rounded-2xl p-4 cursor-default"
+      style={{ background: bg, border: `1px solid ${borderColor || "transparent"}` }}
+    >
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-medium" style={{ color }}>
           {label}
@@ -213,6 +228,7 @@ export default function EmployeeAttendanceProfile() {
   const [stats, setStats] = useState(null);
   const [timeLogs, setTimeLogs] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [dark, setDark] = useState(getIsDarkTheme);
 
   const workingDays = getWorkingDays(yearMonth);
   const [y, m] = yearMonth.split("-").map(Number);
@@ -323,6 +339,25 @@ export default function EmployeeAttendanceProfile() {
     fetchData(yearMonth);
   }, [yearMonth, fetchData]);
 
+  useEffect(() => {
+    const syncTheme = () => setDark(getIsDarkTheme());
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    window.addEventListener("storage", syncTheme);
+    window.addEventListener("themeModeChanged", syncTheme);
+    if (typeof media.addEventListener === "function")
+      media.addEventListener("change", syncTheme);
+    else if (typeof media.addListener === "function")
+      media.addListener(syncTheme);
+    return () => {
+      window.removeEventListener("storage", syncTheme);
+      window.removeEventListener("themeModeChanged", syncTheme);
+      if (typeof media.removeEventListener === "function")
+        media.removeEventListener("change", syncTheme);
+      else if (typeof media.removeListener === "function")
+        media.removeListener(syncTheme);
+    };
+  }, []);
+
   if (!employeeId) return <Empty description="Not logged in" />;
 
   const attendanceRate =
@@ -338,17 +373,61 @@ export default function EmployeeAttendanceProfile() {
         : "#ef4444";
   const isLow = attendanceRate < 90 && stats?.total > 3;
   const isCritical = attendanceRate < 75 && stats?.total > 3;
+  const ui = dark
+    ? {
+        pageBg: "#111318",
+        cardBg: "#171a21",
+        cardBorder: "#2a2f3a",
+        text: "#e5e7eb",
+        textMuted: "#94a3b8",
+        textSoft: "#73829a",
+        divider: "#2a2f3a",
+        trail: "#242b37",
+        avatarBg: "#1e293b",
+      }
+    : {
+        pageBg: "#f8fafc",
+        cardBg: "#ffffff",
+        cardBorder: "#ffffff",
+        text: "#111827",
+        textMuted: "#9ca3af",
+        textSoft: "#d1d5db",
+        divider: "#f8fafc",
+        trail: "#f1f5f9",
+        avatarBg: "#e0e7ff",
+      };
 
   return (
     <div
-      className="min-h-screen bg-slate-50 p-6"
-      style={{ fontFamily: "'DM Sans', sans-serif" }}
+      className={`emp-attendance-page min-h-screen p-6${dark ? " dark" : ""}`}
+      style={{ fontFamily: "'DM Sans', sans-serif", background: ui.pageBg }}
     >
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link
         href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap"
         rel="stylesheet"
       />
+      <style>{`
+        .emp-attendance-page.dark .ant-select-selector {
+          background: #141821 !important;
+          border-color: #2a2f3a !important;
+          color: #e5e7eb !important;
+        }
+        .emp-attendance-page.dark .ant-select-arrow {
+          color: #94a3b8 !important;
+        }
+        .emp-attendance-page.dark .ant-progress-inner {
+          background: #242b37 !important;
+        }
+        .emp-attendance-page.dark .ant-empty-description {
+          color: #94a3b8 !important;
+        }
+        .emp-attendance-page.dark .ant-alert {
+          background: #1a1f2b !important;
+          border-color: #334155 !important;
+          color: #e5e7eb !important;
+        }
+      `}</style>
 
       {loading && !stats ? (
         <div className="flex justify-center items-center h-64">
@@ -381,6 +460,7 @@ export default function EmployeeAttendanceProfile() {
           {/* ── Employee Header ─────────────────────────────────────── */}
           <Card
             className="rounded-2xl border-0 shadow-sm mb-5"
+            style={{ background: ui.cardBg, border: `1px solid ${ui.cardBorder}` }}
             bodyStyle={{ padding: "24px 28px" }}
           >
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -390,31 +470,31 @@ export default function EmployeeAttendanceProfile() {
                   icon={<UserOutlined />}
                   size={64}
                   style={{
-                    background: "#e0e7ff",
+                    background: ui.avatarBg,
                     color: "#6366f1",
                     flexShrink: 0,
                   }}
                 />
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900 m-0">
+                  <h1 className="text-xl font-bold m-0" style={{ color: ui.text }}>
                     {employee?.full_name}
                   </h1>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <span className="text-sm text-gray-400">
+                    <span className="text-sm" style={{ color: ui.textMuted }}>
                       {employee?.job_title || employee?.role}
                     </span>
                     {employee?.department && (
                       <>
-                        <span className="text-gray-200">·</span>
-                        <span className="text-sm text-gray-400">
+                        <span style={{ color: ui.textSoft }}>·</span>
+                        <span className="text-sm" style={{ color: ui.textMuted }}>
                           {employee.department}
                         </span>
                       </>
                     )}
                     {employee?.email && (
                       <>
-                        <span className="text-gray-200">·</span>
-                        <span className="text-sm text-gray-400">
+                        <span style={{ color: ui.textSoft }}>·</span>
+                        <span className="text-sm" style={{ color: ui.textMuted }}>
                           {employee.email}
                         </span>
                       </>
@@ -422,26 +502,47 @@ export default function EmployeeAttendanceProfile() {
                   </div>
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
                     <Tag
-                      className="rounded-full text-xs font-semibold border-0"
+                      className="rounded-full text-xs font-semibold"
                       style={{
-                        background: rateColor + "15",
+                        background: dark ? rateColor + "26" : rateColor + "15",
                         color: rateColor,
+                        border: `1px solid ${dark ? rateColor + "66" : "transparent"}`,
+                        paddingInline: 10,
+                        height: 24,
+                        display: "inline-flex",
+                        alignItems: "center",
                       }}
                     >
                       {attendanceRate}% attendance
                     </Tag>
                     {stats?.streak > 1 && (
                       <Tag
-                        className="rounded-full text-xs font-semibold border-0"
-                        style={{ background: "#fef3c7", color: "#d97706" }}
+                        className="rounded-full text-xs font-semibold"
+                        style={{
+                          background: dark ? "rgba(245,158,11,0.20)" : "#fef3c7",
+                          color: dark ? "#fbbf24" : "#d97706",
+                          border: `1px solid ${dark ? "rgba(245,158,11,0.4)" : "transparent"}`,
+                          paddingInline: 10,
+                          height: 24,
+                          display: "inline-flex",
+                          alignItems: "center",
+                        }}
                       >
                         🔥 {stats.streak} day streak
                       </Tag>
                     )}
                     {isCritical && (
                       <Tag
-                        className="rounded-full text-xs font-semibold border-0"
-                        style={{ background: "#fee2e2", color: "#dc2626" }}
+                        className="rounded-full text-xs font-semibold"
+                        style={{
+                          background: dark ? "rgba(239,68,68,0.20)" : "#fee2e2",
+                          color: dark ? "#fca5a5" : "#dc2626",
+                          border: `1px solid ${dark ? "rgba(239,68,68,0.45)" : "transparent"}`,
+                          paddingInline: 10,
+                          height: 24,
+                          display: "inline-flex",
+                          alignItems: "center",
+                        }}
                       >
                         Critical
                       </Tag>
@@ -461,7 +562,7 @@ export default function EmployeeAttendanceProfile() {
 
             {/* Attendance progress bar */}
             <div className="mt-5">
-              <div className="flex justify-between text-xs text-gray-400 mb-1.5">
+              <div className="flex justify-between text-xs mb-1.5" style={{ color: ui.textMuted }}>
                 <span>
                   {monthLabel} · {workingDays.length} working days
                 </span>
@@ -472,15 +573,15 @@ export default function EmployeeAttendanceProfile() {
               <Progress
                 percent={attendanceRate}
                 strokeColor={rateColor}
-                trailColor="#f1f5f9"
+                trailColor={ui.trail}
                 showInfo={false}
                 strokeLinecap="round"
               />
               {/* threshold line marker */}
               <div className="flex justify-between text-xs mt-1">
-                <span className="text-gray-300">0%</span>
+                <span style={{ color: ui.textSoft }}>0%</span>
                 <span className="text-amber-400 font-medium">90% required</span>
-                <span className="text-gray-300">100%</span>
+                <span style={{ color: ui.textSoft }}>100%</span>
               </div>
             </div>
           </Card>
@@ -492,7 +593,8 @@ export default function EmployeeAttendanceProfile() {
               label="Working Days"
               value={workingDays.length}
               color="#6366f1"
-              bg="#eef2ff"
+              bg={dark ? "rgba(99,102,241,0.14)" : "#eef2ff"}
+              borderColor={dark ? "rgba(99,102,241,0.3)" : "transparent"}
               tip="Total working days this month (excl. Sundays)"
             />
             <StatBox
@@ -500,7 +602,8 @@ export default function EmployeeAttendanceProfile() {
               label="Present"
               value={stats?.present ?? "—"}
               color="#10b981"
-              bg="#d1fae5"
+              bg={dark ? "rgba(16,185,129,0.14)" : "#d1fae5"}
+              borderColor={dark ? "rgba(16,185,129,0.3)" : "transparent"}
               tip="Days marked present"
             />
             <StatBox
@@ -508,7 +611,8 @@ export default function EmployeeAttendanceProfile() {
               label="Absent"
               value={stats?.absent ?? "—"}
               color="#ef4444"
-              bg="#fee2e2"
+              bg={dark ? "rgba(239,68,68,0.16)" : "#fee2e2"}
+              borderColor={dark ? "rgba(239,68,68,0.3)" : "transparent"}
               tip="Days marked absent"
             />
             <StatBox
@@ -516,7 +620,8 @@ export default function EmployeeAttendanceProfile() {
               label="Leave"
               value={stats?.leave ?? "—"}
               color="#f59e0b"
-              bg="#fef3c7"
+              bg={dark ? "rgba(245,158,11,0.16)" : "#fef3c7"}
+              borderColor={dark ? "rgba(245,158,11,0.3)" : "transparent"}
               tip="Days on leave"
             />
             <StatBox
@@ -524,7 +629,8 @@ export default function EmployeeAttendanceProfile() {
               label="Not Logged"
               value={stats?.notLogged ?? "—"}
               color="#94a3b8"
-              bg="#f1f5f9"
+              bg={dark ? "rgba(148,163,184,0.16)" : "#f1f5f9"}
+              borderColor={dark ? "rgba(148,163,184,0.3)" : "transparent"}
               tip="Days with no session recorded"
             />
             <StatBox
@@ -532,7 +638,8 @@ export default function EmployeeAttendanceProfile() {
               label="Hours Worked"
               value={stats ? fmtHours(stats.totalHoursWorked) : "—"}
               color="#3b82f6"
-              bg="#eff6ff"
+              bg={dark ? "rgba(59,130,246,0.16)" : "#eff6ff"}
+              borderColor={dark ? "rgba(59,130,246,0.3)" : "transparent"}
               tip="Total hours across completed sessions"
             />
           </div>
@@ -542,19 +649,23 @@ export default function EmployeeAttendanceProfile() {
             <div className="lg:col-span-2">
               <Card
                 className="rounded-2xl border-0 shadow-sm h-full"
+                style={{ background: ui.cardBg, border: `1px solid ${ui.cardBorder}` }}
                 bodyStyle={{ padding: "24px" }}
               >
                 <div className="flex items-center justify-between mb-5">
-                  <h3 className="font-semibold text-gray-800 m-0 text-sm">
+                  <h3 className="font-semibold m-0 text-sm" style={{ color: ui.text }}>
                     Monthly Overview
                   </h3>
-                  <span className="text-xs text-gray-400">{monthLabel}</span>
+                  <span className="text-xs" style={{ color: ui.textMuted }}>
+                    {monthLabel}
+                  </span>
                 </div>
                 {stats ? (
                   <CalendarHeatmap
                     yearMonth={yearMonth}
                     dailyRecords={stats.dailyRecords}
                     workingDays={workingDays}
+                    dark={dark}
                   />
                 ) : (
                   <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />
@@ -566,9 +677,10 @@ export default function EmployeeAttendanceProfile() {
             <div>
               <Card
                 className="rounded-2xl border-0 shadow-sm"
+                style={{ background: ui.cardBg, border: `1px solid ${ui.cardBorder}` }}
                 bodyStyle={{ padding: "24px" }}
               >
-                <h3 className="font-semibold text-gray-800 m-0 text-sm mb-4">
+                <h3 className="font-semibold m-0 text-sm mb-4" style={{ color: ui.text }}>
                   Recent Sessions
                 </h3>
                 {timeLogs.length === 0 ? (
@@ -589,13 +701,14 @@ export default function EmployeeAttendanceProfile() {
                       return (
                         <div
                           key={l.date + l.status}
-                          className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0"
+                          className="flex items-center justify-between py-2 border-b last:border-0"
+                          style={{ borderColor: ui.divider }}
                         >
                           <div>
-                            <div className="text-sm font-medium text-gray-700">
+                            <div className="text-sm font-medium" style={{ color: ui.text }}>
                               {dayjs(l.date).format("DD MMM")}
                             </div>
-                            <div className="text-xs text-gray-400">
+                            <div className="text-xs" style={{ color: ui.textMuted }}>
                               {l.start_time
                                 ? dayjs(l.start_time).format("hh:mm A")
                                 : "—"}

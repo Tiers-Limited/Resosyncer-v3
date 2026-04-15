@@ -3,7 +3,6 @@ import {
   ComposableMap,
   Geographies,
   Geography,
-  ZoomableGroup,
   Marker,
 } from "react-simple-maps";
 import { getName, getCode, getNames } from "country-list";
@@ -328,10 +327,11 @@ const ClientWorldMap = ({ countries }) => {
           projectionConfig={{ scale: 147, center: [0, 20] }}
           width={800}
           height={380}
+          zoom={zoom}
+          center={[0, 20]}
           style={{ width: "100%", height: "auto", display: "block" }}
         >
-          <ZoomableGroup zoom={zoom} center={[0, 20]}>
-            <Geographies geography={GEO_URL}>
+          <Geographies geography={GEO_URL}>
               {({ geographies }) =>
                 geographies.map((geo) => {
                   const code = geoNameToCode(geo.properties.name);
@@ -405,7 +405,6 @@ const ClientWorldMap = ({ countries }) => {
                   </g>
                 </Marker>
               ))}
-          </ZoomableGroup>
         </ComposableMap>
 
         <style>{`

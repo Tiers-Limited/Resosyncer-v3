@@ -121,6 +121,13 @@ const DIFF = {
   Advanced: { bg: "#fef2f2", color: "#dc2626", border: "#fecaca" },
 };
 
+function getIsDarkTheme() {
+  const mode = localStorage.getItem("themeMode") || "system";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
 async function loadQuizResult(userId, quizId, courseId) {
   const { data } = await supabase
     .from("quiz_results")
@@ -452,7 +459,7 @@ function CertificateModal({ userName, courseName, TENANT_NAME, onClose }) {
   );
 }
 
-function SavedResultBanner({ result, quiz, onRetake, onContinue }) {
+function SavedResultBanner({ result, quiz, onRetake, onContinue, dark = false }) {
   const { score, total, passed, answers } = result;
   const pct = Math.round((score / total) * 100);
   const questions = quiz?.questions || [];
@@ -606,9 +613,9 @@ function SavedResultBanner({ result, quiz, onRetake, onContinue }) {
             onClick={onRetake}
             style={{
               padding: "10px 20px",
-              background: "white",
-              color: "#1e293b",
-              border: "1.5px solid #e2e8f0",
+              background: dark ? "#1f2937" : "white",
+              color: dark ? "#e5e7eb" : "#1e293b",
+              border: dark ? "1.5px solid #374151" : "1.5px solid #e2e8f0",
               borderRadius: 10,
               fontSize: 13,
               fontWeight: 600,
@@ -658,6 +665,7 @@ function QuizView({
   savedResult,
   TENANT_ID,
   onResultSaved,
+  dark = false,
 }) {
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState({});
@@ -749,6 +757,7 @@ function QuizView({
         quiz={quiz}
         onRetake={() => setShowSaved(false)}
         onContinue={() => onComplete(savedResult.passed)}
+        dark={dark}
       />
     );
   }
@@ -1400,6 +1409,7 @@ function CourseDetailView({
   TENANT_ID,
   userName,
   userId,
+  dark = false,
 }) {
   const modules = course.modules || [];
   const [activeModIdx, setActiveModIdx] = useState(0);
@@ -1524,9 +1534,10 @@ function CourseDetailView({
   if (!resultsLoaded) {
     return (
       <div
+        className={`training-portal${dark ? " dark" : ""}`}
         style={{
           minHeight: "100vh",
-          background: "#f8fafc",
+          background: dark ? "#111318" : "#f8fafc",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -1539,12 +1550,39 @@ function CourseDetailView({
 
   return (
     <div
+      className={`training-portal${dark ? " dark" : ""}`}
       style={{
         minHeight: "100vh",
-        background: "#f8fafc",
+        background: dark ? "#111318" : "#f8fafc",
         fontFamily: "'Plus Jakarta Sans','DM Sans',sans-serif",
       }}
     >
+      <style>{`
+        .training-portal.dark [style*="background: white"],
+        .training-portal.dark [style*="background:white"] { background: #171a21 !important; }
+        .training-portal.dark [style*="background: #f8fafc"],
+        .training-portal.dark [style*="background:#f8fafc"],
+        .training-portal.dark [style*="background: #fafbfc"],
+        .training-portal.dark [style*="background: #f1f5f9"] { background: #111318 !important; }
+        .training-portal.dark [style*="border: 1px solid #f1f5f9"],
+        .training-portal.dark [style*="border-bottom: 1px solid #f1f5f9"],
+        .training-portal.dark [style*="borderTop: \"1px solid #f8fafc\""],
+        .training-portal.dark [style*="border: 1.5px solid #f1f5f9"],
+        .training-portal.dark [style*="border: 1.5px solid #e2e8f0"] { border-color: transparent !important; }
+        .training-portal.dark [style*="color: #0f172a"],
+        .training-portal.dark [style*="color:#0f172a"],
+        .training-portal.dark [style*="color: #1e293b"],
+        .training-portal.dark [style*="color: #374151"],
+        .training-portal.dark [style*="color: #475569"] { color: #e5e7eb !important; }
+        .training-portal.dark [style*="color: #64748b"],
+        .training-portal.dark [style*="color: #94a3b8"],
+        .training-portal.dark [style*="color: #78716c"] { color: #94a3b8 !important; }
+        .training-portal.dark button[style*="background: #f8fafc"] {
+          background: #141821 !important;
+          border-color: #2a2f3a !important;
+        }
+      `}</style>
+
       {previewMat && (
         <MaterialViewer item={previewMat} onClose={() => setPreviewMat(null)} />
       )}
@@ -1552,8 +1590,8 @@ function CourseDetailView({
       {/* Top bar */}
       <header
         style={{
-          background: "white",
-          borderBottom: "1px solid #f1f5f9",
+          background: dark ? "#171a21" : "white",
+          borderBottom: `1px solid ${dark ? "transparent" : "#f1f5f9"}`,
           position: "sticky",
           top: 0,
           zIndex: 40,
@@ -1573,12 +1611,12 @@ function CourseDetailView({
               alignItems: "center",
               gap: 6,
               padding: "6px 12px",
-              background: "#f8fafc",
-              border: "1.5px solid #e2e8f0",
+              background: dark ? "#1a2230" : "#f8fafc",
+              border: dark ? "1.5px solid transparent" : "1.5px solid #e2e8f0",
               borderRadius: 8,
               fontSize: 12,
               fontWeight: 600,
-              color: "#475569",
+              color: dark ? "#cbd5e1" : "#475569",
               cursor: "pointer",
               fontFamily: "inherit",
             }}
@@ -1605,7 +1643,7 @@ function CourseDetailView({
                   margin: 0,
                   fontSize: 14,
                   fontWeight: 700,
-                  color: "#0f172a",
+                  color: dark ? "#e5e7eb" : "#0f172a",
                   letterSpacing: "-0.02em",
                 }}
               >
@@ -1629,8 +1667,8 @@ function CourseDetailView({
                   background: completedMods[i]
                     ? catHex
                     : activeModIdx === i
-                      ? "#e2e8f0"
-                      : "#f1f5f9",
+                      ? (dark ? "#243043" : "#e2e8f0")
+                      : (dark ? "#1a2230" : "#f1f5f9"),
                   border:
                     activeModIdx === i && !completedMods[i]
                       ? `2px solid ${catHex}`
@@ -1661,9 +1699,11 @@ function CourseDetailView({
             style={{
               background: "white",
               borderRadius: 16,
-              border: "1px solid #f1f5f9",
+              border: dark ? "1px solid transparent" : "1px solid #f1f5f9",
               overflow: "hidden",
-              boxShadow: "0 1px 6px rgba(0,0,0,0.04)",
+              boxShadow: dark
+                ? "0 12px 28px rgba(0,0,0,0.35)"
+                : "0 1px 6px rgba(0,0,0,0.04)",
               position: "sticky",
               top: 88,
             }}
@@ -1671,8 +1711,8 @@ function CourseDetailView({
             <div
               style={{
                 padding: "16px 18px",
-                borderBottom: "1px solid #f8fafc",
-                background: "#fafbfc",
+                borderBottom: dark ? "1px solid transparent" : "1px solid #f8fafc",
+                background: dark ? "#1b2230" : "#fafbfc",
               }}
             >
               <p
@@ -1704,7 +1744,9 @@ function CourseDetailView({
                     width: "100%",
                     textAlign: "left",
                     padding: "12px 18px",
-                    background: active ? `${catHex}0d` : "transparent",
+                    background: active
+                      ? (dark ? `${catHex}1f` : `${catHex}0d`)
+                      : "transparent",
                     border: "none",
                     borderLeft: active
                       ? `3px solid ${catHex}`
@@ -1726,7 +1768,9 @@ function CourseDetailView({
                         ? catHex
                         : active
                           ? `${catHex}20`
-                          : "#f1f5f9",
+                          : dark
+                            ? "#1a2230"
+                            : "#f1f5f9",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -1749,10 +1793,16 @@ function CourseDetailView({
                         fontSize: 12,
                         fontWeight: active ? 700 : 600,
                         color: active
-                          ? "#0f172a"
+                          ? dark
+                            ? "#e5e7eb"
+                            : "#0f172a"
                           : done
-                            ? "#64748b"
-                            : "#374151",
+                            ? dark
+                              ? "#94a3b8"
+                              : "#64748b"
+                            : dark
+                              ? "#cbd5e1"
+                              : "#374151",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
@@ -1792,7 +1842,9 @@ function CourseDetailView({
                   textAlign: "left",
                   padding: "12px 18px",
                   background: isFinalStep
-                    ? "rgba(245,158,11,0.06)"
+                    ? dark
+                      ? "rgba(245,158,11,0.18)"
+                      : "rgba(245,158,11,0.06)"
                     : "transparent",
                   border: "none",
                   borderLeft: isFinalStep
@@ -1816,7 +1868,9 @@ function CourseDetailView({
                       ? "#f59e0b"
                       : isFinalStep
                         ? "rgba(245,158,11,0.15)"
-                        : "#f1f5f9",
+                        : dark
+                          ? "#1a2230"
+                          : "#f1f5f9",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -1841,7 +1895,13 @@ function CourseDetailView({
                       margin: 0,
                       fontSize: 12,
                       fontWeight: isFinalStep ? 700 : 600,
-                      color: isFinalStep ? "#0f172a" : "#374151",
+                      color: isFinalStep
+                        ? dark
+                          ? "#fef3c7"
+                          : "#0f172a"
+                        : dark
+                          ? "#e5e7eb"
+                          : "#374151",
                     }}
                   >
                     Final Assessment
@@ -1859,7 +1919,10 @@ function CourseDetailView({
 
             {courseComplete && (
               <div
-                style={{ padding: "12px 16px", borderTop: "1px solid #f8fafc" }}
+                style={{
+                  padding: "12px 16px",
+                  borderTop: dark ? "1px solid transparent" : "1px solid #f8fafc",
+                }}
               >
                 <button
                   onClick={onCertificate}
@@ -1895,16 +1958,20 @@ function CourseDetailView({
               style={{
                 background: "white",
                 borderRadius: 20,
-                border: "1px solid #f1f5f9",
+                border: dark ? "1px solid transparent" : "1px solid #f1f5f9",
                 overflow: "hidden",
-                boxShadow: "0 1px 8px rgba(0,0,0,0.05)",
+                boxShadow: dark
+                  ? "0 18px 34px rgba(0,0,0,0.35)"
+                  : "0 1px 8px rgba(0,0,0,0.05)",
               }}
             >
               <div
                 style={{
                   padding: "28px 32px",
-                  borderBottom: "1px solid #f8fafc",
-                  background: "linear-gradient(135deg,#fffbeb,#fef3c7)",
+                  borderBottom: dark ? "1px solid transparent" : "1px solid #f8fafc",
+                  background: dark
+                    ? "linear-gradient(135deg,rgba(245,158,11,0.20),rgba(217,119,6,0.14))"
+                    : "linear-gradient(135deg,#fffbeb,#fef3c7)",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -1927,7 +1994,7 @@ function CourseDetailView({
                         margin: 0,
                         fontSize: 20,
                         fontWeight: 800,
-                        color: "#0f172a",
+                        color: dark ? "#fef3c7" : "#0f172a",
                         letterSpacing: "-0.03em",
                       }}
                     >
@@ -1937,7 +2004,7 @@ function CourseDetailView({
                       style={{
                         margin: 0,
                         fontSize: 13,
-                        color: "#78716c",
+                        color: dark ? "#fde68a" : "#78716c",
                         marginTop: 4,
                       }}
                     >
@@ -1964,7 +2031,7 @@ function CourseDetailView({
                       style={{
                         fontSize: 24,
                         fontWeight: 800,
-                        color: "#0f172a",
+                        color: dark ? "#f8fafc" : "#0f172a",
                         marginBottom: 8,
                         letterSpacing: "-0.03em",
                       }}
@@ -1973,7 +2040,7 @@ function CourseDetailView({
                     </h3>
                     <p
                       style={{
-                        color: "#64748b",
+                        color: dark ? "#cbd5e1" : "#64748b",
                         fontSize: 14,
                         marginBottom: 28,
                       }}
@@ -2010,6 +2077,7 @@ function CourseDetailView({
                     courseId={course.id}
                     savedResult={savedResults[finalQuiz.id] || null}
                     TENANT_ID={TENANT_ID}
+                    dark={dark}
                     onResultSaved={(row) =>
                       handleResultSaved(finalQuiz.id, row)
                     }
@@ -2053,9 +2121,11 @@ function CourseDetailView({
                 style={{
                   background: "white",
                   borderRadius: 20,
-                  border: "1px solid #f1f5f9",
+                  border: dark ? "1px solid transparent" : "1px solid #f1f5f9",
                   overflow: "hidden",
-                  boxShadow: "0 1px 8px rgba(0,0,0,0.05)",
+                  boxShadow: dark
+                    ? "0 14px 30px rgba(0,0,0,0.35)"
+                    : "0 1px 8px rgba(0,0,0,0.05)",
                 }}
               >
                 <div
@@ -2119,7 +2189,7 @@ function CourseDetailView({
                           margin: 0,
                           fontSize: 22,
                           fontWeight: 800,
-                          color: "#0f172a",
+                          color: dark ? "#e5e7eb" : "#0f172a",
                           letterSpacing: "-0.03em",
                         }}
                       >
@@ -2130,7 +2200,7 @@ function CourseDetailView({
                           style={{
                             margin: "8px 0 0",
                             fontSize: 14,
-                            color: "#64748b",
+                            color: dark ? "#9fb0c8" : "#64748b",
                             lineHeight: 1.6,
                           }}
                         >
@@ -2147,10 +2217,10 @@ function CourseDetailView({
                 style={{
                   display: "flex",
                   gap: 3,
-                  background: "white",
+                  background: dark ? "#171f2c" : "white",
                   borderRadius: 12,
                   padding: 4,
-                  border: "1px solid #f1f5f9",
+                  border: dark ? "1px solid transparent" : "1px solid #f1f5f9",
                   alignSelf: "flex-start",
                 }}
               >
@@ -2163,7 +2233,7 @@ function CourseDetailView({
                       borderRadius: 8,
                       border: "none",
                       background: phase === p ? NAVY : "transparent",
-                      color: phase === p ? "white" : "#64748b",
+                      color: phase === p ? "white" : dark ? "#9fb0c8" : "#64748b",
                       fontSize: 12,
                       fontWeight: 600,
                       cursor: "pointer",
@@ -2193,8 +2263,10 @@ function CourseDetailView({
                   style={{
                     background: "white",
                     borderRadius: 20,
-                    border: "1px solid #f1f5f9",
-                    boxShadow: "0 1px 8px rgba(0,0,0,0.05)",
+                    border: dark ? "1px solid transparent" : "1px solid #f1f5f9",
+                    boxShadow: dark
+                      ? "0 14px 30px rgba(0,0,0,0.35)"
+                      : "0 1px 8px rgba(0,0,0,0.05)",
                   }}
                 >
                   <div style={{ padding: "24px 28px 0" }}>
@@ -2244,17 +2316,27 @@ function CourseDetailView({
                               gap: 14,
                               padding: "16px 18px",
                               borderRadius: 14,
-                              background: "#f8fafc",
-                              border: "1.5px solid #f1f5f9",
+                              background: dark ? "#1a2230" : "#f8fafc",
+                              border: dark
+                                ? "1.5px solid transparent"
+                                : "1.5px solid #f1f5f9",
                               cursor: "pointer",
                             }}
                             onMouseEnter={(e) => {
-                              e.currentTarget.style.borderColor = catHex + "44";
-                              e.currentTarget.style.background = "#fafbff";
+                              e.currentTarget.style.borderColor = dark
+                                ? "transparent"
+                                : catHex + "44";
+                              e.currentTarget.style.background = dark
+                                ? "#1f2a3b"
+                                : "#fafbff";
                             }}
                             onMouseLeave={(e) => {
-                              e.currentTarget.style.borderColor = "#f1f5f9";
-                              e.currentTarget.style.background = "#f8fafc";
+                              e.currentTarget.style.borderColor = dark
+                                ? "transparent"
+                                : "#f1f5f9";
+                              e.currentTarget.style.background = dark
+                                ? "#1a2230"
+                                : "#f8fafc";
                             }}
                             onClick={() => {
                               setPreviewMat(mat);
@@ -2281,7 +2363,7 @@ function CourseDetailView({
                                   margin: 0,
                                   fontSize: 14,
                                   fontWeight: 700,
-                                  color: "#0f172a",
+                                  color: dark ? "#e5e7eb" : "#0f172a",
                                   overflow: "hidden",
                                   textOverflow: "ellipsis",
                                   whiteSpace: "nowrap",
@@ -2320,7 +2402,7 @@ function CourseDetailView({
                             )}
                             <Eye
                               size={14}
-                              color="#94a3b8"
+                              color={dark ? "#9fb0c8" : "#94a3b8"}
                               style={{ flexShrink: 0 }}
                             />
                           </div>
@@ -2375,9 +2457,11 @@ function CourseDetailView({
                       style={{
                         background: "white",
                         borderRadius: 20,
-                        border: "1px solid #f1f5f9",
+                        border: dark ? "1px solid transparent" : "1px solid #f1f5f9",
                         padding: "24px 28px",
-                        boxShadow: "0 1px 8px rgba(0,0,0,0.05)",
+                        boxShadow: dark
+                          ? "0 14px 30px rgba(0,0,0,0.35)"
+                          : "0 1px 8px rgba(0,0,0,0.05)",
                       }}
                     >
                       <div style={{ marginBottom: 4 }}>
@@ -2413,6 +2497,7 @@ function CourseDetailView({
                         courseId={course.id}
                         savedResult={savedResult}
                         TENANT_ID={TENANT_ID}
+                        dark={dark}
                         onResultSaved={(row) =>
                           mq && handleResultSaved(mq.id, row)
                         }
@@ -2431,7 +2516,7 @@ function CourseDetailView({
 // ─────────────────────────────────────────────────────────────────────────────
 // COURSE CARD
 // ─────────────────────────────────────────────────────────────────────────────
-function CourseCard({ course, onClick, index }) {
+function CourseCard({ course, onClick, index, dark = false }) {
   const catHex = CATEGORY_HEX[course.category] || "#94a3b8";
   const diff = DIFF[course.difficulty] || DIFF.Beginner;
   const CatIcon = CATEGORY_ICONS[course.category] || GraduationCap;
@@ -2445,13 +2530,13 @@ function CourseCard({ course, onClick, index }) {
     <div
       onClick={onClick}
       style={{
-        background: "white",
+        background: dark ? "#171a21" : "white",
         borderRadius: 20,
-        border: "1px solid #f1f5f9",
+        border: dark ? "1px solid transparent" : "1px solid #f1f5f9",
         overflow: "hidden",
         cursor: "pointer",
         transition: "all 0.2s ease",
-        boxShadow: "0 1px 6px rgba(0,0,0,0.04)",
+        boxShadow: dark ? "0 1px 8px rgba(0,0,0,0.35)" : "0 1px 6px rgba(0,0,0,0.04)",
         animation: `fadeInUp 0.4s ease both`,
         animationDelay: `${index * 60}ms`,
       }}
@@ -2526,7 +2611,7 @@ function CourseCard({ course, onClick, index }) {
             margin: "0 0 8px",
             fontSize: 16,
             fontWeight: 800,
-            color: "#0f172a",
+            color: dark ? "#e5e7eb" : "#0f172a",
             letterSpacing: "-0.025em",
             lineHeight: 1.35,
           }}
@@ -2538,7 +2623,7 @@ function CourseCard({ course, onClick, index }) {
             style={{
               margin: "0 0 16px",
               fontSize: 12,
-              color: "#64748b",
+              color: dark ? "#94a3b8" : "#64748b",
               lineHeight: 1.6,
               overflow: "hidden",
               display: "-webkit-box",
@@ -2555,7 +2640,7 @@ function CourseCard({ course, onClick, index }) {
             gap: 16,
             marginBottom: 18,
             paddingTop: 12,
-            borderTop: "1px solid #f8fafc",
+            borderTop: dark ? "1px solid #2a2f3a" : "1px solid #f8fafc",
           }}
         >
           {[
@@ -2573,7 +2658,7 @@ function CourseCard({ course, onClick, index }) {
               key={val}
               style={{
                 fontSize: 11,
-                color: "#94a3b8",
+                color: dark ? "#94a3b8" : "#94a3b8",
                 display: "flex",
                 alignItems: "center",
                 gap: 4,
@@ -2608,7 +2693,7 @@ function CourseCard({ course, onClick, index }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // COURSES LIST
 // ─────────────────────────────────────────────────────────────────────────────
-function CoursesListView({ onOpenCourse }) {
+function CoursesListView({ onOpenCourse, dark = false }) {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -2643,9 +2728,10 @@ function CoursesListView({ onOpenCourse }) {
 
   return (
     <div
+      className={`training-portal${dark ? " dark" : ""}`}
       style={{
         minHeight: "100vh",
-        background: "#f8fafc",
+        background: dark ? "#111318" : "#f8fafc",
         fontFamily: "'Plus Jakarta Sans','DM Sans',sans-serif",
       }}
     >
@@ -2657,11 +2743,41 @@ function CoursesListView({ onOpenCourse }) {
         @keyframes scaleIn   { from{opacity:0;transform:scale(0.95)}      to{opacity:1;transform:scale(1)} }
         .skeleton-line { background:linear-gradient(90deg,#f1f5f9 25%,#e8edf2 50%,#f1f5f9 75%);background-size:400px 100%;animation:shimmer 1.3s infinite;border-radius:6px; }
         @keyframes shimmer { 0%{background-position:-400px 0} 100%{background-position:400px 0} }
+        .training-portal.dark .skeleton-line { background:linear-gradient(90deg,#1f2430 25%,#2a2f3a 50%,#1f2430 75%); }
+        .training-portal.dark [style*="background: white"],
+        .training-portal.dark [style*="background:white"] { background: #171a21 !important; }
+        .training-portal.dark [style*="background: #f8fafc"],
+        .training-portal.dark [style*="background:#f8fafc"],
+        .training-portal.dark [style*="background: #fafbfc"] { background: #111318 !important; }
+        .training-portal.dark [style*="border: 1px solid #f1f5f9"],
+        .training-portal.dark [style*="border:1px solid #f1f5f9"],
+        .training-portal.dark [style*="borderBottom: \"1px solid #f1f5f9\""] { border-color: transparent !important; }
+        .training-portal.dark [style*="color: #0f172a"],
+        .training-portal.dark [style*="color:#0f172a"],
+        .training-portal.dark .text-gray-900 { color: #e5e7eb !important; }
+        .training-portal.dark [style*="color: #64748b"],
+        .training-portal.dark [style*="color: #94a3b8"],
+        .training-portal.dark .text-gray-600,
+        .training-portal.dark .text-gray-500 { color: #94a3b8 !important; }
+        .training-portal.dark input,
+        .training-portal.dark select {
+          background: #141821 !important;
+          border-color: #2a2f3a !important;
+          color: #e5e7eb !important;
+        }
       `}</style>
 
-      <div className="mb-10 bg-white pb-3 border-b border-gray-200">
-        <h1 className="text-xl font-bold text-gray-900">Training Module</h1>
-        <p className="mt-0.5 text-xs text-gray-600">
+      <div
+        className="mb-10 pb-3"
+        style={{
+          background: dark ? "#171a21" : "#fff",
+          borderBottom: `1px solid ${dark ? "#2a2f3a" : "#e5e7eb"}`,
+        }}
+      >
+        <h1 className="text-xl font-bold" style={{ color: dark ? "#e5e7eb" : "#111827" }}>
+          Training Module
+        </h1>
+        <p className="mt-0.5 text-xs" style={{ color: dark ? "#94a3b8" : "#4b5563" }}>
           Learn key concepts and complete lessons step by step
         </p>
       </div>
@@ -2673,12 +2789,14 @@ function CoursesListView({ onOpenCourse }) {
             gap: 12,
             alignItems: "center",
             flexWrap: "wrap",
-            background: "white",
+            background: dark ? "#171a21" : "white",
             borderRadius: 16,
             padding: "14px 18px",
-            border: "1px solid #f1f5f9",
+            border: dark ? "1px solid transparent" : "1px solid #f1f5f9",
             marginBottom: 28,
-            boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+            boxShadow: dark
+              ? "0 10px 24px rgba(0,0,0,0.3)"
+              : "0 1px 4px rgba(0,0,0,0.04)",
           }}
         >
           <div style={{ position: "relative", flexGrow: 1, minWidth: 200 }}>
@@ -2867,6 +2985,7 @@ function CoursesListView({ onOpenCourse }) {
                 key={c.id}
                 course={c}
                 index={i}
+                dark={dark}
                 onClick={() => onOpenCourse(c)}
               />
             ))}
@@ -2889,6 +3008,7 @@ export default function EmployeeTrainingPortal() {
   const [userId, setUserId] = useState(null);
   const [TENANT_NAME, setTenantName] = useState("");
   const [TENANT_ID, setTenantId] = useState("");
+  const [dark, setDark] = useState(getIsDarkTheme);
 
   useEffect(() => {
     fetchCurrentTenant();
@@ -2910,6 +3030,25 @@ export default function EmployeeTrainingPortal() {
         if (mats) setAllMaterials(mats);
       }
     })();
+  }, []);
+
+  useEffect(() => {
+    const syncTheme = () => setDark(getIsDarkTheme());
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    window.addEventListener("storage", syncTheme);
+    window.addEventListener("themeModeChanged", syncTheme);
+    if (typeof media.addEventListener === "function")
+      media.addEventListener("change", syncTheme);
+    else if (typeof media.addListener === "function")
+      media.addListener(syncTheme);
+    return () => {
+      window.removeEventListener("storage", syncTheme);
+      window.removeEventListener("themeModeChanged", syncTheme);
+      if (typeof media.removeEventListener === "function")
+        media.removeEventListener("change", syncTheme);
+      else if (typeof media.removeListener === "function")
+        media.removeListener(syncTheme);
+    };
   }, []);
 
   const fetchCurrentTenant = async () => {
@@ -2966,7 +3105,8 @@ export default function EmployeeTrainingPortal() {
     setActiveCourse(course);
   };
 
-  if (!activeCourse) return <CoursesListView onOpenCourse={handleOpenCourse} />;
+  if (!activeCourse)
+    return <CoursesListView onOpenCourse={handleOpenCourse} dark={dark} />;
 
   return (
     <>
@@ -2987,6 +3127,7 @@ export default function EmployeeTrainingPortal() {
         TENANT_ID={TENANT_ID}
         userName={userName}
         userId={userId}
+        dark={dark}
       />
     </>
   );

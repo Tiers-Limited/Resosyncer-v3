@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, createContext, useContext } from "react";
+﻿import { useState, useEffect, useRef, createContext, useContext } from "react";
 import {
   Layout,
   Menu,
@@ -67,14 +67,62 @@ export const ThemeContext = createContext({ isDarkMode: false });
 export const useTheme = () => useContext(ThemeContext);
 
 const TRANSLATE_LANGUAGES = [
-  { value: "es", label: "Spanish", native: "Español", flag: "ES", country: "ES" },
-  { value: "pt", label: "Portuguese", native: "Português", flag: "PT", country: "PT" },
-  { value: "ru", label: "Russian", native: "Русский", flag: "RU", country: "RU" },
-  { value: "en", label: "English", native: "English", flag: "EN", country: "US" },
-  { value: "de", label: "German", native: "Deutsch", flag: "DE", country: "DE" },
-  { value: "ar", label: "Arabic", native: "العربية", flag: "AR", country: "SA" },
-  { value: "fr", label: "French", native: "Français", flag: "FR", country: "FR" },
-  { value: "zh-CN", label: "Chinese", native: "中文", flag: "ZH", country: "CN" },
+  {
+    value: "es",
+    label: "Spanish",
+    native: "EspaÃ±ol",
+    flag: "ES",
+    country: "ES",
+  },
+  {
+    value: "pt",
+    label: "Portuguese",
+    native: "PortuguÃªs",
+    flag: "PT",
+    country: "PT",
+  },
+  {
+    value: "ru",
+    label: "Russian",
+    native: "Ð ÑƒÑÑÐºÐ¸Ð¹",
+    flag: "RU",
+    country: "RU",
+  },
+  {
+    value: "en",
+    label: "English",
+    native: "English",
+    flag: "EN",
+    country: "US",
+  },
+  {
+    value: "de",
+    label: "German",
+    native: "Deutsch",
+    flag: "DE",
+    country: "DE",
+  },
+  {
+    value: "ar",
+    label: "Arabic",
+    native: "Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©",
+    flag: "AR",
+    country: "SA",
+  },
+  {
+    value: "fr",
+    label: "French",
+    native: "FranÃ§ais",
+    flag: "FR",
+    country: "FR",
+  },
+  {
+    value: "zh-CN",
+    label: "Chinese",
+    native: "ä¸­æ–‡",
+    flag: "ZH",
+    country: "CN",
+  },
 ];
 
 const FlagMark = ({ country, width = 16, height = 12 }) => {
@@ -91,6 +139,35 @@ const FlagMark = ({ country, width = 16, height = 12 }) => {
       }}
     />
   );
+};
+
+const parseDateValue = (value) => {
+  if (value == null || value === "") return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (typeof value === "number") {
+    const ms = value > 1e12 ? value : value * 1000;
+    const d = new Date(ms);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const numeric = Number(value);
+  if (!Number.isNaN(numeric) && String(value).trim() !== "") {
+    const ms = numeric > 1e12 ? numeric : numeric * 1000;
+    const d = new Date(ms);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  let normalized = String(value).trim();
+  // Supports DB format like "2026-04-01 17:10:31+00"
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{2}$/.test(normalized)) {
+    normalized = normalized.replace(" ", "T") + ":00";
+  } else if (
+    /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/.test(normalized)
+  ) {
+    normalized = normalized.replace(" ", "T");
+  } else if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}Z$/.test(normalized)) {
+    normalized = normalized.replace(" ", "T");
+  }
+  const d = new Date(normalized);
+  return Number.isNaN(d.getTime()) ? null : d;
 };
 
 const getCookieDomains = () => {
@@ -145,6 +222,8 @@ const MainLayout = ({ children }) => {
     return TRANSLATE_LANGUAGES.some((l) => l.value === saved) ? saved : "en";
   });
   const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
+  const [tenantSubscription, setTenantSubscription] = useState(null);
+  const [tenantSubscriptionLoaded, setTenantSubscriptionLoaded] = useState(false);
   const pendingLanguageRef = useRef(uiLanguage);
   const translateInitRef = useRef(null);
 
@@ -189,6 +268,104 @@ const MainLayout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { profile, signOut } = useAuth();
+  const isSuperadmin = profile?.role === "superadmin";
+  const EXPIRED_ALLOWED_ROUTES = new Set(["/subscription", "/subscription-expired"]);
+
+  useEffect(() => {
+    if (!profile?.tenant_id || isSuperadmin) {
+      setTenantSubscription(null);
+      setTenantSubscriptionLoaded(true);
+      return;
+    }
+    let active = true;
+    const loadTenantSubscription = async () => {
+      setTenantSubscriptionLoaded(false);
+      try {
+        const { data, error } = await supabase
+          .from("tenants")
+          .select(
+            "id, plan, status, current_period_end, subscription_end_date, subscription_end, trial_ends_at, auto_renew, plan_override",
+          )
+          .eq("id", profile.tenant_id)
+          .maybeSingle();
+
+        if (error) {
+          console.error("Failed to load tenant subscription in MainLayout:", error);
+        }
+
+        if (active) {
+          setTenantSubscription(data || null);
+          setTenantSubscriptionLoaded(true);
+        }
+      } catch (error) {
+        console.error("Unexpected error loading tenant subscription in MainLayout:", error);
+        if (active) {
+          setTenantSubscription(null);
+          setTenantSubscriptionLoaded(true);
+        }
+      }
+    };
+    loadTenantSubscription();
+    return () => {
+      active = false;
+    };
+  }, [profile?.tenant_id, isSuperadmin]);
+
+  const getSubscriptionLockState = () => {
+    if (isSuperadmin || !profile?.tenant_id) {
+      return { locked: false, message: "" };
+    }
+    if (!tenantSubscriptionLoaded) {
+      return { locked: false, message: "" };
+    }
+    if (!tenantSubscription) {
+      return {
+        locked: true,
+        message:
+          "We could not verify your subscription. Please reactivate or upgrade to continue.",
+      };
+    }
+    const now = Date.now();
+    const status = String(tenantSubscription.status || "").toLowerCase();
+    const isPlanOverride = tenantSubscription.plan_override === true;
+    if (isPlanOverride) {
+      return { locked: false, message: "" };
+    }
+    const endDate = parseDateValue(tenantSubscription.current_period_end);
+    const trialEnd = parseDateValue(tenantSubscription.trial_ends_at);
+    const isCancelled = status === "cancelled";
+    const isInactiveStatus = ["expired", "inactive", "suspended"].includes(
+      status,
+    );
+    const hasTrialEnded = !!trialEnd && trialEnd.getTime() < now;
+    const didBillingAdvancePastTrial =
+      !!(trialEnd && endDate && endDate.getTime() > trialEnd.getTime());
+    const isTrialExpired =
+      hasTrialEnded &&
+      (["trial", "trialing", "on_trial"].includes(status) ||
+        !didBillingAdvancePastTrial);
+    const isPeriodEnded = endDate && endDate.getTime() < now;
+    const isCancelledEnded = isCancelled && endDate && endDate.getTime() < now;
+    const locked = !!(
+      isInactiveStatus ||
+      isTrialExpired ||
+      isPeriodEnded ||
+      isCancelledEnded
+    );
+    const message = isTrialExpired
+      ? "Your trial has expired. Upgrade to continue."
+      : "Your subscription has expired. Upgrade or reactivate to restore access.";
+    return { locked, message };
+  };
+
+  const subscriptionLock = getSubscriptionLockState();
+  const isPmOrEmployee =
+    profile?.role === "project_manager" || profile?.role === "employee";
+  const lockTargetRoute = isPmOrEmployee ? "/subscription-expired" : "/subscription";
+  const isSidebarHardDisabled = subscriptionLock.locked && isPmOrEmployee;
+  const showSubscriptionBanner = subscriptionLock.locked && !isPmOrEmployee;
+  const isRouteLocked = (route) =>
+    subscriptionLock.locked && !EXPIRED_ALLOWED_ROUTES.has(route);
 
   useEffect(() => {
     localStorage.setItem("themeMode", themeMode);
@@ -340,7 +517,7 @@ const MainLayout = ({ children }) => {
       let dmUnreadQuery = supabase
         .from("messages")
         .select(
-          "id,sender_id,message,file_type,meeting_meta,created_at,sender:profiles!messages_sender_id_fkey(id,full_name,user_photo)",
+          "id,sender_id,message,file_type,created_at,sender:profiles!messages_sender_id_fkey(id,full_name,user_photo)",
         )
         .eq("receiver_id", profile.id)
         .is("channel_id", null)
@@ -358,14 +535,19 @@ const MainLayout = ({ children }) => {
         .select("channel_id")
         .eq("user_id", profile.id);
       if (tenantId) {
-        channelMembershipQuery = channelMembershipQuery.eq("tenant_id", tenantId);
+        channelMembershipQuery = channelMembershipQuery.eq(
+          "tenant_id",
+          tenantId,
+        );
       }
       const { data: membershipRows, error: membershipError } =
         await channelMembershipQuery;
       if (membershipError) throw membershipError;
 
       const channelIds = Array.from(
-        new Set((membershipRows || []).map((row) => row.channel_id).filter(Boolean)),
+        new Set(
+          (membershipRows || []).map((row) => row.channel_id).filter(Boolean),
+        ),
       );
 
       let unreadChannelMessages = [];
@@ -376,16 +558,18 @@ const MainLayout = ({ children }) => {
           .from("channels")
           .select("id,name")
           .in("id", channelIds);
-        if (tenantId) channelNameQuery = channelNameQuery.eq("tenant_id", tenantId);
+        if (tenantId)
+          channelNameQuery = channelNameQuery.eq("tenant_id", tenantId);
 
         let channelMessagesQuery = supabase
           .from("messages")
           .select(
-            "id,sender_id,channel_id,message,file_type,meeting_meta,created_at,sender:profiles!messages_sender_id_fkey(id,full_name,user_photo)",
+            "id,sender_id,channel_id,message,file_type,created_at,sender:profiles!messages_sender_id_fkey(id,full_name,user_photo)",
           )
           .in("channel_id", channelIds)
           .neq("sender_id", profile.id);
-        if (tenantId) channelMessagesQuery = channelMessagesQuery.eq("tenant_id", tenantId);
+        if (tenantId)
+          channelMessagesQuery = channelMessagesQuery.eq("tenant_id", tenantId);
 
         const [
           { data: channelRows, error: channelRowsError },
@@ -421,11 +605,6 @@ const MainLayout = ({ children }) => {
       const makePreviewText = (msg) => {
         const text = msg?.message?.trim();
         if (text) return text;
-        if (msg?.meeting_meta?.type) {
-          return msg.meeting_meta.type === "video"
-            ? "Started a video call"
-            : "Started an audio call";
-        }
         if (msg?.file_type === "voice") return "Voice message";
         if (msg?.file_type === "image") return "Image";
         if (msg?.file_type === "video") return "Video";
@@ -453,7 +632,8 @@ const MainLayout = ({ children }) => {
 
       const previewItems = [...dmItems, ...channelItems]
         .sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         )
         .slice(0, 6);
 
@@ -473,7 +653,7 @@ const MainLayout = ({ children }) => {
     "/teams": { icon: <TeamOutlined />, label: "Teams" },
     "/meetings": { icon: <VideoCameraOutlined />, label: "Meetings" },
     "/monitor": { icon: <CalendarOutlined />, label: "Attendance" },
-    "/stats": { icon: <PieChartOutlined />, label: "Attendance Stats" },
+    "/payroll": { icon: <PieChartOutlined />, label: "Payroll" },
     "/standups": { icon: <BarChartOutlined />, label: "Standup Stats" },
     "/requests": { icon: <FileTextOutlined />, label: "Requests" },
     "/leads": { icon: <CustomerServiceOutlined />, label: "Leads" },
@@ -491,7 +671,11 @@ const MainLayout = ({ children }) => {
     "/subscription": { icon: <CreditCardOutlined />, label: "Subscription" },
     "/settings": { icon: <SettingOutlined />, label: "Settings" },
   };
-  const ALWAYS_VISIBLE_ADMIN_ROUTES = new Set(["/support", "/report-problem"]);
+  const ALWAYS_VISIBLE_ADMIN_ROUTES = new Set([
+    "/meetings",
+    "/support",
+    "/report-problem",
+  ]);
 
   const ADMIN_GROUPS = [
     {
@@ -505,7 +689,7 @@ const MainLayout = ({ children }) => {
       routes: [
         "/meetings",
         "/monitor",
-        "/stats",
+        "/payroll",
         "/standups",
         "/requests",
         "/leads",
@@ -533,7 +717,6 @@ const MainLayout = ({ children }) => {
   ];
 
   const getMenuItems = () => {
-    // ── Superadmin menu (no permission filtering needed) ─────────────────────
     const superadminMenuItems = [
       {
         key: "platform-overview",
@@ -601,7 +784,7 @@ const MainLayout = ({ children }) => {
       },
     ];
 
-    // ── Admin menu — filtered by profile.permissions ──────────────────────────
+    // â”€â”€ Admin menu â€” filtered by profile.permissions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const adminPermissions = Array.isArray(profile?.permissions)
       ? new Set(profile.permissions)
       : null; // null = no restrictions (full access)
@@ -618,6 +801,7 @@ const MainLayout = ({ children }) => {
           key: route,
           icon: ALL_ADMIN_ROUTES[route].icon,
           label: ALL_ADMIN_ROUTES[route].label,
+          disabled: isRouteLocked(route),
         }));
 
       // Skip the entire group if it has no visible children
@@ -631,7 +815,7 @@ const MainLayout = ({ children }) => {
       };
     }).filter(Boolean);
 
-    // ── PM menu ───────────────────────────────────────────────────────────────
+    // â”€â”€ PM menu â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const pmMenuItems = [
       {
         key: "main",
@@ -642,9 +826,20 @@ const MainLayout = ({ children }) => {
             key: "/dashboard",
             icon: <DashboardOutlined />,
             label: "Dashboard",
+            disabled: isRouteLocked("/dashboard"),
           },
-          { key: "/projects", icon: <ProjectOutlined />, label: "Projects" },
-          { key: "/requests", icon: <FileTextOutlined />, label: "Requests" },
+          {
+            key: "/projects",
+            icon: <ProjectOutlined />,
+            label: "Projects",
+            disabled: isRouteLocked("/projects"),
+          },
+          {
+            key: "/requests",
+            icon: <FileTextOutlined />,
+            label: "Requests",
+            disabled: isRouteLocked("/requests"),
+          },
         ],
       },
       {
@@ -656,14 +851,32 @@ const MainLayout = ({ children }) => {
             key: "/meetings",
             icon: <VideoCameraOutlined />,
             label: "Meetings",
+            disabled: isRouteLocked("/meetings"),
           },
-          { key: "/standups", icon: <CommentOutlined />, label: "Standups" },
+          {
+            key: "/standups",
+            icon: <CommentOutlined />,
+            label: "Standups",
+            disabled: isRouteLocked("/standups"),
+          },
+          {
+            key: "/planning",
+            icon: <AuditOutlined />,
+            label: "Planning",
+            disabled: isRouteLocked("/planning"),
+          },
           {
             key: "/communication",
             icon: <MessageOutlined />,
             label: "Communication",
+            disabled: isRouteLocked("/communication"),
           },
-          { key: "/settings", icon: <SettingOutlined />, label: "Profile" },
+          {
+            key: "/settings",
+            icon: <SettingOutlined />,
+            label: "Profile",
+            disabled: isRouteLocked("/settings"),
+          },
         ],
       },
       {
@@ -675,12 +888,12 @@ const MainLayout = ({ children }) => {
             key: "/report-problem",
             icon: <AlertOutlined />,
             label: "Report a Problem",
-          }
+            disabled: isRouteLocked("/report-problem"),
+          },
         ],
       },
     ];
 
-    // ── Employee menu ─────────────────────────────────────────────────────────
     const employeeMenuItems = [
       {
         key: "main",
@@ -691,9 +904,20 @@ const MainLayout = ({ children }) => {
             key: "/dashboard",
             icon: <DashboardOutlined />,
             label: "Dashboard",
+            disabled: isRouteLocked("/dashboard"),
           },
-          { key: "/projects", icon: <ProjectOutlined />, label: "My Projects" },
-          { key: "/requests", icon: <FileTextOutlined />, label: "Requests" },
+          {
+            key: "/projects",
+            icon: <ProjectOutlined />,
+            label: "My Projects",
+            disabled: isRouteLocked("/projects"),
+          },
+          {
+            key: "/requests",
+            icon: <FileTextOutlined />,
+            label: "Requests",
+            disabled: isRouteLocked("/requests"),
+          },
         ],
       },
       {
@@ -705,22 +929,25 @@ const MainLayout = ({ children }) => {
             key: "/meetings",
             icon: <VideoCameraOutlined />,
             label: "Meetings",
+            disabled: isRouteLocked("/meetings"),
           },
-          { key: "/standups", icon: <CommentOutlined />, label: "Standups" },
+          {
+            key: "/standups",
+            icon: <CommentOutlined />,
+            label: "Standups",
+            disabled: isRouteLocked("/standups"),
+          },
           {
             key: "/attendance",
             icon: <CalendarOutlined />,
             label: "Attendance",
+            disabled: isRouteLocked("/attendance"),
           },
           {
             key: "/communication",
             icon: <MessageOutlined />,
             label: "Communication",
-          },
-          {
-            key: "/report-problem",
-            icon: <AlertOutlined />,
-            label: "Report a Problem",
+            disabled: isRouteLocked("/communication"),
           },
         ],
       },
@@ -733,8 +960,27 @@ const MainLayout = ({ children }) => {
             key: "/training-material",
             icon: <ReadOutlined />,
             label: "Training",
+            disabled: isRouteLocked("/training-material"),
           },
-          { key: "/profile", icon: <IdcardOutlined />, label: "Profile" },
+          {
+            key: "/profile",
+            icon: <IdcardOutlined />,
+            label: "Profile",
+            disabled: isRouteLocked("/profile"),
+          },
+        ],
+      },
+      {
+        key: "support",
+        type: "group",
+        label: collapsed ? null : "Support",
+        children: [
+          {
+            key: "/report-problem",
+            icon: <AlertOutlined />,
+            label: "Report a Problem",
+            disabled: isRouteLocked("/report-problem"),
+          },
         ],
       },
     ];
@@ -749,10 +995,20 @@ const MainLayout = ({ children }) => {
 
   const handleMenuClick = ({ key }) => {
     if (key.startsWith("/")) {
+      if (isRouteLocked(key)) {
+        navigate(lockTargetRoute);
+        return;
+      }
       navigate(key);
       if (window.innerWidth < 768) setCollapsed(true);
     }
   };
+
+  useEffect(() => {
+    if (isRouteLocked(location.pathname)) {
+      navigate(lockTargetRoute, { replace: true });
+    }
+  }, [location.pathname, navigate, subscriptionLock.locked, lockTargetRoute]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -780,9 +1036,7 @@ const MainLayout = ({ children }) => {
     window.location.reload();
   };
 
-  const isSuperadmin = profile?.role === "superadmin";
-
-  // ─── Color tokens ──────────────────────────────────────────────────────────
+  // â”€â”€â”€ Color tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const t = isDarkMode
     ? {
         bg: "#0c0c0e",
@@ -856,8 +1110,9 @@ const MainLayout = ({ children }) => {
     "/requests": "Requests",
     "/attendance": "Attendance",
     "/monitor": "Attendance",
-    "/stats": "Attendance Stats",
+    "/payroll": "Payroll",
     "/standups": "Standup Stats",
+    "/planning": "Planning",
     "/leads": "Leads",
     "/payments": "Payments",
     "/recruitment": "Recruitment",
@@ -1042,11 +1297,15 @@ const MainLayout = ({ children }) => {
 
       <div style={{ maxHeight: 320, overflowY: "auto", padding: "6px" }}>
         {activityLoading ? (
-          <div style={{ padding: "12px 10px", fontSize: 12.5, color: t.textSub }}>
+          <div
+            style={{ padding: "12px 10px", fontSize: 12.5, color: t.textSub }}
+          >
             Loading unread activity...
           </div>
         ) : activityItems.length === 0 ? (
-          <div style={{ padding: "12px 10px", fontSize: 12.5, color: t.textSub }}>
+          <div
+            style={{ padding: "12px 10px", fontSize: 12.5, color: t.textSub }}
+          >
             No unread messages
           </div>
         ) : (
@@ -1094,7 +1353,9 @@ const MainLayout = ({ children }) => {
                   >
                     {item.senderName}
                   </span>
-                  <span style={{ fontSize: 11, color: t.textMuted, flexShrink: 0 }}>
+                  <span
+                    style={{ fontSize: 11, color: t.textMuted, flexShrink: 0 }}
+                  >
                     {formatActivityTime(item.createdAt)}
                   </span>
                 </div>
@@ -1188,12 +1449,12 @@ const MainLayout = ({ children }) => {
           top: 0 !important;
         }
 
-        /* ── Scrollbar ── */
+        /* â”€â”€ Scrollbar â”€â”€ */
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: ${t.border}; border-radius: 4px; }
 
-        /* ── Sidebar menu ── */
+        /* â”€â”€ Sidebar menu â”€â”€ */
         .rs-menu .ant-menu-item-group-title {
           padding: 16px 12px 4px !important;
           font-size: 10px !important;
@@ -1227,7 +1488,7 @@ const MainLayout = ({ children }) => {
         .rs-menu .ant-menu-item::after { display: none !important; }
         .rs-menu .ant-menu-item-icon { font-size: 15px !important; }
 
-        /* Collapsed state — center icons */
+        /* Collapsed state â€” center icons */
         .rs-sider-collapsed .rs-menu .ant-menu-item {
           margin: 1px 4px !important;
           width: calc(100% - 8px) !important;
@@ -1242,15 +1503,15 @@ const MainLayout = ({ children }) => {
           font-size: 0 !important;
         }
 
-        /* ── Hover utility ── */
+        /* â”€â”€ Hover utility â”€â”€ */
         .rs-icon-btn:hover { background: ${t.hover} !important; }
         .rs-user-btn:hover { background: ${t.hover} !important; }
 
-        /* ── Language selector ── */
+        /* â”€â”€ Language selector â”€â”€ */
         .rs-lang-btn {
           height: 36px;
           min-width: 36px;
-          border: 1px solid ${isDarkMode ? "#355a88" : "#9ec5ff"};
+          border: 1px solid ${t.border};
           background: ${isDarkMode ? "#151b22" : "#f8fbff"};
           border-radius: 10px;
           display: inline-flex;
@@ -1260,14 +1521,21 @@ const MainLayout = ({ children }) => {
           cursor: pointer;
           transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
           color: ${t.textSub};
-          box-shadow: 0 0 0 1px ${isDarkMode ? "rgba(65,140,225,0.25)" : "rgba(64,132,220,0.15)"}, 0 8px 24px ${isDarkMode ? "rgba(0,0,0,0.32)" : "rgba(24,84,150,0.14)"};
+          box-shadow: none;
+          outline: none;
         }
         .rs-lang-btn:hover {
-          border-color: ${isDarkMode ? "#53a4ff" : "#4b9bff"};
-          box-shadow: 0 0 0 3px ${isDarkMode ? "rgba(83,164,255,0.22)" : "rgba(75,155,255,0.2)"}, 0 10px 28px ${isDarkMode ? "rgba(0,0,0,0.35)" : "rgba(24,84,150,0.18)"};
+          border-color: ${t.border};
+          box-shadow: none;
           transform: translateY(-1px);
         }
-        .rs-lang-btn.open { border-color: ${isDarkMode ? "#53a4ff" : "#4b9bff"}; }
+        .rs-lang-btn.open { border-color: ${t.border}; }
+        .rs-lang-btn:focus,
+        .rs-lang-btn:focus-visible {
+          outline: none;
+          border-color: ${t.border};
+          box-shadow: none;
+        }
         .rs-lang-current {
           display: inline-flex;
           align-items: center;
@@ -1408,7 +1676,7 @@ const MainLayout = ({ children }) => {
           padding: 0 !important;
         }
 
-        /* ── Ant dropdown tweaks ── */
+        /* â”€â”€ Ant dropdown tweaks â”€â”€ */
         .ant-dropdown-menu {
           background: ${t.surfaceRaised} !important;
           border: 1px solid ${t.border} !important;
@@ -1428,7 +1696,7 @@ const MainLayout = ({ children }) => {
         .ant-dropdown-menu-item-danger { color: #f87171 !important; }
         .ant-dropdown-menu-item-divider { background: ${t.border} !important; margin: 4px 0 !important; }
 
-        /* ── Badge ── */
+        /* â”€â”€ Badge â”€â”€ */
         .ant-badge-count {
           background: ${t.accent} !important;
           font-size: 10px !important;
@@ -1447,7 +1715,7 @@ const MainLayout = ({ children }) => {
             fontFamily: "'Geist', -apple-system, sans-serif",
           }}
         >
-          {/* ── Sidebar ── */}
+          {/* â”€â”€ Sidebar â”€â”€ */}
           <Sider
             trigger={null}
             collapsible
@@ -1528,6 +1796,8 @@ const MainLayout = ({ children }) => {
                 overflowX: "hidden",
                 height: "calc(100vh - 56px)",
                 padding: "4px 0 24px",
+                pointerEvents: isSidebarHardDisabled ? "none" : "auto",
+                opacity: isSidebarHardDisabled ? 0.52 : 1,
               }}
             >
               <Menu
@@ -1542,7 +1812,7 @@ const MainLayout = ({ children }) => {
             </div>
           </Sider>
 
-          {/* ── Main area ── */}
+          {/* â”€â”€ Main area â”€â”€ */}
           <Layout
             style={{
               marginLeft: isMobile
@@ -1555,7 +1825,7 @@ const MainLayout = ({ children }) => {
               minHeight: "100vh",
             }}
           >
-            {/* ── Header ── */}
+            {/* â”€â”€ Header â”€â”€ */}
             <Header
               style={{
                 padding: "0 20px 0 24px",
@@ -1634,15 +1904,27 @@ const MainLayout = ({ children }) => {
                   >
                     <span className="rs-lang-current">
                       <span className="rs-lang-current-flag" aria-hidden="true">
-                        <FlagMark country={currentLanguage.country} width={30} height={20} />
+                        <FlagMark
+                          country={currentLanguage.country}
+                          width={30}
+                          height={20}
+                        />
                       </span>
                       {!isMobile && (
                         <span className="rs-lang-current-main">
-                          <span className="rs-lang-current-name">{currentLanguage.label}</span>
-                          <span className="rs-lang-current-code">({currentLanguage.flag})</span>
+                          <span className="rs-lang-current-name">
+                            {currentLanguage.label}
+                          </span>
+                          <span className="rs-lang-current-code">
+                            ({currentLanguage.flag})
+                          </span>
                         </span>
                       )}
-                      {isMobile && <span className="rs-lang-current-mobile">{currentLanguage.flag}</span>}
+                      {isMobile && (
+                        <span className="rs-lang-current-mobile">
+                          {currentLanguage.flag}
+                        </span>
+                      )}
                     </span>
                     <span className="rs-lang-caret">
                       <DownOutlined />
@@ -1816,7 +2098,7 @@ const MainLayout = ({ children }) => {
               </div>
             </Header>
 
-            {/* ── Content ── */}
+            {/* â”€â”€ Content â”€â”€ */}
             <Content
               style={{
                 margin: "20px",
@@ -1828,6 +2110,66 @@ const MainLayout = ({ children }) => {
                 overflow: "auto",
               }}
             >
+              {showSubscriptionBanner && (
+                <div
+                  style={{
+                    marginBottom: 16,
+                    padding: "12px 14px",
+                    borderRadius: "10px",
+                    border: `1px solid ${isDarkMode ? "#5f1d1d" : "#fecaca"}`,
+                    background: isDarkMode ? "#2b1515" : "#fef2f2",
+                    color: isDarkMode ? "#fecaca" : "#991b1b",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span style={{ fontSize: "13px", fontWeight: 560 }}>
+                    {subscriptionLock.message}
+                  </span>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <button
+                      onClick={() => navigate("/subscription?action=reactivate")}
+                      style={{
+                        border: `1px solid ${isDarkMode ? "#15803d" : "#86efac"}`,
+                        borderRadius: "8px",
+                        padding: "8px 12px",
+                        background: isDarkMode ? "rgba(21,128,61,0.22)" : "#f0fdf4",
+                        color: isDarkMode ? "#86efac" : "#166534",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Reactivate
+                    </button>
+                    <button
+                      onClick={() => navigate("/subscription?action=upgrade")}
+                      style={{
+                        border: "none",
+                        borderRadius: "8px",
+                        padding: "8px 12px",
+                        background: "#0f172a",
+                        color: "#fff",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Upgrade
+                    </button>
+                  </div>
+                </div>
+              )}
               {children}
             </Content>
           </Layout>
@@ -1838,5 +2180,3 @@ const MainLayout = ({ children }) => {
 };
 
 export default MainLayout;
-
-

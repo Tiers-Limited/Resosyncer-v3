@@ -1204,19 +1204,79 @@ const Projects = () => {
     fetchProjects(currentTenantId);
   };
 
-  const handleDelete = (id) =>
-    Modal.confirm({
-      title: "Delete Project",
-      content: "Permanently deleted. Cannot be undone.",
-      okText: "Delete",
-      okType: "danger",
-      onOk: async () => {
-        await supabase.from("projects").delete().eq("id", id);
-        message.success("Deleted");
-        setDrawerVisible(false);
-        fetchProjects(currentTenantId);
-      },
-    });
+  const hardDeleteProject = async (projectId) => {
+    // Delete linked rows first to avoid FK constraint failures.
+    await supabase.from("project_client_messages").delete().eq("project_id", projectId);
+    await supabase.from("project_client_invites").delete().eq("project_id", projectId);
+    await supabase.from("project_assignees").delete().eq("project_id", projectId);
+    await supabase.from("tickets").delete().eq("project_id", projectId);
+    await supabase.from("sprints").delete().eq("project_id", projectId);
+    await supabase.from("projects").delete().eq("id", projectId);
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      const { count, error: ticketCountError } = await supabase
+        .from("tickets")
+        .select("id", { count: "exact", head: true })
+        .eq("project_id", id);
+
+      if (ticketCountError) throw ticketCountError;
+
+      if ((count || 0) > 0) {
+        Modal.confirm({
+          title: "Project has linked tickets",
+          content: `This project has ${count} linked ticket${count === 1 ? "" : "s"}. Choose an action:`,
+          okText: "Delete project + tickets",
+          okType: "danger",
+          cancelText: "Archive project",
+          onOk: async () => {
+            try {
+              await hardDeleteProject(id);
+              message.success("Project and linked tickets deleted");
+              setDrawerVisible(false);
+              fetchProjects(currentTenantId);
+            } catch (err) {
+              message.error(err?.message || "Failed to delete project");
+            }
+          },
+          onCancel: async () => {
+            try {
+              await supabase
+                .from("projects")
+                .update({ is_archived: true })
+                .eq("id", id);
+              message.success("Project archived");
+              setDrawerVisible(false);
+              fetchProjects(currentTenantId);
+            } catch (err) {
+              message.error(err?.message || "Failed to archive project");
+            }
+          },
+        });
+        return;
+      }
+
+      Modal.confirm({
+        title: "Delete Project",
+        content: "Permanently deleted. Cannot be undone.",
+        okText: "Delete",
+        okType: "danger",
+        onOk: async () => {
+          try {
+            await hardDeleteProject(id);
+            message.success("Deleted");
+            setDrawerVisible(false);
+            fetchProjects(currentTenantId);
+          } catch (err) {
+            message.error(err?.message || "Failed to delete project");
+          }
+        },
+      });
+    } catch (err) {
+      message.error(err?.message || "Could not check linked tickets");
+    }
+  };
 
   const handleDragStart = (e, i) => {
     e.dataTransfer.effectAllowed = "move";
@@ -3093,6 +3153,12 @@ const ProjectForm = ({
   const [saving, setSaving] = useState(false);
   const [section, setSection] = useState("general");
   const [existingClients, setExistingClients] = useState([]);
+  const [clientInviteOpen, setClientInviteOpen] = useState(false);
+  const [clientInviteSending, setClientInviteSending] = useState(false);
+  const [clientInviteMessage, setClientInviteMessage] = useState("");
+  const [inviteClientEmails, setInviteClientEmails] = useState("");
+  const [existingClientInvite, setExistingClientInvite] = useState(null);
+  const [senderCompanyName, setSenderCompanyName] = useState("Your Company");
   const [clientMode, setClientMode] = useState(
     project?.client_name ? "existing" : "new",
   );
@@ -3149,7 +3215,112 @@ const ProjectForm = ({
     load();
   }, [tenantId]);
 
+  useEffect(() => {
+    if (!project?.id) {
+      setExistingClientInvite(null);
+      return;
+    }
+    let mounted = true;
+    const loadExistingInvite = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("project_client_invites")
+          .select("id, share_token, last_sent_at")
+          .eq("project_id", project.id)
+          .order("last_sent_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (error) throw error;
+        if (mounted) setExistingClientInvite(data || null);
+      } catch (err) {
+        console.error("Unable to read existing client invite:", err);
+        if (mounted) setExistingClientInvite(null);
+      }
+    };
+    loadExistingInvite();
+    return () => {
+      mounted = false;
+    };
+  }, [project?.id]);
+
+  useEffect(() => {
+    const loadSenderCompanyName = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const metadataCompany =
+          user?.user_metadata?.company_name ||
+          user?.user_metadata?.companyName ||
+          null;
+        if (metadataCompany) setSenderCompanyName(metadataCompany);
+
+        const { data: profileCompany } = await supabase
+          .from("profiles")
+          .select("company_name")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (profileCompany?.company_name) {
+          setSenderCompanyName(profileCompany.company_name);
+        }
+      } catch (err) {
+        console.error("Failed to resolve company name for emails:", err);
+      }
+    };
+
+    loadSenderCompanyName();
+  }, []);
+
   const [uploadingDoc, setUploadingDoc] = useState(false);
+
+  const buildClientProgressSnapshot = async (projectId) => {
+    const [{ data: ticketRows }, { data: sprintRows }, { data: projectRow }] =
+      await Promise.all([
+        supabase
+          .from("tickets")
+          .select("id, title, status, priority, ticket_type, sprint_id")
+          .eq("project_id", projectId),
+        supabase
+          .from("sprints")
+          .select("id, name, status, start_date, end_date")
+          .eq("project_id", projectId),
+        supabase
+          .from("projects")
+          .select("id, name, status, client_name, start_date, end_date")
+          .eq("id", projectId)
+          .maybeSingle(),
+      ]);
+
+    const safeTickets = ticketRows || [];
+    const safeSprints = sprintRows || [];
+    const doneCount = safeTickets.filter(
+      (t) => t.status === "completed" || t.status === "closed",
+    ).length;
+
+    return {
+      generated_at: new Date().toISOString(),
+      project: projectRow || {
+        id: projectId,
+        name: form.name,
+        status: form.status,
+        client_name: form.client_name,
+        start_date: form.start_date,
+        end_date: form.end_date,
+      },
+      tickets: safeTickets,
+      sprints: safeSprints,
+      summary: {
+        total_tickets: safeTickets.length,
+        completed_tickets: doneCount,
+        progress_percent: safeTickets.length
+          ? Math.round((doneCount / safeTickets.length) * 100)
+          : 0,
+      },
+    };
+  };
 
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -3282,10 +3453,166 @@ const ProjectForm = ({
           to: emp.email,
           subject: `You've been assigned to "${projectName}"`,
           body: html,
-          companyName: "Your Company",
+          companyName: senderCompanyName,
         });
       }),
     );
+  };
+
+  const sendClientInvite = async () => {
+    if (!project?.id) {
+      message.error("Please save project first, then invite client.");
+      return;
+    }
+
+    setClientInviteSending(true);
+    try {
+      const inviteEmails = String(inviteClientEmails || "")
+        .split(/[\n,;]/)
+        .map((e) => e.trim())
+        .filter(Boolean);
+
+      const allRecipientEmails = Array.from(
+        new Set(
+          inviteEmails.filter(Boolean).map((email) => email.toLowerCase()),
+        ),
+      );
+
+      if (!allRecipientEmails.length) {
+        message.error("Add at least one client email.");
+        setClientInviteSending(false);
+        return;
+      }
+
+      const invalidEmails = allRecipientEmails.filter(
+        (email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
+      );
+      if (invalidEmails.length) {
+        message.error(`Invalid email: ${invalidEmails[0]}`);
+        setClientInviteSending(false);
+        return;
+      }
+
+      const snapshot = await buildClientProgressSnapshot(project.id);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      let sentOk = 0;
+      let sendFailed = 0;
+      let primaryInviteRecord = null;
+
+      for (const recipientEmail of allRecipientEmails) {
+        const { data: existingForEmail } = await supabase
+          .from("project_client_invites")
+          .select("id, share_token, last_sent_at")
+          .eq("project_id", project.id)
+          .eq("client_email", recipientEmail)
+          .maybeSingle();
+
+        const token =
+          existingForEmail?.share_token ||
+          (crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`).replace(
+            /-/g,
+            "",
+          );
+        const progressLink = `${window.location.origin}/client/project-progress/${token}`;
+
+        const payload = {
+          tenant_id: tenantId,
+          project_id: project.id,
+          client_email: recipientEmail,
+          client_name: null,
+          invite_message: clientInviteMessage.trim() || null,
+          share_token: token,
+          invited_by: user?.id || null,
+          status: "sent",
+          snapshot,
+          last_sent_at: new Date().toISOString(),
+        };
+
+        if (existingForEmail?.id) {
+          const { error: upErr } = await supabase
+            .from("project_client_invites")
+            .update(payload)
+            .eq("id", existingForEmail.id);
+          if (upErr) throw upErr;
+        } else {
+          const { error: inErr } = await supabase
+            .from("project_client_invites")
+            .insert([payload]);
+          if (inErr) throw inErr;
+        }
+
+        if (!primaryInviteRecord) {
+          primaryInviteRecord = {
+            id: existingForEmail?.id || null,
+            share_token: token,
+            last_sent_at: payload.last_sent_at,
+          };
+        }
+
+        const html = `
+          <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:28px 22px;background:#f8fafc;border-radius:12px;">
+            <div style="background:#0f172a;border-radius:10px;padding:20px;margin-bottom:20px;">
+              <h2 style="color:#fff;margin:0;font-size:20px;">Project Updates Access</h2>
+            </div>
+            <p style="font-size:14px;color:#334155;margin:0 0 10px;">
+              Hello ${form.client_name || "there"},
+            </p>
+            <p style="font-size:14px;color:#475569;line-height:1.6;margin:0 0 14px;">
+              You can track progress for <strong>${form.name}</strong> using the secure link below.
+            </p>
+            ${
+              clientInviteMessage?.trim()
+                ? `<div style="margin:0 0 14px;padding:10px 12px;border-radius:8px;background:#fff;border:1px solid #e2e8f0;color:#334155;font-size:13px;line-height:1.6;">${clientInviteMessage.trim()}</div>`
+                : ""
+            }
+            <a href="${progressLink}" style="display:inline-block;padding:10px 16px;background:#1d4ed8;color:#fff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:700;">
+              Open Project Updates
+            </a>
+            <p style="font-size:12px;color:#94a3b8;line-height:1.6;margin:14px 0 0;">
+              If button does not work, open this URL:<br />
+              <span style="word-break:break-all;color:#64748b;">${progressLink}</span>
+            </p>
+          </div>
+        `;
+
+        const emailRes = await sendEmail({
+          to: recipientEmail,
+          subject: `Project updates: ${form.name}`,
+          body: html,
+          companyName: senderCompanyName,
+        });
+
+        if (emailRes.success) sentOk += 1;
+        else sendFailed += 1;
+      }
+
+      if (primaryInviteRecord) {
+        setExistingClientInvite(primaryInviteRecord);
+      }
+
+      if (sendFailed > 0 && sentOk > 0) {
+        message.warning(
+          `Invites saved for ${allRecipientEmails.length} client(s). ${sentOk} email(s) sent, ${sendFailed} failed.`,
+        );
+      } else if (sendFailed > 0) {
+        message.warning(
+          "Invites were saved, but email sending failed. You can still share links from the client invite area.",
+        );
+      } else {
+        message.success(`Client invite sent to ${sentOk} recipient(s).`);
+      }
+
+      setInviteClientEmails("");
+      setClientInviteOpen(false);
+    } catch (err) {
+      console.error("Failed to send client invite:", err);
+      message.error("Unable to send client invite.");
+    } finally {
+      setClientInviteSending(false);
+    }
   };
 
   const save = async () => {
@@ -4364,6 +4691,84 @@ const ProjectForm = ({
                 </div>
               </div>
             )}
+
+            {project?.id && (
+              <div
+                style={{
+                  marginTop: 8,
+                  padding: "14px 16px",
+                  borderRadius: 10,
+                  border: "1px solid var(--p-border)",
+                  background: "var(--p-card2)",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "var(--p-text)",
+                    marginBottom: 8,
+                    fontFamily: "'DM Sans',sans-serif",
+                  }}
+                >
+                  Client Invite
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--p-muted)",
+                    marginBottom: 10,
+                    fontFamily: "'DM Sans',sans-serif",
+                  }}
+                >
+                  Send project messages and updates link to client email.
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button
+                    onClick={() => setClientInviteOpen(true)}
+                    style={{
+                      padding: "8px 14px",
+                      borderRadius: 8,
+                      border: "none",
+                      background: "var(--p-accent)",
+                      color: "#fff",
+                      cursor: "pointer",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      fontFamily: "'DM Sans',sans-serif",
+                    }}
+                  >
+                    Send Invite
+                  </button>
+                  {existingClientInvite?.share_token && (
+                    <button
+                      onClick={() =>
+                        window.open(
+                          `${window.location.origin}/client/project-progress/${existingClientInvite.share_token}`,
+                          "_blank",
+                        )
+                      }
+                      style={{
+                        padding: "8px 14px",
+                        borderRadius: 8,
+                        border: "1px solid var(--p-border)",
+                        background: "transparent",
+                        color: "var(--p-sub)",
+                        cursor: "pointer",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        fontFamily: "'DM Sans',sans-serif",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      <Eye size={12} /> Open Progress Link
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -4403,6 +4808,39 @@ const ProjectForm = ({
           </div>
         )}
       </div>
+
+      <Modal
+        title="Invite Client To Project"
+        open={clientInviteOpen}
+        onCancel={() => setClientInviteOpen(false)}
+        onOk={sendClientInvite}
+        confirmLoading={clientInviteSending}
+        okText="Send Invite"
+        destroyOnClose
+      >
+        <div style={{ display: "grid", gap: 10 }}>
+          <div style={{ fontSize: 13, color: "#475569" }}>
+            Enter one or more client emails to send invite links.
+          </div>
+          <TextArea
+            rows={3}
+            value={inviteClientEmails}
+            onChange={(e) => setInviteClientEmails(e.target.value)}
+            placeholder="Client emails (comma or new line separated)"
+          />
+          <TextArea
+            rows={4}
+            value={clientInviteMessage}
+            onChange={(e) => setClientInviteMessage(e.target.value)}
+            placeholder="Optional message for client..."
+          />
+          {existingClientInvite?.share_token && (
+            <div style={{ fontSize: 12, color: "#64748b" }}>
+              Existing progress link will be reused and refreshed with latest PM updates.
+            </div>
+          )}
+        </div>
+      </Modal>
 
       {/* Footer */}
       <div

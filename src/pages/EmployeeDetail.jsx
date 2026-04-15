@@ -8,7 +8,6 @@ import {
   Banknote,
   Briefcase,
   Ticket,
-  Receipt,
   Mail,
   Phone,
   CreditCard,
@@ -70,21 +69,6 @@ const getIsDarkTheme = () => {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 };
 
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
 const STATUS_PROJECT = {
   not_started: { label: "Not Started", color: "#9a9a9a", bg: "#f5f5f5" },
   in_progress: { label: "In Progress", color: "#1677ff", bg: "#e6f4ff" },
@@ -111,32 +95,56 @@ const EMPLOYMENT_TYPE_LABEL = {
   intern: "Intern",
 };
 
-const Pill = ({ label, color, bg }) => (
-  <span
-    style={{
-      display: "inline-flex",
-      alignItems: "center",
-      padding: "2px 10px",
-      borderRadius: 20,
-      fontSize: 11,
-      fontWeight: 700,
-      letterSpacing: 0.3,
-      color,
-      background: bg,
-      textTransform: "uppercase",
-    }}
-  >
-    {label}
-  </span>
-);
+const hexToRgb = (hex) => {
+  const raw = (hex || "").replace("#", "").trim();
+  const normalized =
+    raw.length === 3
+      ? raw
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : raw;
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) return null;
+  return {
+    r: parseInt(normalized.slice(0, 2), 16),
+    g: parseInt(normalized.slice(2, 4), 16),
+    b: parseInt(normalized.slice(4, 6), 16),
+  };
+};
+
+const Pill = ({ label, color, bg, dark = false }) => {
+  const rgb = hexToRgb(color);
+  const darkBg = rgb ? `rgba(${rgb.r},${rgb.g},${rgb.b},0.18)` : "rgba(255,255,255,0.08)";
+  const darkBorder = rgb ? `1px solid rgba(${rgb.r},${rgb.g},${rgb.b},0.42)` : "1px solid rgba(255,255,255,0.2)";
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        padding: "2px 10px",
+        borderRadius: 20,
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: 0.3,
+        color,
+        background: dark ? darkBg : bg,
+        border: dark ? darkBorder : "1px solid transparent",
+        textTransform: "uppercase",
+      }}
+    >
+      {label}
+    </span>
+  );
+};
 
 const TagChip = ({ label }) => (
   <span
     style={{
       display: "inline-flex",
       alignItems: "center",
-      background: "var(--ed-card2)",
-      color: "var(--ed-sub)",
+      background: "var(--ed-tag-bg)",
+      color: "var(--ed-tag-text)",
+      border: "1px solid var(--ed-tag-border)",
       borderRadius: 6,
       padding: "2px 9px",
       fontSize: 11.5,
@@ -166,20 +174,26 @@ const CSS = `
   --ed-hover:#fafafa;
   --ed-tab:#f5f5f5;
   --ed-tab-active:#ffffff;
+  --ed-tag-bg:#f4f5f7;
+  --ed-tag-text:#4a4a4a;
+  --ed-tag-border:#eceef2;
   color:var(--ed-text);
 }
 .ed.dark {
-  --ed-bg:#0a0f1e;
-  --ed-card:#111827;
-  --ed-card2:#0d1220;
-  --ed-border:#1e2a3e;
+  --ed-bg:#141416;
+  --ed-card:#141416;
+  --ed-card2:#1b1b1f;
+  --ed-border:#2a2a31;
   --ed-text:#e8edf5;
-  --ed-sub:#b7c3d8;
-  --ed-muted:#8ea0bc;
-  --ed-muted-2:#6e829f;
-  --ed-hover:#182235;
-  --ed-tab:#172437;
-  --ed-tab-active:#111827;
+  --ed-sub:#c3cad5;
+  --ed-muted:#8a94a5;
+  --ed-muted-2:#6a7488;
+  --ed-hover:#1f2025;
+  --ed-tab:#1b1b1f;
+  --ed-tab-active:#141416;
+  --ed-tag-bg:#23242a;
+  --ed-tag-text:#e8edf5;
+  --ed-tag-border:#343742;
 }
 
 .ed-back { display:inline-flex; align-items:center; gap:6px; border:none; background:transparent; cursor:pointer; font-family:inherit; font-size:13px; font-weight:600; color:var(--ed-muted); padding:0; margin-bottom:20px; transition:color .14s; }
@@ -246,7 +260,6 @@ const EmployeeDetail = () => {
   const [employee, setEmployee] = useState(null);
   const [projects, setProjects] = useState([]);
   const [tickets, setTickets] = useState([]);
-  const [payslips, setPayslips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("details");
   const [dark, setDark] = useState(getIsDarkTheme);
@@ -254,10 +267,13 @@ const EmployeeDetail = () => {
   useEffect(() => {
     const syncTheme = () => setDark(getIsDarkTheme());
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    syncTheme();
     window.addEventListener("storage", syncTheme);
+    window.addEventListener("themeModeChanged", syncTheme);
     mediaQuery.addEventListener("change", syncTheme);
     return () => {
       window.removeEventListener("storage", syncTheme);
+      window.removeEventListener("themeModeChanged", syncTheme);
       mediaQuery.removeEventListener("change", syncTheme);
     };
   }, []);
@@ -294,14 +310,6 @@ const EmployeeDetail = () => {
       if (e3) throw e3;
       setTickets(tix || []);
 
-      const { data: pay, error: e4 } = await supabase
-        .from("payslips")
-        .select("*")
-        .eq("employee_id", id)
-        .order("year", { ascending: false })
-        .order("month", { ascending: false });
-      if (e4) throw e4;
-      setPayslips(pay || []);
     } catch (err) {
       message.error("Failed to fetch employee details");
       console.error(err);
@@ -418,8 +426,26 @@ const EmployeeDetail = () => {
     );
 
   const avatarColor = getColor(employee.full_name || "");
-  const totalPayslipNet = payslips.reduce((s, p) => s + (p.net_salary || 0), 0);
   const currency = employee.currency || "PKR";
+  const salaryBase =
+    employee.salary_type === "base_commission"
+      ? Number(employee.base_salary || 0)
+      : Number(employee.salary_amount || 0);
+  const allowanceItems = Array.isArray(employee.allowance_items)
+    ? employee.allowance_items
+    : [];
+  const deductionItems = Array.isArray(employee.tax_deduction_items)
+    ? employee.tax_deduction_items
+    : [];
+  const allowanceTotal =
+    allowanceItems.length > 0
+      ? allowanceItems.reduce((sum, row) => sum + Number(row?.amount || 0), 0)
+      : Number(employee.allowances || 0);
+  const deductionTotal =
+    deductionItems.length > 0
+      ? deductionItems.reduce((sum, row) => sum + Number(row?.amount || 0), 0)
+      : Number(employee.tax_deductions || 0);
+  const finalSalary = salaryBase + allowanceTotal - deductionTotal;
 
   /* ── Info item helper ──────────────────────────────── */
   const InfoItem = ({ label, value, icon: Icon, link, span1, span2 }) => (
@@ -487,12 +513,6 @@ const EmployeeDetail = () => {
       icon: Ticket,
       count: tickets.length,
     },
-    {
-      key: "payslips",
-      label: "Pay Slips",
-      icon: Receipt,
-      count: payslips.length,
-    },
   ];
 
   /* ────────────────────────────── RENDER ──────────────── */
@@ -556,11 +576,13 @@ const EmployeeDetail = () => {
                 employee.role === "project_manager" ? "#1677ff" : "#389e0d"
               }
               bg={employee.role === "project_manager" ? "#e6f4ff" : "#f6ffed"}
+              dark={dark}
             />
             <Pill
               label={employee.suspended ? "Suspended" : "Active"}
               color={employee.suspended ? "#cf1322" : "#389e0d"}
               bg={employee.suspended ? "#fff1f0" : "#f6ffed"}
+              dark={dark}
             />
             {employee.employment_type && (
               <Pill
@@ -570,6 +592,7 @@ const EmployeeDetail = () => {
                 }
                 color="#7048e8"
                 bg="#f3f0ff"
+                dark={dark}
               />
             )}
             {employee.teams?.name && (
@@ -692,8 +715,8 @@ const EmployeeDetail = () => {
           {/* Personal */}
           <SectionCard
             icon={User}
-            iconColor="#3b5bdb"
-            iconBg="#eef2ff"
+            iconColor={dark ? "#93c5fd" : "#3b5bdb"}
+            iconBg={dark ? "rgba(59,130,246,0.16)" : "#eef2ff"}
             title="Personal Information"
           >
             <div className="ed-info-grid">
@@ -734,8 +757,8 @@ const EmployeeDetail = () => {
           {/* Work & Online */}
           <SectionCard
             icon={Briefcase}
-            iconColor="#0ca678"
-            iconBg="#e6faf3"
+            iconColor={dark ? "#86efac" : "#0ca678"}
+            iconBg={dark ? "rgba(34,197,94,0.16)" : "#e6faf3"}
             title="Work & Professional"
           >
             <div className="ed-info-grid">
@@ -813,8 +836,8 @@ const EmployeeDetail = () => {
             employee.emergency_contact_phone) && (
             <SectionCard
               icon={Shield}
-              iconColor="#c2255c"
-              iconBg="#fff0f6"
+              iconColor={dark ? "#f9a8d4" : "#c2255c"}
+              iconBg={dark ? "rgba(236,72,153,0.16)" : "#fff0f6"}
               title="Emergency Contact"
             >
               <div className="ed-info-grid">
@@ -835,46 +858,35 @@ const EmployeeDetail = () => {
           {/* Salary */}
           <SectionCard
             icon={Banknote}
-            iconColor="#e67700"
-            iconBg="#fff4e5"
+            iconColor={dark ? "#fdba74" : "#e67700"}
+            iconBg={dark ? "rgba(245,158,11,0.16)" : "#fff4e5"}
             title="Salary Information"
           >
-            {employee.salary_type && (
-              <>
-                {employee.salary_type === "fixed" && (
-                  <div className="ed-salary-box">
-                    <div>
-                      <div className="ed-salary-label">
-                        Fixed Monthly Salary
-                      </div>
-                      <div className="ed-salary-value">
-                        {fmtCurrency(employee.salary_amount, currency)}
-                      </div>
-                      <div className="ed-salary-sub">{currency}</div>
-                    </div>
-                    <Banknote size={36} color="rgba(255,255,255,.15)" />
-                  </div>
-                )}
-                {employee.salary_type === "base_commission" && (
-                  <div className="ed-salary-box">
-                    <div>
-                      <div className="ed-salary-label">Base Salary</div>
-                      <div className="ed-salary-value">
-                        {fmtCurrency(employee.base_salary, currency)}
-                      </div>
-                      <div className="ed-salary-sub">{currency}</div>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div className="ed-salary-label">Commission Rate</div>
-                      <div className="ed-salary-value">
-                        {employee.commission_rate || 0}%
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
+            <div className="ed-salary-box">
+              <div>
+                <div className="ed-salary-label">Final Salary</div>
+                <div className="ed-salary-value">
+                  {fmtCurrency(finalSalary, currency)}
+                </div>
+                <div className="ed-salary-sub">{currency}</div>
+              </div>
+            </div>
             <div className="ed-info-grid">
+              <InfoItem
+                label="Base Salary"
+                value={fmtCurrency(salaryBase, currency)}
+                icon={Banknote}
+              />
+              <InfoItem
+                label="Total Allowances"
+                value={fmtCurrency(allowanceTotal, currency)}
+                icon={TrendingUp}
+              />
+              <InfoItem
+                label="Total Deductions"
+                value={fmtCurrency(deductionTotal, currency)}
+                icon={AlertCircle}
+              />
               <InfoItem
                 label="Salary Type"
                 value={
@@ -892,13 +904,55 @@ const EmployeeDetail = () => {
                 icon={Banknote}
               />
             </div>
+            {allowanceItems.length > 0 && (
+              <>
+                <hr className="ed-divider" />
+                <table className="ed-table">
+                  <thead>
+                    <tr>
+                      <th>Allowance</th>
+                      <th>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allowanceItems.map((row, idx) => (
+                      <tr key={`allow-${idx}`}>
+                        <td>{row?.label || "—"}</td>
+                        <td>{fmtCurrency(Number(row?.amount || 0), currency)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
+            {deductionItems.length > 0 && (
+              <>
+                <hr className="ed-divider" />
+                <table className="ed-table">
+                  <thead>
+                    <tr>
+                      <th>Deduction</th>
+                      <th>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {deductionItems.map((row, idx) => (
+                      <tr key={`ded-${idx}`}>
+                        <td>{row?.label || "—"}</td>
+                        <td>{fmtCurrency(Number(row?.amount || 0), currency)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
           </SectionCard>
 
           {/* Bank Details */}
           <SectionCard
             icon={Banknote}
-            iconColor="#7048e8"
-            iconBg="#f3f0ff"
+            iconColor={dark ? "#c4b5fd" : "#7048e8"}
+            iconBg={dark ? "rgba(139,92,246,0.16)" : "#f3f0ff"}
             title="Bank Details"
           >
             <div className="ed-info-grid">
@@ -944,7 +998,7 @@ const EmployeeDetail = () => {
                           {p.projects?.name || "—"}
                         </td>
                         <td>
-                          <Pill label={s.label} color={s.color} bg={s.bg} />
+                          <Pill label={s.label} color={s.color} bg={s.bg} dark={dark} />
                         </td>
                         <td>{fmt(p.projects?.start_date)}</td>
                         <td>{fmt(p.projects?.end_date)}</td>
@@ -993,10 +1047,10 @@ const EmployeeDetail = () => {
                           {t.title}
                         </td>
                         <td>
-                          <Pill label={s.label} color={s.color} bg={s.bg} />
+                          <Pill label={s.label} color={s.color} bg={s.bg} dark={dark} />
                         </td>
                         <td>
-                          <Pill label={p.label} color={p.color} bg={p.bg} />
+                          <Pill label={p.label} color={p.color} bg={p.bg} dark={dark} />
                         </td>
                         <td style={{ color: "var(--ed-muted)" }}>
                           {fmt(t.created_at)}
@@ -1011,70 +1065,6 @@ const EmployeeDetail = () => {
         </div>
       )}
 
-      {/* ── PAYSLIPS TAB ────────────────────────────── */}
-      {tab === "payslips" && (
-        <>
-          {payslips.length > 0 && (
-            <div className="ed-salary-box" style={{ marginBottom: 16 }}>
-              <div>
-                <div className="ed-salary-label">Total Paid (All Time)</div>
-                <div className="ed-salary-value">
-                  {fmtCurrency(totalPayslipNet, currency)}
-                </div>
-                <div className="ed-salary-sub">
-                  {payslips.length} payslip{payslips.length !== 1 ? "s" : ""} on
-                  record
-                </div>
-              </div>
-              <Receipt size={40} color="rgba(255,255,255,.12)" />
-            </div>
-          )}
-          <div className="ed-card">
-            <div className="ed-card-body" style={{ padding: 0 }}>
-              {payslips.length === 0 ? (
-                <div className="ed-table-empty">No payslips on record yet</div>
-              ) : (
-                <table className="ed-table">
-                  <thead>
-                    <tr>
-                      <th>Period</th>
-                      <th>Base Salary</th>
-                      <th>Commission</th>
-                      <th>Deductions</th>
-                      <th>Net Salary</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {payslips.map((p) => (
-                      <tr key={p.id}>
-                        <td style={{ fontWeight: 600, color: "var(--ed-text)" }}>
-                          {MONTHS[(p.month || 1) - 1]} {p.year}
-                        </td>
-                        <td>{fmtCurrency(p.base_salary, currency)}</td>
-                        <td>{fmtCurrency(p.commission, currency)}</td>
-                        <td style={{ color: "#cf1322" }}>
-                          − {fmtCurrency(p.deductions, currency)}
-                        </td>
-                        <td>
-                          <span
-                            style={{
-                              fontFamily: "Sora,sans-serif",
-                              fontWeight: 700,
-                              fontSize: 14,
-                            }}
-                          >
-                            {fmtCurrency(p.net_salary, currency)}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 };

@@ -137,6 +137,11 @@ const STATUS_CONFIG = {
   active: { badge: "success", label: "Active", color: "#10b981" },
   trial: { badge: "processing", label: "Trial", color: "#3b82f6" },
   past_due: { badge: "error", label: "Past Due", color: "#ef4444" },
+  cancel_pending: {
+    badge: "warning",
+    label: "Cancels At Period End",
+    color: "#f59e0b",
+  },
   suspended: { badge: "default", label: "Suspended", color: "#6b7280" },
   inactive: { badge: "default", label: "Inactive", color: "#6b7280" },
 };
@@ -253,6 +258,22 @@ const fmtCurrency = (n, currency = "USD") => {
   } catch (err) {
     return `${currency} ${n.toLocaleString()}`;
   }
+};
+
+const parseDateValue = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const deriveTenantStatus = (tenant) => {
+  const raw = String(tenant?.status || "").toLowerCase();
+  const autoRenew = tenant?.auto_renew !== false;
+  const periodEnd = parseDateValue(tenant?.current_period_end);
+  if (raw === "active" && !autoRenew && periodEnd && periodEnd > new Date()) {
+    return "cancel_pending";
+  }
+  return raw || "inactive";
 };
 
 const getDaysLeft = (dateStr) => {
@@ -847,7 +868,9 @@ const SubscriptionCard = ({
   const daysLeft = getDaysLeft(overrideExpiry);
   const isExpired = overrideExpiry && daysLeft === 0;
   const autoRenew = tenant?.auto_renew !== false;
-  const isCancelled = tenant?.status === "cancelled";
+  const derivedStatus = deriveTenantStatus(tenant);
+  const isCancelled =
+    derivedStatus === "cancelled" || derivedStatus === "cancel_pending";
   const periodEnd = tenant?.current_period_end;
 
   const displayPlan = hasOverride ? overridePlan : plan;
@@ -1849,6 +1872,7 @@ const TenantDetailPage = () => {
           max_users: values.override_custom_max_users || limits.max_users,
           storage_gb: values.override_custom_storage_gb || limits.storage_gb,
           mrr: 0,
+          auto_renew: false,
           updated_at: new Date().toISOString(),
         })
         .eq("id", id);
@@ -2229,7 +2253,7 @@ const TenantDetailPage = () => {
   }
 
   const pc = PLAN_COLOR[tenant.plan] || PLAN_COLOR.Free;
-  const sc = STATUS_CONFIG[tenant.status] || STATUS_CONFIG.inactive;
+  const sc = STATUS_CONFIG[deriveTenantStatus(tenant)] || STATUS_CONFIG.inactive;
   const activeUsers = users.filter((u) => !u.suspended).length;
   const suspendedUsers = users.filter((u) => u.suspended).length;
 

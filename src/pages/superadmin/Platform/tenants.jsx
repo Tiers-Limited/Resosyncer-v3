@@ -45,7 +45,14 @@ const { Search } = Input;
 const { Option } = Select;
 
 const PLAN_OPTIONS = ["Enterprise", "Pro", "Starter", "Free"];
-const STATUS_OPTIONS = ["active", "trial", "past_due", "suspended", "inactive"];
+const STATUS_OPTIONS = [
+  "active",
+  "trial",
+  "past_due",
+  "cancel_pending",
+  "suspended",
+  "inactive",
+];
 
 const PLAN_COLOR = {
   Enterprise: {
@@ -73,8 +80,31 @@ const STATUS_CONFIG = {
   active: { badge: "success", label: "Active", color: "#10b981" },
   trial: { badge: "processing", label: "Trial", color: "#3b82f6" },
   past_due: { badge: "error", label: "Past Due", color: "#ef4444" },
+  cancel_pending: {
+    badge: "warning",
+    label: "Cancels At Period End",
+    color: "#f59e0b",
+  },
   suspended: { badge: "default", label: "Suspended", color: "#6b7280" },
   inactive: { badge: "default", label: "Inactive", color: "#6b7280" },
+};
+
+const parseDateValue = (value) => {
+  if (value == null || value === "") return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const deriveTenantStatus = (tenant) => {
+  const raw = String(tenant?.status || "").toLowerCase();
+  const autoRenew = tenant?.auto_renew !== false;
+  const periodEnd =
+    parseDateValue(tenant?.current_period_end) ||
+    parseDateValue(tenant?.subscription_end_date);
+  if (raw === "active" && !autoRenew && periodEnd && periodEnd > new Date()) {
+    return "cancel_pending";
+  }
+  return raw || "inactive";
 };
 
 // Company logo using favicon API with letter fallback
@@ -177,6 +207,7 @@ const TenantsPage = () => {
           `
           id, name, plan, status, mrr, health_score, created_at,
           owner_email, owner_name, domain, max_users, notes,
+          auto_renew, current_period_end, subscription_end_date,
           profiles(count)
         `,
           { count: "exact" },
@@ -188,6 +219,7 @@ const TenantsPage = () => {
       const normalized = (data || []).map((t) => ({
         ...t,
         user_count: t.profiles?.[0]?.count ?? 0,
+        display_status: deriveTenantStatus(t),
       }));
 
       setTenants(normalized);
@@ -216,17 +248,17 @@ const TenantsPage = () => {
     }
     if (planFilter !== "all") rows = rows.filter((t) => t.plan === planFilter);
     if (statusFilter !== "all")
-      rows = rows.filter((t) => t.status === statusFilter);
+      rows = rows.filter((t) => t.display_status === statusFilter);
     setFiltered(rows);
     setPagination((p) => ({ ...p, current: 1, total: rows.length }));
   }, [tenants, search, planFilter, statusFilter]);
 
   const kpi = {
     total: tenants.length,
-    active: tenants.filter((t) => t.status === "active").length,
+    active: tenants.filter((t) => t.display_status === "active").length,
     mrr: tenants.reduce((s, t) => s + (t.mrr || 0), 0),
-    trial: tenants.filter((t) => t.status === "trial").length,
-    past_due: tenants.filter((t) => t.status === "past_due").length,
+    trial: tenants.filter((t) => t.display_status === "trial").length,
+    past_due: tenants.filter((t) => t.display_status === "past_due").length,
   };
 
   const openCreate = () => {
@@ -403,7 +435,7 @@ const TenantsPage = () => {
     },
     {
       title: "Status",
-      dataIndex: "status",
+      dataIndex: "display_status",
       render: (status) => {
         const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.inactive;
         return (

@@ -6,6 +6,13 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import TicketDetailsModal from "../components/TicketDetailsModal";
 
+const getIsDarkTheme = () => {
+  const mode = localStorage.getItem("themeMode") || "system";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
+
 const initials = (name = "") =>
   name
     .split(" ")
@@ -63,6 +70,13 @@ const PROJECT_STATUS = [
   },
 ];
 
+const PROJECT_STATUS_DARK_TAG = {
+  not_started: { bg: "#20242b", border: "#2f3642", color: "#94a3b8" },
+  in_progress: { bg: "#1c2d47", border: "#2d4d7a", color: "#60a5fa" },
+  testing: { bg: "#3a2c18", border: "#6a4a1f", color: "#f59e0b" },
+  completed: { bg: "#163329", border: "#1f5a43", color: "#34d399" },
+};
+
 const normalizeProjectStatus = (status) => {
   if (PROJECT_STATUS.some((s) => s.key === status)) return status;
   if (status === "planning") return "not_started";
@@ -70,7 +84,7 @@ const normalizeProjectStatus = (status) => {
   return "not_started";
 };
 
-const UserAvatar = ({ name = "", image, size = 20 }) => (
+const UserAvatar = ({ name = "", image, size = 20, dark = false }) => (
   <Tooltip title={name}>
     <div
       style={{
@@ -85,7 +99,7 @@ const UserAvatar = ({ name = "", image, size = 20 }) => (
         justifyContent: "center",
         fontSize: size * 0.36,
         fontWeight: 800,
-        border: "2px solid #fff",
+        border: `2px solid ${dark ? "#141416" : "#fff"}`,
         boxShadow: "0 1px 3px rgba(0,0,0,.15)",
         overflow: "hidden",
       }}
@@ -103,9 +117,12 @@ const UserAvatar = ({ name = "", image, size = 20 }) => (
   </Tooltip>
 );
 
-const ProjectCard = ({ project, onClick }) => {
+const ProjectCard = ({ project, onClick, dark = false }) => {
   const normalized = normalizeProjectStatus(project.status);
   const ps = PROJECT_STATUS.find((s) => s.key === normalized) || PROJECT_STATUS[0];
+  const statusTone = dark
+    ? PROJECT_STATUS_DARK_TAG[normalized] || PROJECT_STATUS_DARK_TAG.not_started
+    : { bg: ps.bg, border: ps.border, color: ps.color };
   return (
     <div
       onClick={onClick}
@@ -115,9 +132,9 @@ const ProjectCard = ({ project, onClick }) => {
         if (e.key === "Enter" || e.key === " ") onClick?.();
       }}
       style={{
-        background: "#fff",
+        background: dark ? "#1a1a1c" : "#fff",
         borderRadius: 8,
-        border: "1px solid #e5e7eb",
+        border: `1px solid ${dark ? "#2a2a2d" : "#e5e7eb"}`,
         padding: "12px 14px",
         marginBottom: 8,
         cursor: "pointer",
@@ -129,12 +146,12 @@ const ProjectCard = ({ project, onClick }) => {
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,.08)";
-        e.currentTarget.style.borderColor = ps.border;
+        e.currentTarget.style.borderColor = statusTone.border;
         e.currentTarget.style.transform = "translateY(-1px)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.boxShadow = "0 1px 2px rgba(0,0,0,.04)";
-        e.currentTarget.style.borderColor = "#e5e7eb";
+        e.currentTarget.style.borderColor = dark ? "#2a2a2d" : "#e5e7eb";
         e.currentTarget.style.transform = "translateY(0)";
       }}
     >
@@ -157,7 +174,12 @@ const ProjectCard = ({ project, onClick }) => {
         }}
       >
         <h3
-          style={{ fontSize: 12, fontWeight: 700, color: "#172b4d", margin: 0 }}
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: dark ? "#e5e7eb" : "#172b4d",
+            margin: 0,
+          }}
         >
           {project.name}
         </h3>
@@ -167,9 +189,9 @@ const ProjectCard = ({ project, onClick }) => {
             fontWeight: 800,
             padding: "2px 6px",
             borderRadius: 99,
-            color: ps.color,
-            background: ps.bg,
-            border: `1px solid ${ps.border}`,
+            color: statusTone.color,
+            background: statusTone.bg,
+            border: `1px solid ${statusTone.border}`,
             textTransform: "uppercase",
             letterSpacing: 0.4,
             whiteSpace: "nowrap",
@@ -182,7 +204,7 @@ const ProjectCard = ({ project, onClick }) => {
       <p
         style={{
           fontSize: 11,
-          color: "#626f86",
+          color: dark ? "#9ca3af" : "#626f86",
           margin: "0 0 8px",
           lineHeight: 1.5,
           display: "-webkit-box",
@@ -207,6 +229,7 @@ const ProjectCard = ({ project, onClick }) => {
                 name={a.profiles?.full_name || "?"}
                 image={a?.profiles?.user_photo}
                 size={20}
+                dark={dark}
               />
             </div>
           ))}
@@ -214,7 +237,7 @@ const ProjectCard = ({ project, onClick }) => {
         <span
           style={{
             fontSize: 10,
-            color: "#9ca3af",
+            color: dark ? "#8b95a7" : "#9ca3af",
             display: "flex",
             alignItems: "center",
             gap: 2,
@@ -229,6 +252,7 @@ const ProjectCard = ({ project, onClick }) => {
 };
 
 const EmployeeProjects = () => {
+  const [dark, setDark] = useState(getIsDarkTheme);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
@@ -246,6 +270,27 @@ const EmployeeProjects = () => {
     if (profile?.id) fetchProjects();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id]);
+
+  useEffect(() => {
+    const syncTheme = () => setDark(getIsDarkTheme());
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    window.addEventListener("storage", syncTheme);
+    window.addEventListener("themeModeChanged", syncTheme);
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", syncTheme);
+    } else if (typeof media.addListener === "function") {
+      media.addListener(syncTheme);
+    }
+    return () => {
+      window.removeEventListener("storage", syncTheme);
+      window.removeEventListener("themeModeChanged", syncTheme);
+      if (typeof media.removeEventListener === "function") {
+        media.removeEventListener("change", syncTheme);
+      } else if (typeof media.removeListener === "function") {
+        media.removeListener(syncTheme);
+      }
+    };
+  }, []);
 
   const fetchProjects = async () => {
     setLoading(true);
@@ -359,13 +404,21 @@ const EmployeeProjects = () => {
   }, [tickets, searchQ]);
 
   const boardColumns = useMemo(
-    () => [
-      { key: "open", label: "To Do", color: "#44546f", bg: "#f0f4f8", border: "#dde3ec", headerBg: "#e4ecf5" },
-      { key: "in_progress", label: "In Progress", color: "#0c66e4", bg: "#e9f2ff", border: "#b8d0f5", headerBg: "#cce0ff" },
-      { key: "completed", label: "Done", color: "#22a06b", bg: "#dcfff1", border: "#abe5c7", headerBg: "#baf3db" },
-      { key: "closed", label: "Closed", color: "#626f86", bg: "#f1f2f4", border: "#d1d5db", headerBg: "#e2e4e9" },
-    ],
-    [],
+    () =>
+      dark
+        ? [
+            { key: "open", label: "To Do", color: "#9ca3af", bg: "#1a1a1c", border: "#2a2a2d", headerBg: "#202024" },
+            { key: "in_progress", label: "In Progress", color: "#60a5fa", bg: "#16243a", border: "#274061", headerBg: "#1f3553" },
+            { key: "completed", label: "Done", color: "#34d399", bg: "#132820", border: "#205040", headerBg: "#1a3a2f" },
+            { key: "closed", label: "Closed", color: "#a1a1aa", bg: "#1a1a1c", border: "#2a2a2d", headerBg: "#202024" },
+          ]
+        : [
+            { key: "open", label: "To Do", color: "#44546f", bg: "#f0f4f8", border: "#dde3ec", headerBg: "#e4ecf5" },
+            { key: "in_progress", label: "In Progress", color: "#0c66e4", bg: "#e9f2ff", border: "#b8d0f5", headerBg: "#cce0ff" },
+            { key: "completed", label: "Done", color: "#22a06b", bg: "#dcfff1", border: "#abe5c7", headerBg: "#baf3db" },
+            { key: "closed", label: "Closed", color: "#626f86", bg: "#f1f2f4", border: "#d1d5db", headerBg: "#e2e4e9" },
+          ],
+    [dark],
   );
 
   const backlogTickets = useMemo(
@@ -373,15 +426,33 @@ const EmployeeProjects = () => {
     [filteredTickets],
   );
 
+  const ui = {
+    pageBg: dark ? "#141416" : "#f4f5f7",
+    cardBg: dark ? "#1a1a1c" : "#fff",
+    border: dark ? "#2a2a2d" : "#dde3ec",
+    text: dark ? "#e5e7eb" : "#172b4d",
+    sub: dark ? "#9ca3af" : "#626f86",
+    muted: dark ? "#6b7280" : "#9ca3af",
+    tabBg: dark ? "#202024" : "#f1f2f4",
+  };
+
+  const projectStatusColumns = dark
+    ? PROJECT_STATUS.map((ps) => ({
+        ...ps,
+        bg: "#1a1a1c",
+        border: "#2a2a2d",
+      }))
+    : PROJECT_STATUS;
+
   return (
     <>
       <style>{`
         .pm-scroll::-webkit-scrollbar { height: 5px; width: 5px }
-        .pm-scroll::-webkit-scrollbar-track { background: #f1f2f4; border-radius: 3px }
-        .pm-scroll::-webkit-scrollbar-thumb { background: #c1c7d0; border-radius: 3px }
+        .pm-scroll::-webkit-scrollbar-track { background: ${dark ? "#1a1a1c" : "#f1f2f4"}; border-radius: 3px }
+        .pm-scroll::-webkit-scrollbar-thumb { background: ${dark ? "#3b3b40" : "#c1c7d0"}; border-radius: 3px }
       `}</style>
 
-      <div style={{ minHeight: "100vh", background: "#f4f5f7" }}>
+      <div style={{ minHeight: "100vh", background: ui.pageBg }}>
         <div style={{ margin: "0 auto", padding: "24px 20px" }}>
           {/* Header */}
           <div
@@ -397,27 +468,27 @@ const EmployeeProjects = () => {
                 style={{
                   fontSize: 20,
                   fontWeight: 800,
-                  color: "#172b4d",
+                  color: ui.text,
                   margin: "0 0 2px",
                 }}
               >
                 Projects
               </h1>
-              <p style={{ fontSize: 12, color: "#626f86", margin: 0 }}>
+              <p style={{ fontSize: 12, color: ui.sub, margin: 0 }}>
                 Track your assigned projects and issues
               </p>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               {[
-                { label: "Total", val: stats.total, color: "#172b4d" },
+                { label: "Total", val: stats.total, color: ui.text },
                 { label: "Active", val: stats.active, color: "#0c66e4" },
                 { label: "Done", val: stats.done, color: "#22a06b" },
               ].map((s) => (
                 <div
                   key={s.label}
                   style={{
-                    background: "#fff",
-                    border: "1px solid #dde3ec",
+                    background: ui.cardBg,
+                    border: `1px solid ${ui.border}`,
                     borderRadius: 8,
                     padding: "7px 14px",
                     textAlign: "center",
@@ -432,7 +503,7 @@ const EmployeeProjects = () => {
                   <div
                     style={{
                       fontSize: 9,
-                      color: "#9ca3af",
+                      color: ui.muted,
                       fontWeight: 700,
                       textTransform: "uppercase",
                       letterSpacing: 0.5,
@@ -467,7 +538,7 @@ const EmployeeProjects = () => {
                 overflowX: "auto",
               }}
             >
-              {PROJECT_STATUS.map((ps) => {
+              {projectStatusColumns.map((ps) => {
                 const cols = projects.filter(
                   (p) => normalizeProjectStatus(p.status) === ps.key,
                 );
@@ -517,7 +588,7 @@ const EmployeeProjects = () => {
                           fontSize: 11,
                           fontWeight: 700,
                           color: ps.color,
-                          background: "#fff",
+                          background: ui.cardBg,
                           padding: "1px 7px",
                           borderRadius: 99,
                           border: `1px solid ${ps.border}`,
@@ -532,12 +603,13 @@ const EmployeeProjects = () => {
                           key={p.id}
                           project={p}
                           onClick={() => openProject(p)}
+                          dark={dark}
                         />
                       ))}
                       {cols.length === 0 && (
                         <div
                           style={{
-                            border: "1.5px dashed #dde3ec",
+                            border: `1.5px dashed ${ui.border}`,
                             borderRadius: 8,
                             padding: "28px 14px",
                             textAlign: "center",
@@ -546,7 +618,7 @@ const EmployeeProjects = () => {
                           <p
                             style={{
                               fontSize: 11,
-                              color: "#d1d5db",
+                              color: ui.muted,
                               margin: 0,
                             }}
                           >
@@ -571,10 +643,10 @@ const EmployeeProjects = () => {
         styles={{
           header: {
             padding: "12px 18px",
-            borderBottom: "1px solid #f1f2f4",
-            background: "#fff",
+            borderBottom: `1px solid ${ui.border}`,
+            background: ui.cardBg,
           },
-          body: { padding: 0, background: "#f4f5f7" },
+          body: { padding: 0, background: ui.pageBg },
         }}
         title={
           <div
@@ -602,10 +674,10 @@ const EmployeeProjects = () => {
                 </span>
               </div>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: "#172b4d" }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: ui.text }}>
                   {selectedProject?.name}
                 </div>
-                <div style={{ fontSize: 10, color: "#94a3b8" }}>
+                <div style={{ fontSize: 10, color: ui.muted }}>
                   {selectedProject?.description}
                 </div>
               </div>
@@ -629,8 +701,8 @@ const EmployeeProjects = () => {
                 <div
                   key={s.label}
                   style={{
-                    background: "#f4f5f7",
-                    border: "1px solid #dde3ec",
+                    background: ui.pageBg,
+                    border: `1px solid ${ui.border}`,
                     borderRadius: 6,
                     padding: "4px 10px",
                     textAlign: "center",
@@ -643,7 +715,7 @@ const EmployeeProjects = () => {
                   <div
                     style={{
                       fontSize: 9,
-                      color: "#9ca3af",
+                      color: ui.muted,
                       fontWeight: 700,
                       textTransform: "uppercase",
                       letterSpacing: 0.4,
@@ -665,7 +737,7 @@ const EmployeeProjects = () => {
               alignItems: "center",
               justifyContent: "space-between",
               padding: "12px 0",
-              borderBottom: "1px solid #e5e7eb",
+              borderBottom: `1px solid ${ui.border}`,
               marginBottom: 16,
             }}
           >
@@ -673,7 +745,7 @@ const EmployeeProjects = () => {
               style={{
                 display: "flex",
                 gap: 0,
-                background: "#f1f2f4",
+                background: ui.tabBg,
                 padding: 3,
                 borderRadius: 6,
               }}
@@ -690,8 +762,8 @@ const EmployeeProjects = () => {
                     fontSize: 12,
                     fontWeight: 600,
                     transition: "all .15s",
-                    background: activeTab === t ? "#fff" : "transparent",
-                    color: activeTab === t ? "#172b4d" : "#626f86",
+                    background: activeTab === t ? ui.cardBg : "transparent",
+                    color: activeTab === t ? ui.text : ui.sub,
                     boxShadow:
                       activeTab === t ? "0 1px 3px rgba(0,0,0,.1)" : "none",
                   }}
@@ -701,8 +773,20 @@ const EmployeeProjects = () => {
                     <span
                       style={{
                         marginLeft: 4,
-                        background: activeTab === t ? "#e0e7ff" : "#e5e7eb",
-                        color: activeTab === t ? "#4338ca" : "#6b7280",
+                        background:
+                          activeTab === t
+                            ? dark
+                              ? "#24354f"
+                              : "#e0e7ff"
+                            : dark
+                              ? "#2a2a2d"
+                              : "#e5e7eb",
+                        color:
+                          activeTab === t
+                            ? dark
+                              ? "#93c5fd"
+                              : "#4338ca"
+                            : ui.sub,
                         fontSize: 9,
                         fontWeight: 700,
                         padding: "1px 4px",
@@ -720,13 +804,13 @@ const EmployeeProjects = () => {
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
-                background: "#fff",
-                border: "1px solid #dde3ec",
+                background: ui.cardBg,
+                border: `1px solid ${ui.border}`,
                 borderRadius: 6,
                 padding: "5px 10px",
               }}
             >
-              <Search size={12} color="#9ca3af" />
+              <Search size={12} color={ui.muted} />
               <input
                 placeholder="Search issues…"
                 value={searchQ}
@@ -735,7 +819,7 @@ const EmployeeProjects = () => {
                   border: "none",
                   outline: "none",
                   fontSize: 12,
-                  color: "#172b4d",
+                  color: ui.text,
                   width: 150,
                   background: "transparent",
                 }}
@@ -748,7 +832,7 @@ const EmployeeProjects = () => {
                     border: "none",
                     cursor: "pointer",
                     padding: 0,
-                    color: "#9ca3af",
+                    color: ui.muted,
                     display: "flex",
                   }}
                 >
@@ -820,7 +904,7 @@ const EmployeeProjects = () => {
                           fontSize: 11,
                           fontWeight: 700,
                           color: col.color,
-                          background: "#fff",
+                          background: ui.cardBg,
                           padding: "1px 7px",
                           borderRadius: 99,
                           border: `1px solid ${col.border}`,
@@ -846,8 +930,8 @@ const EmployeeProjects = () => {
                           }
                         }}
                         style={{
-                          background: "#fff",
-                          border: "1px solid #dde3ec",
+                          background: ui.cardBg,
+                          border: `1px solid ${ui.border}`,
                           borderRadius: 8,
                           padding: "10px 10px",
                           marginBottom: 8,
@@ -867,7 +951,7 @@ const EmployeeProjects = () => {
                           style={{
                             fontSize: 12,
                             fontWeight: 650,
-                            color: "#172b4d",
+                            color: ui.text,
                             marginBottom: 6,
                             lineHeight: 1.3,
                           }}
@@ -875,10 +959,10 @@ const EmployeeProjects = () => {
                           {t.title}
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between" }}>
-                          <span style={{ fontSize: 10, color: "#9ca3af" }}>
+                          <span style={{ fontSize: 10, color: ui.muted }}>
                             {t.priority ? `Priority: ${t.priority}` : "Priority: —"}
                           </span>
-                          <span style={{ fontSize: 10, color: "#9ca3af" }}>
+                          <span style={{ fontSize: 10, color: ui.muted }}>
                             {t.due_date ? `Due ${fmtDate(t.due_date)}` : ""}
                           </span>
                         </div>
@@ -888,14 +972,14 @@ const EmployeeProjects = () => {
                     {items.length === 0 && (
                       <div
                         style={{
-                          border: "1.5px dashed #dde3ec",
+                          border: `1.5px dashed ${ui.border}`,
                           borderRadius: 8,
                           padding: "22px 10px",
                           textAlign: "center",
-                          background: "#fff",
+                          background: ui.cardBg,
                         }}
                       >
-                        <p style={{ fontSize: 11, color: "#cbd5e1", margin: 0 }}>
+                        <p style={{ fontSize: 11, color: ui.muted, margin: 0 }}>
                           No issues
                         </p>
                       </div>
@@ -907,8 +991,8 @@ const EmployeeProjects = () => {
           ) : (
             <div
               style={{
-                background: "#fff",
-                border: "1px solid #dde3ec",
+                background: ui.cardBg,
+                border: `1px solid ${ui.border}`,
                 borderRadius: 10,
                 padding: 12,
               }}
@@ -916,13 +1000,13 @@ const EmployeeProjects = () => {
               {backlogTickets.length === 0 ? (
                 <div
                   style={{
-                    border: "1.5px dashed #dde3ec",
+                    border: `1.5px dashed ${ui.border}`,
                     borderRadius: 8,
                     padding: "28px 14px",
                     textAlign: "center",
                   }}
                 >
-                  <p style={{ fontSize: 12, color: "#9ca3af", margin: 0 }}>
+                  <p style={{ fontSize: 12, color: ui.muted, margin: 0 }}>
                     No backlog issues
                   </p>
                 </div>
@@ -944,14 +1028,14 @@ const EmployeeProjects = () => {
                     }}
                     style={{
                       padding: "10px 10px",
-                      borderBottom: "1px solid #f1f2f4",
+                      borderBottom: `1px solid ${ui.border}`,
                       cursor: "pointer",
                     }}
                   >
-                    <div style={{ fontSize: 12, fontWeight: 650, color: "#172b4d" }}>
+                    <div style={{ fontSize: 12, fontWeight: 650, color: ui.text }}>
                       {t.title}
                     </div>
-                    <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>
+                    <div style={{ fontSize: 11, color: ui.muted, marginTop: 2 }}>
                       {t.ticket_type ? t.ticket_type.toUpperCase() : ""}{" "}
                       {t.priority ? `• ${t.priority.toUpperCase()}` : ""}
                     </div>
@@ -979,3 +1063,4 @@ const EmployeeProjects = () => {
 };
 
 export default EmployeeProjects;
+

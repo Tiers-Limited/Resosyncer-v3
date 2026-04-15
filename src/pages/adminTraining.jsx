@@ -656,7 +656,7 @@ function TrainingPaywall() {
                 WebkitTextFillColor: "transparent",
               }}
             >
-              Pro Feature
+              Locked Feature
             </span>
           </div>
 
@@ -3306,6 +3306,9 @@ export default function AdminTrainingCourses() {
   const [allMaterials, setAllMats] = useState([]);
   const [activeCourse, setActiveCourse] = useState(null);
   const [authError, setAuthError] = useState(null);
+  const planTier = String(orgPlan || "").toLowerCase();
+  const isStarterPlan =
+    planTier.includes("free") || planTier.includes("starter");
 
   useEffect(() => {
     (async () => {
@@ -3350,14 +3353,14 @@ export default function AdminTrainingCourses() {
   }, []);
 
   useEffect(() => {
-    if (!tenantId || orgPlan === "Free") return;
+    if (!tenantId || isStarterPlan) return;
     supabase
       .from("training_materials")
       .select("*")
       .eq("tenant_id", tenantId)
       .order("title")
       .then(({ data }) => setAllMats(data || []));
-  }, [tenantId, orgPlan]);
+  }, [tenantId, orgPlan, isStarterPlan]);
 
   // Loading state
   if (tenantId === undefined)
@@ -3407,7 +3410,7 @@ export default function AdminTrainingCourses() {
     );
 
   // ── FREE PLAN GATE ────────────────────────────────────────────────────────
-  if (orgPlan === "Free") return <TrainingPaywall />;
+  if (isStarterPlan) return <TrainingPaywall />;
 
   // Course detail
   if (activeCourse)

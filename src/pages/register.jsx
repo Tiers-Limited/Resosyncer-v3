@@ -33,8 +33,12 @@ const { Option } = Select;
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 const EMAIL_API = import.meta.env.VITE_EMAIL_API_URL;
+const NAVY = "#123B78";
+const NAVY_DARK = "#0A2D62";
+const NAVY_TINT = "#EAF2FF";
+const NAVY_BORDER = "#C8D9F4";
 
-// ─── Email sender ─────────────────────────────────────────────────────────────
+// Email sender
 const sendEmail = async ({ to, subject, body, companyName }) => {
   try {
     const res = await fetch(`${EMAIL_API}/api/email/send`, {
@@ -44,21 +48,21 @@ const sendEmail = async ({ to, subject, body, companyName }) => {
     });
     const data = await res.json();
     if (!res.ok) {
-      console.error("❌ Email send failed:", data);
+      console.error("[Email] send failed:", data);
       return { success: false, error: data };
     }
-    console.log("✅ Email sent:", data.messageId);
+    console.log("[Email] sent:", data.messageId);
     return { success: true, data };
   } catch (err) {
-    console.error("❌ Email send error:", err);
+    console.error("[Email] send error:", err);
     return { success: false, error: err.message };
   }
 };
 
-// ─── Welcome email builder ────────────────────────────────────────────────────
+// Welcome email builder
 const buildWelcomeEmail = ({ ownerName, companyName, plan, email }) => ({
   to: email,
-  subject: `Welcome to Resosyncer — Your ${plan} workspace is ready`,
+  subject: `Welcome to Ryzent - Your ${plan} workspace is ready`,
   companyName,
   body: `
 <!DOCTYPE html>
@@ -66,7 +70,7 @@ const buildWelcomeEmail = ({ ownerName, companyName, plan, email }) => ({
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Welcome to Resosyncer</title>
+  <title>Welcome to Ryzent</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f4f5;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
   <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f4f4f5;padding:48px 24px;">
@@ -75,7 +79,7 @@ const buildWelcomeEmail = ({ ownerName, companyName, plan, email }) => ({
         <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;">
           <tr>
             <td style="padding:0 0 28px;text-align:center;">
-              <span style="font-size:15px;font-weight:700;letter-spacing:-0.3px;color:#18181b;">Resosyncer</span>
+              <span style="font-size:15px;font-weight:700;letter-spacing:-0.3px;color:#18181b;">Ryzent</span>
             </td>
           </tr>
           <tr>
@@ -89,7 +93,7 @@ const buildWelcomeEmail = ({ ownerName, companyName, plan, email }) => ({
                   <p style="margin:0 0 20px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#a1a1aa;">Get started</p>
                   <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
                     <tr><td style="padding:0 0 16px;"><table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr><td style="width:28px;vertical-align:top;padding-top:1px;"><span style="display:inline-block;width:20px;height:20px;background:#18181b;border-radius:50%;text-align:center;line-height:20px;font-size:11px;font-weight:700;color:#ffffff;">1</span></td><td style="padding-left:12px;"><p style="margin:0;font-size:14px;font-weight:600;color:#18181b;line-height:1.4;">Verify your email</p><p style="margin:2px 0 0;font-size:13px;color:#71717a;line-height:1.5;">Confirm your address to secure your account.</p></td></tr></table></td></tr>
-                    <tr><td style="padding:0 0 16px;"><table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr><td style="width:28px;vertical-align:top;padding-top:1px;"><span style="display:inline-block;width:20px;height:20px;background:#18181b;border-radius:50%;text-align:center;line-height:20px;font-size:11px;font-weight:700;color:#ffffff;">2</span></td><td style="padding-left:12px;"><p style="margin:0;font-size:14px;font-weight:600;color:#18181b;line-height:1.4;">Invite your team</p><p style="margin:2px 0 0;font-size:13px;color:#71717a;line-height:1.5;">Go to Settings → Team Members to add colleagues.</p></td></tr></table></td></tr>
+                    <tr><td style="padding:0 0 16px;"><table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr><td style="width:28px;vertical-align:top;padding-top:1px;"><span style="display:inline-block;width:20px;height:20px;background:#18181b;border-radius:50%;text-align:center;line-height:20px;font-size:11px;font-weight:700;color:#ffffff;">2</span></td><td style="padding-left:12px;"><p style="margin:0;font-size:14px;font-weight:600;color:#18181b;line-height:1.4;">Invite your team</p><p style="margin:2px 0 0;font-size:13px;color:#71717a;line-height:1.5;">Go to Settings -> Team Members to add colleagues.</p></td></tr></table></td></tr>
                     <tr><td><table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr><td style="width:28px;vertical-align:top;padding-top:1px;"><span style="display:inline-block;width:20px;height:20px;background:#18181b;border-radius:50%;text-align:center;line-height:20px;font-size:11px;font-weight:700;color:#ffffff;">3</span></td><td style="padding-left:12px;"><p style="margin:0;font-size:14px;font-weight:600;color:#18181b;line-height:1.4;">Create your first project</p><p style="margin:2px 0 0;font-size:13px;color:#71717a;line-height:1.5;">Set up a project and start assigning tasks.</p></td></tr></table></td></tr>
                   </table>
                   <div style="height:1px;background:#f4f4f5;margin:28px 0;"></div>
@@ -100,8 +104,8 @@ const buildWelcomeEmail = ({ ownerName, companyName, plan, email }) => ({
           </tr>
           <tr>
             <td style="padding:28px 0 0;text-align:center;">
-              <p style="margin:0 0 8px;font-size:12px;color:#a1a1aa;line-height:1.6;">Questions? Reply to this email or write to <a href="mailto:support@resosyncer.com" style="color:#71717a;text-decoration:underline;">support@resosyncer.com</a></p>
-              <p style="margin:0;font-size:12px;color:#d4d4d8;">© ${new Date().getFullYear()} Resosyncer &nbsp;·&nbsp; <a href="${window.location.origin}/unsubscribe" style="color:#d4d4d8;text-decoration:underline;">Unsubscribe</a></p>
+              <p style="margin:0 0 8px;font-size:12px;color:#a1a1aa;line-height:1.6;">Questions? Reply to this email or write to <a href="mailto:support@Ryzent.com" style="color:#71717a;text-decoration:underline;">support@Ryzent.com</a></p>
+              <p style="margin:0;font-size:12px;color:#d4d4d8;">(c) ${new Date().getFullYear()} Ryzent &nbsp;-&nbsp; <a href="${window.location.origin}/unsubscribe" style="color:#d4d4d8;text-decoration:underline;">Unsubscribe</a></p>
             </td>
           </tr>
         </table>
@@ -113,7 +117,7 @@ const buildWelcomeEmail = ({ ownerName, companyName, plan, email }) => ({
   `.trim(),
 });
 
-// ─── Billing email builder ────────────────────────────────────────────────────
+// Billing email builder
 const buildBillingEmail = ({
   ownerName,
   companyName,
@@ -145,7 +149,7 @@ const buildBillingEmail = ({
 
   return {
     to: email,
-    subject: `Order confirmed — Resosyncer ${plan} Plan`,
+    subject: `Order confirmed - Ryzent ${plan} Plan`,
     companyName,
     body: `
 <!DOCTYPE html>
@@ -155,7 +159,7 @@ const buildBillingEmail = ({
   <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f4f4f5;padding:48px 24px;">
     <tr><td align="center">
       <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;">
-        <tr><td style="padding:0 0 28px;text-align:center;"><span style="font-size:15px;font-weight:700;letter-spacing:-0.3px;color:#18181b;">Resosyncer</span></td></tr>
+        <tr><td style="padding:0 0 28px;text-align:center;"><span style="font-size:15px;font-weight:700;letter-spacing:-0.3px;color:#18181b;">Ryzent</span></td></tr>
         <tr><td style="background:#ffffff;border-radius:8px;border:1px solid #e4e4e7;overflow:hidden;">
           <tr><td style="height:3px;background:#18181b;font-size:0;line-height:0;">&nbsp;</td></tr>
           <tr><td style="padding:40px 48px 36px;">
@@ -178,7 +182,7 @@ const buildBillingEmail = ({
 
               <tr>
                 <td style="padding:14px 16px;border-bottom:1px solid #f4f4f5;">
-                  <p style="margin:0;font-size:14px;font-weight:600;color:#18181b;">Resosyncer ${plan} Plan</p>
+                  <p style="margin:0;font-size:14px;font-weight:600;color:#18181b;">Ryzent ${plan} Plan</p>
                   <p style="margin:2px 0 0;font-size:12px;color:#a1a1aa;">Monthly subscription</p>
                 </td>
                 <td style="padding:14px 16px;border-bottom:1px solid #f4f4f5;text-align:right;vertical-align:top;">
@@ -193,10 +197,10 @@ const buildBillingEmail = ({
               <tr>
                 <td style="padding:14px 16px;border-bottom:1px solid #f4f4f5;">
                   <p style="margin:0;font-size:14px;font-weight:600;color:#059669;">Promo: ${promoCode}</p>
-                  <p style="margin:2px 0 0;font-size:12px;color:#a1a1aa;">${discountLabel} — applied to first invoice after trial</p>
+                  <p style="margin:2px 0 0;font-size:12px;color:#a1a1aa;">${discountLabel} - applied to first invoice after trial</p>
                 </td>
                 <td style="padding:14px 16px;border-bottom:1px solid #f4f4f5;text-align:right;vertical-align:top;">
-                  <span style="font-size:14px;font-weight:600;color:#059669;">−${discountLabel}</span>
+                  <span style="font-size:14px;font-weight:600;color:#059669;">-${discountLabel}</span>
                 </td>
               </tr>`
                   : ""
@@ -211,7 +215,7 @@ const buildBillingEmail = ({
                   <p style="margin:2px 0 0;font-size:12px;color:#a1a1aa;">${discountLabel}</p>
                 </td>
                 <td style="padding:14px 16px;border-bottom:1px solid #f4f4f5;text-align:right;vertical-align:top;">
-                  <span style="font-size:14px;font-weight:600;color:#059669;">🎁 ${discountLabel}</span>
+                  <span style="font-size:14px;font-weight:600;color:#059669;">Bonus: ${discountLabel}</span>
                 </td>
               </tr>`
                   : ""
@@ -226,7 +230,7 @@ const buildBillingEmail = ({
                   <p style="margin:2px 0 0;font-size:12px;color:#a1a1aa;">No charge during trial period</p>
                 </td>
                 <td style="padding:14px 16px;border-bottom:1px solid #f4f4f5;text-align:right;vertical-align:top;">
-                  <span style="font-size:14px;font-weight:600;color:#18181b;">−$${price}</span>
+                  <span style="font-size:14px;font-weight:600;color:#18181b;">-$${price}</span>
                 </td>
               </tr>`
                   : ""
@@ -275,10 +279,10 @@ const buildBillingEmail = ({
 
         <tr><td style="padding:28px 0 0;text-align:center;">
           <p style="margin:0 0 8px;font-size:12px;color:#a1a1aa;line-height:1.6;">
-            To manage your subscription, go to Settings → Billing in your dashboard.<br/>
-            Billing questions? Write to <a href="mailto:billing@resosyncer.com" style="color:#71717a;text-decoration:underline;">billing@resosyncer.com</a>
+            To manage your subscription, go to Settings -> Billing in your dashboard.<br/>
+            Billing questions? Write to <a href="mailto:billing@Ryzent.com" style="color:#71717a;text-decoration:underline;">billing@Ryzent.com</a>
           </p>
-          <p style="margin:0;font-size:12px;color:#d4d4d8;">© ${new Date().getFullYear()} Resosyncer &nbsp;·&nbsp; <a href="${window.location.origin}/unsubscribe" style="color:#d4d4d8;text-decoration:underline;">Unsubscribe</a></p>
+          <p style="margin:0;font-size:12px;color:#d4d4d8;">(c) ${new Date().getFullYear()} Ryzent &nbsp;-&nbsp; <a href="${window.location.origin}/unsubscribe" style="color:#d4d4d8;text-decoration:underline;">Unsubscribe</a></p>
         </td></tr>
       </table>
     </td></tr>
@@ -289,14 +293,16 @@ const buildBillingEmail = ({
   };
 };
 
-// ─── Promo code validation ────────────────────────────────────────────────────
+// Promo code validation
 async function validatePromoCode(code, planName, planPrice) {
+  const normalizedCode = String(code || "").trim();
   const { data, error } = await supabase
     .from("promo_codes")
     .select("*")
-    .eq("code", code.toUpperCase().trim())
+    .ilike("code", normalizedCode)
     .eq("is_active", true)
-    .single();
+    .limit(1)
+    .maybeSingle();
 
   if (error || !data) return { valid: false, error: "Invalid promo code." };
 
@@ -315,11 +321,11 @@ async function validatePromoCode(code, planName, planPrice) {
       error: `This code requires a plan of at least $${data.min_plan_price}/mo.`,
     };
 
-  if (
-    data.applicable_plans &&
-    data.applicable_plans.length > 0 &&
-    !data.applicable_plans.includes(planName)
-  )
+  const normalizedPlanName = String(planName || "").trim().toLowerCase();
+  const applicablePlans = Array.isArray(data.applicable_plans)
+    ? data.applicable_plans.map((p) => String(p || "").trim().toLowerCase())
+    : [];
+  if (applicablePlans.length > 0 && !applicablePlans.includes(normalizedPlanName))
     return {
       valid: false,
       error: `This code is not valid for the ${planName} plan.`,
@@ -328,7 +334,7 @@ async function validatePromoCode(code, planName, planPrice) {
   return { valid: true, promo: data };
 }
 
-// ─── Compute discounted values ────────────────────────────────────────────────
+// Compute discounted values
 function applyDiscount(originalPrice, promo) {
   if (!promo)
     return {
@@ -365,7 +371,7 @@ function applyDiscount(originalPrice, promo) {
   return { finalPrice: originalPrice, discountLabel: null, extraTrialDays: 0 };
 }
 
-// ─── Promo code input widget ──────────────────────────────────────────────────
+// Promo code input widget
 function PromoCodeInput({ plan, onApply, onRemove, appliedPromo }) {
   const [code, setCode] = useState("");
   const [checking, setChecking] = useState(false);
@@ -416,7 +422,7 @@ function PromoCodeInput({ plan, onApply, onRemove, appliedPromo }) {
             <div style={{ fontSize: 11, color: "#16a34a", marginTop: 1 }}>
               {appliedPromo.discount_type === "trial"
                 ? `+${extraTrialDays} extra trial days added`
-                : `${discountLabel} applied → $${finalPrice}/mo`}
+                : `${discountLabel} applied -> ${formatMoney(finalPrice, plan.currency)}/mo`}
             </div>
           </div>
         </div>
@@ -485,7 +491,7 @@ function PromoCodeInput({ plan, onApply, onRemove, appliedPromo }) {
             padding: "10px 18px",
             borderRadius: 10,
             border: "none",
-            background: code.trim() ? "#0f172a" : "#e2e8f0",
+            background: code.trim() ? NAVY : "#e2e8f0",
             color: code.trim() ? "#fff" : "#94a3b8",
             fontSize: 13,
             fontWeight: 700,
@@ -526,8 +532,17 @@ function PromoCodeInput({ plan, onApply, onRemove, appliedPromo }) {
   );
 }
 
-// ─── Price display in order summary ──────────────────────────────────────────
+// Price display in order summary
 function PriceDisplay({ plan, appliedPromo }) {
+  if (plan.contactForPricing) {
+    return (
+      <div style={{ textAlign: "right" }}>
+        <div style={{ fontWeight: 800, color: "#0f172a", fontSize: 18 }}>
+          Contact Us
+        </div>
+      </div>
+    );
+  }
   if (!appliedPromo || appliedPromo.discount_type === "trial") {
     return (
       <div style={{ textAlign: "right" }}>
@@ -559,7 +574,7 @@ function PriceDisplay({ plan, appliedPromo }) {
           {plan.priceLabel}
         </span>
         <span style={{ fontWeight: 800, color: "#15803d", fontSize: 18 }}>
-          ${finalPrice}
+          {formatMoney(finalPrice, plan.currency)}
         </span>
       </div>
       <div style={{ fontSize: 12, color: "#94a3b8" }}>{plan.period}</div>
@@ -567,7 +582,7 @@ function PriceDisplay({ plan, appliedPromo }) {
   );
 }
 
-// ─── Icon map ─────────────────────────────────────────────────────────────────
+// Icon map
 const PLAN_ICON_MAP = {
   Zap: <ThunderboltOutlined />,
   Rocket: <RocketOutlined />,
@@ -577,28 +592,157 @@ const PLAN_ICON_MAP = {
   Sparkles: <ThunderboltOutlined />,
 };
 
-function adaptPlan(row) {
+const EUROPE_COUNTRIES = new Set([
+  "AT","BE","BG","HR","CY","CZ","DK","EE","FI","FR","DE","GR","HU","IE","IT",
+  "LV","LT","LU","MT","NL","PL","PT","RO","SK","SI","ES","SE","NO","CH","IS",
+  "LI","GB","UK","AL","AD","AM","AZ","BA","BY","GE","GI","IM","JE","XK","MD",
+  "MC","ME","MK","RS","SM","TR","UA","VA",
+]);
+
+const detectPricingRegion = () => {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    if (tz.startsWith("Europe/")) return "EUROPE";
+  } catch {}
+  try {
+    const locale = (navigator.language || "").toUpperCase();
+    const country = locale.split("-")[1];
+    if (country && EUROPE_COUNTRIES.has(country)) return "EUROPE";
+  } catch {}
+  return "GLOBAL";
+};
+
+const formatMoney = (amount, currency = "USD") => {
+  const numeric = Number(amount || 0);
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: String(currency || "USD").toUpperCase(),
+      maximumFractionDigits: numeric % 1 === 0 ? 0 : 2,
+    }).format(numeric);
+  } catch {
+    return `${currency} ${numeric}`;
+  }
+};
+
+const buildRegionalMap = (rows) =>
+  (rows || []).reduce((acc, r) => {
+    const pid = r.plan_id;
+    const cycle = String(r.billing_cycle || "monthly").toLowerCase();
+    const rawRegion = String(r.region || "GLOBAL").toUpperCase();
+    const region =
+      rawRegion === "EU" ? "EUROPE" : rawRegion === "US" || rawRegion === "WORLD" ? "GLOBAL" : rawRegion;
+    if (!acc[pid]) acc[pid] = {};
+    if (!acc[pid][cycle]) acc[pid][cycle] = {};
+    acc[pid][cycle][region] = r;
+    return acc;
+  }, {});
+
+function adaptPlan(row, regionMap = {}, userRegion = "GLOBAL") {
+  const monthlyPrice = row.monthly_price ?? row.price ?? 0;
+  const yearlyPrice =
+    row.yearly_price ?? (monthlyPrice > 0 ? Number(monthlyPrice) * 12 : 0);
+  const planRegion = regionMap[row.id] || {};
+  const monthlyByRegion = planRegion.monthly || {};
+  const yearlyByRegion = planRegion.yearly || {};
+  const selectedMonthlyRegion =
+    monthlyByRegion[userRegion] || monthlyByRegion.GLOBAL || monthlyByRegion.EUROPE;
+  const selectedYearlyRegion =
+    yearlyByRegion[userRegion] || yearlyByRegion.GLOBAL || yearlyByRegion.EUROPE;
+  const regionCurrency = selectedMonthlyRegion?.currency || "USD";
+  const yearlyCurrency = selectedYearlyRegion?.currency || regionCurrency;
+  const regionPrice =
+    selectedMonthlyRegion?.price != null
+      ? Number(selectedMonthlyRegion.price)
+      : Number(monthlyPrice || 0);
+  const yearlyRegionPrice =
+    selectedYearlyRegion?.price != null
+      ? Number(selectedYearlyRegion.price)
+      : Number(yearlyPrice || 0);
+  const isContact = !!row.contact_for_pricing;
   return {
     id: row.id,
     name: row.name,
-    price: row.price ?? 0,
-    priceLabel: row.priceLabel ?? (row.price === 0 ? "$0" : `$${row.price}`),
-    period: row.period ?? (row.price === 0 ? "forever" : "/mo"),
+    price: regionPrice,
+    monthlyPrice,
+    yearlyPrice,
+    priceLabel: row.priceLabel ?? formatMoney(regionPrice, regionCurrency),
+    period: row.period ?? (Number(monthlyPrice) === 0 ? "forever" : "/mo"),
+    periodYearly: "/mo billed yearly",
     tagline: row.tagline ?? "",
     icon: PLAN_ICON_MAP[row.icon] ?? <ThunderboltOutlined />,
-    color: row.color ?? "#64748b",
+    color: row.color ?? NAVY,
     popular: row.popular ?? false,
+    contactForPricing: isContact,
+    freeTrialAvailable: row.free_trial_available ?? true,
+    trialDays: Number(row.trial_days ?? 14) || 14,
+    currency: regionCurrency,
+    currencyYearly: yearlyCurrency,
     features: Array.isArray(row.features) ? row.features : [],
     limits: {
       max_users: row.max_users ?? null,
-      storage_gb: row.storage_gb ?? null,
     },
-    stripePriceId: row.stripe_price_id ?? null,
-    cta: row.price === 0 ? "Start for free" : `Choose ${row.name}`,
+    stripePriceId:
+      selectedMonthlyRegion?.stripe_price_id ??
+      row.stripe_monthly_price_id ??
+      row.stripe_price_id ??
+      null,
+    stripeMonthlyPriceId:
+      selectedMonthlyRegion?.stripe_price_id ??
+      row.stripe_monthly_price_id ??
+      row.stripe_price_id ??
+      null,
+    stripeYearlyPriceId:
+      selectedYearlyRegion?.stripe_price_id ??
+      row.stripe_yearly_price_id ??
+      null,
+    monthlyDisplayPrice: regionPrice,
+    yearlyDisplayPrice: yearlyRegionPrice,
+    yearlyDisplayLabel: formatMoney(yearlyRegionPrice, yearlyCurrency),
+    cta: isContact
+      ? "Contact Us"
+      : Number(regionPrice) === 0
+        ? "Start for free"
+        : `Choose ${row.name}`,
   };
 }
 
-// ─── Step indicator ───────────────────────────────────────────────────────────
+function planForCycle(plan, cycle = "monthly") {
+  if (!plan) return plan;
+  if (plan.contactForPricing) return { ...plan, billingCycle: cycle };
+  if (cycle === "yearly") {
+    return {
+      ...plan,
+      billingCycle: "yearly",
+      price: Number(plan.yearlyDisplayPrice ?? plan.yearlyPrice ?? plan.price ?? 0),
+      priceLabel: plan.yearlyDisplayLabel ?? formatMoney(plan.yearlyPrice ?? plan.price, plan.currencyYearly || plan.currency),
+      period: plan.periodYearly || "/mo billed yearly",
+      stripePriceId: plan.stripeYearlyPriceId || plan.stripeMonthlyPriceId || plan.stripePriceId,
+      currency: plan.currencyYearly || plan.currency,
+      cta: plan.contactForPricing
+        ? "Contact Us"
+        : Number(plan.yearlyDisplayPrice ?? plan.yearlyPrice ?? 0) === 0
+          ? "Start for free"
+          : `Choose ${plan.name}`,
+    };
+  }
+  return {
+    ...plan,
+    billingCycle: "monthly",
+    price: Number(plan.monthlyDisplayPrice ?? plan.monthlyPrice ?? plan.price ?? 0),
+    priceLabel: formatMoney(plan.monthlyDisplayPrice ?? plan.monthlyPrice ?? plan.price, plan.currency || "USD"),
+    period: "/mo",
+    stripePriceId: plan.stripeMonthlyPriceId || plan.stripePriceId,
+    currency: plan.currency || "USD",
+    cta: plan.contactForPricing
+      ? "Contact Us"
+      : Number(plan.monthlyDisplayPrice ?? plan.monthlyPrice ?? 0) === 0
+        ? "Start for free"
+        : `Choose ${plan.name}`,
+  };
+}
+
+// Step indicator
 const StepPill = ({ steps, current }) => (
   <div className="flex items-center gap-1">
     {steps.map((s, i) => {
@@ -609,7 +753,7 @@ const StepPill = ({ steps, current }) => (
           <div
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-300"
             style={{
-              background: done ? "#10b981" : active ? "#0f172a" : "#e2e8f0",
+              background: done ? "#10b981" : active ? NAVY : "#e2e8f0",
               color: done ? "#fff" : active ? "#fff" : "#94a3b8",
             }}
           >
@@ -632,7 +776,7 @@ const StepPill = ({ steps, current }) => (
   </div>
 );
 
-// ─── Stripe card form ─────────────────────────────────────────────────────────
+// Stripe card form
 const StripeCardForm = ({
   plan,
   formData,
@@ -648,7 +792,8 @@ const StripeCardForm = ({
     plan.price,
     appliedPromo,
   );
-  const totalTrialDays = 14 + (extraTrialDays || 0);
+  const baseTrialDays = plan.freeTrialAvailable ? Number(plan.trialDays ?? 14) || 14 : 0;
+  const totalTrialDays = baseTrialDays + (extraTrialDays || 0);
   const showDiscountedPrice =
     appliedPromo &&
     appliedPromo.discount_type !== "trial" &&
@@ -700,12 +845,11 @@ const StripeCardForm = ({
             companySize: formData.company_size,
             plan: plan.name,
             maxUsers: plan.limits.max_users,
-            storageGb: plan.limits.storage_gb,
-            // ── mrr fields ──────────────────────────────────────────────────
-            // baseMrr: always the full plan price (integer) → stored in DB
+            // mrr fields
+            // baseMrr: always the full plan price (integer) stored in DB
             // finalPrice is only used for display/email, NOT sent as mrr
             baseMrr: plan.price,
-            // ── promo fields ─────────────────────────────────────────────────
+            // promo fields
             promoCode: appliedPromo?.code ?? null,
             promoCodeId: appliedPromo?.id ?? null,
             discountType: appliedPromo?.discount_type ?? null, // "percent"|"fixed"|"trial"
@@ -745,7 +889,7 @@ const StripeCardForm = ({
         }),
       );
 
-      onSuccess();
+      onSuccess(plan.name);
     } catch (err) {
       message.error(err.message || "Payment failed. Please try again.");
     } finally {
@@ -780,18 +924,18 @@ const StripeCardForm = ({
         loading={loading}
         onClick={handlePay}
         className="!h-12 !text-base !font-semibold !rounded-xl !border-0"
-        style={{ background: plan.color }}
+        style={{ background: NAVY }}
         type="primary"
       >
         {showDiscountedPrice
-          ? `Pay $${finalPrice}/mo & Start →`
-          : `Pay ${plan.priceLabel}/mo & Start →`}
+          ? `Pay ${formatMoney(finalPrice, plan.currency)} ${plan.period} and start ->`
+          : `Pay ${plan.priceLabel} ${plan.period} & Start ->`}
       </Button>
     </div>
   );
 };
 
-// ─── Free plan form ───────────────────────────────────────────────────────────
+// Free plan form
 const FreePlanForm = ({ formData, onSuccess, loading, setLoading }) => {
   const handleCreate = async () => {
     setLoading(true);
@@ -823,7 +967,6 @@ const FreePlanForm = ({ formData, onSuccess, loading, setLoading }) => {
             companySize: formData.company_size,
             plan: "Free",
             maxUsers: 5,
-            storageGb: 1,
             baseMrr: 0,
           },
         },
@@ -840,7 +983,7 @@ const FreePlanForm = ({ formData, onSuccess, loading, setLoading }) => {
         }),
       );
 
-      onSuccess();
+      onSuccess("Free");
     } catch (err) {
       message.error(err.message || "Registration failed");
     } finally {
@@ -855,14 +998,14 @@ const FreePlanForm = ({ formData, onSuccess, loading, setLoading }) => {
       loading={loading}
       onClick={handleCreate}
       className="!h-12 !text-base !font-semibold !rounded-xl"
-      style={{ background: "#0f172a", border: "none", color: "#fff" }}
+      style={{ background: NAVY, border: "none", color: "#fff" }}
     >
-      Create Free Account →
+      Create Free Account
     </Button>
   );
 };
 
-// ─── Trust strip ──────────────────────────────────────────────────────────────
+// Trust strip
 const TrustStrip = () => (
   <div className="flex items-center justify-center gap-6 mt-6 flex-wrap">
     {[
@@ -880,29 +1023,55 @@ const TrustStrip = () => (
   </div>
 );
 
-// ─── Main Register Page ───────────────────────────────────────────────────────
+// Main Register Page
 const Register = () => {
   const [step, setStep] = useState(0);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [formData, setFormData] = useState({});
   const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [plans, setPlans] = useState([]);
   const [plansLoading, setPlansLoading] = useState(true);
+  const [billingCycle, setBillingCycle] = useState("monthly");
   const [appliedPromo, setAppliedPromo] = useState(null);
   const [accountCheckLoading, setAccountCheckLoading] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
+        const userRegion = detectPricingRegion();
         const { data, error } = await supabase
           .from("plans")
           .select("*")
-          .eq("is_active", true)
-          .order("price", { ascending: true });
+          .eq("is_active", true);
         if (error) throw error;
-        setPlans((data ?? []).map(adaptPlan));
+        const planIds = (data ?? []).map((p) => p.id).filter(Boolean);
+        let regionMap = {};
+        if (planIds.length) {
+          const { data: regionRows, error: regionErr } = await supabase
+            .from("plan_region_prices")
+            .select("plan_id, billing_cycle, region, currency, price, stripe_price_id")
+            .in("plan_id", planIds);
+          if (!regionErr) {
+            regionMap = buildRegionalMap(regionRows);
+          }
+        }
+        setPlans(
+          (data ?? [])
+            .map((row) => adaptPlan(row, regionMap, userRegion))
+            .sort((a, b) => {
+              const aUsers =
+                a?.limits?.max_users == null
+                  ? Number.MAX_SAFE_INTEGER
+                  : Number(a.limits.max_users);
+              const bUsers =
+                b?.limits?.max_users == null
+                  ? Number.MAX_SAFE_INTEGER
+                  : Number(b.limits.max_users);
+              if (aUsers !== bUsers) return aUsers - bUsers;
+              return Number(a.monthlyPrice || 0) - Number(b.monthlyPrice || 0);
+            }),
+        );
       } catch (err) {
         message.error("Failed to load plans: " + err.message);
       } finally {
@@ -973,79 +1142,43 @@ const Register = () => {
   };
 
   const selectPlan = (plan) => {
-    setSelectedPlan(plan);
+    const selected = planForCycle(plan, billingCycle);
+    if (selected.contactForPricing) return;
+    setSelectedPlan(selected);
     setAppliedPromo(null);
     setStep(3);
   };
 
   const STEPS = ["Company", "Account", "Choose Plan", "Payment"];
-
-  // ── Success screen ──────────────────────────────────────────────────────────
-  if (done) {
-    return (
-      <div className="min-h-screen flex items-center justify-center register-bg">
-        <div
-          className="bg-white rounded-3xl shadow-2xl p-12 max-w-md w-full mx-4 text-center"
-          style={{
-            animation: "popIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both",
-          }}
-        >
-          <div
-            className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6"
-            style={{ background: "linear-gradient(135deg,#10b981,#059669)" }}
-          >
-            <CheckCircleFilled className="text-white text-5xl" />
-          </div>
-          <h2 className="text-3xl font-bold text-slate-900 mb-2">
-            Welcome aboard!
-          </h2>
-          <p className="text-slate-500 mb-2 text-base">
-            Hey <strong>{formData.owner_name}</strong>, your workspace is ready.
-          </p>
-          <p className="text-slate-400 text-sm mb-2">
-            We've sent a <strong>welcome email</strong>
-            {selectedPlan?.price > 0 && (
-              <>
-                {" "}
-                and <strong>billing confirmation</strong>
-              </>
-            )}{" "}
-            to <strong>{formData.email}</strong>.
-          </p>
-          <p className="text-slate-400 text-sm mb-8">
-            Please verify your email before signing in.
-          </p>
-          <Button
-            type="primary"
-            block
-            size="large"
-            onClick={() => navigate("/signin")}
-            className="!h-12 !text-base !font-semibold !rounded-xl"
-            style={{ background: "#0f172a", border: "none" }}
-          >
-            Go to Sign In
-          </Button>
-        </div>
-        <style>{`
-          @keyframes popIn { from{opacity:0;transform:scale(0.85)} to{opacity:1;transform:scale(1)} }
-          .register-bg { background: linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%); }
-        `}</style>
-      </div>
+  const handlePaidRegistrationSuccess = (registeredPlanName) => {
+    const onboardingState = {
+      ownerName: formData.owner_name,
+      email: formData.email,
+      companyName: formData.company_name,
+      planName: registeredPlanName || selectedPlan?.name || "Subscription",
+      fromSubscriptionPurchase: true,
+    };
+    sessionStorage.setItem(
+      "onboarding_access",
+      JSON.stringify(onboardingState),
     );
-  }
+
+    navigate("/onboarding", {
+      replace: true,
+      state: onboardingState,
+    });
+  };
+
+  const handleFreeRegistrationSuccess = () => {
+    navigate("/signin", { replace: true });
+  };
 
   return (
     <div className="min-h-screen register-bg flex flex-col">
       <nav className="flex items-center justify-between px-6 sm:px-10 py-5 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-white text-sm"
-            style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }}
-          >
-            R
-          </div>
           <span className="text-slate-900 font-bold text-lg tracking-tight">
-            Resosyncer
+            Ryzent
           </span>
         </div>
         <StepPill steps={STEPS} current={step} />
@@ -1058,7 +1191,6 @@ const Register = () => {
       </nav>
 
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
-        {/* ── STEP 0 — Company ────────────────────────────────────────────── */}
         {step === 0 && (
           <div
             className="w-full max-w-lg"
@@ -1067,9 +1199,9 @@ const Register = () => {
             <div className="text-center mb-8">
               <div
                 className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-4"
-                style={{ background: "#eef2ff", color: "#6366f1" }}
+                style={{ background: NAVY_TINT, color: NAVY }}
               >
-                Step 1 of 4 — Company Info
+                Step 1 of 4 - Company Info
               </div>
               <h1 className="text-4xl font-bold text-slate-900 mb-2 tracking-tight">
                 Set up your workspace
@@ -1079,7 +1211,7 @@ const Register = () => {
                 experience.
               </p>
             </div>
-            <div className="bg-white rounded-3xl shadow-2xl p-8">
+            <div className="bg-white rounded-3xl shadow-2xl p-8 register-panel">
               <Form
                 form={companyForm}
                 layout="vertical"
@@ -1174,11 +1306,11 @@ const Register = () => {
                   >
                     <Select placeholder="Select size" style={{ height: 44 }}>
                       {[
-                        "1–5",
-                        "6–20",
-                        "21–50",
-                        "51–100",
-                        "101–500",
+                        "1-5",
+                        "6-20",
+                        "20-50",
+                        "51-100",
+                        "101-500",
                         "500+",
                       ].map((s) => (
                         <Option key={s} value={s}>
@@ -1196,7 +1328,7 @@ const Register = () => {
                 onClick={() => goNext(companyForm)}
                 icon={<ArrowRightOutlined />}
                 className="!h-12 !text-base !font-semibold !rounded-xl !border-0"
-                style={{ background: "#0f172a" }}
+                style={{ background: NAVY }}
               >
                 Continue
               </Button>
@@ -1205,7 +1337,7 @@ const Register = () => {
           </div>
         )}
 
-        {/* ── STEP 1 — Account ─────────────────────────────────────────────── */}
+        {/* STEP 1 - Account */}
         {step === 1 && (
           <div
             className="w-full max-w-md"
@@ -1214,9 +1346,9 @@ const Register = () => {
             <div className="text-center mb-8">
               <div
                 className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-4"
-                style={{ background: "#eef2ff", color: "#6366f1" }}
+                style={{ background: NAVY_TINT, color: NAVY }}
               >
-                Step 2 of 4 — Account Setup
+                Step 2 of 4 - Account Setup
               </div>
               <h1 className="text-4xl font-bold text-slate-900 mb-2 tracking-tight">
                 Create your login
@@ -1225,7 +1357,7 @@ const Register = () => {
                 These credentials will be your admin access.
               </p>
             </div>
-            <div className="bg-white rounded-3xl shadow-2xl p-8">
+            <div className="bg-white rounded-3xl shadow-2xl p-8 register-panel">
               <button
                 onClick={() => setStep(0)}
                 className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-600 mb-6 transition-colors"
@@ -1310,16 +1442,15 @@ const Register = () => {
                 loading={accountCheckLoading}
                 onClick={handleAccountNext}
                 className="!h-12 !text-base !font-semibold !rounded-xl !border-0"
-                style={{ background: "#0f172a" }}
+                style={{ background: NAVY }}
               >
-                {accountCheckLoading ? "Checking..." : "Continue to Plans →"}
+                {accountCheckLoading ? "Checking..." : "Continue to Plans"}
               </Button>
             </div>
             <TrustStrip />
           </div>
         )}
 
-        {/* ── STEP 2 — Plans ───────────────────────────────────────────────── */}
         {step === 2 && (
           <div
             className="w-full max-w-6xl"
@@ -1328,24 +1459,57 @@ const Register = () => {
             <div className="text-center mb-10">
               <div
                 className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-4"
-                style={{ background: "#eef2ff", color: "#6366f1" }}
+                style={{ background: NAVY_TINT, color: NAVY }}
               >
-                Step 3 of 4 — Choose Your Plan
+                Step 3 of 4 - Choose Your Plan
               </div>
               <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 mb-3 tracking-tight">
                 Pick what fits your team
               </h1>
-              <p className="text-slate-500 text-lg">
-                All paid plans include a{" "}
-                <strong className="text-slate-800">14-day free trial</strong>.
-                No credit card required for Free.
-              </p>
               <button
                 onClick={() => setStep(1)}
                 className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-600 mx-auto mt-4 transition-colors"
               >
                 <ArrowLeftOutlined style={{ fontSize: 11 }} /> Back
               </button>
+            </div>
+
+            <div className="flex items-center justify-center mb-6">
+              <div
+                style={{
+                  display: "inline-flex",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 999,
+                  padding: 4,
+                  background: "#fff",
+                }}
+              >
+                {[
+                  { key: "monthly", label: "Monthly" },
+                  { key: "yearly", label: "Yearly" },
+                ].map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => setBillingCycle(opt.key)}
+                    style={{
+                      border: "none",
+                      borderRadius: 999,
+                      padding: "8px 16px",
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      background:
+                        billingCycle === opt.key
+                          ? `linear-gradient(135deg,${NAVY},${NAVY_DARK})`
+                          : "transparent",
+                      color: billingCycle === opt.key ? "#fff" : "#64748b",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {plansLoading ? (
@@ -1436,27 +1600,33 @@ const Register = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                {plans.map((plan, i) => (
+                {plans.map((plan, i) => {
+                  const planView = planForCycle(plan, billingCycle);
+                  return (
                   <div
                     key={plan.id}
-                    onClick={() => selectPlan(plan)}
-                    className="relative flex flex-col rounded-2xl cursor-pointer group transition-all duration-300 hover:-translate-y-2 hover:shadow-xl"
+                    onClick={() => !planView.contactForPricing && selectPlan(plan)}
+                    className={`relative flex flex-col rounded-2xl group transition-all duration-300 ${
+                      planView.contactForPricing
+                        ? "hover:shadow-xl"
+                        : "cursor-pointer hover:-translate-y-2 hover:shadow-xl"
+                    }`}
                     style={{
-                      background: plan.popular ? "#faf5ff" : "#ffffff",
-                      border: plan.popular
-                        ? "2px solid #8b5cf6"
+                      background: planView.popular ? "#F3F8FF" : "#ffffff",
+                      border: planView.popular
+                        ? `2px solid ${NAVY}`
                         : "1.5px solid #e2e8f0",
                       animation: `slideUp 0.4s ease ${i * 0.07}s both`,
-                      boxShadow: plan.popular
-                        ? "0 4px 24px rgba(139,92,246,0.12)"
+                      boxShadow: planView.popular
+                        ? "0 8px 28px rgba(18,59,120,0.16)"
                         : "0 1px 4px rgba(0,0,0,0.04)",
                     }}
                   >
-                    {plan.popular && (
+                    {planView.popular && (
                       <div
                         className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-[10px] font-bold text-white flex items-center gap-1"
                         style={{
-                          background: "linear-gradient(90deg,#6366f1,#8b5cf6)",
+                            background: `linear-gradient(90deg,${NAVY},${NAVY_DARK})`,
                         }}
                       >
                         <StarFilled style={{ fontSize: 8 }} /> MOST POPULAR
@@ -1467,60 +1637,74 @@ const Register = () => {
                         <div
                           className="w-10 h-10 rounded-xl flex items-center justify-center text-base"
                           style={{
-                            background: `${plan.color}18`,
-                            color: plan.color,
+                            background: `${planView.color}18`,
+                            color: planView.color,
                           }}
                         >
-                          {plan.icon}
+                          {planView.icon}
                         </div>
                         <div>
                           <div className="font-bold text-slate-900 text-base">
-                            {plan.name}
+                            {planView.name}
                           </div>
                           <div className="text-xs text-slate-400">
-                            {plan.tagline}
+                            {planView.tagline}
                           </div>
                         </div>
                       </div>
                       <div className="mb-5">
-                        <span className="text-4xl font-black text-slate-900 tracking-tight">
-                          {plan.priceLabel}
-                        </span>
-                        <span className="text-sm text-slate-400 ml-1">
-                          {plan.period}
-                        </span>
+                        {planView.contactForPricing ? (
+                          <span className="text-3xl font-black text-slate-900 tracking-tight">
+                            Contact Us
+                          </span>
+                        ) : (
+                          <>
+                            <span className="text-4xl font-black text-slate-900 tracking-tight">
+                              {planView.priceLabel}
+                            </span>
+                            <span className="text-sm text-slate-400 ml-1">
+                              {planView.period}
+                            </span>
+                          </>
+                        )}
                       </div>
                       <div className="mb-4 h-px bg-slate-100" />
                       <ul className="flex flex-col gap-2.5 flex-1 mb-6">
-                        {plan.features.map((f) => (
+                        {planView.features.map((f) => (
                           <li
                             key={f.text}
                             className="flex items-center gap-2.5 text-sm text-slate-600"
                           >
                             <CheckOutlined
-                              style={{ color: plan.color, fontSize: 11 }}
+                              style={{ color: planView.color, fontSize: 11 }}
                             />
                             {f.text}
                           </li>
                         ))}
                       </ul>
                       <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (planView.contactForPricing) {
+                            window.location.href = "mailto:sales@resosyncer.com";
+                            return;
+                          }
+                          selectPlan(plan);
+                        }}
                         className="w-full py-3 rounded-xl text-sm font-bold transition-all duration-200"
                         style={{
-                          background: plan.popular
-                            ? "linear-gradient(135deg,#6366f1,#8b5cf6)"
-                            : `${plan.color}12`,
-                          color: plan.popular ? "#fff" : plan.color,
-                          border: plan.popular
-                            ? "none"
-                            : `1.5px solid ${plan.color}30`,
+                          background: `linear-gradient(135deg,${NAVY},${NAVY_DARK})`,
+                          color: "#fff",
+                          border: "none",
                         }}
                       >
-                        {plan.cta}
+                        {planView.cta}
                       </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             <p className="text-center text-slate-400 text-sm mt-8">
@@ -1530,7 +1714,7 @@ const Register = () => {
           </div>
         )}
 
-        {/* ── STEP 3 — Payment ─────────────────────────────────────────────── */}
+        {/* STEP 3 - Payment */}
         {step === 3 && selectedPlan && (
           <div
             className="w-full max-w-4xl"
@@ -1539,9 +1723,9 @@ const Register = () => {
             <div className="text-center mb-8">
               <div
                 className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-4"
-                style={{ background: "#eef2ff", color: "#6366f1" }}
+                style={{ background: NAVY_TINT, color: NAVY }}
               >
-                Step 4 of 4 —{" "}
+                Step 4 of 4{" "}
                 {selectedPlan.price === 0 ? "Create Account" : "Payment"}
               </div>
               <h1 className="text-4xl font-bold text-slate-900 mb-2 tracking-tight">
@@ -1552,7 +1736,11 @@ const Register = () => {
               <p className="text-slate-400">
                 {selectedPlan.price === 0
                   ? "No credit card required. Start free today."
-                  : `${selectedPlan.name} plan · ${selectedPlan.priceLabel}/mo · 14-day free trial`}
+                  : `${selectedPlan.name} plan - ${selectedPlan.priceLabel} ${selectedPlan.period} - ${
+                      selectedPlan.freeTrialAvailable
+                        ? `${selectedPlan.trialDays || 14}-day free trial`
+                        : "no free trial"
+                    }`}
               </p>
               <button
                 onClick={() => setStep(2)}
@@ -1584,7 +1772,7 @@ const Register = () => {
                     </div>
                     <div className="flex-1">
                       <div className="font-bold text-slate-900 text-sm">
-                        Resosyncer {selectedPlan.name}
+                        Ryzent {selectedPlan.name}
                       </div>
                       <div className="text-xs text-slate-400">
                         {selectedPlan.tagline}
@@ -1636,7 +1824,7 @@ const Register = () => {
                           >
                             {appliedPromo.discount_type === "trial"
                               ? `+${extraTrialDays}d trial`
-                              : `−${discountLabel}`}
+                              : `-${discountLabel}`}
                           </span>
                         </div>
                       );
@@ -1647,18 +1835,21 @@ const Register = () => {
                     {[
                       { label: "Company", value: formData.company_name },
                       { label: "Admin", value: formData.email },
-                      {
-                        label: "Max users",
-                        value: selectedPlan.limits.max_users ?? "Unlimited",
-                      },
                       ...(selectedPlan.price > 0
                         ? [
                             {
                               label: "Trial",
                               value:
                                 appliedPromo?.discount_type === "trial"
-                                  ? `${14 + Number(appliedPromo.discount_value || 0)} days free 🎉`
-                                  : "14 days free",
+                                  ? `${
+                                      (selectedPlan.freeTrialAvailable
+                                        ? Number(selectedPlan.trialDays || 14)
+                                        : 0) +
+                                      Number(appliedPromo.discount_value || 0)
+                                    } days free`
+                                  : selectedPlan.freeTrialAvailable
+                                    ? `${selectedPlan.trialDays || 14} days free`
+                                    : "No trial",
                               green: true,
                             },
                           ]
@@ -1701,7 +1892,7 @@ const Register = () => {
               </div>
 
               {/* Payment form */}
-              <div className="lg:col-span-3 bg-white rounded-2xl shadow-2xl p-8">
+              <div className="lg:col-span-3 bg-white rounded-2xl shadow-2xl p-8 register-panel">
                 <h3 className="text-xl font-bold text-slate-900 mb-1">
                   {selectedPlan.price === 0
                     ? "Confirm your account"
@@ -1710,7 +1901,11 @@ const Register = () => {
                 <p className="text-slate-400 text-sm mb-6">
                   {selectedPlan.price === 0
                     ? "Click below to create your free workspace instantly."
-                    : "Enter your card details to start your 14-day trial."}
+                    : `Enter your card details to start your ${
+                        selectedPlan.freeTrialAvailable
+                          ? `${selectedPlan.trialDays || 14}-day trial`
+                          : "subscription"
+                      }.`}
                 </p>
 
                 <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 mb-4">
@@ -1751,7 +1946,7 @@ const Register = () => {
                 {selectedPlan.price === 0 ? (
                   <FreePlanForm
                     formData={formData}
-                    onSuccess={() => setDone(true)}
+                    onSuccess={handleFreeRegistrationSuccess}
                     loading={loading}
                     setLoading={setLoading}
                   />
@@ -1761,7 +1956,7 @@ const Register = () => {
                       plan={selectedPlan}
                       formData={formData}
                       appliedPromo={appliedPromo}
-                      onSuccess={() => setDone(true)}
+                      onSuccess={handlePaidRegistrationSuccess}
                       loading={loading}
                       setLoading={setLoading}
                     />
@@ -1778,16 +1973,20 @@ const Register = () => {
         * { font-family: 'Instrument Sans', system-ui, sans-serif; }
         .register-bg {
           background:
-            radial-gradient(ellipse 70% 50% at 15% 0%, rgba(99,102,241,0.06) 0%, transparent 60%),
-            radial-gradient(ellipse 50% 40% at 85% 100%, rgba(139,92,246,0.05) 0%, transparent 55%),
-            #f8fafc;
+            radial-gradient(ellipse 70% 50% at 15% 0%, rgba(18,59,120,0.09) 0%, transparent 60%),
+            radial-gradient(ellipse 50% 40% at 85% 100%, rgba(10,45,98,0.08) 0%, transparent 55%),
+            #f5f9ff;
         }
         .register-bg::before {
           content: ''; position: fixed; inset: 0;
-          background-image: radial-gradient(rgba(99,102,241,0.08) 1px, transparent 1px);
+          background-image: radial-gradient(rgba(18,59,120,0.1) 1px, transparent 1px);
           background-size: 28px 28px; pointer-events: none; z-index: 0;
         }
         .register-bg > * { position: relative; z-index: 1; }
+        .register-panel {
+          border: 1px solid ${NAVY_BORDER};
+          box-shadow: 0 18px 45px rgba(10, 45, 98, 0.12);
+        }
         @keyframes slideUp {
           from { opacity: 0; transform: translateY(24px); }
           to   { opacity: 1; transform: translateY(0); }
@@ -1803,8 +2002,8 @@ const Register = () => {
           border-color: #94a3b8 !important;
         }
         .ant-input:focus, .ant-input-affix-wrapper-focused {
-          border-color: #6366f1 !important;
-          box-shadow: 0 0 0 3px rgba(99,102,241,0.1) !important;
+          border-color: ${NAVY} !important;
+          box-shadow: 0 0 0 3px rgba(18,59,120,0.15) !important;
         }
         .ant-form-item-label > label { font-size: 13px; font-weight: 500; color: #475569; }
       `}</style>
@@ -1813,3 +2012,6 @@ const Register = () => {
 };
 
 export default Register;
+
+
+

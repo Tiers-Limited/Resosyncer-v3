@@ -161,8 +161,8 @@ const PAGE_GROUPS = [
       { key: "/meetings", label: "Meetings", icon: <VideoCameraOutlined /> },
       { key: "/monitor", label: "Attendance", icon: <FileTextOutlined /> },
       {
-        key: "/stats",
-        label: "Attendance Stats",
+        key: "/payroll",
+        label: "Payroll",
         icon: <ClockCircleOutlined />,
       },
       { key: "/standups", label: "Standup Stats", icon: <BarChartOutlined /> },
@@ -913,6 +913,37 @@ const Settings = () => {
     height: 36,
   };
 
+  const parseAmount = (value) => {
+    const amount = Number(value);
+    return Number.isFinite(amount) ? amount : 0;
+  };
+  const salaryCurrency = profile?.currency || "PKR";
+  const baseSalary =
+    profile?.salary_type === "commission"
+      ? parseAmount(profile?.base_salary)
+      : parseAmount(profile?.salary_amount);
+  const allowanceItems = Array.isArray(profile?.allowance_items)
+    ? profile.allowance_items
+    : parseAmount(profile?.allowances) > 0
+      ? [{ label: "Allowances", amount: parseAmount(profile?.allowances) }]
+      : [];
+  const deductionItems = Array.isArray(profile?.tax_deduction_items)
+    ? profile.tax_deduction_items
+    : parseAmount(profile?.tax_deductions) > 0
+      ? [{ label: "Tax Deductions", amount: parseAmount(profile?.tax_deductions) }]
+      : [];
+  const allowanceTotal = allowanceItems.reduce(
+    (sum, row) => sum + parseAmount(row?.amount),
+    0,
+  );
+  const deductionTotal = deductionItems.reduce(
+    (sum, row) => sum + parseAmount(row?.amount),
+    0,
+  );
+  const finalSalary = baseSalary + allowanceTotal - deductionTotal;
+  const formatSalary = (amount) =>
+    `${salaryCurrency} ${parseAmount(amount).toLocaleString()}`;
+
   /* ── Handlers ── */
   const handleUpdateProfile = async (values) => {
     setProfileLoading(true);
@@ -1515,23 +1546,119 @@ const Settings = () => {
               <>
                 <Divider className="my-5" />
                 <SectionTitle>Compensation</SectionTitle>
-                <div className="flex items-center justify-between rounded-xl border border-green-100 bg-gradient-to-r from-green-50 to-emerald-50 px-5 py-4 mb-5">
-                  <div>
-                    <div className="text-[10px] font-bold tracking-widest uppercase text-green-500 mb-0.5">
-                      Current Salary
+                <div
+                  className="rounded-xl px-5 py-4 mb-5"
+                  style={{
+                    border: dark ? "1px solid #2a2b31" : "1px solid #e2e8f0",
+                    background: dark ? "#17181c" : "#f8fafc",
+                  }}
+                >
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div
+                      className="rounded-lg px-3 py-2.5"
+                      style={{
+                        border: dark ? "1px solid #2f3138" : "1px solid #e2e8f0",
+                        background: dark ? "#141416" : "#ffffff",
+                      }}
+                    >
+                      <div
+                        className="text-[10px] font-bold tracking-widest uppercase mb-1"
+                        style={{ color: dark ? "#9ca3af" : "#94a3b8" }}
+                      >
+                        Base Salary
+                      </div>
+                      <div
+                        className="text-sm font-bold"
+                        style={{ color: dark ? "#f3f4f6" : "#1e293b" }}
+                      >
+                        {formatSalary(baseSalary)}
+                      </div>
                     </div>
-                    <div className="text-lg font-bold text-green-800">
-                      {profile?.salary_type === "fixed" &&
-                      profile?.salary_amount
-                        ? `PKR ${parseFloat(profile.salary_amount).toLocaleString()} / month`
-                        : profile?.salary_type === "commission"
-                          ? `PKR ${parseFloat(profile?.base_salary || 0).toLocaleString()} + ${profile?.commission_rate || 0}% Commission`
-                          : "Not Set"}
+                    <div
+                      className="rounded-lg px-3 py-2.5"
+                      style={{
+                        border: dark ? "1px solid #2f3857" : "1px solid #dbeafe",
+                        background: dark ? "rgba(37,99,235,0.12)" : "#eff6ff",
+                      }}
+                    >
+                      <div
+                        className="text-[10px] font-bold tracking-widest uppercase mb-1"
+                        style={{ color: dark ? "#93c5fd" : "#60a5fa" }}
+                      >
+                        Allowances
+                      </div>
+                      <div
+                        className="text-sm font-bold"
+                        style={{ color: dark ? "#bfdbfe" : "#1d4ed8" }}
+                      >
+                        {formatSalary(allowanceTotal)}
+                      </div>
+                    </div>
+                    <div
+                      className="rounded-lg px-3 py-2.5"
+                      style={{
+                        border: dark ? "1px solid #4a2a36" : "1px solid #ffe4e6",
+                        background: dark ? "rgba(225,29,72,0.12)" : "#fff1f2",
+                      }}
+                    >
+                      <div
+                        className="text-[10px] font-bold tracking-widest uppercase mb-1"
+                        style={{ color: dark ? "#fda4af" : "#fb7185" }}
+                      >
+                        Deductions
+                      </div>
+                      <div
+                        className="text-sm font-bold"
+                        style={{ color: dark ? "#fecdd3" : "#be123c" }}
+                      >
+                        {formatSalary(deductionTotal)}
+                      </div>
+                    </div>
+                    <div
+                      className="rounded-lg px-3 py-2.5"
+                      style={{
+                        border: dark ? "1px solid #234236" : "1px solid #bbf7d0",
+                        background: dark ? "rgba(22,163,74,0.12)" : "#f0fdf4",
+                      }}
+                    >
+                      <div
+                        className="text-[10px] font-bold tracking-widest uppercase mb-1"
+                        style={{ color: dark ? "#86efac" : "#22c55e" }}
+                      >
+                        Final Salary
+                      </div>
+                      <div
+                        className="text-sm font-bold"
+                        style={{ color: dark ? "#bbf7d0" : "#15803d" }}
+                      >
+                        {formatSalary(finalSalary)}
+                      </div>
                     </div>
                   </div>
-                  <span className="text-xs text-green-400 bg-green-100 rounded-full px-3 py-1">
-                    Contact admin to update
-                  </span>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {profile?.salary_type === "commission" && (
+                      <span
+                        className="text-xs rounded-full px-3 py-1 border"
+                        style={{
+                          color: dark ? "#cbd5e1" : "#64748b",
+                          background: dark ? "#141416" : "#ffffff",
+                          borderColor: dark ? "#2f3138" : "#e2e8f0",
+                        }}
+                      >
+                        Commission: {profile?.commission_rate || 0}%
+                      </span>
+                    )}
+                    <span
+                      className="text-xs rounded-full px-3 py-1 border"
+                      style={{
+                        color: dark ? "#cbd5e1" : "#64748b",
+                        background: dark ? "#141416" : "#ffffff",
+                        borderColor: dark ? "#2f3138" : "#e2e8f0",
+                      }}
+                    >
+                      Contact admin to update
+                    </span>
+                  </div>
                 </div>
 
                 <Divider className="my-5" />

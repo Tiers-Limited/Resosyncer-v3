@@ -1247,7 +1247,7 @@ function DocumentGeneratorPaywall({ dark = false }) {
                   WebkitTextFillColor: "transparent",
                 }}
               >
-                Pro Feature
+                Locked Feature
               </span>
             </div>
           </div>
@@ -2094,6 +2094,9 @@ export default function DocumentGenerator() {
   const [dark, setDark] = useState(getIsDarkTheme);
   const [orgPlan, setOrgPlan] = useState(null);
   const [planLoading, setPlanLoading] = useState(true);
+  const planTier = String(orgPlan || "").toLowerCase();
+  const isStarterPlan =
+    planTier.includes("free") || planTier.includes("starter");
 
   const [docType, setDocType] = useState("contract");
   const [inputMode, setInputMode] = useState("text");
@@ -2418,7 +2421,7 @@ export default function DocumentGenerator() {
   }
 
   // ── Paywall ──
-  if (orgPlan === "Free") {
+  if (isStarterPlan) {
     return <DocumentGeneratorPaywall dark={dark} />;
   }
 

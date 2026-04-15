@@ -34,9 +34,7 @@ import {
 import {
   Lock,
   Star,
-  ArrowRight,
   Shield,
-  Zap,
   MessageSquare,
   Sparkles,
   Bell,
@@ -49,7 +47,6 @@ import {
 import dayjs from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
 import { supabase } from "../lib/supabase";
-import { useNavigate } from "react-router-dom";
 
 dayjs.extend(isoWeek);
 
@@ -108,22 +105,22 @@ const THEME_STYLES = `
 
   /* ══════════════════ DARK OVERRIDES ══════════════════ */
   .sp-root.dark {
-    --bg-page:       #0b1220;
-    --bg-card:       #111827;
-    --bg-card-alt:   #0f172a;
-    --bg-card-hover: #0f172a;
-    --bg-subtle:     #1f2937;
-    --bg-muted:      #334155;
+    --bg-page:       #141416;
+    --bg-card:       #1a1b1f;
+    --bg-card-alt:   #17181c;
+    --bg-card-hover: #202127;
+    --bg-subtle:     #202127;
+    --bg-muted:      #2a2b31;
 
-    --border:        #1f2937;
-    --border-subtle: #1f2937;
-    --border-faint:  #1a2332;
+    --border:        #2a2b31;
+    --border-subtle: #2a2b31;
+    --border-faint:  #242428;
 
-    --text-primary:  #f1f5f9;
-    --text-secondary:#cbd5e1;
-    --text-tertiary: #94a3b8;
-    --text-muted:    #64748b;
-    --text-faint:    #334155;
+    --text-primary:  #f3f4f6;
+    --text-secondary:#d1d5db;
+    --text-tertiary: #9ca3af;
+    --text-muted:    #6b7280;
+    --text-faint:    #4b5563;
 
     --present-color: #4ade80; --present-bg: rgba(34,197,94,0.14);  --present-border: rgba(74,222,128,0.3);
     --absent-color:  #fb7185; --absent-bg:  rgba(225,29,72,0.14);  --absent-border:  rgba(251,113,133,0.3);
@@ -398,8 +395,8 @@ const ProjectDetailSkeleton = () => (
   </div>
 );
 
-// ─── Free plan paywall ────────────────────────────────────────────────────────
-function FreeStandupPaywall({ navigate, dark = false }) {
+// ─── Starter plan paywall ─────────────────────────────────────────────────────
+function StarterStandupPaywall({ dark = false }) {
   const features = [
     {
       icon: <MessageSquare size={16} />,
@@ -864,6 +861,7 @@ function FreeStandupPaywall({ navigate, dark = false }) {
                 display: "flex",
                 justifyContent: "center",
                 marginBottom: 20,
+                marginTop:15
               }}
             >
               <div
@@ -899,7 +897,7 @@ function FreeStandupPaywall({ navigate, dark = false }) {
                     WebkitTextFillColor: "transparent",
                   }}
                 >
-                  Pro Feature
+                  Locked Feature
                 </span>
               </div>
             </div>
@@ -1305,37 +1303,23 @@ function FreeStandupPaywall({ navigate, dark = false }) {
 
             {/* CTA */}
             <div style={{ textAlign: "center" }}>
-              <a
-                href="/subscription"
+              <div
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 10,
-                  padding: "14px 32px",
-                  background: "linear-gradient(135deg,#1e40af 0%,#7c3aed 100%)",
-                  color: "#fff",
+                  padding: "14px 24px",
+                  background: "var(--bg-card-alt)",
+                  color: "var(--text-primary)",
                   borderRadius: 12,
-                  fontWeight: 800,
-                  fontSize: 15,
-                  textDecoration: "none",
-                  letterSpacing: "-0.01em",
-                  boxShadow: "0 4px 24px rgba(99,102,241,0.35)",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-1px)";
-                  e.currentTarget.style.boxShadow =
-                    "0 8px 32px rgba(99,102,241,0.45)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow =
-                    "0 4px 24px rgba(99,102,241,0.35)";
+                  fontWeight: 700,
+                  fontSize: 14,
+                  border: "1px solid var(--border)",
                 }}
               >
-                <Zap size={16} fill="currentColor" />
-                Upgrade to unlock Standups
-                <ArrowRight size={16} />
-              </a>
+                <Lock size={15} />
+                Ask your company owner to upgrade
+              </div>
               <p
                 style={{
                   margin: "12px 0 0",
@@ -1343,8 +1327,7 @@ function FreeStandupPaywall({ navigate, dark = false }) {
                   color: "var(--text-muted)",
                 }}
               >
-                Upgrade your plan to access the full Standups module and all Pro
-                features.
+                Standups are available on Growth, Pro, and Enterprise plans.
               </p>
             </div>
           </div>
@@ -1356,7 +1339,6 @@ function FreeStandupPaywall({ navigate, dark = false }) {
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function AdminStandupStats() {
-  const navigate = useNavigate();
   const [dark, setDark] = useState(getIsDarkTheme);
   const [rootEl, setRootEl] = useState(null); // ref to the root wrapper
 
@@ -2321,7 +2303,8 @@ export default function AdminStandupStats() {
     },
   ];
 
-  const isFreePlan = orgPlan != null && orgPlan.trim().toLowerCase() === "free";
+  const isStarterPlan =
+    orgPlan != null && orgPlan.trim().toLowerCase().includes("starter");
 
   // ── Loading ────────────────────────────────────────────────────────────────
   if (planLoading) {
@@ -2349,8 +2332,8 @@ export default function AdminStandupStats() {
     );
   }
 
-  // ── Free-plan paywall ──────────────────────────────────────────────────────
-  if (isFreePlan) {
+  // ── Starter-plan paywall ───────────────────────────────────────────────────
+  if (isStarterPlan) {
     return (
       <div
         ref={setRootEl}
@@ -2361,7 +2344,7 @@ export default function AdminStandupStats() {
         }}
       >
         <style>{THEME_STYLES}</style>
-        <FreeStandupPaywall navigate={navigate} dark={dark} />
+        <StarterStandupPaywall dark={dark} />
       </div>
     );
   }
