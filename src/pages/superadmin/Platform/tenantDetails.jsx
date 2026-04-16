@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
 import {
   Card,
   Button,
@@ -69,7 +69,7 @@ import dayjs from "dayjs";
 
 const { Option } = Select;
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// --------- Constants ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const PLAN_COLOR = {
   Enterprise: {
     text: "#7c3aed",
@@ -204,7 +204,7 @@ const SALARY_TYPE_COLOR = {
   hybrid: { color: "#7c3aed", bg: "#f5f3ff", darkBg: "#2e1065" },
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// --------- Helpers ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const getInitials = (name, email) => {
   if (name) {
     const parts = name.trim().split(" ").filter(Boolean);
@@ -222,7 +222,7 @@ const fmtDate = (d) =>
         day: "numeric",
         year: "numeric",
       })
-    : "—";
+    : "---";
 
 const fmtLongDate = (d) =>
   d
@@ -231,10 +231,10 @@ const fmtLongDate = (d) =>
         day: "numeric",
         year: "numeric",
       })
-    : "—";
+    : "---";
 
 const timeAgo = (d) => {
-  if (!d) return "—";
+  if (!d) return "---";
   const diff = Date.now() - new Date(d).getTime();
   const mins = Math.floor(diff / 60000),
     hrs = Math.floor(mins / 60),
@@ -247,7 +247,7 @@ const timeAgo = (d) => {
 };
 
 const fmtCurrency = (n, currency = "USD") => {
-  if (n == null) return "—";
+  if (n == null) return "---";
   try {
     const safeCurrency = (currency || "USD").trim().toUpperCase();
     return new Intl.NumberFormat("en-US", {
@@ -326,7 +326,7 @@ const extractPath = (urlOrPath) => {
   }
 };
 
-// ─── Smart Avatar ─────────────────────────────────────────────────────────────
+// --------- Smart Avatar ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const SmartAvatar = ({
   src,
   name,
@@ -401,7 +401,7 @@ const SmartAvatar = ({
   );
 };
 
-// ─── Company Logo ─────────────────────────────────────────────────────────────
+// --------- Company Logo ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const CompanyLogo = ({
   domain,
   name,
@@ -454,9 +454,9 @@ const CompanyLogo = ({
   );
 };
 
-// ─── Info Row ─────────────────────────────────────────────────────────────────
+// --------- Info Row ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const InfoRow = ({ icon, label, value, mono, tk, last }) => {
-  if (!value || value === "—") return null;
+  if (!value || value === "---") return null;
   return (
     <div
       style={{
@@ -501,7 +501,7 @@ const InfoRow = ({ icon, label, value, mono, tk, last }) => {
   );
 };
 
-// ─── Section Header ───────────────────────────────────────────────────────────
+// --------- Section Header ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const SectionHeader = ({ label, tk, action }) => (
   <div
     style={{
@@ -521,7 +521,7 @@ const SectionHeader = ({ label, tk, action }) => (
   </div>
 );
 
-// ─── Stat Tile ────────────────────────────────────────────────────────────────
+// --------- Stat Tile ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const StatTile = ({ label, value, color, tk }) => (
   <div
     style={{
@@ -547,7 +547,7 @@ const StatTile = ({ label, value, color, tk }) => (
   </div>
 );
 
-// ─── Billing & Discount Card ──────────────────────────────────────────────────
+// --------- Billing & Discount Card ------------------------------------------------------------------------------------------------------------------------------------------------------
 const BillingCard = ({ tenant, isDarkMode, tk }) => {
   const disc =
     tenant.base_mrr > 0 &&
@@ -705,7 +705,7 @@ const BillingCard = ({ tenant, isDarkMode, tk }) => {
                 Promo discount active
               </div>
               <div style={{ fontSize: 11, color: "#16a34a" }}>
-                First invoice only — reverts to {fmtCurrency(tenant.base_mrr)}
+                First invoice only --- reverts to {fmtCurrency(tenant.base_mrr)}
                 /mo after
               </div>
             </div>
@@ -722,10 +722,10 @@ const BillingCard = ({ tenant, isDarkMode, tk }) => {
                 border: "1px solid #86efac",
               }}
             >
-              −{discPct}%
+              ---{discPct}%
             </div>
             <div style={{ fontSize: 10, color: "#16a34a", marginTop: 2 }}>
-              −${discAmt}/mo
+              ---${discAmt}/mo
             </div>
           </div>
         </div>
@@ -792,7 +792,7 @@ const BillingCard = ({ tenant, isDarkMode, tk }) => {
       />
       <BRow
         label="Stripe price ID"
-        value={tenant.stripe_price_id ?? "—"}
+        value={tenant.stripe_price_id ?? "---"}
         mono
         accent={tk.textMuted}
       />
@@ -825,7 +825,7 @@ const BillingCard = ({ tenant, isDarkMode, tk }) => {
           </div>
           <div style={{ fontSize: 10, color: tk.textMuted, marginTop: 2 }}>
             {disc
-              ? `First payment: ${fmtCurrency(tenant.mrr)} → then ${fmtCurrency(tenant.base_mrr)}/mo`
+              ? `First payment: ${fmtCurrency(tenant.mrr)} --- then ${fmtCurrency(tenant.base_mrr)}/mo`
               : `${fmtCurrency(tenant.mrr)}/mo ongoing`}
           </div>
         </div>
@@ -848,7 +848,7 @@ const BillingCard = ({ tenant, isDarkMode, tk }) => {
   );
 };
 
-// ─── Subscription Details Card ────────────────────────────────────────────────
+// --------- Subscription Details Card ------------------------------------------------------------------------------------------------------------------------------------------------
 const SubscriptionCard = ({
   tenant,
   isDarkMode,
@@ -954,7 +954,7 @@ const SubscriptionCard = ({
               </div>
               <div style={{ fontSize: 11, color: tk.textMuted, marginTop: 2 }}>
                 {hasOverride
-                  ? "Complimentary access — no charge"
+                  ? "Complimentary access --- no charge"
                   : `${fmtCurrency(limits.mrr)}/mo`}
               </div>
             </div>
@@ -1193,14 +1193,14 @@ const SubscriptionCard = ({
         {[
           {
             label: "Max Users",
-            value: limits.max_users == null ? "∞ Unlimited" : limits.max_users,
+            value: limits.max_users == null ? "--- Unlimited" : limits.max_users,
             color: tk.blue,
           },
           {
             label: "Storage",
             value:
               limits.storage_gb == null
-                ? "∞ Unlimited"
+                ? "--- Unlimited"
                 : `${limits.storage_gb} GB`,
             color: tk.green,
           },
@@ -1345,7 +1345,7 @@ const SubscriptionCard = ({
   );
 };
 
-// ─── Grant Override Modal ─────────────────────────────────────────────────────
+// --------- Grant Override Modal ---------------------------------------------------------------------------------------------------------------------------------------------------------------
 const GrantOverrideModal = ({
   open,
   onClose,
@@ -1449,7 +1449,7 @@ const GrantOverrideModal = ({
           >
             This grants the tenant full access to the selected plan{" "}
             <strong>at $0 cost</strong>. Their MRR will be set to 0 and Stripe
-            billing will not be affected — this is an internal override tracked
+            billing will not be affected --- this is an internal override tracked
             in your database only.
           </div>
         </div>
@@ -1624,7 +1624,7 @@ const GrantOverrideModal = ({
   );
 };
 
-// ─── TenantDetailPage ─────────────────────────────────────────────────────────
+// --------- TenantDetailPage ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const TenantDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -1670,7 +1670,7 @@ const TenantDetailPage = () => {
     purple: "#7c3aed",
   };
 
-  // ── Fetch tenant ────────────────────────────────────────────────────────────
+  // ------ Fetch tenant ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const fetchTenant = useCallback(async () => {
     setTenantLoading(true);
     try {
@@ -1698,7 +1698,7 @@ const TenantDetailPage = () => {
     }
   }, [id]);
 
-  // ── Fetch users ─────────────────────────────────────────────────────────────
+  // ------ Fetch users ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const fetchUsers = useCallback(async () => {
     setUsersLoading(true);
     try {
@@ -1792,7 +1792,7 @@ const TenantDetailPage = () => {
     return matchSearch && matchRole;
   });
 
-  // ── Tenant edit ─────────────────────────────────────────────────────────────
+  // ------ Tenant edit ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const openEditTenant = () => {
     tenantForm.setFieldsValue({
       name: tenant.name,
@@ -1853,7 +1853,7 @@ const TenantDetailPage = () => {
     }
   };
 
-  // ── Grant / Revoke override ─────────────────────────────────────────────────
+  // ------ Grant / Revoke override ---------------------------------------------------------------------------------------------------------------------------------------------------
   const handleGrantOverride = async (values) => {
     setOverrideSaving(true);
     try {
@@ -1878,7 +1878,7 @@ const TenantDetailPage = () => {
         .eq("id", id);
       if (error) throw error;
       messageApi.success(
-        `✓ Granted free ${values.override_plan} access to ${tenant.name}`,
+        `--- Granted free ${values.override_plan} access to ${tenant.name}`,
       );
       setGrantOverrideOpen(false);
       fetchTenant();
@@ -1911,14 +1911,14 @@ const TenantDetailPage = () => {
         })
         .eq("id", id);
       if (error) throw error;
-      messageApi.success("Override revoked — tenant reverted to billing plan");
+      messageApi.success("Override revoked --- tenant reverted to billing plan");
       fetchTenant();
     } catch (err) {
       messageApi.error(err.message || "Failed to revoke override");
     }
   };
 
-  // ── User edit / delete / suspend ────────────────────────────────────────────
+  // ------ User edit / delete / suspend ------------------------------------------------------------------------------------------------------------------------------------
   const openEditUser = (user) => {
     setEditingUser(user);
     userForm.setFieldsValue({
@@ -2159,7 +2159,7 @@ const TenantDetailPage = () => {
       dataIndex: "salary_amount",
       sorter: (a, b) => (a.salary_amount || 0) - (b.salary_amount || 0),
       render: (amount, row) => {
-        if (!amount) return <span style={{ color: tk.textMuted }}>—</span>;
+        if (!amount) return <span style={{ color: tk.textMuted }}>---</span>;
         const sc =
           SALARY_TYPE_COLOR[row.salary_type] || SALARY_TYPE_COLOR.fixed;
         const currency = (row.currency || "USD").toUpperCase();
@@ -2261,7 +2261,7 @@ const TenantDetailPage = () => {
     <div style={{ color: tk.textPri }}>
       {contextHolder}
 
-      {/* ── Back nav ───────────────────────────────────────────────────────── */}
+      {/* ------ Back nav --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */}
       <div style={{ marginBottom: 20 }}>
         <Button
           type="text"
@@ -2273,7 +2273,7 @@ const TenantDetailPage = () => {
         </Button>
       </div>
 
-      {/* ── Tenant Hero Card ──────────────────────────────────────────────── */}
+      {/* ------ Tenant Hero Card ------------------------------------------------------------------------------------------------------------------------------------------------ */}
       <Card
         style={{
           background: tk.cardBg,
@@ -2466,13 +2466,13 @@ const TenantDetailPage = () => {
             {
               label: "Health",
               value:
-                tenant.health_score != null ? `${tenant.health_score}%` : "—",
+                tenant.health_score != null ? `${tenant.health_score}%` : "---",
               color: tenant.health_score > 70 ? tk.green : tk.red,
             },
             {
               label: "Storage",
               value: loadingStorage
-                ? "…"
+                ? "---"
                 : storageData
                   ? storageData.totalBytes >= 1073741824
                     ? `${(storageData.totalBytes / 1073741824).toFixed(2)} GB`
@@ -2481,7 +2481,7 @@ const TenantDetailPage = () => {
                       : `${(storageData.totalBytes / 1024).toFixed(0)} KB`
                   : tenant.storage_gb != null
                     ? `${tenant.storage_gb} GB`
-                    : "—",
+                    : "---",
               color: tk.blue,
             },
           ].map((s, i, arr) => (
@@ -2528,7 +2528,7 @@ const TenantDetailPage = () => {
         </div>
       </Card>
 
-      {/* ── Two-column layout ─────────────────────────────────────────────── */}
+      {/* ------ Two-column layout --------------------------------------------------------------------------------------------------------------------------------------------- */}
       <div
         style={{
           display: "grid",
@@ -2537,9 +2537,9 @@ const TenantDetailPage = () => {
           alignItems: "start",
         }}
       >
-        {/* ── Left column ────────────────────────────────────────────────── */}
+        {/* ------ Left column ------------------------------------------------------------------------------------------------------------------------------------------------------ */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* ── SUBSCRIPTION CARD ──────────────────────────────────────────── */}
+          {/* ------ SUBSCRIPTION CARD ------------------------------------------------------------------------------------------------------------------------------------ */}
           <SubscriptionCard
             tenant={tenant}
             isDarkMode={isDarkMode}
@@ -2549,7 +2549,7 @@ const TenantDetailPage = () => {
             onRefresh={fetchTenant}
           />
 
-          {/* ── BILLING & DISCOUNT CARD ────────────────────────────────────── */}
+          {/* ------ BILLING & DISCOUNT CARD ------------------------------------------------------------------------------------------------------------------ */}
           <BillingCard tenant={tenant} isDarkMode={isDarkMode} tk={tk} />
 
           {/* Override reason display (if active) */}
@@ -2797,7 +2797,7 @@ const TenantDetailPage = () => {
           )}
         </div>
 
-        {/* ── Right: Users Table ──────────────────────────────────────────── */}
+        {/* ------ Right: Users Table ------------------------------------------------------------------------------------------------------------------------------------ */}
         <Card
           style={{
             background: tk.cardBg,
@@ -2845,14 +2845,14 @@ const TenantDetailPage = () => {
                 </div>
                 <div style={{ fontSize: 11, color: tk.textMuted }}>
                   {usersLoading
-                    ? "Loading…"
+                    ? "Loading---"
                     : `${users.length} member${users.length !== 1 ? "s" : ""} in this tenant`}
                 </div>
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <Input
-                placeholder="Search users…"
+                placeholder="Search users---"
                 allowClear
                 onChange={(e) => setUserSearch(e.target.value)}
                 style={{ width: 200 }}
@@ -2998,7 +2998,7 @@ const TenantDetailPage = () => {
         </Card>
       </div>
 
-      {/* ── Edit Tenant Modal ─────────────────────────────────────────────── */}
+      {/* ------ Edit Tenant Modal --------------------------------------------------------------------------------------------------------------------------------------------- */}
       <Modal
         title={
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -3011,7 +3011,7 @@ const TenantDetailPage = () => {
               isDark={isDarkMode}
             />
             <span style={{ fontWeight: 700, color: tk.textPri }}>
-              Edit — {tenant.name}
+              Edit --- {tenant.name}
             </span>
           </div>
         }
@@ -3083,12 +3083,12 @@ const TenantDetailPage = () => {
             </Form.Item>
           </div>
           <Form.Item name="notes" label="Notes">
-            <Input.TextArea rows={3} placeholder="Internal notes…" />
+            <Input.TextArea rows={3} placeholder="Internal notes---" />
           </Form.Item>
         </Form>
       </Modal>
 
-      {/* ── Edit User Modal ───────────────────────────────────────────────── */}
+      {/* ------ Edit User Modal --------------------------------------------------------------------------------------------------------------------------------------------------- */}
       <Modal
         title={
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -3200,7 +3200,7 @@ const TenantDetailPage = () => {
         </Form>
       </Modal>
 
-      {/* ── Grant Override Modal ──────────────────────────────────────────── */}
+      {/* ------ Grant Override Modal ------------------------------------------------------------------------------------------------------------------------------------ */}
       <GrantOverrideModal
         open={grantOverrideOpen}
         onClose={() => setGrantOverrideOpen(false)}
@@ -3211,7 +3211,7 @@ const TenantDetailPage = () => {
         tk={tk}
       />
 
-      {/* ── User Detail Drawer ────────────────────────────────────────────── */}
+      {/* ------ User Detail Drawer ------------------------------------------------------------------------------------------------------------------------------------------ */}
       <Drawer
         title={null}
         open={userDrawerOpen}
@@ -3306,7 +3306,7 @@ const TenantDetailPage = () => {
                       >
                         {[viewUser.job_title, viewUser.department]
                           .filter(Boolean)
-                          .join(" · ")}
+                          .join(" -- ")}
                       </div>
                     )}
                     <div
@@ -3411,14 +3411,14 @@ const TenantDetailPage = () => {
                         value: viewUser.salary_type
                           ? viewUser.salary_type.charAt(0).toUpperCase() +
                             viewUser.salary_type.slice(1)
-                          : "—",
+                          : "---",
                         color: tk.amber,
                       },
                       {
                         label: "Hours / Week",
                         value: viewUser.working_hours
                           ? `${viewUser.working_hours}h`
-                          : "—",
+                          : "---",
                         color: tk.purple,
                       },
                     ].map((item) => (
@@ -3545,7 +3545,7 @@ const TenantDetailPage = () => {
                             color: tk.textPri,
                           }}
                         >
-                          {viewUser.bank_name || "—"}
+                          {viewUser.bank_name || "---"}
                           {viewUser.bank_account_name && (
                             <span
                               style={{
@@ -3554,7 +3554,7 @@ const TenantDetailPage = () => {
                               }}
                             >
                               {" "}
-                              · {viewUser.bank_account_name}
+                              -- {viewUser.bank_account_name}
                             </span>
                           )}
                         </div>
@@ -3678,3 +3678,4 @@ const TenantDetailPage = () => {
 };
 
 export default TenantDetailPage;
+

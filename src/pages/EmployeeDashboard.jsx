@@ -54,7 +54,7 @@ const getNetSessionSeconds = (log, nowMs = Date.now()) => {
 };
 
 const getIsDarkTheme = () => {
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -438,7 +438,7 @@ const EmployeeDashboard = () => {
                   {todayAttendance.standup_message}
                 </p>
                 <div className="text-xs mt-1.5" style={{ color: ui.sub }}>
-                  {todayAttendance.hours_worked?.toFixed(2)} hours worked · Status:{" "}
+                  {todayAttendance.hours_worked?.toFixed(2)} hours worked -- Status:{" "}
                   <span className="font-medium capitalize">{todayAttendance.status}</span>
                 </div>
               </div>
@@ -642,3 +642,5 @@ const EmployeeDashboard = () => {
 };
 
 export default EmployeeDashboard;
+
+

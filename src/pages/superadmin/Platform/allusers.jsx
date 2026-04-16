@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+﻿import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Table,
   Card,
@@ -54,7 +54,7 @@ import { supabase } from "../../../lib/supabase";
 const { Search } = Input;
 const { Option } = Select;
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// --------- Constants ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const ROLE_OPTIONS = ["admin", "member", "viewer", "owner", "manager", "hr", "developer"];
 
 const ROLE_CONFIG = {
@@ -80,7 +80,7 @@ const SALARY_TYPE_COLOR = {
   hybrid:     { color: "#7c3aed", bg: "#f5f3ff", darkBg: "#2e1065" },
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// --------- Helpers ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const getInitials = (name, email) => {
   if (name) {
     const parts = name.trim().split(" ").filter(Boolean);
@@ -92,7 +92,7 @@ const getInitials = (name, email) => {
 };
 
 const timeAgo = (dateStr) => {
-  if (!dateStr) return "—";
+  if (!dateStr) return "---";
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
   const hrs  = Math.floor(mins / 60);
@@ -107,14 +107,14 @@ const timeAgo = (dateStr) => {
 const fmtDate = (dateStr) =>
   dateStr
     ? new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-    : "—";
+    : "---";
 
 const fmtCurrency = (amount) =>
   amount != null
     ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount)
-    : "—";
+    : "---";
 
-// ─── Smart Image component with fallback ──────────────────────────────────────
+// --------- Smart Image component with fallback ------------------------------------------------------------------------------------------------------------------
 const SmartAvatar = ({ src, name, email, size = 36, radius = "10px", fontSize = 13, style = {} }) => {
   const [imgErr, setImgErr] = useState(false);
   const initials = getInitials(name, email || name);
@@ -191,7 +191,7 @@ const SmartAvatar = ({ src, name, email, size = 36, radius = "10px", fontSize = 
   );
 };
 
-// ─── Company logo with letter fallback ───────────────────────────────────────
+// --------- Company logo with letter fallback ---------------------------------------------------------------------------------------------------------------------
 const CompanyLogo = ({ src, name, size = 24, radius = "6px", plan, isDark }) => {
   const [imgErr, setImgErr] = useState(false);
   const pc = PLAN_COLOR[plan] || PLAN_COLOR.Free;
@@ -230,7 +230,7 @@ const CompanyLogo = ({ src, name, size = 24, radius = "6px", plan, isDark }) => 
   );
 };
 
-// ─── Stat card ────────────────────────────────────────────────────────────────
+// --------- Stat card ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const StatCard = ({ label, value, sub, icon, color, loading, total, tk }) => (
   <Card
     style={{ background: tk.cardBg, border: `1px solid ${tk.border}`, borderRadius: 14, overflow: "hidden" }}
@@ -269,7 +269,7 @@ const StatCard = ({ label, value, sub, icon, color, loading, total, tk }) => (
   </Card>
 );
 
-// ─── All Users Page ───────────────────────────────────────────────────────────
+// --------- All Users Page ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const AllUsersPage = () => {
   const { isDarkMode } = useTheme();
   const [form] = Form.useForm();
@@ -293,7 +293,7 @@ const AllUsersPage = () => {
 
   const [pagination, setPagination] = useState({ current: 1, pageSize: 15, total: 0 });
 
-  // ── Theme ──────────────────────────────────────────────────────────────────
+  // ------ Theme ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const tk = {
     pageBg:       isDarkMode ? "#0f172a" : "#f8fafc",
     cardBg:       isDarkMode ? "#1e293b" : "#ffffff",
@@ -316,7 +316,7 @@ const AllUsersPage = () => {
     cyan:   "#06b6d4",
   };
 
-  // ── Supabase public URL helper ─────────────────────────────────────────────
+  // ------ Supabase public URL helper ---------------------------------------------------------------------------------------------------------------------------------------
   // Generates a public URL from a storage path or returns the raw URL if already absolute
   const getPublicUrl = (path, bucket = "avatars") => {
     if (!path) return null;
@@ -325,7 +325,7 @@ const AllUsersPage = () => {
     return data?.publicUrl || null;
   };
 
-  // ── Fetch tenants ──────────────────────────────────────────────────────────
+  // ------ Fetch tenants ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const fetchTenants = useCallback(async () => {
     const { data } = await supabase
       .from("tenants")
@@ -334,7 +334,7 @@ const AllUsersPage = () => {
     setTenants(data || []);
   }, []);
 
-  // ── Fetch users — exclude superadmin role ──────────────────────────────────
+  // ------ Fetch users --- exclude superadmin role ------------------------------------------------------------------------------------------------------
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
@@ -403,7 +403,7 @@ const AllUsersPage = () => {
 
   useEffect(() => { fetchTenants(); fetchUsers(); }, [fetchTenants, fetchUsers]);
 
-  // ── Client-side filter ─────────────────────────────────────────────────────
+  // ------ Client-side filter ---------------------------------------------------------------------------------------------------------------------------------------------------------------
   useEffect(() => {
     let rows = [...users];
     if (search) {
@@ -428,7 +428,7 @@ const AllUsersPage = () => {
 
   const hasFilters = search || tenantFilter !== "all" || roleFilter !== "all" || statusFilter !== "all";
 
-  // ── KPIs ───────────────────────────────────────────────────────────────────
+  // ------ KPIs ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const kpi = {
     total:       users.length,
     active:      users.filter((u) => !u.suspended).length,
@@ -437,7 +437,7 @@ const AllUsersPage = () => {
     tenantCount: tenants.length,
   };
 
-  // ── CRUD ───────────────────────────────────────────────────────────────────
+  // ------ CRUD ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const openEdit = (user) => {
     setEditingUser(user);
     form.setFieldsValue({
@@ -499,7 +499,7 @@ const AllUsersPage = () => {
     }
   };
 
-  // ── Row menu ───────────────────────────────────────────────────────────────
+  // ------ Row menu ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const rowMenu = (user) => ({
     items: [
       { key: "view", icon: <EyeOutlined />,  label: "View Profile", onClick: () => openView(user) },
@@ -521,7 +521,7 @@ const AllUsersPage = () => {
     ],
   });
 
-  // ── Table columns ──────────────────────────────────────────────────────────
+  // ------ Table columns ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const columns = [
     {
       title: "User",
@@ -574,7 +574,7 @@ const AllUsersPage = () => {
       render: (_, row) => (
         <div>
           <div style={{ fontSize: 13, color: tk.textPri, fontWeight: 500 }}>
-            {row.job_title || <span style={{ color: tk.textMuted }}>—</span>}
+            {row.job_title || <span style={{ color: tk.textMuted }}>---</span>}
           </div>
           {row.department && (
             <div style={{ fontSize: 11, color: tk.textMuted, marginTop: 1 }}>
@@ -590,7 +590,7 @@ const AllUsersPage = () => {
       sorter: (a, b) => (a.tenants?.name || "").localeCompare(b.tenants?.name || ""),
       render: (_, row) => {
         const t = row.tenants;
-        if (!t) return <span style={{ color: tk.textMuted }}>—</span>;
+        if (!t) return <span style={{ color: tk.textMuted }}>---</span>;
         const pc = PLAN_COLOR[t.plan] || PLAN_COLOR.Free;
 
         // Try domain favicon as company logo
@@ -681,7 +681,7 @@ const AllUsersPage = () => {
       width: 120,
       sorter: (a, b) => (a.salary_amount || 0) - (b.salary_amount || 0),
       render: (amount, row) => {
-        if (!amount) return <span style={{ color: tk.textMuted }}>—</span>;
+        if (!amount) return <span style={{ color: tk.textMuted }}>---</span>;
         const sc = SALARY_TYPE_COLOR[row.salary_type] || SALARY_TYPE_COLOR.fixed;
         return (
           <div>
@@ -732,12 +732,12 @@ const AllUsersPage = () => {
     },
   ];
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ------ Render ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   return (
     <div style={{ color: tk.textPri }}>
       {contextHolder}
 
-      {/* ── Header ───────────────────────────────────────────────────── */}
+      {/* ------ Header --------------------------------------------------------------------------------------------------------------------------------------------------------------- */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
           <div
@@ -781,7 +781,7 @@ const AllUsersPage = () => {
         </div>
       </div>
 
-      {/* ── KPI Cards ────────────────────────────────────────────────── */}
+      {/* ------ KPI Cards ------------------------------------------------------------------------------------------------------------------------------------------------------ */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 20 }}>
         <StatCard label="Total Users"   value={kpi.total}       sub="across all tenants"   icon={<TeamOutlined />}        color={tk.blue}   loading={loading} total={kpi.total} tk={tk} />
         <StatCard label="Active"        value={kpi.active}      sub={`${kpi.total ? Math.round((kpi.active/kpi.total)*100) : 0}% of all users`} icon={<CheckCircleOutlined />} color={tk.green}  loading={loading} total={kpi.total} tk={tk} />
@@ -790,7 +790,7 @@ const AllUsersPage = () => {
         <StatCard label="Tenants"       value={kpi.tenantCount} sub="organizations"        icon={<ApartmentOutlined />}   color={tk.amber}  loading={loading} total={Math.max(kpi.tenantCount, 1)} tk={tk} />
       </div>
 
-      {/* ── Table Card ───────────────────────────────────────────────── */}
+      {/* ------ Table Card --------------------------------------------------------------------------------------------------------------------------------------------------- */}
       <Card
         style={{ background: tk.cardBg, border: `1px solid ${tk.border}`, borderRadius: 14 }}
         styles={{ body: { padding: 0 } }}
@@ -809,7 +809,7 @@ const AllUsersPage = () => {
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, flexWrap: "wrap" }}>
             <Search
-              placeholder="Search name, email, job title, tenant…"
+              placeholder="Search name, email, job title, tenant---"
               allowClear
               onChange={(e) => setSearch(e.target.value)}
               style={{ width: 290 }}
@@ -971,7 +971,7 @@ const AllUsersPage = () => {
         />
       </Card>
 
-      {/* ── Edit Modal ────────────────────────────────────────────────── */}
+      {/* ------ Edit Modal ------------------------------------------------------------------------------------------------------------------------------------------------------ */}
       <Modal
         title={
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1070,7 +1070,7 @@ const AllUsersPage = () => {
         </Form>
       </Modal>
 
-      {/* ── Detail Drawer ─────────────────────────────────────────────── */}
+      {/* ------ Detail Drawer --------------------------------------------------------------------------------------------------------------------------------------------- */}
       <Drawer
         title={null}
         open={drawerOpen}
@@ -1081,7 +1081,7 @@ const AllUsersPage = () => {
         {viewUser && (
           <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
 
-            {/* ── Drawer hero ─────────────────────────────────────────── */}
+            {/* ------ Drawer hero --------------------------------------------------------------------------------------------------------------------------------- */}
             <div
               style={{
                 background: tk.heroBg,
@@ -1127,7 +1127,7 @@ const AllUsersPage = () => {
                     <div style={{ fontSize: 12, color: tk.textMuted, marginTop: 2 }}>{viewUser.email}</div>
                     {(viewUser.job_title || viewUser.department) && (
                       <div style={{ fontSize: 12, color: tk.textMuted, marginTop: 2 }}>
-                        {[viewUser.job_title, viewUser.department].filter(Boolean).join("  ·  ")}
+                        {[viewUser.job_title, viewUser.department].filter(Boolean).join("  --  ")}
                       </div>
                     )}
                   </div>
@@ -1209,7 +1209,7 @@ const AllUsersPage = () => {
               </div>
             </div>
 
-            {/* ── Drawer scrollable body ───────────────────────────────── */}
+            {/* ------ Drawer scrollable body --------------------------------------------------------------------------------------------------- */}
             <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
@@ -1285,8 +1285,8 @@ const AllUsersPage = () => {
                     {[
                       { label: "Salary",       value: fmtCurrency(viewUser.salary_amount), color: tk.green  },
                       { label: "Base Salary",  value: fmtCurrency(viewUser.base_salary),   color: tk.blue   },
-                      { label: "Commission",   value: viewUser.commission_rate ? `${viewUser.commission_rate}%` : "—", color: tk.amber  },
-                      { label: "Hours / Week", value: viewUser.working_hours ? `${viewUser.working_hours}h` : "—", color: tk.purple },
+                      { label: "Commission",   value: viewUser.commission_rate ? `${viewUser.commission_rate}%` : "---", color: tk.amber  },
+                      { label: "Hours / Week", value: viewUser.working_hours ? `${viewUser.working_hours}h` : "---", color: tk.purple },
                     ].map((item) => (
                       <div
                         key={item.label}
@@ -1330,7 +1330,7 @@ const AllUsersPage = () => {
                       { icon: <CalendarOutlined />,    label: "Joined",        value: fmtDate(viewUser.created_at) },
                       { icon: <ClockCircleOutlined />, label: "Last Updated",  value: timeAgo(viewUser.updated_at) },
                     ]
-                      .filter((r) => r.value && r.value !== "—")
+                      .filter((r) => r.value && r.value !== "---")
                       .map((row, i, arr) => (
                         <div
                           key={row.label}
@@ -1422,9 +1422,9 @@ const AllUsersPage = () => {
                       </div>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 600, color: tk.textPri }}>
-                          {viewUser.bank_name || "—"}
+                          {viewUser.bank_name || "---"}
                           {viewUser.bank_account_name && (
-                            <span style={{ fontWeight: 400, color: tk.textMuted }}> · {viewUser.bank_account_name}</span>
+                            <span style={{ fontWeight: 400, color: tk.textMuted }}> -- {viewUser.bank_account_name}</span>
                           )}
                         </div>
                         {viewUser.bank_account_number && (

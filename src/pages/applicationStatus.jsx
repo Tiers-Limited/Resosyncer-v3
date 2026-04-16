@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Spin } from "antd";
 import {
   Calendar,
@@ -17,7 +17,7 @@ import dayjs from "dayjs";
 import { supabase } from "../lib/supabase";
 import { useParams } from "react-router-dom";
 
-/* ── Constants ───────────────────────────────────────────────────────────── */
+/* ------ Constants --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const STAGES = [
   {
     key: "applied",
@@ -105,7 +105,7 @@ const stageInfo = (key) =>
     border: "#e2e8f0",
   };
 
-/* ── Status copy with lucide icon components ─────────────────────────────── */
+/* ------ Status copy with lucide icon components --------------------------------------------------------------------------------------------- */
 const STATUS_COPY = {
   applied: {
     title: "Application received",
@@ -119,7 +119,7 @@ const STATUS_COPY = {
   },
   interview: {
     title: "Moving to interview",
-    body: "Congratulations — you've been selected for an interview! Check your email for details.",
+    body: "Congratulations --- you've been selected for an interview! Check your email for details.",
     Icon: Target,
   },
   offer: {
@@ -139,13 +139,13 @@ const STATUS_COPY = {
   },
 };
 
-/* ── Spinner style ────────────────────────────────────────────────────────── */
+/* ------ Spinner style ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const spinStyle = { animation: "spin 1s linear infinite" };
 const spinKeyframes = `@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`;
 
-/* ══════════════════════════════════════════════════════════════════════════
+/* ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
    STEPPER
-══════════════════════════════════════════════════════════════════════════ */
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const Stepper = ({ currentStage, isRejected }) => {
   const currentIdx = isRejected
     ? -1
@@ -279,9 +279,9 @@ const Stepper = ({ currentStage, isRejected }) => {
   );
 };
 
-/* ══════════════════════════════════════════════════════════════════════════
+/* ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
    MAIN PAGE
-══════════════════════════════════════════════════════════════════════════ */
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 export default function ApplicationTrackingPage() {
   const { applicantId: accessToken } = useParams();
   const [applicant, setApplicant] = useState(null);
@@ -339,7 +339,7 @@ export default function ApplicationTrackingPage() {
     return () => window.clearInterval(intervalId);
   }, [accessToken]);
 
-  /* ── Loading ── */
+  /* ------ Loading ------ */
   if (loading)
     return (
       <div
@@ -356,7 +356,7 @@ export default function ApplicationTrackingPage() {
       </div>
     );
 
-  /* ── Error ── */
+  /* ------ Error ------ */
   if (error || !applicant)
     return (
       <div
@@ -416,7 +416,7 @@ export default function ApplicationTrackingPage() {
     <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
       <style>{spinKeyframes}</style>
 
-      {/* ── Top accent bar ── */}
+      {/* ------ Top accent bar ------ */}
       <div
         style={{
           height: 4,
@@ -424,7 +424,7 @@ export default function ApplicationTrackingPage() {
         }}
       />
 
-      {/* ── Header ── */}
+      {/* ------ Header ------ */}
       <div
         style={{
           background: "#fff",
@@ -509,11 +509,11 @@ export default function ApplicationTrackingPage() {
         </div>
       </div>
 
-      {/* ── Body ── */}
+      {/* ------ Body ------ */}
       <div
         style={{ maxWidth: 620, margin: "0 auto", padding: "32px 24px 60px" }}
       >
-        {/* ── Applicant + role ── */}
+        {/* ------ Applicant + role ------ */}
         <div style={{ marginBottom: 24 }}>
           <div
             style={{
@@ -540,7 +540,7 @@ export default function ApplicationTrackingPage() {
             )}
             {job?.department && (
               <>
-                <span style={{ color: "#e2e8f0" }}>·</span>
+                <span style={{ color: "#e2e8f0" }}>--</span>
                 <span
                   style={{
                     fontSize: 12,
@@ -555,14 +555,14 @@ export default function ApplicationTrackingPage() {
                 </span>
               </>
             )}
-            <span style={{ color: "#e2e8f0" }}>·</span>
+            <span style={{ color: "#e2e8f0" }}>--</span>
             <span style={{ fontSize: 12, color: "#94a3b8" }}>
               Applied {applicant.appliedAt}
             </span>
           </div>
         </div>
 
-        {/* ── Current status card ── */}
+        {/* ------ Current status card ------ */}
         <div
           style={{
             background: "#fff",
@@ -791,7 +791,7 @@ export default function ApplicationTrackingPage() {
           </div>
         </div>
 
-        {/* ── Contact info card ── */}
+        {/* ------ Contact info card ------ */}
         {(applicant.email || applicant.phone) && (
           <div
             style={{
@@ -860,7 +860,7 @@ export default function ApplicationTrackingPage() {
           </div>
         )}
 
-        {/* ── What happens next ── */}
+        {/* ------ What happens next ------ */}
         {screening && (
           <div
             style={{
@@ -963,7 +963,7 @@ export default function ApplicationTrackingPage() {
           </div>
         )}
 
-        {/* ── Footer ── */}
+        {/* ------ Footer ------ */}
         <div
           style={{
             textAlign: "center",
@@ -983,3 +983,4 @@ export default function ApplicationTrackingPage() {
     </div>
   );
 }
+

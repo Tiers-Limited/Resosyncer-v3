@@ -19,7 +19,7 @@ import { useAuth } from "../contexts/AuthContext";
 const { TextArea } = Input;
 
 const getIsDarkTheme = () => {
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -91,7 +91,7 @@ const RequestsLockedPaywall = ({ dark = false, planName, role }) => {
       >
         <h1 style={{ margin: "0 0 4px", fontSize: 26, fontWeight: 800 }}>Requests</h1>
         <p style={{ margin: 0, color: dark ? "#94a3b8" : "#64748b", fontSize: 13 }}>
-          Employee requests · approvals · response history
+          Employee requests -- approvals -- response history
         </p>
       </div>
 
@@ -564,3 +564,5 @@ const EmployeeRequests = () => {
 };
 
 export default EmployeeRequests;
+
+

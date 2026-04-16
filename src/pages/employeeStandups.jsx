@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
 import {
   DatePicker, Avatar, Space, Typography, Spin,
   Empty, Tooltip, Progress, Table, Button, Tag,
@@ -17,7 +17,7 @@ dayjs.extend(isoWeek);
 
 const { Title, Text } = Typography;
 
-// ── Constants ──────────────────────────────────────────────────────────────
+// ---------------- Constants ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const STATUS_CFG = {
   present: { label: "Present",    color: "#059669", bg: "#ecfdf5", border: "#a7f3d0", icon: <CheckOutlined style={{ fontSize: 9 }} /> },
   absent:  { label: "Absent",     color: "#e11d48", bg: "#fff1f2", border: "#fecdd3", icon: <CloseOutlined style={{ fontSize: 9 }} /> },
@@ -38,7 +38,7 @@ const getInitials = (name = "") => name.split(" ").filter(Boolean).map((n) => n[
 const capitalize = (s = "") => s.charAt(0).toUpperCase() + s.slice(1);
 const getIsDarkTheme = () => {
   if (typeof window === "undefined") return false;
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -57,7 +57,7 @@ function getWeekdaysInMonth(year, month) {
   return days;
 }
 
-// ── Component ──────────────────────────────────────────────────────────────
+// ---------------- Component ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 export default function StandupStats() {
   const { profile } = useAuth();
   const userId = profile?.id;
@@ -90,7 +90,7 @@ export default function StandupStats() {
     };
   }, []);
 
-  // ── Load projects assigned to this employee ───────────────────────────────
+  // ---------------- Load projects assigned to this employee --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   useEffect(() => {
     if (!userId) return;
     (async () => {
@@ -121,7 +121,7 @@ export default function StandupStats() {
     })();
   }, [userId]);
 
-  // ── Load session counts for each project (current month) ─────────────────
+  // ---------------- Load session counts for each project (current month) ----------------------------------------------------------------------------------------------------------------------------------------
   useEffect(() => {
     if (!projects.length || !selectedMonth) return;
     (async () => {
@@ -149,7 +149,7 @@ export default function StandupStats() {
     })();
   }, [projects, selectedMonth, userId]);
 
-  // ── Open stats view for a project ────────────────────────────────────────
+  // ---------------- Open stats view for a project --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const openStats = async (project) => {
     setActiveProject(project);
     setLoadingData(true);
@@ -193,7 +193,7 @@ export default function StandupStats() {
     setSessions([]);
   };
 
-  // ── Derived ───────────────────────────────────────────────────────────────
+  // ---------------- Derived ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const today = dayjs().format("YYYY-MM-DD");
 
   const weekdays = useMemo(
@@ -257,7 +257,7 @@ export default function StandupStats() {
     return grouped;
   }, [weekdays]);
 
-  // ── Projects table columns ─────────────────────────────────────────────
+  // ---------------- Projects table columns ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const projectColumns = [
     {
       title: "Project",
@@ -285,7 +285,7 @@ export default function StandupStats() {
             fontSize: 12, fontWeight: 600, color: cfg.color,
           }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: cfg.color, display: "inline-block" }} />
-            {capitalize(status || "—")}
+            {capitalize(status || "--------")}
           </span>
         );
       },
@@ -311,11 +311,11 @@ export default function StandupStats() {
           <Space size={10}>
             <Space size={5}>
               <Text style={{ fontSize: 12, fontWeight: 700, color: "#059669" }}>{c.present}P</Text>
-              <Text style={{ color: "#e2e8f0" }}>·</Text>
+              <Text style={{ color: "#e2e8f0" }}>----</Text>
               <Text style={{ fontSize: 12, fontWeight: 700, color: "#e11d48" }}>{c.absent}A</Text>
-              <Text style={{ color: "#e2e8f0" }}>·</Text>
+              <Text style={{ color: "#e2e8f0" }}>----</Text>
               <Text style={{ fontSize: 12, fontWeight: 700, color: "#d97706" }}>{c.late}L</Text>
-              <Text style={{ color: "#e2e8f0" }}>·</Text>
+              <Text style={{ color: "#e2e8f0" }}>----</Text>
               <Text style={{ fontSize: 12, fontWeight: 700, color: "#2563eb" }}>{c.leave || 0}Lv</Text>
             </Space>
             <span style={{
@@ -350,7 +350,7 @@ export default function StandupStats() {
     },
   ];
 
-  // ── Calendar heatmap columns ──────────────────────────────────────────────
+  // ---------------- Calendar heatmap columns --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const calendarColumns = useMemo(() => [
     {
       title: <Text style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>Member</Text>,
@@ -380,7 +380,7 @@ export default function StandupStats() {
                 </span>
               )}
             </Space>
-            <Text style={{ fontSize: 11, color: "#94a3b8", display: "block" }}>{rec.job_title || rec.department || "—"}</Text>
+            <Text style={{ fontSize: 11, color: "#94a3b8", display: "block" }}>{rec.job_title || rec.department || "--------"}</Text>
           </div>
         </Space>
       ),
@@ -415,14 +415,14 @@ export default function StandupStats() {
           if (!sess) return (
             <Tooltip title="No standup held">
               <div style={{ width: 20, height: 20, borderRadius: 5, background: "#f1f5f9", border: "1px solid #e2e8f0", margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Text style={{ fontSize: 8, color: "#cbd5e1", fontWeight: 700 }}>—</Text>
+                <Text style={{ fontSize: 8, color: "#cbd5e1", fontWeight: 700 }}>--------</Text>
               </div>
             </Tooltip>
           );
           const status = sess[rec.id];
           const cfg = STATUS_CFG[status] || STATUS_CFG.none;
           return (
-            <Tooltip title={`${d.format("MMM DD")} · ${cfg.label}`} mouseEnterDelay={0.2}>
+            <Tooltip title={`${d.format("MMM DD")} ---- ${cfg.label}`} mouseEnterDelay={0.2}>
               <div style={{
                 width: 20, height: 20, borderRadius: 5,
                 background: cfg.bg, border: `1px solid ${cfg.border}`,
@@ -455,7 +455,7 @@ export default function StandupStats() {
       },
     },
     {
-      title: <Text style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>P · A · L · LV</Text>,
+      title: <Text style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>P ---- A ---- L ---- LV</Text>,
       key: "pal",
       width: 90,
       fixed: "right",
@@ -463,18 +463,18 @@ export default function StandupStats() {
       render: (_, rec) => (
         <Space size={3}>
           <Text style={{ fontSize: 12, fontWeight: 700, color: "#059669" }}>{rec.present}</Text>
-          <Text style={{ color: "#e2e8f0", fontSize: 10 }}>·</Text>
+          <Text style={{ color: "#e2e8f0", fontSize: 10 }}>----</Text>
           <Text style={{ fontSize: 12, fontWeight: 700, color: "#e11d48" }}>{rec.absent}</Text>
-          <Text style={{ color: "#e2e8f0", fontSize: 10 }}>·</Text>
+          <Text style={{ color: "#e2e8f0", fontSize: 10 }}>----</Text>
           <Text style={{ fontSize: 12, fontWeight: 700, color: "#d97706" }}>{rec.late}</Text>
-          <Text style={{ color: "#e2e8f0", fontSize: 10 }}>·</Text>
+          <Text style={{ color: "#e2e8f0", fontSize: 10 }}>----</Text>
           <Text style={{ fontSize: 12, fontWeight: 700, color: "#2563eb" }}>{rec.leave || 0}</Text>
         </Space>
       ),
     },
   ], [weekdays, sessionMap, today, userId]);
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ---------------- Render ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   return (
     <div
       className={dark ? "standups-dark" : ""}
@@ -496,7 +496,7 @@ export default function StandupStats() {
         }
         .ant-table-tbody > tr:last-child > td { border-bottom: none !important; }
         .ant-table-tbody > tr:hover > td { background: #f8fafc !important; }
-        /* Heatmap table overrides — tighter padding */
+        /* Heatmap table overrides -------- tighter padding */
         .heatmap-table .ant-table-thead > tr > th { padding: 10px 5px !important; }
         .heatmap-table .ant-table-tbody > tr > td  { padding: 9px 5px !important; }
         .ant-table-cell-fix-left  { background: #fff !important; }
@@ -570,7 +570,7 @@ export default function StandupStats() {
         }
       `}</style>
 
-      {/* ── Header ── */}
+      {/* ---------------- Header ---------------- */}
       <div className="standups-header" style={{  borderBottom: dark ? "none" : "1px solid #f1f5f9", padding: "0 40px" }}>
         <div style={{ margin: "0 auto" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 0", flexWrap: "wrap", gap: 16 }}>
@@ -592,12 +592,12 @@ export default function StandupStats() {
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
                   <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#0f172a" }} />
                   <Text style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                    {activeProject ? `${activeProject.name} · Stats` : "My Standups"}
+                    {activeProject ? `${activeProject.name} ---- Stats` : "My Standups"}
                   </Text>
                 </div>
                 <Title level={4} style={{ margin: 0, color: dark ? "#f3f4f6" : "#0f172a", fontWeight: 800, letterSpacing: -0.5 }}>
                   {activeProject
-                    ? `Attendance · ${selectedMonth.format("MMMM YYYY")}`
+                    ? `Attendance ---- ${selectedMonth.format("MMMM YYYY")}`
                     : "Standup Attendance"
                   }
                 </Title>
@@ -624,18 +624,18 @@ export default function StandupStats() {
         </div>
       </div>
 
-      {/* ── Body ── */}
+      {/* ---------------- Body ---------------- */}
       <div style={{ margin: "0 auto", padding: "28px 40px" }}>
 
         {/* Auth loading */}
         {!userId && (
           <div style={{ textAlign: "center", padding: "80px 0" }}>
             <Spin size="large" />
-            <Text style={{ display: "block", marginTop: 16, color: "#94a3b8" }}>Loading session…</Text>
+            <Text style={{ display: "block", marginTop: 16, color: "#94a3b8" }}>Loading session-------</Text>
           </div>
         )}
 
-        {/* ══ PROJECTS TABLE VIEW ══ */}
+        {/* -------------- PROJECTS TABLE VIEW -------------- */}
         {userId && !activeProject && (
           <>
             {/* Quick summary chips */}
@@ -654,7 +654,7 @@ export default function StandupStats() {
                           return marked > 0 ? Math.round(((c.present + c.late + (c.leave || 0)) / marked) * 100) : null;
                         })
                         .filter((r) => r !== null);
-                      return rates.length ? `${Math.round(rates.reduce((a, b) => a + b, 0) / rates.length)}%` : "—";
+                      return rates.length ? `${Math.round(rates.reduce((a, b) => a + b, 0) / rates.length)}%` : "--------";
                     })(),
                     color: dark ? "#4ade80" : "#059669", bg: dark ? "rgba(34,197,94,0.16)" : "#ecfdf5", border: dark ? "rgba(74,222,128,0.35)" : "#a7f3d0",
                   },
@@ -712,7 +712,7 @@ export default function StandupStats() {
           </>
         )}
 
-        {/* ══ STATS VIEW ══ */}
+        {/* -------------- STATS VIEW -------------- */}
         {userId && activeProject && (
           <>
             {loadingData ? (
@@ -737,7 +737,7 @@ export default function StandupStats() {
                       </Avatar>
                       <div>
                         <Text strong style={{ fontSize: 14, color: dark ? "#f3f4f6" : "#0f172a", display: "block", lineHeight: 1.2 }}>{myStats.full_name}</Text>
-                        <Text style={{ fontSize: 12, color: "#94a3b8" }}>Your attendance · {selectedMonth.format("MMM YYYY")}</Text>
+                        <Text style={{ fontSize: 12, color: "#94a3b8" }}>Your attendance ---- {selectedMonth.format("MMM YYYY")}</Text>
                       </div>
                     </Space>
 
@@ -820,7 +820,7 @@ export default function StandupStats() {
                 {/* Legend */}
                 <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12, flexWrap: "wrap" }}>
                   <Text style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                    {activeProject.name} · {selectedMonth.format("MMMM YYYY")}
+                    {activeProject.name} ---- {selectedMonth.format("MMMM YYYY")}
                   </Text>
                   <div style={{ height: 12, width: 1, background: "#e2e8f0" }} />
                   {Object.entries(STATUS_CFG).map(([key, cfg]) => (
@@ -909,7 +909,7 @@ export default function StandupStats() {
                                     <Text strong style={{ fontSize: 13, color: dark ? "#f3f4f6" : "#0f172a", lineHeight: 1.2 }}>{emp.full_name}</Text>
                                     {emp.isMe && <span style={{ fontSize: 10, fontWeight: 700, color: "#6366f1", background: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: 20, padding: "1px 7px" }}>You</span>}
                                   </Space>
-                                  <Text style={{ fontSize: 11, color: "#94a3b8", display: "block" }}>{emp.job_title || emp.department || "—"}</Text>
+                                  <Text style={{ fontSize: 11, color: "#94a3b8", display: "block" }}>{emp.job_title || emp.department || "--------"}</Text>
                                 </div>
                               </Space>
                               <div style={{ padding: "3px 10px", borderRadius: 20, border: `1px solid ${rateBorder}`, background: rateBg, flexShrink: 0 }}>
@@ -946,6 +946,8 @@ export default function StandupStats() {
     </div>
   );
 }
+
+
 
 
 

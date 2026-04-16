@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
 import {
   Button,
   message,
@@ -55,7 +55,7 @@ const escapeHtml = (value = "") =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
-/* ─── Email sender ───────────────────────────────────────────────────────────── */
+/* ------------------------ Email sender -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const sendEmail = async ({ to, subject, body, companyName }) => {
   try {
     if (!EMAIL_API) {
@@ -80,37 +80,37 @@ const sendEmail = async ({ to, subject, body, companyName }) => {
   }
 };
 
-/* ─── Constants ──────────────────────────────────────────────────────── */
+/* ------------------------ Constants ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 
-// No pre-defined bank list — free text input worldwide
+// No pre-defined bank list - free text input worldwide
 const CURRENCIES = [
   { code: "USD", symbol: "$", name: "US Dollar" },
-  { code: "EUR", symbol: "€", name: "Euro" },
-  { code: "GBP", symbol: "£", name: "British Pound" },
-  { code: "PKR", symbol: "₨", name: "Pakistani Rupee" },
-  { code: "INR", symbol: "₹", name: "Indian Rupee" },
-  { code: "AED", symbol: "د.إ", name: "UAE Dirham" },
-  { code: "SAR", symbol: "﷼", name: "Saudi Riyal" },
+  { code: "EUR", symbol: "EUR", name: "Euro" },
+  { code: "GBP", symbol: "GBP", name: "British Pound" },
+  { code: "PKR", symbol: "Rs", name: "Pakistani Rupee" },
+  { code: "INR", symbol: "Rs", name: "Indian Rupee" },
+  { code: "AED", symbol: "AED", name: "UAE Dirham" },
+  { code: "SAR", symbol: "SAR", name: "Saudi Riyal" },
   { code: "CAD", symbol: "CA$", name: "Canadian Dollar" },
   { code: "AUD", symbol: "A$", name: "Australian Dollar" },
   { code: "SGD", symbol: "S$", name: "Singapore Dollar" },
-  { code: "JPY", symbol: "¥", name: "Japanese Yen" },
-  { code: "CNY", symbol: "¥", name: "Chinese Yuan" },
+  { code: "JPY", symbol: "JPY", name: "Japanese Yen" },
+  { code: "CNY", symbol: "CNY", name: "Chinese Yuan" },
   { code: "CHF", symbol: "Fr", name: "Swiss Franc" },
   { code: "MYR", symbol: "RM", name: "Malaysian Ringgit" },
-  { code: "BDT", symbol: "৳", name: "Bangladeshi Taka" },
+  { code: "BDT", symbol: "Tk", name: "Bangladeshi Taka" },
   { code: "LKR", symbol: "Rs", name: "Sri Lankan Rupee" },
-  { code: "NPR", symbol: "₨", name: "Nepalese Rupee" },
-  { code: "QAR", symbol: "﷼", name: "Qatari Riyal" },
-  { code: "KWD", symbol: "د.ك", name: "Kuwaiti Dinar" },
-  { code: "BHD", symbol: ".د.ب", name: "Bahraini Dinar" },
-  { code: "OMR", symbol: "﷼", name: "Omani Rial" },
+  { code: "NPR", symbol: "Rs", name: "Nepalese Rupee" },
+  { code: "QAR", symbol: "QAR", name: "Qatari Riyal" },
+  { code: "KWD", symbol: "KWD", name: "Kuwaiti Dinar" },
+  { code: "BHD", symbol: "BHD", name: "Bahraini Dinar" },
+  { code: "OMR", symbol: "OMR", name: "Omani Rial" },
   { code: "JOD", symbol: "JD", name: "Jordanian Dinar" },
-  { code: "EGP", symbol: "£", name: "Egyptian Pound" },
-  { code: "NGN", symbol: "₦", name: "Nigerian Naira" },
+  { code: "EGP", symbol: "EGP", name: "Egyptian Pound" },
+  { code: "NGN", symbol: "NGN", name: "Nigerian Naira" },
   { code: "ZAR", symbol: "R", name: "South African Rand" },
   { code: "KES", symbol: "KSh", name: "Kenyan Shilling" },
-  { code: "GHS", symbol: "₵", name: "Ghanaian Cedi" },
+  { code: "GHS", symbol: "GHS", name: "Ghanaian Cedi" },
   { code: "BRL", symbol: "R$", name: "Brazilian Real" },
   { code: "MXN", symbol: "$", name: "Mexican Peso" },
   { code: "COP", symbol: "$", name: "Colombian Peso" },
@@ -118,21 +118,21 @@ const CURRENCIES = [
   { code: "CLP", symbol: "$", name: "Chilean Peso" },
   { code: "PEN", symbol: "S/", name: "Peruvian Sol" },
   { code: "HUF", symbol: "Ft", name: "Hungarian Forint" },
-  { code: "PLN", symbol: "zł", name: "Polish Złoty" },
-  { code: "CZK", symbol: "Kč", name: "Czech Koruna" },
+  { code: "PLN", symbol: "PLN", name: "Polish Zloty" },
+  { code: "CZK", symbol: "CZK", name: "Czech Koruna" },
   { code: "SEK", symbol: "kr", name: "Swedish Krona" },
   { code: "NOK", symbol: "kr", name: "Norwegian Krone" },
   { code: "DKK", symbol: "kr", name: "Danish Krone" },
-  { code: "TRY", symbol: "₺", name: "Turkish Lira" },
-  { code: "RUB", symbol: "₽", name: "Russian Ruble" },
-  { code: "UAH", symbol: "₴", name: "Ukrainian Hryvnia" },
-  { code: "THB", symbol: "฿", name: "Thai Baht" },
-  { code: "VND", symbol: "₫", name: "Vietnamese Dong" },
+  { code: "TRY", symbol: "TRY", name: "Turkish Lira" },
+  { code: "RUB", symbol: "RUB", name: "Russian Ruble" },
+  { code: "UAH", symbol: "UAH", name: "Ukrainian Hryvnia" },
+  { code: "THB", symbol: "THB", name: "Thai Baht" },
+  { code: "VND", symbol: "VND", name: "Vietnamese Dong" },
   { code: "IDR", symbol: "Rp", name: "Indonesian Rupiah" },
-  { code: "PHP", symbol: "₱", name: "Philippine Peso" },
+  { code: "PHP", symbol: "PHP", name: "Philippine Peso" },
   { code: "TWD", symbol: "NT$", name: "Taiwan Dollar" },
   { code: "HKD", symbol: "HK$", name: "Hong Kong Dollar" },
-  { code: "KRW", symbol: "₩", name: "South Korean Won" },
+  { code: "KRW", symbol: "KRW", name: "South Korean Won" },
   { code: "NZD", symbol: "NZ$", name: "New Zealand Dollar" },
   { code: "OTHER", symbol: "", name: "Other (specify)" },
 ];
@@ -298,13 +298,13 @@ const getAvatarColor = (name = "") => {
 };
 
 const getIsDarkTheme = () => {
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 };
 
-/* ─── CSS ─────────────────────────────────────────────────────────────── */
+/* ------------------------ CSS ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap');
 
@@ -368,6 +368,22 @@ const CSS = `
 .ep-vbtn { border:none; background:transparent; cursor:pointer; width:30px; height:30px; border-radius:6px; display:flex; align-items:center; justify-content:center; color:var(--ep-muted); transition:all .15s; }
 .ep-vbtn.active { background:var(--ep-card); color:var(--ep-text); box-shadow:0 1px 4px rgba(0,0,0,.1); }
 .ep-vbtn:hover:not(.active) { color:#555; }
+@media(max-width:768px){
+  .ep-header{margin-bottom:18px;}
+  .ep-title{font-size:22px;}
+  .ep-sub{font-size:12px;}
+  .ep-toolbar{align-items:stretch;}
+  .ep-search-wrap{min-width:100%; max-width:none;}
+  .ep-count{width:100%; margin-left:0; order:4;}
+  .ep-view-toggle{margin-left:0;}
+  .ep-grid{grid-template-columns:1fr;}
+  .ep-card-top,.ep-card-body{padding-left:14px; padding-right:14px;}
+  .ep-actions{padding:10px 12px; flex-wrap:wrap; justify-content:stretch;}
+  .ep-btn{flex:1 1 calc(50% - 4px); justify-content:center;}
+  .ep-table-wrap{overflow:hidden;}
+  .ep-table-scroll{-webkit-overflow-scrolling:touch;}
+  .ep-table{min-width:860px;}
+}
 
 /* Cards */
 .ep-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:14px; }
@@ -435,7 +451,8 @@ const CSS = `
 
 /* Table */
 .ep-table-wrap { background:var(--ep-card); border:1px solid var(--ep-border); border-radius:16px; overflow:hidden; }
-.ep-table { width:100%; border-collapse:collapse; font-size:13px; }
+.ep-table-scroll { width:100%; overflow-x:auto; overflow-y:hidden; }
+.ep-table { width:100%; min-width:960px; border-collapse:collapse; font-size:13px; }
 .ep-table thead tr { border-bottom:1px solid var(--ep-border-soft); }
 .ep-table thead th { padding:11px 16px; text-align:left; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--ep-muted-2); white-space:nowrap; background:var(--ep-card2); }
 .ep-table tbody tr { border-bottom:1px solid var(--ep-border-soft); transition:background .12s; }
@@ -514,7 +531,7 @@ const CSS = `
 }
 `;
 
-/* ─── Skeleton components ──────────────────────────────────────────── */
+/* ------------------------ Skeleton components ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const SkeletonCard = () => (
   <div className="ep-skel-card">
     <div className="ep-skel-row">
@@ -587,9 +604,12 @@ const SkeletonTableRow = () => (
   </tr>
 );
 
-/* ═══════════════════════════════════════════════════════════════════════ */
+/* ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const Employees = () => {
   const [dark, setDark] = useState(getIsDarkTheme);
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth : 1440,
+  );
   const [employees, setEmployees] = useState([]);
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true); // start true so skeleton shows first
@@ -623,6 +643,14 @@ const Employees = () => {
       window.removeEventListener("themeModeChanged", syncTheme);
       mediaQuery.removeEventListener("change", syncTheme);
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const syncViewport = () => setViewportWidth(window.innerWidth);
+    syncViewport();
+    window.addEventListener("resize", syncViewport);
+    return () => window.removeEventListener("resize", syncViewport);
   }, []);
 
   // Refresh employees when tab becomes visible to update limit status
@@ -704,6 +732,21 @@ const Employees = () => {
     }
     setIsUserLimitReached(employees.length >= maxUsers);
   }, [employees.length, maxUsers]);
+
+  const isMobile = viewportWidth < 768;
+  const isTablet = viewportWidth < 1100;
+  const twoColGrid = {
+    display: "grid",
+    gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+    gap: isMobile ? "0 0" : "0 16px",
+  };
+  const listRowGrid = {
+    display: "grid",
+    gridTemplateColumns: isMobile ? "1fr" : "1fr 180px auto",
+    gap: 10,
+    marginBottom: 10,
+    alignItems: "start",
+  };
 
   const fetchTeams = async (tid) => {
     if (!tid) return;
@@ -1080,7 +1123,7 @@ const Employees = () => {
     [employees, search, filterRole, filterStatus],
   );
 
-  /* ── Employee Card ── */
+  /* ---------------- Employee Card ---------------- */
   const EmployeeCard = ({ emp }) => {
     const rc = dark
       ? ROLE_COLORS_DARK[emp.role] || ROLE_COLORS_DARK.employee
@@ -1114,7 +1157,7 @@ const Employees = () => {
             />
           </div>
           <div className="ep-card-meta">
-            <p className="ep-card-name">{emp.full_name || "—"}</p>
+            <p className="ep-card-name">{emp.full_name || "N/A"}</p>
             <span
               className="ep-role-pill"
               style={{
@@ -1131,7 +1174,7 @@ const Employees = () => {
         <div className="ep-card-body">
           <div className="ep-row">
             <Mail size={12} className="lc" />
-            <span title={emp.email}>{emp.email || "—"}</span>
+            <span title={emp.email}>{emp.email || "N/A"}</span>
           </div>
           {emp.contact && (
             <div className="ep-row">
@@ -1225,13 +1268,18 @@ const Employees = () => {
     );
   };
 
-  /* ═══════════════════════════ RENDER ══════════════════════════════════ */
+  /* --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- RENDER ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
   return (
     <div
       className={`ep${dark ? " dark" : ""}`}
-      style={{ background: "var(--ep-bg)", minHeight: "100vh", color: "var(--ep-text)" }}
+      style={{
+        background: "var(--ep-bg)",
+        minHeight: "100vh",
+        color: "var(--ep-text)",
+        padding: isMobile ? "0 0 16px" : 0,
+      }}
     >
-      {/* ── User Limit Alert ──────────────────────────────────────── */}
+      {/* ---------------- User Limit Alert -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */}
       {isUserLimitReached &&
         maxUsers !== null &&
         maxUsers !== undefined && (
@@ -1241,13 +1289,14 @@ const Employees = () => {
               ? "rgba(239, 68, 68, 0.12)"
               : "rgba(239, 68, 68, 0.05)",
             border: "1px solid rgba(239, 68, 68, 0.3)",
-            padding: "12px 20px",
+            padding: isMobile ? "12px 14px" : "12px 20px",
             borderRadius: 10,
-            margin: "12px 16px 0",
+            margin: isMobile ? "12px 12px 0" : "12px 16px 0",
             display: "flex",
-            alignItems: "center",
+            alignItems: isMobile ? "flex-start" : "center",
             gap: 12,
             marginBottom: 12,
+            flexWrap: "wrap",
           }}
         >
           <AlertCircle size={18} color="#ef4444" strokeWidth={2} />
@@ -1287,6 +1336,7 @@ const Employees = () => {
               fontFamily: "'DM Sans',sans-serif",
               whiteSpace: "nowrap",
               transition: "all 0.2s",
+              width: isMobile ? "100%" : "auto",
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
@@ -1314,6 +1364,7 @@ const Employees = () => {
             icon={<Plus size={14} />}
             className="ep-add-btn"
             onClick={() => setDrawerVisible(true)}
+            block={isMobile}
           >
             Add Employee
           </Button>
@@ -1365,7 +1416,7 @@ const Employees = () => {
         <div className="ep-search-wrap">
           <Search size={13} className="ep-search-icon" />
           <input
-            placeholder="Search name, email or team…"
+            placeholder="Search name, email or team..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -1374,7 +1425,7 @@ const Employees = () => {
           value={filterRole}
           onChange={setFilterRole}
           popupClassName={dark ? "ep-dark-popup" : undefined}
-          style={{ width: 158 }}
+          style={{ width: isMobile ? "100%" : 158 }}
           options={[
             { label: "All Roles", value: "all" },
             { label: "Employee", value: "employee" },
@@ -1385,7 +1436,7 @@ const Employees = () => {
           value={filterStatus}
           onChange={setFilterStatus}
           popupClassName={dark ? "ep-dark-popup" : undefined}
-          style={{ width: 140 }}
+          style={{ width: isMobile ? "100%" : 140 }}
           options={[
             { label: "All Status", value: "all" },
             { label: "Active", value: "active" },
@@ -1413,9 +1464,9 @@ const Employees = () => {
         </div>
       </div>
 
-      {/* Content: skeleton → empty → data (never show empty while loading) */}
+      {/* Content: skeleton - empty - data (never show empty while loading) */}
       {loading ? (
-        /* ── Skeleton ── */
+        /* ---------------- Skeleton ---------------- */
         viewMode === "card" ? (
           <div className="ep-grid">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -1424,32 +1475,34 @@ const Employees = () => {
           </div>
         ) : (
           <div className="ep-table-wrap">
-            <table className="ep-table">
-              <thead>
-                <tr>
-                  {[
-                    "Employee",
-                    "Team",
-                    "Designation",
-                    "Type",
-                    "Skills",
-                    "Status",
-                    "Actions",
-                  ].map((h) => (
-                    <th key={h}>{h}</th>
+            <div className="ep-table-scroll">
+              <table className="ep-table">
+                <thead>
+                  <tr>
+                    {[
+                      "Employee",
+                      "Team",
+                      "Designation",
+                      "Type",
+                      "Skills",
+                      "Status",
+                      "Actions",
+                    ].map((h) => (
+                      <th key={h}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <SkeletonTableRow key={i} />
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <SkeletonTableRow key={i} />
-                ))}
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
           </div>
         )
       ) : filtered.length === 0 ? (
-        /* ── Empty state ── */
+        /* ---------------- Empty state ---------------- */
         <div className="ep-empty">
           <div className="ep-empty-ico">
             <Users size={44} color="var(--ep-empty)" strokeWidth={1.5} />
@@ -1465,201 +1518,203 @@ const Employees = () => {
           </div>
         </div>
       ) : viewMode === "card" ? (
-        /* ── Card grid ── */
+        /* ---------------- Card grid ---------------- */
         <div className="ep-grid">
           {filtered.map((emp) => (
             <EmployeeCard key={emp.id} emp={emp} />
           ))}
         </div>
       ) : (
-        /* ── Table ── */
+        /* ---------------- Table ---------------- */
         <div className="ep-table-wrap">
-          <table className="ep-table">
-            <thead>
-              <tr>
-                <th>Employee</th>
-                <th>Team</th>
-                <th>Designation</th>
-                <th>Type</th>
-                <th>Skills</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((emp) => {
-                return (
-                  <tr key={emp.id}>
-                    <td>
-                      <div className="ep-table-name">
-                        <div className="ep-av-wrap" style={{ flexShrink: 0 }}>
-                          {emp.user_photo ? (
-                            <Avatar
-                              size={36}
-                              src={emp.user_photo}
-                              style={{ borderRadius: 8 }}
-                            />
-                          ) : (
-                            <Avatar
-                              size={36}
+          <div className="ep-table-scroll">
+            <table className="ep-table">
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Team</th>
+                  <th>Designation</th>
+                  <th>Type</th>
+                  <th>Skills</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((emp) => {
+                  return (
+                    <tr key={emp.id}>
+                      <td>
+                        <div className="ep-table-name">
+                          <div className="ep-av-wrap" style={{ flexShrink: 0 }}>
+                            {emp.user_photo ? (
+                              <Avatar
+                                size={36}
+                                src={emp.user_photo}
+                                style={{ borderRadius: 8 }}
+                              />
+                            ) : (
+                              <Avatar
+                                size={36}
+                                style={{
+                                  borderRadius: 8,
+                                  background: getAvatarColor(emp.full_name || ""),
+                                  fontSize: 13,
+                                  fontWeight: 700,
+                                }}
+                              >
+                                {getInitials(emp.full_name)}
+                              </Avatar>
+                            )}
+                            <span
+                              className="ep-status-pip"
                               style={{
-                                borderRadius: 8,
-                                background: getAvatarColor(emp.full_name || ""),
-                                fontSize: 13,
-                                fontWeight: 700,
+                                background: emp.suspended ? "#ff4d4f" : "#52c41a",
+                                width: 9,
+                                height: 9,
                               }}
-                            >
-                              {getInitials(emp.full_name)}
-                            </Avatar>
-                          )}
-                          <span
-                            className="ep-status-pip"
-                            style={{
-                              background: emp.suspended ? "#ff4d4f" : "#52c41a",
-                              width: 9,
-                              height: 9,
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <div
-                            className="ep-table-name-text"
-                            onClick={() => navigate(`/employees/${emp.id}`)}
-                          >
-                            {emp.full_name || "—"}
+                            />
                           </div>
-                          <div className="ep-table-email">{emp.email}</div>
+                          <div>
+                            <div
+                              className="ep-table-name-text"
+                              onClick={() => navigate(`/employees/${emp.id}`)}
+                            >
+                              {emp.full_name || "N/A"}
+                            </div>
+                            <div className="ep-table-email">{emp.email}</div>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td style={{ color: "var(--ep-sub)" }}>
-                      {emp.teams?.name || (
-                        <span style={{ color: "var(--ep-empty)" }}>—</span>
-                      )}
-                    </td>
-                    <td style={{ color: "var(--ep-sub)" }}>
-                      {emp.job_title || (
-                        <span style={{ color: "var(--ep-empty)" }}>—</span>
-                      )}
-                    </td>
-                    <td>
-                      {emp.employment_type ? (
-                        <span className="ep-salary-badge">
-                          {EMPLOYMENT_TYPES.find(
-                            (t) => t.value === emp.employment_type,
-                          )?.label || emp.employment_type}
-                        </span>
-                      ) : (
-                        <span style={{ color: "var(--ep-empty)" }}>—</span>
-                      )}
-                    </td>
-                    <td>
-                      <div
-                        style={{ display: "flex", gap: 4, flexWrap: "wrap" }}
-                      >
-                        {(emp.skills || []).slice(0, 2).map((s) => (
-                          <span key={s} className="ep-skill-tag">
-                            {s}
-                          </span>
-                        ))}
-                        {(emp.skills || []).length > 2 && (
-                          <span style={{ color: "var(--ep-muted)", fontSize: 10.5 }}>
-                            +{emp.skills.length - 2}
-                          </span>
+                      </td>
+                      <td style={{ color: "var(--ep-sub)" }}>
+                        {emp.teams?.name || (
+                          <span style={{ color: "var(--ep-empty)" }}>N/A</span>
                         )}
-                      </div>
-                    </td>
-                    <td>
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 5,
-                          padding: "3px 10px",
-                          borderRadius: 20,
-                          fontSize: 11,
-                          fontWeight: 700,
-                          background: emp.suspended
-                            ? dark
-                              ? "rgba(239,68,68,0.16)"
-                              : "#fff1f0"
-                            : dark
-                              ? "rgba(34,197,94,0.16)"
-                              : "#f6ffed",
-                          color: emp.suspended
-                            ? dark
-                              ? "#fca5a5"
-                              : "#cf1322"
-                            : dark
-                              ? "#86efac"
-                              : "#389e0d",
-                          border: `1px solid ${
-                            emp.suspended
-                              ? dark
-                                ? "rgba(239,68,68,0.35)"
-                                : "#ffccc7"
-                              : dark
-                                ? "rgba(34,197,94,0.35)"
-                                : "#b7eb8f"
-                          }`,
-                        }}
-                      >
+                      </td>
+                      <td style={{ color: "var(--ep-sub)" }}>
+                        {emp.job_title || (
+                          <span style={{ color: "var(--ep-empty)" }}>N/A</span>
+                        )}
+                      </td>
+                      <td>
+                        {emp.employment_type ? (
+                          <span className="ep-salary-badge">
+                            {EMPLOYMENT_TYPES.find(
+                              (t) => t.value === emp.employment_type,
+                            )?.label || emp.employment_type}
+                          </span>
+                        ) : (
+                          <span style={{ color: "var(--ep-empty)" }}>N/A</span>
+                        )}
+                      </td>
+                      <td>
+                        <div
+                          style={{ display: "flex", gap: 4, flexWrap: "wrap" }}
+                        >
+                          {(emp.skills || []).slice(0, 2).map((s) => (
+                            <span key={s} className="ep-skill-tag">
+                              {s}
+                            </span>
+                          ))}
+                          {(emp.skills || []).length > 2 && (
+                            <span style={{ color: "var(--ep-muted)", fontSize: 10.5 }}>
+                              +{emp.skills.length - 2}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
                         <span
                           style={{
-                            width: 6,
-                            height: 6,
-                            borderRadius: "50%",
-                            background: emp.suspended ? "#ff4d4f" : "#52c41a",
-                            display: "inline-block",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                            padding: "3px 10px",
+                            borderRadius: 20,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            background: emp.suspended
+                              ? dark
+                                ? "rgba(239,68,68,0.16)"
+                                : "#fff1f0"
+                              : dark
+                                ? "rgba(34,197,94,0.16)"
+                                : "#f6ffed",
+                            color: emp.suspended
+                              ? dark
+                                ? "#fca5a5"
+                                : "#cf1322"
+                              : dark
+                                ? "#86efac"
+                                : "#389e0d",
+                            border: `1px solid ${
+                              emp.suspended
+                                ? dark
+                                  ? "rgba(239,68,68,0.35)"
+                                  : "#ffccc7"
+                                : dark
+                                  ? "rgba(34,197,94,0.35)"
+                                  : "#b7eb8f"
+                            }`,
                           }}
-                        />
-                        {emp.suspended ? "Suspended" : "Active"}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", gap: 2 }}>
-                        <button
-                          className="ep-btn view"
-                          onClick={() => navigate(`/employees/${emp.id}`)}
                         >
-                          <Eye size={12} />
-                        </button>
-                        <button
-                          className="ep-btn edit"
-                          onClick={() => handleEditEmployee(emp)}
-                        >
-                          <Pencil size={12} />
-                        </button>
-                        <button
-                          className={`ep-btn ${emp.suspended ? "activate" : "suspend"}`}
-                          onClick={() =>
-                            handleSuspendToggle(emp.id, emp.suspended)
-                          }
-                          title={emp.suspended ? "Activate" : "Suspend"}
-                        >
-                          {emp.suspended ? (
-                            <CheckCircle2 size={12} />
-                          ) : (
-                            <Ban size={12} />
-                          )}
-                        </button>
-                        <button
-                          className="ep-btn del"
-                          onClick={() => showDeleteConfirm(emp)}
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                          <span
+                            style={{
+                              width: 6,
+                              height: 6,
+                              borderRadius: "50%",
+                              background: emp.suspended ? "#ff4d4f" : "#52c41a",
+                              display: "inline-block",
+                            }}
+                          />
+                          {emp.suspended ? "Suspended" : "Active"}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", gap: 2 }}>
+                          <button
+                            className="ep-btn view"
+                            onClick={() => navigate(`/employees/${emp.id}`)}
+                          >
+                            <Eye size={12} />
+                          </button>
+                          <button
+                            className="ep-btn edit"
+                            onClick={() => handleEditEmployee(emp)}
+                          >
+                            <Pencil size={12} />
+                          </button>
+                          <button
+                            className={`ep-btn ${emp.suspended ? "activate" : "suspend"}`}
+                            onClick={() =>
+                              handleSuspendToggle(emp.id, emp.suspended)
+                            }
+                            title={emp.suspended ? "Activate" : "Suspend"}
+                          >
+                            {emp.suspended ? (
+                              <CheckCircle2 size={12} />
+                            ) : (
+                              <Ban size={12} />
+                            )}
+                          </button>
+                          <button
+                            className="ep-btn del"
+                            onClick={() => showDeleteConfirm(emp)}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
-      {/* ─── Drawer ──────────────────────────────────────────────────── */}
+      {/* ------------------------ Drawer -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */}
       <Drawer
         title={
           <span
@@ -1676,14 +1731,17 @@ const Employees = () => {
         open={drawerVisible}
         rootClassName={dark ? "ep-dark-drawer" : undefined}
         onClose={closeDrawer}
-        width={700}
+        width={isMobile ? "100vw" : isTablet ? 620 : 700}
         extra={
-          <div style={{ display: "flex", gap: 8 }}>
-            <Button onClick={closeDrawer}>Cancel</Button>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Button onClick={closeDrawer} block={isMobile}>
+              Cancel
+            </Button>
             <Button
               type="primary"
               loading={loading}
               onClick={() => form.submit()}
+              block={isMobile}
               style={{
                 background: dark ? "#e2e8f0" : "#0a0a0a",
                 borderColor: dark ? "#e2e8f0" : "#0a0a0a",
@@ -1751,11 +1809,7 @@ const Employees = () => {
           {/* Personal */}
           <p className="ds-sec">Personal Info</p>
           <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "0 16px",
-            }}
+            style={twoColGrid}
           >
             <Form.Item
               name="full_name"
@@ -1824,11 +1878,7 @@ const Employees = () => {
           {/* Emergency Contact */}
           <p className="ds-sec">Emergency Contact</p>
           <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "0 16px",
-            }}
+            style={twoColGrid}
           >
             <Form.Item name="emergency_contact_name" label="Contact Name">
               <Input placeholder="Full name" />
@@ -1841,11 +1891,7 @@ const Employees = () => {
           {/* Work */}
           <p className="ds-sec">Work Details</p>
           <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "0 16px",
-            }}
+            style={twoColGrid}
           >
             <Form.Item name="employment_type" label="Employment Type">
               <Select
@@ -1921,7 +1967,7 @@ const Employees = () => {
           <Form.Item name="skills" label="Skills">
             <Select
               mode="multiple"
-              placeholder="Add skills…"
+              placeholder="Add skills..."
               allowClear
               showSearch
               popupClassName={dark ? "ep-dark-popup" : undefined}
@@ -1937,11 +1983,7 @@ const Employees = () => {
           {/* Salary */}
           <p className="ds-sec">Compensation</p>
           <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "0 16px",
-            }}
+            style={twoColGrid}
           >
             {/* Currency with "Other" option */}
             <Form.Item name="currency" label="Salary Currency">
@@ -1957,7 +1999,7 @@ const Employees = () => {
                   <Select.Option key={c.code} value={c.code}>
                     {c.code === "OTHER"
                       ? "Other (type manually)"
-                      : `${c.symbol} ${c.code} — ${c.name}`}
+                       : `${c.symbol} ${c.code} - ${c.name}`}
                   </Select.Option>
                 ))}
               </Select>
@@ -1977,7 +2019,7 @@ const Employees = () => {
                       { required: true, message: "Please enter a currency" },
                     ]}
                   >
-                    <Input placeholder="e.g. BTC, USDT, XOF…" />
+                    <Input placeholder="e.g. BTC, USDT, XOF..." />
                   </Form.Item>
                 ) : (
                   <div />
@@ -2017,9 +2059,7 @@ const Employees = () => {
                 return (
                   <div
                     style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: "0 16px",
+                      ...twoColGrid,
                     }}
                   >
                     <Form.Item name="base_salary" label="Base Salary">
@@ -2046,7 +2086,7 @@ const Employees = () => {
             }}
           </Form.Item>
 
-          {/* Bank — free text, worldwide */}
+          {/* Bank - free text, worldwide */}
           <p className="ds-sec">Allowances</p>
           <Form.List name="allowance_items">
             {(fields, { add, remove }) => (
@@ -2054,13 +2094,7 @@ const Employees = () => {
                 {fields.map((field) => (
                   <div
                     key={field.key}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 180px auto",
-                      gap: 10,
-                      marginBottom: 10,
-                      alignItems: "start",
-                    }}
+                    style={listRowGrid}
                   >
                     <Form.Item
                       {...field}
@@ -2107,13 +2141,7 @@ const Employees = () => {
                 {fields.map((field) => (
                   <div
                     key={field.key}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 180px auto",
-                      gap: 10,
-                      marginBottom: 10,
-                      alignItems: "start",
-                    }}
+                    style={listRowGrid}
                   >
                     <Form.Item
                       {...field}
@@ -2155,11 +2183,7 @@ const Employees = () => {
 
           <p className="ds-sec">Bank Details</p>
           <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "0 16px",
-            }}
+            style={twoColGrid}
           >
             <Form.Item
               name="bank_name"
@@ -2171,7 +2195,7 @@ const Employees = () => {
                 </span>
               }
             >
-              <Input placeholder="e.g. HSBC, Chase, Meezan Bank…" />
+              <Input placeholder="e.g. HSBC, Chase, Meezan Bank..." />
             </Form.Item>
             <Form.Item name="bank_account_name" label="Account Holder Name">
               <Input placeholder="As on bank records" />
@@ -2188,6 +2212,9 @@ const Employees = () => {
 };
 
 export default Employees;
+
+
+
 
 
 

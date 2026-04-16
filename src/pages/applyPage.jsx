@@ -1,4 +1,4 @@
-import { Component, useState, useEffect } from "react";
+﻿import { Component, useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { Spin, Result, Input, Select, DatePicker, message } from "antd";
@@ -19,7 +19,7 @@ const EMAIL_KEY = import.meta.env.VITE_EMAIL_API_KEY || "";
 const PUBLIC_DOMAIN =
   import.meta.env.VITE_PUBLIC_DOMAIN || window.location.origin;
 
-// ─── Confirmation email (with optional tracking link) ────────────────────────
+// --------- Confirmation email (with optional tracking link) ------------------------------------------------------------------------
 const sendApplicationReceivedEmail = async ({
   to,
   applicantName,
@@ -89,7 +89,7 @@ const sendAiInterviewInvite = async ({
   }
 };
 
-// ─── Error Boundary ───────────────────────────────────────────────────────────
+// --------- Error Boundary ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 class ErrorBoundary extends Component {
   state = { error: null };
   static getDerivedStateFromError(e) {
@@ -127,7 +127,7 @@ class ErrorBoundary extends Component {
   }
 }
 
-// ─── Field renderer ───────────────────────────────────────────────────────────
+// --------- Field renderer ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function FieldInput({ field, value, onChange }) {
   switch (field.type) {
     case "textarea":
@@ -143,7 +143,7 @@ function FieldInput({ field, value, onChange }) {
     case "select":
       return (
         <Select
-          placeholder="Select…"
+          placeholder="Select---"
           value={value}
           onChange={onChange}
           style={{ width: "100%" }}
@@ -191,7 +191,7 @@ function FieldInput({ field, value, onChange }) {
   }
 }
 
-// ─── File drop zone ───────────────────────────────────────────────────────────
+// --------- File drop zone ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function FileZone({ file, onFile, onRemove }) {
   return (
     <div
@@ -269,7 +269,7 @@ function FileZone({ file, onFile, onRemove }) {
             </label>
           </div>
           <div style={{ fontSize: 11, color: "#d1d5db", marginTop: 4 }}>
-            PDF, DOC, DOCX — max 5 MB
+            PDF, DOC, DOCX --- max 5 MB
           </div>
         </div>
       )}
@@ -277,7 +277,7 @@ function FileZone({ file, onFile, onRemove }) {
   );
 }
 
-// ─── Main form ────────────────────────────────────────────────────────────────
+// --------- Main form ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function ApplyForm() {
   const { jobId } = useParams();
 
@@ -375,7 +375,7 @@ function ApplyForm() {
           if (upErr)
             throw new Error(
               upErr.message.includes("Bucket not found")
-                ? 'Storage bucket "recruitment-cvs" not found. Create it in Supabase Dashboard → Storage.'
+                ? 'Storage bucket "recruitment-cvs" not found. Create it in Supabase Dashboard --- Storage.'
                 : upErr.message.includes("policy")
                   ? "Storage upload blocked by RLS policy. Run the storage policy SQL."
                   : `File upload failed: ${upErr.message}`,
@@ -425,7 +425,7 @@ function ApplyForm() {
         aiSelectionEnabled && (screening?.confidenceScore || 0) > 0.7;
       const screeningNote = buildScreeningNote(screening);
 
-      // ── Insert applicant and get back the new row's id ────────────────────
+      // ------ Insert applicant and get back the new row's id ------------------------------------------------------------
       const { data: inserted, error } = await supabase
         .from("recruitment_applicants")
         .insert([
@@ -609,7 +609,7 @@ function ApplyForm() {
           </div>
         )}
         <span style={s.companyName}>{companyName}</span>
-        {tagline && <span style={s.tagline}>— {tagline}</span>}
+        {tagline && <span style={s.tagline}>--- {tagline}</span>}
       </div>
 
       <div style={s.card}>
@@ -699,7 +699,7 @@ function ApplyForm() {
                 size={16}
                 style={{ animation: "spin 1s linear infinite" }}
               />{" "}
-              Submitting…
+              Submitting---
             </>
           ) : (
             "Submit Application"
@@ -819,3 +819,4 @@ const s = {
     marginBottom: 0,
   },
 };
+

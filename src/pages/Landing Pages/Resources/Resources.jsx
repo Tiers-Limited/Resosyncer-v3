@@ -198,7 +198,7 @@ export default function ResourcesPage() {
         </div>
       </div>
 
-      {/* ── HERO ── */}
+      {/* -- HERO -- */}
       <section
         className="pt-[100px] pb-14"
         style={{
@@ -224,7 +224,7 @@ export default function ResourcesPage() {
             <Search size={14} className="ml-4 text-slate-400 flex-shrink-0" />
             <input
               type="text"
-              placeholder="Search docs, guides, updates…"
+              placeholder="Search docs, guides, updates-"
               className="flex-1 border-none outline-none px-3 py-3 text-sm bg-transparent placeholder-slate-400"
             />
             <button className="bg-[#194696] hover:bg-[#1a3d80] transition-colors text-white text-[13px] font-bold px-5 py-3">
@@ -234,7 +234,7 @@ export default function ResourcesPage() {
         </div>
       </section>
 
-      {/* ── TABS ── */}
+      {/* -- TABS -- */}
       <div className="sticky top-[64px] z-40 bg-white/90 backdrop-blur-[10px] border-b border-slate-200">
         <div className="mx-auto max-w-[1100px] px-6 flex gap-0 overflow-x-auto">
           {TABS.map((tab, i) => (
@@ -253,10 +253,10 @@ export default function ResourcesPage() {
         </div>
       </div>
 
-      {/* ── MAIN CONTENT ── */}
+      {/* -- MAIN CONTENT -- */}
       <main className="mx-auto max-w-[1100px] px-6 py-12 pb-24">
 
-        {/* ── TAB 0: DOCUMENTATION ── */}
+        {/* -- TAB 0: DOCUMENTATION -- */}
         {activeTab === 0 && (
           <div>
             <SectionHeader icon={BookOpen} label="Help center / Documentation" />
@@ -286,7 +286,7 @@ export default function ResourcesPage() {
           </div>
         )}
 
-        {/* ── TAB 1: TUTORIALS ── */}
+        {/* -- TAB 1: TUTORIALS -- */}
         {activeTab === 1 && (
           <div>
             <SectionHeader icon={PlayCircle} label="Tutorials & Guides" />
@@ -317,7 +317,7 @@ export default function ResourcesPage() {
           </div>
         )}
 
-        {/* ── TAB 2: BLOG + CHANGELOG ── */}
+        {/* -- TAB 2: BLOG + CHANGELOG -- */}
         {activeTab === 2 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             {/* Blog */}
@@ -373,7 +373,7 @@ export default function ResourcesPage() {
           </div>
         )}
 
-        {/* ── TAB 3: FAQ + SUPPORT ── */}
+        {/* -- TAB 3: FAQ + SUPPORT -- */}
         {activeTab === 3 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             {/* FAQ */}
@@ -415,9 +415,9 @@ export default function ResourcesPage() {
                   {submitted ? (
                     <div className="flex items-center gap-2 text-[13px] text-[#194696] font-semibold py-3">
                       <div className="w-5 h-5 rounded-full bg-[#e8f0fc] flex items-center justify-center">
-                        <span className="text-[10px]">✓</span>
+                        <span className="text-[10px]">-</span>
                       </div>
-                      Thanks — your feedback was submitted!
+                      Thanks - your feedback was submitted!
                     </div>
                   ) : (
                     <>
@@ -425,7 +425,7 @@ export default function ResourcesPage() {
                         rows={4}
                         value={feedback}
                         onChange={(e) => setFeedback(e.target.value)}
-                        placeholder="Share a suggestion, report a problem, or tell us what's working well…"
+                        placeholder="Share a suggestion, report a problem, or tell us what's working well-"
                         className="w-full border border-slate-200 rounded-lg px-4 py-3 text-[13px] text-slate-800 placeholder-slate-300 outline-none focus:border-[#7aaae8] resize-none transition-colors"
                         style={{ fontFamily: "'Manrope', 'Segoe UI', sans-serif" }}
                       />
@@ -448,3 +448,4 @@ export default function ResourcesPage() {
     </div>
   );
 }
+

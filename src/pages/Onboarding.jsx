@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-/* ─── Design tokens ──────────────────────────────────────────────────────── */
+/* --- Design tokens -------------------------------------------------------- */
 const T = {
   font: `'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif`,
   black: "#0f2747",
@@ -15,7 +15,7 @@ const T = {
   white: "#ffffff",
 };
 
-/* ─── Steps data ─────────────────────────────────────────────────────────── */
+/* --- Steps data ----------------------------------------------------------- */
 const STEPS = [
   {
     id: "team",
@@ -30,7 +30,7 @@ const STEPS = [
       },
       {
         head: "Granular role control",
-        sub: "Owner, Admin, Member, or Viewer — precisely assigned",
+        sub: "Owner, Admin, Member, or Viewer - precisely assigned",
       },
       {
         head: "SSO & SAML 2.0",
@@ -85,7 +85,7 @@ const STEPS = [
     illustration: "rexa",
     label: "Rexa AI",
     title: "Reduce manual hiring\nwith Rexa AI Agent.",
-    body: "Rexa handles screening, scheduling, and follow-ups so your team can focus on what humans do best — judging people.",
+    body: "Rexa handles screening, scheduling, and follow-ups so your team can focus on what humans do best - judging people.",
     items: [
       {
         head: "Smart candidate screening",
@@ -121,7 +121,7 @@ const STEPS = [
   },
 ];
 
-/* ─── Illustrations (pure SVG, inline) ──────────────────────────────────── */
+/* --- Illustrations (pure SVG, inline) ------------------------------------ */
 function Illustration({ type, size = 64 }) {
   const s = { width: size, height: size };
 
@@ -311,7 +311,7 @@ function Illustration({ type, size = 64 }) {
   return null;
 }
 
-/* ─── CheckRow ───────────────────────────────────────────────────────────── */
+/* --- CheckRow ------------------------------------------------------------- */
 function CheckRow({ head, sub, delay, visible }) {
   return (
     <div
@@ -375,7 +375,7 @@ function CheckRow({ head, sub, delay, visible }) {
   );
 }
 
-/* ─── Main component ─────────────────────────────────────────────────────── */
+/* --- Main component ------------------------------------------------------- */
 const Onboarding = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -446,7 +446,7 @@ const Onboarding = () => {
     }
   }, []);
 
-  /* ── styles ── */
+  /* -- styles -- */
   const wrap = {
     fontFamily: T.font,
     minHeight: "100vh",
@@ -569,7 +569,7 @@ const Onboarding = () => {
       `}</style>
 
       <div style={card} ref={containerRef}>
-        {/* ── Top meta ── */}
+        {/* -- Top meta -- */}
         <div style={meta}>
           {/* Logo */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -614,7 +614,7 @@ const Onboarding = () => {
           </span>
         </div>
 
-        {/* ── Progress bar ── */}
+        {/* -- Progress bar -- */}
         <div style={track}>
           {STEPS.map((_, i) => (
             <div
@@ -632,7 +632,7 @@ const Onboarding = () => {
           ))}
         </div>
 
-        {/* ── Body ── */}
+        {/* -- Body -- */}
         <div style={{ ...body, paddingTop: 36 }}>
           {/* Illustration */}
           <Illustration type={current.illustration} size={56} />
@@ -648,7 +648,7 @@ const Onboarding = () => {
               color: T.gray400,
             }}
           >
-            {current.label} · {String(step + 1).padStart(2, "0")} of{" "}
+            {current.label} - {String(step + 1).padStart(2, "0")} of{" "}
             {String(total).padStart(2, "0")}
           </p>
 
@@ -675,7 +675,7 @@ const Onboarding = () => {
           </div>
         </div>
 
-        {/* ── Footer ── */}
+        {/* -- Footer -- */}
         <div style={footerRow}>
           {/* Dot nav */}
           <div style={dotsRow}>
@@ -765,3 +765,4 @@ const Onboarding = () => {
 };
 
 export default Onboarding;
+

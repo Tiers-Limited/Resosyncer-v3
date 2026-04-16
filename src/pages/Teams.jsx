@@ -1,21 +1,26 @@
 import { useState, useEffect, useMemo } from "react";
-import { Button, message, Modal, Form, Input, Select, Avatar } from "antd";
+import { Button, message, Modal, Form, Input, Select, Avatar, Drawer } from "antd";
 import {
   Plus,
   Pencil,
   Trash2,
   Search,
   Users,
+  Briefcase,
   CalendarDays,
   ChevronDown,
   ChevronUp,
+  Eye,
+  FolderOpen,
+  GitBranch,
+  Building2,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
 const { TextArea } = Input;
 
-/* ── helpers ─────────────────────────────────────────────────── */
+/* ---------------- helpers ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const PALETTE = [
   "#3b5bdb",
   "#0ca678",
@@ -40,13 +45,34 @@ const getInit = (name = "") =>
     .slice(0, 2);
 
 const getIsDarkTheme = () => {
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 };
 
-/* ── MemberAvatar ─────────────────────────────────────────────── */
+const PROJECT_TERMINAL_STATUSES = new Set(["completed", "on_hold"]);
+const ADMIN_ROLES = new Set(["admin", "superadmin", "super_admin"]);
+const PROJECT_STATUS_LABELS = {
+  not_started: "Not Started",
+  planning: "Planning",
+  in_progress: "In Progress",
+  testing: "Testing",
+  revision: "Revision",
+  completed: "Completed",
+  on_hold: "On Hold",
+};
+const PROJECT_STATUS_COLORS = {
+  not_started: "#64748b",
+  planning: "#8b5cf6",
+  in_progress: "#2563eb",
+  testing: "#0891b2",
+  revision: "#d97706",
+  completed: "#16a34a",
+  on_hold: "#dc2626",
+};
+
+/* ---------------- MemberAvatar ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const MemberAvatar = ({ member, size = 24, radius = 8 }) =>
   member.user_photo ? (
     <img
@@ -80,7 +106,7 @@ const MemberAvatar = ({ member, size = 24, radius = 8 }) =>
     </div>
   );
 
-/* ── CSS ──────────────────────────────────────────────────────── */
+/* ---------------- CSS ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Mulish:wght@400;500;600&display=swap');
 
@@ -90,13 +116,30 @@ const CSS = `
 .tm-title  { font-family:'Sora',sans-serif; font-size:26px; font-weight:700; color:#0d0d0d; margin:0; letter-spacing:-.5px; }
 .tm-sub    { font-size:13px; color:#9a9a9a; margin:4px 0 0; }
 
-.tm-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:26px; }
+.tm-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:26px; }
 @media(max-width:560px){.tm-stats{grid-template-columns:1fr 1fr;}}
 .tm-stat  { background:#fff; border-radius:16px; padding:18px 20px; box-shadow:0 2px 12px rgba(0,0,0,.06); }
 .tm-stat-n { font-family:'Sora',sans-serif; font-size:32px; font-weight:700; line-height:1; }
 .tm-stat-l { font-size:10.5px; text-transform:uppercase; letter-spacing:.6px; color:#a0a0a0; font-weight:600; margin-top:5px; }
 
 .tm-toolbar { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; align-items:center; }
+.tm-tabs { display:flex; gap:8px; margin-bottom:16px; }
+.tm-tab {
+  border:1px solid #e7e7e7;
+  background:#fff;
+  color:#5f5f5f;
+  border-radius:10px;
+  padding:7px 12px;
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+  font-family:inherit;
+}
+.tm-tab.active {
+  border-color:#3b5bdb;
+  color:#1d4ed8;
+  background:#eef2ff;
+}
 .tm-search  { position:relative; flex:1; min-width:200px; max-width:320px; }
 .tm-search-icon { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:#c8c8c8; pointer-events:none; }
 .tm-search input { width:100%; padding:8px 12px 8px 34px; border:none; border-radius:10px; background:#f5f5f5; font-size:13px; font-family:inherit; outline:none; color:#0d0d0d; transition:background .15s,box-shadow .15s; }
@@ -113,6 +156,7 @@ const CSS = `
 .tm-card-name  { font-family:'Sora',sans-serif; font-size:15.5px; font-weight:700; color:#0d0d0d; margin:0 0 5px; }
 .tm-card-desc  { font-size:12.5px; color:#8a8a8a; line-height:1.55; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 .tm-count-pill { background:#f3f3f3; border-radius:8px; padding:4px 10px; font-size:11px; font-weight:700; color:#6a6a6a; white-space:nowrap; display:flex; align-items:center; gap:4px; flex-shrink:0; }
+.tm-count-pills { display:flex; align-items:center; gap:6px; flex-shrink:0; }
 
 .tm-members       { margin-top:16px; }
 .tm-members-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:#c8c8c8; margin-bottom:9px; }
@@ -152,10 +196,76 @@ const CSS = `
 
 .tm-modal-sec { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:#c8c8c8; margin:18px 0 10px; padding-bottom:7px; border-bottom:1px solid #f5f5f5; }
 
+.tm-org {
+  background:#fff;
+  border-radius:18px;
+  box-shadow:0 2px 12px rgba(0,0,0,.06);
+  padding:18px 18px 16px;
+  margin-bottom:18px;
+}
+.tm-org-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
+.tm-org-title { display:flex; align-items:center; gap:8px; font-family:'Sora',sans-serif; font-size:14px; font-weight:700; color:#151515; }
+.tm-org-sub { font-size:12px; color:#9a9a9a; }
+.tm-org-chart { position:relative; }
+.tm-org-center { display:flex; justify-content:center; }
+.tm-org-node {
+  width:min(340px,100%);
+  border:1px solid #e7e7e7;
+  background:#fff;
+  border-radius:14px;
+  box-shadow:0 2px 8px rgba(0,0,0,.04);
+  padding:12px;
+}
+.tm-org-node.company { width:min(380px,100%); }
+.tm-org-node + .tm-org-node-gap { height:14px; }
+.tm-org-company-row { display:flex; align-items:center; gap:10px; }
+.tm-org-company-logo {
+  width:44px; height:44px; border-radius:10px; object-fit:cover; flex-shrink:0;
+  border:1px solid #ececec;
+}
+.tm-org-company-fallback {
+  width:44px; height:44px; border-radius:10px; flex-shrink:0;
+  background:#eef2ff; color:#4f46e5; display:flex; align-items:center; justify-content:center;
+}
+.tm-org-company-name { font-size:14px; font-weight:700; color:#181818; line-height:1.2; }
+.tm-org-company-meta { font-size:11px; color:#9aa0aa; margin-top:2px; }
+.tm-org-label { font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#9ca3af; margin-bottom:8px; }
+.tm-org-exec-list { display:flex; flex-direction:column; gap:6px; }
+.tm-org-vline { width:2px; height:20px; background:#d7dbe3; margin:0 auto; }
+.tm-org-hline-wrap { position:relative; padding-top:18px; margin-top:2px; }
+.tm-org-hline { height:2px; background:#d7dbe3; width:100%; border-radius:2px; }
+.tm-org-vdrop { width:2px; height:16px; background:#d7dbe3; margin:0 auto; }
+.tm-org-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px; margin-top:4px; }
+.tm-org-team { border:1px solid #efefef; border-radius:12px; padding:11px 12px; background:#fcfcfc; }
+.tm-org-team-top { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+.tm-org-team-name { font-size:13px; font-weight:700; color:#1f1f1f; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tm-org-count { font-size:10px; font-weight:700; color:#6b7280; background:#eef2ff; border-radius:999px; padding:3px 8px; }
+.tm-org-members { display:flex; flex-direction:column; gap:6px; }
+.tm-org-member { display:flex; align-items:center; gap:8px; border-radius:10px; padding:6px 7px; background:#fff; }
+.tm-org-member-name { font-size:12px; font-weight:600; color:#2f2f2f; line-height:1.2; }
+.tm-org-member-role { font-size:10px; color:#9ca3af; line-height:1.2; }
+.tm-org-empty { font-size:11px; color:#b0b0b0; font-style:italic; }
+
+.tm-drawer-head { margin-bottom:14px; }
+.tm-drawer-name { font-family:'Sora',sans-serif; font-size:20px; font-weight:700; color:#101010; margin:0 0 5px; }
+.tm-drawer-desc { font-size:12px; color:#8a8a8a; line-height:1.55; margin:0; }
+.tm-drawer-sec { margin-top:16px; }
+.tm-drawer-sec-title { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:#a3a3a3; margin-bottom:9px; }
+.tm-proj-list { display:flex; flex-direction:column; gap:10px; }
+.tm-proj-item { border:1px solid #efefef; border-radius:12px; background:#fff; padding:12px; }
+.tm-proj-top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+.tm-proj-name { font-size:13px; font-weight:700; color:#161616; margin:0; }
+.tm-proj-chip { font-size:10px; font-weight:700; border-radius:999px; padding:3px 8px; border:1px solid currentColor; white-space:nowrap; background:#fff; }
+.tm-proj-meta { margin-top:8px; display:flex; gap:8px; flex-wrap:wrap; }
+.tm-proj-meta-item { font-size:11px; color:#7a7a7a; background:#f6f6f6; border-radius:8px; padding:3px 7px; }
+.tm-proj-empty { border:1px dashed #e5e7eb; border-radius:12px; padding:14px; font-size:12px; color:#9ca3af; background:#fafafa; }
+
 .tm.dark { background:#141416; min-height:100vh; color:#f3f4f6; }
 .tm.dark .tm-title { color:#e8edf5; }
 .tm.dark .tm-sub,.tm.dark .tm-count,.tm.dark .tm-card-desc,.tm.dark .tm-chip-role,.tm.dark .tm-card-date,.tm.dark .tm-stat-l,.tm.dark .tm-members-label { color:#9ca3af; }
 .tm.dark .tm-stat,.tm.dark .tm-card,.tm.dark .tm-sk { background:#1a1b1f; box-shadow:0 2px 12px rgba(0,0,0,.28); }
+.tm.dark .tm-tab { background:#1a1b1f; border-color:#2a2b31; color:#9ca3af; }
+.tm.dark .tm-tab.active { background:#1e293b; border-color:#3b82f6; color:#bfdbfe; }
 .tm.dark .tm-search input { background:#17181c; color:#f3f4f6; }
 .tm.dark .tm-search input:focus { background:#1a1b1f; box-shadow:0 0 0 3px rgba(59,91,219,.22); }
 .tm.dark .tm-count-pill,.tm.dark .tm-show-more { background:#202127; color:#d1d5db; }
@@ -172,6 +282,24 @@ const CSS = `
 .tm.dark .tm-add-btn { background:#e2e8f0 !important; border-color:#e2e8f0 !important; color:#111111 !important; }
 .tm.dark .tm-add-btn:hover { background:#cbd5e1 !important; border-color:#cbd5e1 !important; }
 .tm.dark .tm-sk-line,.tm.dark .tm-sk-chip,.tm.dark .tm-sk-btn { background:linear-gradient(90deg,#202127 25%,#2a2b31 50%,#202127 75%); background-size:200% 100%; }
+.tm.dark .tm-org { background:#1a1b1f; box-shadow:0 2px 12px rgba(0,0,0,.28); }
+.tm.dark .tm-org-title { color:#e8edf5; }
+.tm.dark .tm-org-sub { color:#9ca3af; }
+.tm.dark .tm-org-node { background:#17181c; border-color:#2a2b31; box-shadow:none; }
+.tm.dark .tm-org-company-name { color:#f3f4f6; }
+.tm.dark .tm-org-company-meta { color:#9ca3af; }
+.tm.dark .tm-org-company-logo { border-color:#2a2b31; }
+.tm.dark .tm-org-company-fallback { background:#1e293b; color:#bfdbfe; }
+.tm.dark .tm-org-vline,.tm.dark .tm-org-hline,.tm.dark .tm-org-vdrop { background:#3a3d46; }
+.tm.dark .tm-org-team { background:#17181c; border-color:#2a2b31; }
+.tm.dark .tm-org-team-name,.tm.dark .tm-org-member-name,.tm.dark .tm-drawer-name,.tm.dark .tm-proj-name { color:#f3f4f6; }
+.tm.dark .tm-org-count { color:#c7d2fe; background:#1e293b; }
+.tm.dark .tm-org-member { background:#202127; }
+.tm.dark .tm-org-member-role,.tm.dark .tm-org-empty,.tm.dark .tm-drawer-desc,.tm.dark .tm-drawer-sec-title,.tm.dark .tm-proj-meta-item,.tm.dark .tm-proj-empty { color:#9ca3af; }
+.tm.dark .tm-proj-item { background:#17181c; border-color:#2a2b31; }
+.tm.dark .tm-proj-chip { background:#17181c; }
+.tm.dark .tm-proj-meta-item { background:#202127; }
+.tm.dark .tm-proj-empty { background:#17181c; border-color:#2a2b31; }
 
 .tm-dark-modal .ant-modal-content,
 .tm-dark-modal .ant-modal-header {
@@ -201,21 +329,54 @@ const CSS = `
 .tm-dark-popup .ant-select-item-option-selected {
   background:#202127 !important;
 }
+
+.tm-dark-drawer .ant-drawer-content,
+.tm-dark-drawer .ant-drawer-header,
+.tm-dark-drawer .ant-drawer-body {
+  background:#1a1b1f !important;
+  border-color:#2a2b31 !important;
+}
+.tm-dark-drawer .ant-drawer-title,
+.tm-dark-drawer .ant-drawer-close { color:#f3f4f6 !important; }
+.tm-dark-drawer .tm-drawer-name,
+.tm-dark-drawer .tm-proj-name { color:#f3f4f6 !important; }
+.tm-dark-drawer .tm-drawer-desc,
+.tm-dark-drawer .tm-drawer-sec-title,
+.tm-dark-drawer .tm-proj-meta-item,
+.tm-dark-drawer .tm-proj-empty { color:#9ca3af !important; }
+.tm-dark-drawer .tm-proj-item {
+  background:#17181c !important;
+  border-color:#2a2b31 !important;
+}
+.tm-dark-drawer .tm-proj-chip { background:#17181c !important; }
+.tm-dark-drawer .tm-proj-meta-item { background:#202127 !important; }
+.tm-dark-drawer .tm-proj-empty {
+  background:#17181c !important;
+  border-color:#2a2b31 !important;
+}
 `;
 
-/* ════════════════════════════════════════════════════════════ */
+/* ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const Teams = () => {
   const [dark, setDark] = useState(getIsDarkTheme);
   const [teams, setTeams] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [orgMembers, setOrgMembers] = useState([]);
+  const [teamProjectCounts, setTeamProjectCounts] = useState({});
+  const [teamProjects, setTeamProjects] = useState({});
+  const [teamDrawer, setTeamDrawer] = useState({ open: false, team: null });
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingTeam, setEditingTeam] = useState(null);
   const [currentTenantId, setCurrentTenantId] = useState(null);
   const [search, setSearch] = useState("");
   const [expandedTeam, setExpandedTeam] = useState(null);
+  const [companyName, setCompanyName] = useState("");
+  const [companyLogo, setCompanyLogo] = useState("");
+  const [activeTab, setActiveTab] = useState("teams");
   const [form] = Form.useForm();
   const { profile } = useAuth();
+  const isAdmin = ADMIN_ROLES.has(String(profile?.role || "").toLowerCase());
 
   useEffect(() => {
     fetchCurrentTenant();
@@ -242,14 +403,24 @@ const Teams = () => {
       if (!user) return;
       const { data, error } = await supabase
         .from("profiles")
-        .select("tenant_id")
+        .select("tenant_id, company_name, user_photo")
         .eq("id", user.id)
         .single();
       if (error) throw error;
       const tid = data?.tenant_id;
       setCurrentTenantId(tid);
+      setCompanyName(data?.company_name || profile?.company_name || "Organization");
+      setCompanyLogo(
+        profile?.company_logo_url ||
+          profile?.logo_url ||
+          profile?.company_logo ||
+          data?.user_photo ||
+          profile?.user_photo ||
+          "",
+      );
       fetchTeams(tid);
       fetchEmployees(tid);
+      fetchOrgMembers(tid);
     } catch {
       message.error("Failed to load tenant");
     }
@@ -265,7 +436,44 @@ const Teams = () => {
         .eq("tenant_id", tid)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      setTeams(data || []);
+      const teamsData = data || [];
+      setTeams(teamsData);
+
+      const teamIds = teamsData.map((t) => t.id).filter(Boolean);
+      if (!teamIds.length) {
+        setTeamProjectCounts({});
+        setTeamProjects({});
+      } else {
+        const { data: projectData, error: projectErr } = await supabase
+          .from("projects")
+          .select(
+            "id, name, team_id, status, start_date, end_date, priority, project_type",
+          )
+          .eq("tenant_id", tid)
+          .in("team_id", teamIds);
+        if (projectErr) throw projectErr;
+
+        const counts = teamIds.reduce((acc, id) => {
+          acc[id] = { total: 0, ongoing: 0 };
+          return acc;
+        }, {});
+        const projectsByTeam = teamIds.reduce((acc, id) => {
+          acc[id] = [];
+          return acc;
+        }, {});
+
+        (projectData || []).forEach((p) => {
+          const teamId = p.team_id;
+          if (!teamId || !counts[teamId]) return;
+          counts[teamId].total += 1;
+          const st = String(p.status || "").toLowerCase();
+          if (!PROJECT_TERMINAL_STATUSES.has(st)) counts[teamId].ongoing += 1;
+          if (projectsByTeam[teamId]) projectsByTeam[teamId].push(p);
+        });
+
+        setTeamProjectCounts(counts);
+        setTeamProjects(projectsByTeam);
+      }
     } catch {
       message.error("Failed to fetch teams");
     } finally {
@@ -285,6 +493,21 @@ const Teams = () => {
       setEmployees(data || []);
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const fetchOrgMembers = async (tid) => {
+    if (!tid) return;
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id,full_name,email,role,user_photo,job_title,team_id")
+        .eq("tenant_id", tid);
+      if (error) throw error;
+      setOrgMembers(data || []);
+    } catch (e) {
+      console.error(e);
+      setOrgMembers([]);
     }
   };
 
@@ -387,8 +610,12 @@ const Teams = () => {
       total: teams.length,
       members: teams.reduce((s, t) => s + (t.profiles?.length || 0), 0),
       empty: teams.filter((t) => !t.profiles?.length).length,
+      ongoingProjects: Object.values(teamProjectCounts).reduce(
+        (sum, c) => sum + (c.ongoing || 0),
+        0,
+      ),
     }),
-    [teams],
+    [teams, teamProjectCounts],
   );
 
   const filtered = useMemo(
@@ -402,11 +629,38 @@ const Teams = () => {
     [teams, search],
   );
 
-  /* ── TeamCard ─────────────────────────────────────────────── */
+  const orgStructure = useMemo(() => {
+    const teamNodes = teams.map((team) => ({
+      id: team.id,
+      name: team.name,
+      members: (team.profiles || [])
+        .slice()
+        .sort((a, b) => (a.full_name || "").localeCompare(b.full_name || "")),
+    }));
+    const assignedIds = new Set(
+      teamNodes.flatMap((t) => t.members.map((m) => m.id)),
+    );
+    const unassigned = employees
+      .filter((e) => !assignedIds.has(e.id))
+      .sort((a, b) => (a.full_name || "").localeCompare(b.full_name || ""));
+    const executive = (orgMembers || [])
+      .filter((m) =>
+        ["admin", "superadmin", "super_admin"].includes(
+          String(m.role || "").toLowerCase(),
+        ),
+      )
+      .sort((a, b) => (a.full_name || "").localeCompare(b.full_name || ""));
+    return { teamNodes, unassigned, executive };
+  }, [teams, employees, orgMembers]);
+
+  const openTeamDrawer = (team) => setTeamDrawer({ open: true, team });
+
+  /* ---------------- TeamCard ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
   const TeamCard = ({ team }) => {
     const members = team.profiles || [];
     const isOpen = expandedTeam === team.id;
     const visible = isOpen ? members : members.slice(0, 4);
+    const projectStats = teamProjectCounts[team.id] || { total: 0, ongoing: 0 };
 
     return (
       <div className="tm-card">
@@ -425,10 +679,21 @@ const Teams = () => {
                 </p>
               )}
             </div>
-            <span className="tm-count-pill">
-              <Users size={11} strokeWidth={2.5} />
-              {members.length}
-            </span>
+            <div className="tm-count-pills">
+              <span className="tm-count-pill">
+                <Users size={11} strokeWidth={2.5} />
+                {members.length}
+              </span>
+              <button
+                className="tm-count-pill"
+                style={{ border: "none", cursor: "pointer" }}
+                title={`${projectStats.total} total projects`}
+                onClick={() => openTeamDrawer(team)}
+              >
+                <Briefcase size={11} strokeWidth={2.5} />
+                {projectStats.ongoing} ongoing
+              </button>
+            </div>
           </div>
 
           {/* Members */}
@@ -480,6 +745,9 @@ const Teams = () => {
         </div>
 
         <div className="tm-card-footer">
+          <button className="tm-btn" onClick={() => openTeamDrawer(team)}>
+            <Eye size={13} strokeWidth={2.2} /> Open
+          </button>
           <button className="tm-btn edit" onClick={() => handleEdit(team)}>
             <Pencil size={13} strokeWidth={2.2} /> Edit
           </button>
@@ -501,7 +769,7 @@ const Teams = () => {
     );
   };
 
-  /* ── SkeletonCard ─────────────────────────────────────────── */
+  /* ---------------- SkeletonCard -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
   const SkeletonCard = ({ i }) => (
     <div className="tm-sk">
       <div className="tm-sk-body">
@@ -538,7 +806,7 @@ const Teams = () => {
     </div>
   );
 
-  /* ══════════════════ RENDER ════════════════════════════════ */
+  /* ------------------------------------------------------------------------------------------------------------------------------ RENDER -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
   return (
     <div className={`tm${dark ? " dark" : ""}`}>
       <style>{CSS}</style>
@@ -588,6 +856,7 @@ const Teams = () => {
             color: dark ? "#e8edf5" : "#0d0d0d",
           },
           { n: stats.members, label: "Total Members", color: "#3b5bdb" },
+          { n: stats.ongoingProjects, label: "Ongoing Projects", color: "#0ca678" },
           { n: stats.empty, label: "Empty Teams", color: "#e67700" },
         ].map((s) => (
           <div className="tm-stat" key={s.label}>
@@ -600,30 +869,161 @@ const Teams = () => {
       </div>
 
       {/* Toolbar */}
-      <div className="tm-toolbar">
-        <div className="tm-search">
-          <Search size={14} className="tm-search-icon" strokeWidth={2} />
-          <input
-            placeholder="Search teams…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <span className="tm-count">
-          {filtered.length} team{filtered.length !== 1 ? "s" : ""}
-        </span>
+      <div className="tm-tabs">
+        <button
+          className={`tm-tab${activeTab === "teams" ? " active" : ""}`}
+          onClick={() => setActiveTab("teams")}
+        >
+          Teams
+        </button>
+        {isAdmin && (
+          <button
+            className={`tm-tab${activeTab === "structure" ? " active" : ""}`}
+            onClick={() => setActiveTab("structure")}
+          >
+            Company Structure
+          </button>
+        )}
       </div>
 
+      {activeTab === "teams" && (
+        <div className="tm-toolbar">
+          <div className="tm-search">
+            <Search size={14} className="tm-search-icon" strokeWidth={2} />
+            <input
+              placeholder="Search teams..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <span className="tm-count">
+            {filtered.length} team{filtered.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+      )}
+
+      {isAdmin && activeTab === "structure" && (
+        <div className="tm-org">
+          <div className="tm-org-head">
+            <div className="tm-org-title">
+              <GitBranch size={15} strokeWidth={2.1} />
+              Team / Organization Structure
+            </div>
+            <div className="tm-org-sub">
+              {orgStructure.teamNodes.length} teams,{" "}
+              {orgStructure.teamNodes.reduce((sum, t) => sum + t.members.length, 0)} assigned members
+            </div>
+          </div>
+          <div className="tm-org-chart">
+            <div className="tm-org-center">
+              <div className="tm-org-node company">
+                <div className="tm-org-label">Organization</div>
+                <div className="tm-org-company-row">
+                  {companyLogo ? (
+                    <img src={companyLogo} alt={companyName} className="tm-org-company-logo" />
+                  ) : (
+                    <div className="tm-org-company-fallback">
+                      <Building2 size={18} strokeWidth={2.1} />
+                    </div>
+                  )}
+                  <div>
+                    <div className="tm-org-company-name">{companyName || "Organization"}</div>
+                    <div className="tm-org-company-meta">Company Node</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="tm-org-vline" />
+            <div className="tm-org-center">
+              <div className="tm-org-node">
+                <div className="tm-org-label">Executive Team</div>
+                {orgStructure.executive.length ? (
+                  <div className="tm-org-exec-list">
+                    {orgStructure.executive.map((m) => (
+                      <div key={m.id} className="tm-org-member">
+                        <MemberAvatar member={m} size={24} radius={7} />
+                        <div>
+                          <div className="tm-org-member-name">{m.full_name}</div>
+                          <div className="tm-org-member-role">
+                            {m.job_title || "Executive"}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="tm-org-empty">No executive profiles found</div>
+                )}
+              </div>
+            </div>
+            <div className="tm-org-hline-wrap">
+              <div className="tm-org-hline" />
+              <div className="tm-org-vdrop" />
+            </div>
+            <div className="tm-org-grid">
+              {orgStructure.teamNodes.map((teamNode) => (
+                <div key={teamNode.id} className="tm-org-team">
+                  <div className="tm-org-team-top">
+                    <div className="tm-org-team-name">{teamNode.name}</div>
+                    <span className="tm-org-count">{teamNode.members.length}</span>
+                  </div>
+                  {teamNode.members.length ? (
+                    <div className="tm-org-members">
+                      {teamNode.members.map((m) => (
+                        <div key={m.id} className="tm-org-member">
+                          <MemberAvatar member={m} size={24} radius={7} />
+                          <div>
+                            <div className="tm-org-member-name">{m.full_name}</div>
+                            <div className="tm-org-member-role">
+                              {m.job_title || (m.role === "project_manager" ? "Project Manager" : "Employee")}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="tm-org-empty">No members in this team</div>
+                  )}
+                </div>
+              ))}
+              {orgStructure.unassigned.length > 0 && (
+                <div className="tm-org-team">
+                  <div className="tm-org-team-top">
+                    <div className="tm-org-team-name">Unassigned</div>
+                    <span className="tm-org-count">{orgStructure.unassigned.length}</span>
+                  </div>
+                  <div className="tm-org-members">
+                    {orgStructure.unassigned.map((m) => (
+                      <div key={m.id} className="tm-org-member">
+                        <MemberAvatar member={m} size={24} radius={7} />
+                        <div>
+                          <div className="tm-org-member-name">{m.full_name}</div>
+                          <div className="tm-org-member-role">
+                            {m.job_title || (m.role === "project_manager" ? "Project Manager" : "Employee")}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Grid */}
-      {loading ? (
+      {activeTab === "teams" && loading ? (
         <div className="tm-grid">
           {Array.from({ length: 6 }).map((_, i) => (
             <SkeletonCard key={i} i={i} />
           ))}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : activeTab === "teams" && filtered.length === 0 ? (
         <div className="tm-empty">
-          <div className="tm-empty-ico">🏢</div>
+          <div className="tm-empty-ico">
+            <Users size={40} strokeWidth={2} color={dark ? "#6b7280" : "#c0c0c0"} />
+          </div>
           <div className="tm-empty-text">
             {search ? "No teams match your search" : "No teams yet"}
           </div>
@@ -631,13 +1031,19 @@ const Teams = () => {
             {!search && 'Click "Create Team" to get started'}
           </div>
         </div>
-      ) : (
+      ) : activeTab === "teams" ? (
         <div className="tm-grid">
           {filtered.map((t) => (
             <TeamCard key={t.id} team={t} />
           ))}
         </div>
-      )}
+      ) : null}
+
+      {!isAdmin && activeTab === "structure" ? (
+        <div className="tm-empty">
+          <div className="tm-empty-text">Only admins can view company structure</div>
+        </div>
+      ) : null}
 
       {/* Modal */}
       <Modal
@@ -691,7 +1097,7 @@ const Teams = () => {
           <Form.Item name="members" label="Assign Members">
             <Select
               mode="multiple"
-              placeholder="Search and select employees…"
+              placeholder="Search and select employees..."
               showSearch
               optionFilterProp="label"
               popupClassName={dark ? "tm-dark-popup" : undefined}
@@ -734,9 +1140,74 @@ const Teams = () => {
           </Form.Item>
         </Form>
       </Modal>
+
+      <Drawer
+        open={teamDrawer.open}
+        onClose={() => setTeamDrawer({ open: false, team: null })}
+        title="Team Details"
+        width={480}
+        rootClassName={dark ? "tm-dark-drawer" : undefined}
+      >
+        {teamDrawer.team && (
+          <>
+            <div className="tm-drawer-head">
+              <h3 className="tm-drawer-name">{teamDrawer.team.name}</h3>
+              <p className="tm-drawer-desc">
+                {teamDrawer.team.description || "No description for this team."}
+              </p>
+            </div>
+
+            <div className="tm-drawer-sec">
+              <div className="tm-drawer-sec-title">Projects</div>
+              {(teamProjects[teamDrawer.team.id] || []).length ? (
+                <div className="tm-proj-list">
+                  {(teamProjects[teamDrawer.team.id] || [])
+                    .slice()
+                    .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+                    .map((project) => {
+                      const statusKey = String(project.status || "not_started").toLowerCase();
+                      const statusColor = PROJECT_STATUS_COLORS[statusKey] || PROJECT_STATUS_COLORS.not_started;
+                      const statusLabel = PROJECT_STATUS_LABELS[statusKey] || "Not Started";
+                      return (
+                        <div key={project.id} className="tm-proj-item">
+                          <div className="tm-proj-top">
+                            <p className="tm-proj-name">{project.name || "Untitled Project"}</p>
+                            <span className="tm-proj-chip" style={{ color: statusColor }}>
+                              {statusLabel}
+                            </span>
+                          </div>
+                          <div className="tm-proj-meta">
+                            <span className="tm-proj-meta-item">
+                              {project.project_type ? `Type: ${project.project_type}` : "Type: N/A"}
+                            </span>
+                            <span className="tm-proj-meta-item">
+                              {project.priority ? `Priority: ${project.priority}` : "Priority: N/A"}
+                            </span>
+                            <span className="tm-proj-meta-item">
+                              Start: {project.start_date || "N/A"}
+                            </span>
+                            <span className="tm-proj-meta-item">
+                              End: {project.end_date || "N/A"}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              ) : (
+                <div className="tm-proj-empty">
+                  <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                    <FolderOpen size={14} strokeWidth={2.1} />
+                    No projects linked to this team yet.
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </Drawer>
     </div>
   );
 };
 
 export default Teams;
-

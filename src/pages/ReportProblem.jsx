@@ -20,7 +20,7 @@ const { TextArea } = Input;
 
 const getIsDarkTheme = () => {
   if (typeof window === "undefined") return false;
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -232,3 +232,4 @@ const ReportProblem = () => {
 };
 
 export default ReportProblem;
+

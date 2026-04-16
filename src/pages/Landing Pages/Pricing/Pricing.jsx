@@ -200,11 +200,11 @@ function CorePlanCard({ plan, cycle, onFreeTrialClick }) {
         <p className="mt-1 text-[13px] text-slate-600">{plan.seats}</p>
 
         <div className="mt-4 flex items-end gap-1.5">
-          <span className="text-[2.4rem] font-semibold tracking-tight text-slate-900">€{unitPrice}</span>
+          <span className="text-[2.4rem] font-semibold tracking-tight text-slate-900">${unitPrice}</span>
           <span className="pb-1 text-xl text-slate-500">/{isAnnual ? "year" : "month"}</span>
         </div>
 
-        <p className="mt-2 text-[1.05rem] font-semibold text-slate-900">total €{unitPrice}/{isAnnual ? "year" : "month"}</p>
+        <p className="mt-2 text-[1.05rem] font-semibold text-slate-900">Total {unitPrice}/{isAnnual ? "year" : "month"}</p>
         <p className="mt-1 text-[0.95rem] text-slate-600">billed {isAnnual ? "annually" : "monthly"}</p>
 
         <button
@@ -375,3 +375,4 @@ export default function PricingPage() {
     </div>
   );
 }
+

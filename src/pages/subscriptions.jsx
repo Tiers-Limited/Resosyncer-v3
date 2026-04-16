@@ -256,7 +256,7 @@ const addBillingCycle = (date, cycle = "monthly") => {
 
 const formatDate = (dateStr) => {
   const parsed = parseDateValue(dateStr);
-  if (!parsed) return "�";
+  if (!parsed) return "---";
   try {
     return parsed.toLocaleDateString("en-US", {
       year: "numeric",
@@ -264,7 +264,7 @@ const formatDate = (dateStr) => {
       day: "numeric",
     });
   } catch {
-    return "�";
+    return "---";
   }
 };
 
@@ -277,13 +277,13 @@ const getDaysLeft = (dateStr) => {
 
 const getIsDarkTheme = () => {
   if (typeof window === "undefined") return false;
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 };
 
-// ─── Parse edge-function errors robustly ─────────────────────────────────────
+// --------- Parse edge-function errors robustly ---------------------------------------------------------------------------------------------------------------
 const parseEdgeFnError = async (error, fallback = "Operation failed.") => {
   if (!error) return fallback;
   // Supabase wraps HTTP error bodies in error.context
@@ -299,7 +299,7 @@ const parseEdgeFnError = async (error, fallback = "Operation failed.") => {
   return error.message || fallback;
 };
 
-// ─── Stripe card form ─────────────────────────────────────────────────────────
+// --------- Stripe card form ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const NewCardForm = ({ onTokenReady, loading, dark = false }) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -357,7 +357,7 @@ const NewCardForm = ({ onTokenReady, loading, dark = false }) => {
   );
 };
 
-// ─── Stat card ────────────────────────────────────────────────────────────────
+// --------- Stat card ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const StatCard = ({ icon, label, value, sub, color = "#6366f1", dark = false }) => (
   <div
     className="rounded-2xl p-5 flex items-center gap-4"
@@ -397,7 +397,7 @@ const StatCard = ({ icon, label, value, sub, color = "#6366f1", dark = false }) 
   </div>
 );
 
-// ─── Plan card ────────────────────────────────────────────────────────────────
+// --------- Plan card ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const PlanCard = ({
   plan,
   currentPlanName,
@@ -561,7 +561,7 @@ const PlanCard = ({
   );
 };
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// --------- Main ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const SubscriptionManagement = () => {
   const { user, profile } = useAuth();
   const location = useLocation();
@@ -737,7 +737,7 @@ const SubscriptionManagement = () => {
   const currentCycleLabel =
     currentBillingCycle === "yearly" ? "Yearly" : "Monthly";
 
-  // ── Dates ───────────────────────────────────────────────────────────────────
+  // ------ Dates ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   // tenant.current_period_end should be stored as ISO string from Stripe webhook
   const periodEnd =
     tenant?.current_period_end ??
@@ -809,7 +809,7 @@ const SubscriptionManagement = () => {
     setUpgradeModal(true);
   };
 
-  // ── Seat display ────────────────────────────────────────────────────────────
+  // ------ Seat display ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const unlimitedSeats =
     tenant?.max_users == null && currentPlan.limits.max_users === null;
   const seatUsed = liveUserCount ?? tenant?.user_count ?? 0;
@@ -824,8 +824,8 @@ const SubscriptionManagement = () => {
     : Math.min(100, (seatUsed / (seatMax || 1)) * 100);
   const seatDanger = !unlimitedSeats && seatPercent > 80;
 
-  // ── Storage display ─────────────────────────────────────────────────────────
-  // ── Upgrade / Downgrade ─────────────────────────────────────────────────────
+  // ------ Storage display ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  // ------ Upgrade / Downgrade ---------------------------------------------------------------------------------------------------------------------------------------------------------------
   const handleUpgrade = async (paymentMethodId) => {
     setActionLoading(true);
     try {
@@ -858,7 +858,7 @@ const SubscriptionManagement = () => {
     }
   };
 
-  // ── Cancel ──────────────────────────────────────────────────────────────────
+  // ------ Cancel ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const handleCancel = async () => {
     setActionLoading(true);
     try {
@@ -942,7 +942,7 @@ const SubscriptionManagement = () => {
     }
   };
 
-  // ── Reactivate (during active billing period) ───────────────────────────────
+  // ------ Reactivate (during active billing period) ---------------------------------------------------------------------------------------------
   const handleReactivate = async () => {
     setActionLoading(true);
     try {
@@ -965,7 +965,7 @@ const SubscriptionManagement = () => {
     }
   };
 
-  // ── Auto-renew toggle ───────────────────────────────────────────────────────
+  // ------ Auto-renew toggle ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const handleAutoRenewToggle = async (checked) => {
     setAutoRenewLoading(true);
     try {
@@ -1073,7 +1073,7 @@ const SubscriptionManagement = () => {
           </p>
         </div>
 
-        {/* ── Cancelled banner ──────────────────────────────────────────────── */}
+        {/* ------ Cancelled banner ------------------------------------------------------------------------------------------------------------------------------------------------ */}
         {isCancellationScheduled && (
           <div
             className="mb-6 rounded-2xl px-6 py-4 flex items-center justify-between gap-4 flex-wrap"
@@ -1148,7 +1148,7 @@ const SubscriptionManagement = () => {
           </div>
         )}
 
-        {/* ── Auto-renew warning banner (if disabled but not cancelled) ──────── */}
+        {/* ------ Auto-renew warning banner (if disabled but not cancelled) ------------------------ */}
         {!isCancellationScheduled && !autoRenew && currentPlan.price > 0 && (
           <div
             className="mb-6 rounded-2xl px-6 py-4 flex items-center justify-between gap-4 flex-wrap"
@@ -1312,7 +1312,7 @@ const SubscriptionManagement = () => {
                   {currentPlan.tagline}
                   {currentPlan.price > 0 && (
                     <span className="ml-2 font-semibold text-slate-600">
-                      · {currentPlan.priceLabel} {currentPlan.period}
+                      -- {currentPlan.priceLabel} {currentPlan.period}
                     </span>
                   )}
                 </div>
@@ -1320,15 +1320,15 @@ const SubscriptionManagement = () => {
             </div>
 
             <div className="flex items-center gap-3 flex-wrap">
-              {/* Auto-renew toggle — shown only on paid, non-cancelled plans */}
+              {/* Auto-renew toggle --- shown only on paid, non-cancelled plans */}
               {currentPlan.price > 0 && !isCancellationScheduled && (
                 <Tooltip
                   title={
                     autoRenew
-                      ? `Auto-renew is ON — your plan renews automatically each ${
+                      ? `Auto-renew is ON --- your plan renews automatically each ${
                           currentBillingCycle === "yearly" ? "year" : "month"
                         }`
-                      : "Auto-renew is OFF — your plan will not renew"
+                      : "Auto-renew is OFF --- your plan will not renew"
                   }
                 >
                   <div
@@ -1468,7 +1468,7 @@ const SubscriptionManagement = () => {
                         ? displayPeriodEnd
                           ? formatDate(displayPeriodEnd)
                           : `Auto-renews ${currentBillingCycle}`
-                        : "—",
+                        : "---",
                   highlight:
                     !isPlanOverride && periodEnd && daysLeft !== null && daysLeft <= 7
                       ? "red"
@@ -1498,7 +1498,7 @@ const SubscriptionManagement = () => {
                                 : "#334155",
                       }}
                     >
-                      {r.value || "—"}
+                      {r.value || "---"}
                     </span>
                     {r.sub && (
                       <span className="text-[10px] text-slate-400">
@@ -1559,7 +1559,7 @@ const SubscriptionManagement = () => {
                 )}
                 {seatDanger && (
                   <div className="text-[10px] text-red-500 mt-1">
-                    Approaching seat limit — consider upgrading
+                    Approaching seat limit --- consider upgrading
                   </div>
                 )}
               </div>
@@ -1578,7 +1578,7 @@ const SubscriptionManagement = () => {
         </div>
       </div>
 
-      {/* ── Change Plan Modal ─────────────────────────────────────────────────── */}
+      {/* ------ Change Plan Modal --------------------------------------------------------------------------------------------------------------------------------------------------------- */}
       <Modal
         open={upgradeModal}
         onCancel={() => {
@@ -1665,7 +1665,7 @@ const SubscriptionManagement = () => {
               onClick={() => setSelectedPlan(null)}
               className="text-sm text-slate-400 hover:text-slate-600 mb-5 flex items-center gap-1"
             >
-              ← Back to plans
+              --- Back to plans
             </button>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               {/* Summary */}
@@ -1736,7 +1736,7 @@ const SubscriptionManagement = () => {
                     { label: "Effective", value: "Immediately" },
                     {
                       label: "Next billing date",
-                      value: periodEnd ? formatDate(periodEnd) : "—",
+                      value: periodEnd ? formatDate(periodEnd) : "---",
                     },
                   ].map((r) => (
                     <div key={r.label} className="flex justify-between text-sm">
@@ -1784,7 +1784,7 @@ const SubscriptionManagement = () => {
                       className="!h-11 !font-semibold !rounded-xl !border-0"
                       style={{ background: selectedPlan.color, color: "#fff" }}
                     >
-                      {isDowngrade ? "Confirm Downgrade" : "Confirm Upgrade"} →
+                      {isDowngrade ? "Confirm Downgrade" : "Confirm Upgrade"} ---
                     </Button>
                   </div>
                 ) : (
@@ -1802,7 +1802,7 @@ const SubscriptionManagement = () => {
         )}
       </Modal>
 
-      {/* ── Cancel Modal ──────────────────────────────────────────────────────── */}
+      {/* ------ Cancel Modal ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */}
       <Modal
         open={cancelModal}
         onCancel={() => setCancelModal(false)}
@@ -1881,7 +1881,7 @@ const SubscriptionManagement = () => {
         </div>
       </Modal>
 
-      {/* ── Reactivate Modal ─────────────────────────────────────────────────── */}
+      {/* ------ Reactivate Modal --------------------------------------------------------------------------------------------------------------------------------------------------------- */}
       <Modal
         open={reactivateModal}
         onCancel={() => setReactivateModal(false)}
@@ -1918,7 +1918,7 @@ const SubscriptionManagement = () => {
                 <div className="text-[10px] text-emerald-600">
                   {isPeriodEndInPast
                     ? "Your subscription was reactivated. Refreshing billing cycle details..."
-                    : `${currentPlan.priceLabel} ${currentPlan.period} · ${daysLeft} day${daysLeft !== 1 ? "s" : ""} until renewal`}
+                    : `${currentPlan.priceLabel} ${currentPlan.period} -- ${daysLeft} day${daysLeft !== 1 ? "s" : ""} until renewal`}
                 </div>
               </div>
             </div>
@@ -1931,7 +1931,7 @@ const SubscriptionManagement = () => {
             {[
               `Your ${tenant?.plan} plan benefits restore immediately`,
               "Auto-renew will be re-enabled",
-              "No extra charges — billing continues as normal",
+              "No extra charges --- billing continues as normal",
             ].map((t) => (
               <div key={t} className="flex items-center gap-2 text-emerald-700">
                 <CheckCircleFilled style={{ fontSize: 11 }} />
@@ -1965,6 +1965,8 @@ const SubscriptionManagement = () => {
 };
 
 export default SubscriptionManagement;
+
+
 
 
 

@@ -79,7 +79,7 @@ import { supabase } from "./lib/supabase";
 
 const getIsDarkTheme = () => {
   if (typeof window === "undefined") return false;
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -819,3 +819,4 @@ function App() {
 }
 
 export default App;
+

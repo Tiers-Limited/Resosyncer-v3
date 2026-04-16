@@ -52,7 +52,7 @@ const getPriorityColor = (priority) => {
 };
 
 const getIsDarkTheme = () => {
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -979,3 +979,4 @@ export default function PMPlanning() {
     </div>
   );
 }
+

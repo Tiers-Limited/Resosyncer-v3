@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Avatar,
@@ -54,7 +54,7 @@ const GROQ_API_KEY =
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const EMAIL_API = import.meta.env.VITE_EMAIL_API_URL;
 
-/* ─── design tokens ─────────────────────────────────────── */
+/* --------- design tokens --------------------------------------------------------------------------------------------------------------------- */
 const C = {
   bg: "#ffffff",
   surface: "#f8f9fb",
@@ -102,10 +102,10 @@ const statusConfig = {
 };
 
 const priorityConfig = {
-  low: { color: C.textSec, bg: C.surface, icon: "↓", label: "Low" },
-  medium: { color: C.accent, bg: C.accentLight, icon: "→", label: "Medium" },
-  high: { color: C.amber, bg: C.amberLight, icon: "↑", label: "High" },
-  urgent: { color: C.red, bg: C.redLight, icon: "⚡", label: "Urgent" },
+  low: { color: C.textSec, bg: C.surface, icon: "---", label: "Low" },
+  medium: { color: C.accent, bg: C.accentLight, icon: "---", label: "Medium" },
+  high: { color: C.amber, bg: C.amberLight, icon: "---", label: "High" },
+  urgent: { color: C.red, bg: C.redLight, icon: "---", label: "Urgent" },
 };
 
 const fileNameFromUrl = (url) => {
@@ -145,7 +145,7 @@ const LIVE_AGENT_REGEX =
 const OFFENSIVE_REGEX =
   /\b(stupid|idiot|dumb|shit|fuck|bitch|asshole|moron|useless)\b/i;
 
-/* ─── small components ───────────────────────────────────── */
+/* --------- small components --------------------------------------------------------------------------------------------------------------- */
 const StatusPill = ({ status }) => {
   const cfg = statusConfig[status] || statusConfig.open;
   return (
@@ -315,12 +315,12 @@ const AttachmentChip = ({ url, name, size }) => (
       {name || fileNameFromUrl(url)}
     </span>
     {size ? (
-      <span style={{ color: C.textTer }}>· {formatBytes(size)}</span>
+      <span style={{ color: C.textTer }}>-- {formatBytes(size)}</span>
     ) : null}
   </a>
 );
 
-/* ─── global styles ──────────────────────────────────────── */
+/* --------- global styles ------------------------------------------------------------------------------------------------------------------------ */
 const GlobalStyles = () => (
   <style>{`
     .sc-sidebar-item:hover { background: ${C.surfaceHover} !important; }
@@ -406,9 +406,9 @@ const GlobalStyles = () => (
   `}</style>
 );
 
-/* ═══════════════════════════════════════════════════════════
+/* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
    FLOATING CHAT WIDGET
-   ═══════════════════════════════════════════════════════════ */
+   --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const FloatingChatWidget = ({
   profile,
   isSuperadmin,
@@ -593,7 +593,7 @@ const FloatingChatWidget = ({
             </div>
           </div>
 
-          {/* Conversation selector (if multiple) — superadmin only or multi-conv admin */}
+          {/* Conversation selector (if multiple) --- superadmin only or multi-conv admin */}
           {isSuperadmin && conversations.length > 1 && (
             <div
               style={{
@@ -667,7 +667,7 @@ const FloatingChatWidget = ({
                     fontSize: 24,
                   }}
                 >
-                  👋
+                  ----
                 </div>
                 <div
                   style={{
@@ -682,7 +682,7 @@ const FloatingChatWidget = ({
                 <div
                   style={{ fontSize: 12, color: C.textSec, lineHeight: 1.6 }}
                 >
-                  Ask me anything — I'm Ryzent's AI assistant.
+                  Ask me anything --- I'm Ryzent's AI assistant.
                   <br />
                   For a live agent, just type "live agent".
                 </div>
@@ -804,7 +804,7 @@ const FloatingChatWidget = ({
                         paddingRight: 2,
                       }}
                     >
-                      {isAi ? "AI · " : ""}
+                      {isAi ? "AI -- " : ""}
                       {timeAgo(m.created_at)}
                     </div>
                   </div>
@@ -868,7 +868,7 @@ const FloatingChatWidget = ({
                     fontSize: 14,
                   }}
                 >
-                  ×
+                  --
                 </button>
               </div>
             )}
@@ -919,7 +919,7 @@ const FloatingChatWidget = ({
                   value={chatText}
                   onChange={(e) => setChatText(e.target.value)}
                   placeholder={
-                    isLiveChatDisabled ? "Live chat is disabled" : "Message…"
+                    isLiveChatDisabled ? "Live chat is disabled" : "Message---"
                   }
                   disabled={isLiveChatDisabled}
                   autoSize={{ minRows: 1, maxRows: 3 }}
@@ -974,7 +974,7 @@ const FloatingChatWidget = ({
                 textAlign: "center",
               }}
             >
-              Enter to send · Shift+Enter for new line
+              Enter to send -- Shift+Enter for new line
             </div>
           </div>
         </div>
@@ -1037,9 +1037,9 @@ const FloatingChatWidget = ({
   );
 };
 
-/* ═══════════════════════════════════════════════════════════
+/* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
    MAIN COMPONENT
-   ═══════════════════════════════════════════════════════════ */
+   --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const SupportCenter = () => {
   const { profile } = useAuth();
   const isSuperadmin =
@@ -1130,7 +1130,7 @@ const SupportCenter = () => {
     return merged;
   }, [aiThreadMessages, messagesState]);
 
-  /* ─── helpers ─────────────────────────────────────────── */
+  /* --------- helpers --------------------------------------------------------------------------------------------------------------------------------- */
   const uploadSupportFile = useCallback(
     async (file, scope) => {
       const cleanName = (file.name || "file").replace(/[^\w.\-]/g, "_");
@@ -1654,7 +1654,7 @@ const SupportCenter = () => {
     }
   };
 
-  /* ─── effects ─────────────────────────────────────────── */
+  /* --------- effects --------------------------------------------------------------------------------------------------------------------------------- */
   useEffect(() => {
     if (!canAccessSupport) return;
     loadConversations();
@@ -1767,7 +1767,7 @@ const SupportCenter = () => {
               fontSize: 24,
             }}
           >
-            ⚠️
+            ------
           </div>
           <Title level={4} style={{ marginBottom: 8 }}>
             Access Restricted
@@ -1780,7 +1780,7 @@ const SupportCenter = () => {
     );
   }
 
-  /* ─── ticket table columns ───────────────────────────── */
+  /* --------- ticket table columns --------------------------------------------------------------------------------------- */
   const ticketColumns = [
     {
       title: "Ticket",
@@ -1799,7 +1799,7 @@ const SupportCenter = () => {
           </div>
           <div style={{ fontSize: 11, color: C.textTer }}>
             {String(r.source || "ticket").replaceAll("_", " ")}
-            {r.attachment_url ? " · has attachment" : ""}
+            {r.attachment_url ? " -- has attachment" : ""}
           </div>
         </div>
       ),
@@ -1913,7 +1913,7 @@ const SupportCenter = () => {
     });
   }
 
-  /* ─── render ─────────────────────────────────────────── */
+  /* --------- render --------------------------------------------------------------------------------------------------------------------------------- */
   return (
     <div
       style={{
@@ -1924,7 +1924,7 @@ const SupportCenter = () => {
     >
       <GlobalStyles />
 
-      {/* ── Header ── */}
+      {/* ------ Header ------ */}
       <div
         style={{
           borderBottom: `1px solid ${C.border}`,
@@ -1975,7 +1975,7 @@ const SupportCenter = () => {
               </div>
               <div style={{ fontSize: 11, color: C.textSec }}>
                 {isSuperadmin
-                  ? "Superadmin view · all tenants"
+                  ? "Superadmin view -- all tenants"
                   : "Admin workspace"}
               </div>
             </div>
@@ -2014,7 +2014,7 @@ const SupportCenter = () => {
           </div>
         </div>
 
-        {/* ── Nav tabs ── */}
+        {/* ------ Nav tabs ------ */}
         <div style={{ display: "flex", gap: 0 }}>
           {[
             {
@@ -2078,7 +2078,7 @@ const SupportCenter = () => {
         </div>
       </div>
 
-      {/* ── Metrics strip ── */}
+      {/* ------ Metrics strip ------ */}
       <div style={{ padding: "24px 32px 0" }}>
         <div
           style={{
@@ -2118,7 +2118,7 @@ const SupportCenter = () => {
         </div>
       </div>
 
-      {/* ── Disabled banner ── */}
+      {/* ------ Disabled banner ------ */}
       {isLiveChatDisabled && (
         <div
           style={{
@@ -2140,7 +2140,7 @@ const SupportCenter = () => {
         </div>
       )}
 
-      {/* ════ TICKETS VIEW ════════════════════════════════ */}
+      {/* ------------ TICKETS VIEW ------------------------------------------------------------------------------------------------ */}
       {view === "chats" && (
         <div style={{ padding: "20px 32px 100px" }}>
           <div
@@ -2411,7 +2411,7 @@ const SupportCenter = () => {
                         color: C.textSec,
                       }}
                     >
-                      ×
+                      --
                     </button>
                   </div>
                 )}
@@ -2453,7 +2453,7 @@ const SupportCenter = () => {
                       onChange={(e) => setChatText(e.target.value)}
                       placeholder={
                         selectedConversationId
-                          ? "Write a message…"
+                          ? "Write a message---"
                           : "Select or start a conversation"
                       }
                       autoSize={{ minRows: 1, maxRows: 4 }}
@@ -2546,7 +2546,7 @@ const SupportCenter = () => {
                     lineHeight: 1,
                   }}
                 >
-                  ×
+                  --
                 </button>
               </div>
 
@@ -2595,7 +2595,7 @@ const SupportCenter = () => {
                         rows={4}
                         value={ticketDescription}
                         onChange={(e) => setTicketDescription(e.target.value)}
-                        placeholder="Provide as much detail as possible…"
+                        placeholder="Provide as much detail as possible---"
                         required
                       />
                     </div>
@@ -2698,7 +2698,7 @@ const SupportCenter = () => {
                             color: C.textSec,
                           }}
                         >
-                          ×
+                          --
                         </button>
                       </div>
                     )}
@@ -2721,7 +2721,7 @@ const SupportCenter = () => {
                       }}
                     >
                       {creatingTicket ? (
-                        "Submitting…"
+                        "Submitting---"
                       ) : (
                         <>
                           <CheckOutlined /> Submit Ticket
@@ -2790,7 +2790,7 @@ const SupportCenter = () => {
               <div className="sc-input" style={{ width: 220 }}>
                 <Input
                   prefix={<SearchOutlined style={{ color: C.textTer }} />}
-                  placeholder="Search tickets…"
+                  placeholder="Search tickets---"
                   value={ticketSearch}
                   onChange={(e) => setTicketSearch(e.target.value)}
                 />
@@ -2849,7 +2849,7 @@ const SupportCenter = () => {
         </div>
       )}
 
-      {/* ════ SETTINGS VIEW (superadmin) ═════════════════ */}
+      {/* ------------ SETTINGS VIEW (superadmin) --------------------------------------------------- */}
       {view === "settings" && isSuperadmin && (
         <div style={{ padding: "24px 32px", maxWidth: 580 }}>
           <Title level={5} style={{ marginBottom: 4, fontWeight: 800 }}>
@@ -3160,7 +3160,7 @@ const SupportCenter = () => {
                           color: C.textSec,
                         }}
                       >
-                        ×
+                        --
                       </button>
                     </div>
                   )}
@@ -3216,7 +3216,7 @@ const SupportCenter = () => {
         </Modal>
       )}
 
-      {/* ════ TICKET DETAIL MODAL ═══════════════════════ */}
+      {/* ------------ TICKET DETAIL MODAL --------------------------------------------------------------------- */}
       <Modal
         open={ticketDetailOpen}
         onCancel={() => setTicketDetailOpen(false)}
@@ -3346,7 +3346,7 @@ const SupportCenter = () => {
                 >
                   {loadingTicketMessages ? (
                     <div style={{ textAlign: "center", padding: 20 }}>
-                      <Text style={{ color: C.textSec }}>Loading replies…</Text>
+                      <Text style={{ color: C.textSec }}>Loading replies---</Text>
                     </div>
                   ) : ticketMessages.length === 0 ? (
                     <div
@@ -3360,7 +3360,7 @@ const SupportCenter = () => {
                         padding: 40,
                       }}
                     >
-                      <div style={{ fontSize: 28 }}>💬</div>
+                      <div style={{ fontSize: 28 }}>----</div>
                       <Text style={{ color: C.textSec, fontSize: 13 }}>
                         No replies yet. Add the first reply below.
                       </Text>
@@ -3504,7 +3504,7 @@ const SupportCenter = () => {
                           color: C.textSec,
                         }}
                       >
-                        ×
+                        --
                       </button>
                     </div>
                   )}
@@ -3543,7 +3543,7 @@ const SupportCenter = () => {
                       <Input.TextArea
                         value={ticketReply}
                         onChange={(e) => setTicketReply(e.target.value)}
-                        placeholder="Write a reply…"
+                        placeholder="Write a reply---"
                         autoSize={{ minRows: 1, maxRows: 4 }}
                         onPressEnter={(e) => {
                           if (!e.shiftKey) {
@@ -3655,7 +3655,7 @@ const SupportCenter = () => {
                       label: "Source",
                       value: (
                         <span style={{ fontSize: 12, color: C.textSec }}>
-                          {String(selectedTicket.source || "—").replaceAll(
+                          {String(selectedTicket.source || "---").replaceAll(
                             "_",
                             " ",
                           )}
@@ -3707,9 +3707,10 @@ const SupportCenter = () => {
         )}
       </Modal>
 
-      {/* ════ FLOATING CHAT WIDGET ═══════════════════════ */}
+      {/* ------------ FLOATING CHAT WIDGET --------------------------------------------------------------------- */}
     </div>
   );
 };
 
 export default SupportCenter;
+

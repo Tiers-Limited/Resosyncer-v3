@@ -4,6 +4,10 @@ import App from './App.jsx';
 import './index.css';
 import { ConfigProvider } from 'antd';
 
+if (typeof window !== 'undefined' && !window.localStorage.getItem('themeMode')) {
+  window.localStorage.setItem('themeMode', 'light');
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ConfigProvider

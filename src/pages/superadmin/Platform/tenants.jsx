@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
 import {
   Table,
   Card,
@@ -405,7 +405,7 @@ const TenantsPage = () => {
               {name}
             </div>
             <div style={{ fontSize: 11, color: tk.textMuted }}>
-              {row.domain || row.owner_email || "—"}
+              {row.domain || row.owner_email || "---"}
             </div>
           </div>
         </div>
@@ -428,7 +428,7 @@ const TenantsPage = () => {
               color: pc.text,
             }}
           >
-            {plan || "—"}
+            {plan || "---"}
           </span>
         );
       },
@@ -461,7 +461,7 @@ const TenantsPage = () => {
             color: tk.textPri,
           }}
         >
-          {mrr ? `$${mrr.toLocaleString()}` : "—"}
+          {mrr ? `$${mrr.toLocaleString()}` : "---"}
         </span>
       ),
     },
@@ -472,7 +472,7 @@ const TenantsPage = () => {
       render: (count, row) => (
         <div>
           <span style={{ fontSize: 13, color: tk.textPri }}>
-            {count ?? "—"}
+            {count ?? "---"}
             {row.max_users ? (
               <span style={{ color: tk.textMuted }}>/{row.max_users}</span>
             ) : null}
@@ -496,7 +496,7 @@ const TenantsPage = () => {
       sorter: (a, b) => (a.health_score || 0) - (b.health_score || 0),
       render: (score) => {
         if (score == null)
-          return <span style={{ color: tk.textMuted }}>—</span>;
+          return <span style={{ color: tk.textMuted }}>---</span>;
         const color = score > 90 ? tk.green : score > 70 ? tk.amber : tk.red;
         return (
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -543,7 +543,7 @@ const TenantsPage = () => {
                 day: "numeric",
                 year: "numeric",
               })
-            : "—"}
+            : "---"}
         </span>
       ),
     },
@@ -763,7 +763,7 @@ const TenantsPage = () => {
             }}
           >
             <Search
-              placeholder="Search tenants, email, domain…"
+              placeholder="Search tenants, email, domain---"
               allowClear
               onChange={(e) => setSearch(e.target.value)}
               style={{ width: 270 }}
@@ -845,7 +845,7 @@ const TenantsPage = () => {
           </div>
         )}
 
-        {/* Table — row click navigates to detail */}
+        {/* Table --- row click navigates to detail */}
         <Table
           dataSource={filtered}
           columns={columns}
@@ -896,7 +896,7 @@ const TenantsPage = () => {
             )}
             <span style={{ color: tk.textPri, fontWeight: 700 }}>
               {editingTenant
-                ? `Edit — ${editingTenant.name}`
+                ? `Edit --- ${editingTenant.name}`
                 : "Add New Tenant"}
             </span>
           </div>
@@ -973,7 +973,7 @@ const TenantsPage = () => {
           <Form.Item name="notes" label="Notes">
             <Input.TextArea
               rows={3}
-              placeholder="Internal notes about this tenant…"
+              placeholder="Internal notes about this tenant---"
             />
           </Form.Item>
         </Form>
@@ -983,3 +983,4 @@ const TenantsPage = () => {
 };
 
 export default TenantsPage;
+

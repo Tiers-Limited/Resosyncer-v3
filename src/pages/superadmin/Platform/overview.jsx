@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
 import {
   Card,
   Table,
@@ -221,7 +221,7 @@ const SuperadminDashboard = () => {
       // 3. Total MRR (sum from tenants)
       const totalMrr = tenantRows?.reduce((s, t) => s + (t.mrr || 0), 0) || 0;
 
-      // 4. API calls today (from an api_logs table — adjust to yours)
+      // 4. API calls today (from an api_logs table --- adjust to yours)
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const { count: apiCount } = await supabase
@@ -236,7 +236,7 @@ const SuperadminDashboard = () => {
         apiCalls: apiCount || 0,
       });
 
-      // 5. MRR history — last 14 data points from mrr_snapshots (adjust to yours)
+      // 5. MRR history --- last 14 data points from mrr_snapshots (adjust to yours)
       const { data: mrrSnaps } = await supabase
         .from("mrr_snapshots")
         .select("value")
@@ -261,7 +261,7 @@ const SuperadminDashboard = () => {
       setSignupHistory(buckets);
       setUserHistory(buckets);
 
-      // 7. Alerts — from a platform_alerts table (adjust to yours)
+      // 7. Alerts --- from a platform_alerts table (adjust to yours)
       const { data: alertRows } = await supabase
         .from("platform_alerts")
         .select("id, level, message, created_at")
@@ -277,7 +277,7 @@ const SuperadminDashboard = () => {
         })) || [],
       );
 
-      // 8. Service health — from service_health table (adjust to yours)
+      // 8. Service health --- from service_health table (adjust to yours)
       const { data: svcRows } = await supabase
         .from("service_health")
         .select("name, status, latency_ms, uptime_pct")
@@ -310,7 +310,7 @@ const SuperadminDashboard = () => {
     setRefreshing(false);
   };
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // ------ Helpers ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const formatTimeAgo = (iso) => {
     const diff = (Date.now() - new Date(iso).getTime()) / 1000;
     if (diff < 60) return `${Math.floor(diff)}s ago`;
@@ -326,7 +326,7 @@ const SuperadminDashboard = () => {
         ? `${(n / 1000).toFixed(1)}k`
         : String(n);
 
-  // ── KPI definitions ───────────────────────────────────────────────────────
+  // ------ KPI definitions ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const kpis = [
     {
       label: "Monthly Recurring Revenue",
@@ -358,7 +358,7 @@ const SuperadminDashboard = () => {
     {
       label: "API Calls / Day",
       value: fmt(kpiData.apiCalls),
-      delta: "−3.2%",
+      delta: "---3.2%",
       up: false,
       color: "#f59e0b",
       icon: <ApiOutlined />,
@@ -366,7 +366,7 @@ const SuperadminDashboard = () => {
     },
   ];
 
-  // ── Ant Design table columns ──────────────────────────────────────────────
+  // ------ Ant Design table columns ------------------------------------------------------------------------------------------------------------------------------------------
   const tenantColumns = [
     {
       title: "Tenant",
@@ -463,7 +463,7 @@ const SuperadminDashboard = () => {
     },
   ];
 
-  // ── Ant Design card style helper ──────────────────────────────────────────
+  // ------ Ant Design card style helper ------------------------------------------------------------------------------------------------------------------------------
   const cardStyle = (delay = 0) => ({
     background: tk.cardBg,
     border: `1px solid ${tk.border}`,
@@ -475,7 +475,7 @@ const SuperadminDashboard = () => {
 
   const cardBodyStyle = { padding: 0 };
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ------ Render ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -486,7 +486,7 @@ const SuperadminDashboard = () => {
 
   return (
     <div style={{ color: tk.textPri, fontFamily: "inherit" }}>
-      {/* ── Top bar ──────────────────────────────────────────────────── */}
+      {/* ------ Top bar ------------------------------------------------------------------------------------------------------------------------------------------------------------ */}
       <div className="flex items-center justify-between mb-5">
         <span className="text-sm" style={{ color: tk.textMuted }}>
           {now.toLocaleDateString("en-US", {
@@ -519,7 +519,7 @@ const SuperadminDashboard = () => {
         </div>
       </div>
 
-      {/* ── KPI cards ─────────────────────────────────────────────────── */}
+      {/* ------ KPI cards --------------------------------------------------------------------------------------------------------------------------------------------------------- */}
       <div className="grid grid-cols-4 gap-3 mb-4">
         {kpis.map((k, i) => (
           <Card
@@ -569,7 +569,7 @@ const SuperadminDashboard = () => {
         ))}
       </div>
 
-      {/* ── Main grid ─────────────────────────────────────────────────── */}
+      {/* ------ Main grid --------------------------------------------------------------------------------------------------------------------------------------------------------- */}
       <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 296px" }}>
         {/* LEFT */}
         <div className="flex flex-col gap-3">
@@ -590,7 +590,7 @@ const SuperadminDashboard = () => {
                 className="text-xs font-semibold cursor-pointer"
                 style={{ color: "#7c3aed" }}
               >
-                View All →
+                View All ---
               </span>
             }
           >
@@ -619,7 +619,7 @@ const SuperadminDashboard = () => {
                 className="text-sm font-semibold"
                 style={{ color: tk.textPri }}
               >
-                New Signups — Last 14 Days
+                New Signups --- Last 14 Days
               </span>
             }
             extra={
@@ -722,7 +722,7 @@ const SuperadminDashboard = () => {
                   l: "Avg MRR",
                   v: kpiData.tenants
                     ? `$${Math.round(kpiData.mrr / kpiData.tenants).toLocaleString()}`
-                    : "—",
+                    : "---",
                 },
                 { l: "Churn", v: "1.4%" },
                 { l: "Conv.", v: "62%" },
@@ -862,7 +862,7 @@ const SuperadminDashboard = () => {
                   className="text-xs font-semibold cursor-pointer"
                   style={{ color: "#7c3aed" }}
                 >
-                  View All →
+                  View All ---
                 </span>
               </div>
             }
@@ -916,3 +916,4 @@ const SuperadminDashboard = () => {
 };
 
 export default SuperadminDashboard;
+

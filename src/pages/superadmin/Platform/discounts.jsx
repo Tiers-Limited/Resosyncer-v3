@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import {
   Plus,
   Pencil,
@@ -41,7 +41,7 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY,
 );
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// --------- Helpers ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const generateCode = () => {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   return Array.from(
@@ -54,7 +54,7 @@ const formatDiscount = (type, value) => {
   if (type === "percent") return `${value}% off`;
   if (type === "fixed") return `$${value} off`;
   if (type === "trial") return `+${value} days trial`;
-  return "—";
+  return "---";
 };
 
 const statusOf = (row) => {
@@ -73,7 +73,7 @@ const STATUS_STYLES = {
   exhausted: { bg: "#fee2e2", color: "#b91c1c", label: "Exhausted" },
 };
 
-// ─── Stat card ────────────────────────────────────────────────────────────────
+// --------- Stat card ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function StatCard({ icon: Icon, label, value, color, sub }) {
   return (
     <motion.div
@@ -135,7 +135,7 @@ function StatCard({ icon: Icon, label, value, color, sub }) {
   );
 }
 
-// ─── Copy button ──────────────────────────────────────────────────────────────
+// --------- Copy button ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function CopyButton({ text }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
@@ -167,7 +167,7 @@ function CopyButton({ text }) {
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// --------- Main component ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 export default function AdminPromoCodes() {
   const [codes, setCodes] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -416,7 +416,7 @@ export default function AdminPromoCodes() {
             <span style={{ color: "#cbd5e1" }}>/ {r.max_uses}</span>
           )}
           {r.max_uses == null && (
-            <span style={{ fontSize: 10, color: "#cbd5e1" }}>∞</span>
+            <span style={{ fontSize: 10, color: "#cbd5e1" }}>---</span>
           )}
         </div>
       ),
@@ -695,7 +695,7 @@ export default function AdminPromoCodes() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search codes or descriptions…"
+              placeholder="Search codes or descriptions---"
               style={{
                 width: "100%",
                 padding: "8px 12px 8px 34px",
@@ -743,7 +743,7 @@ export default function AdminPromoCodes() {
               style={{ animation: "spin 1s linear infinite" }}
             />
             <span style={{ color: "#94a3b8", fontSize: 14 }}>
-              Loading codes…
+              Loading codes---
             </span>
           </div>
         ) : (
@@ -1211,3 +1211,4 @@ export default function AdminPromoCodes() {
     </div>
   );
 }
+

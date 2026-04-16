@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
 import {
   DatePicker,
   Avatar,
@@ -53,14 +53,14 @@ dayjs.extend(isoWeek);
 const { Title, Text } = Typography;
 const { Option } = Select;
 
-// ─── CSS Variables injected as a <style> tag ──────────────────────────────────
+// ------------------------ CSS Variables injected as a <style> tag --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // All colours are defined here and consumed via var(--token) everywhere below.
 // Switching dark/light = toggling one class on the root wrapper.
 const THEME_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
 
   .sp-root {
-    /* ── Background layers ── */
+    /* ---------------- Background layers ---------------- */
     --bg-page:       #f8fafc;
     --bg-card:       #ffffff;
     --bg-card-alt:   #f9fafb;
@@ -68,42 +68,42 @@ const THEME_STYLES = `
     --bg-subtle:     #f1f5f9;
     --bg-muted:      #e2e8f0;
 
-    /* ── Borders ── */
+    /* ---------------- Borders ---------------- */
     --border:        #e2e8f0;
     --border-subtle: #f1f5f9;
     --border-faint:  #f9fafb;
 
-    /* ── Text ── */
+    /* ---------------- Text ---------------- */
     --text-primary:  #0f172a;
     --text-secondary:#475569;
     --text-tertiary: #64748b;
     --text-muted:    #94a3b8;
     --text-faint:    #cbd5e1;
 
-    /* ── Semantic status colours (light) ── */
+    /* ---------------- Semantic status colours (light) ---------------- */
     --present-color: #059669; --present-bg: #ecfdf5; --present-border: #a7f3d0;
     --absent-color:  #e11d48; --absent-bg:  #fff1f2; --absent-border:  #fecdd3;
     --late-color:    #d97706; --late-bg:    #fffbeb; --late-border:    #fde68a;
     --none-color:    #cbd5e1; --none-bg:    #f8fafc; --none-border:    #e2e8f0;
 
-    /* ── Project status colours (light) ── */
+    /* ---------------- Project status colours (light) ---------------- */
     --status-active-color:    #059669; --status-active-bg:    #ecfdf5; --status-active-border:    #a7f3d0;
     --status-progress-color:  #2563eb; --status-progress-bg:  #eff6ff; --status-progress-border:  #bfdbfe;
     --status-planning-color:  #7c3aed; --status-planning-bg:  #f5f3ff; --status-planning-border:  #ddd6fe;
     --status-review-color:    #d97706; --status-review-bg:    #fffbeb; --status-review-border:    #fde68a;
     --status-completed-color: #64748b; --status-completed-bg: #f8fafc; --status-completed-border: #e2e8f0;
 
-    /* ── Accent ── */
+    /* ---------------- Accent ---------------- */
     --accent:        #6366f1;
     --accent-bg:     #eef2ff;
     --accent-border: #c7d2fe;
 
-    /* ── Shadows ── */
+    /* ---------------- Shadows ---------------- */
     --shadow-card:   0 1px 4px rgba(15,23,42,0.06);
     --shadow-btn:    0 2px 8px rgba(15,23,42,0.15);
   }
 
-  /* ══════════════════ DARK OVERRIDES ══════════════════ */
+  /* ------------------------------------------------------------------------------------------------------------------------------ DARK OVERRIDES ------------------------------------------------------------------------------------------------------------------------------ */
   .sp-root.dark {
     --bg-page:       #141416;
     --bg-card:       #1a1b1f;
@@ -141,10 +141,10 @@ const THEME_STYLES = `
     --shadow-btn:    0 2px 8px rgba(0,0,0,0.4);
   }
 
-  /* ── Font reset ── */
+  /* ---------------- Font reset ---------------- */
   .sp-root * { font-family: 'Outfit', sans-serif !important; box-sizing: border-box; }
 
-  /* ── Ant Design table overrides ── */
+  /* ---------------- Ant Design table overrides ---------------- */
   .sp-root .ant-table { background: transparent !important; }
   .sp-root .ant-table-thead > tr > th {
     background: var(--bg-card-alt) !important;
@@ -177,7 +177,7 @@ const THEME_STYLES = `
   .sp-root .ant-table-body { overflow-x: auto !important; }
   .sp-root .ant-table-sticky-scroll { display: none !important; }
 
-  /* ── Ant Design form controls ── */
+  /* ---------------- Ant Design form controls ---------------- */
   .sp-root .ant-picker,
   .sp-root .ant-input,
   .sp-root .ant-select-selector {
@@ -193,13 +193,13 @@ const THEME_STYLES = `
   .sp-root .ant-select-selection-placeholder { color: var(--text-primary) !important; }
   .sp-root .ant-input-clear-icon { color: var(--text-muted) !important; }
 
-  /* ── Ant Design modal ── */
+  /* ---------------- Ant Design modal ---------------- */
   .sp-root .ant-modal-content { border-radius: 16px !important; overflow: hidden; background: var(--bg-card) !important; }
   .sp-root .ant-modal-header { padding: 20px 24px !important; border-bottom: 1px solid var(--border) !important; background: var(--bg-card) !important; }
   .sp-root .ant-modal-body  { padding: 0 !important; }
   .sp-root .ant-modal-close-x { color: var(--text-muted) !important; }
 
-  /* ── Pagination ── */
+  /* ---------------- Pagination ---------------- */
   .sp-root .ant-pagination-item,
   .sp-root .ant-pagination-prev,
   .sp-root .ant-pagination-next { border-color: var(--border) !important; background: var(--bg-card) !important; }
@@ -208,26 +208,26 @@ const THEME_STYLES = `
   .sp-root .ant-pagination-item-active a { color: var(--accent) !important; }
   .sp-root .ant-pagination-total-text { color: var(--text-muted) !important; }
 
-  /* ── Empty state ── */
+  /* ---------------- Empty state ---------------- */
   .sp-root .ant-empty-description { color: var(--text-muted) !important; }
 
-  /* ── Skeleton ── */
+  /* ---------------- Skeleton ---------------- */
   .sp-root .ant-skeleton-element .ant-skeleton-input,
   .sp-root .ant-skeleton-element .ant-skeleton-avatar,
   .sp-root .ant-skeleton-element .ant-skeleton-button { background: var(--bg-subtle) !important; }
   .sp-root .ant-skeleton-content .ant-skeleton-title,
   .sp-root .ant-skeleton-content .ant-skeleton-paragraph > li { background: var(--bg-subtle) !important; }
 
-  /* ── Select dropdown (portal) ── */
+  /* ---------------- Select dropdown (portal) ---------------- */
   .sp-select-dropdown .ant-select-item { color: var(--text-primary) !important; background: var(--bg-card) !important; }
   .sp-select-dropdown .ant-select-item-option-active { background: var(--bg-subtle) !important; }
   .sp-select-dropdown .ant-select-item-option-selected { background: var(--accent-bg) !important; color: var(--accent) !important; }
 
-  /* ── Tooltip ── */
+  /* ---------------- Tooltip ---------------- */
   .sp-root .ant-tooltip-inner { font-family: 'Outfit', sans-serif !important; }
 `;
 
-// ─── Token-aware STATUS config (reads CSS vars at runtime via getComputedStyle) ─
+// ------------------------ Token-aware STATUS config (reads CSS vars at runtime via getComputedStyle) --------
 // We derive these from CSS variables so they auto-respond to theme class.
 const getTokens = (el) => {
   const s = el ? getComputedStyle(el) : { getPropertyValue: () => "" };
@@ -317,7 +317,7 @@ const getInitials = (name = "") =>
 const capitalize = (s = "") => s.charAt(0).toUpperCase() + s.slice(1);
 
 const getIsDarkTheme = () => {
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -337,7 +337,7 @@ function getWeekdaysInMonth(year, month) {
 
 const VIEW = { PROJECTS: "projects", PROJECT_DETAIL: "project_detail" };
 
-// ─── Skeleton loaders ──────────────────────────────────────────────────────────
+// ------------------------ Skeleton loaders --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const ProjectListSkeleton = () => (
   <div style={{ padding: 20 }}>
     {Array.from({ length: 5 }).map((_, idx) => (
@@ -395,7 +395,7 @@ const ProjectDetailSkeleton = () => (
   </div>
 );
 
-// ─── Starter plan paywall ─────────────────────────────────────────────────────
+// ------------------------ Starter plan paywall ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function StarterStandupPaywall({ dark = false }) {
   const features = [
     {
@@ -520,7 +520,7 @@ function StarterStandupPaywall({ dark = false }) {
           Standups
         </h1>
         <p style={{ margin: 0, color: "var(--text-tertiary)", fontSize: 13 }}>
-          Async check-ins · AI summaries · Zero extra meetings
+          Async check-ins ---- AI summaries ---- Zero extra meetings
         </p>
       </div>
 
@@ -724,9 +724,9 @@ function StarterStandupPaywall({ dark = false }) {
                       }}
                     >
                       <span>Today, Mar 29</span>
-                      <span>·</span>
+                      <span>----</span>
                       <span style={{ color: "#22c55e", fontWeight: 700 }}>
-                        ● 6/8 responded
+                        ------- 6/8 responded
                       </span>
                     </div>
                   </div>
@@ -938,7 +938,7 @@ function StarterStandupPaywall({ dark = false }) {
                 lineHeight: 1.6,
               }}
             >
-              A complete async check-in system — from team prompts and smart
+              A complete async check-in system -------- from team prompts and smart
               reminders to AI-generated summaries, participation tracking, and
               full org visibility.
             </p>
@@ -1171,7 +1171,7 @@ function StarterStandupPaywall({ dark = false }) {
                     border: "1px solid var(--present-border)",
                   }}
                 >
-                  ● 3/3 responded
+                  ------- 3/3 responded
                 </span>
               </div>
               {mockStandups.map((m, i) => (
@@ -1337,7 +1337,7 @@ function StarterStandupPaywall({ dark = false }) {
   );
 }
 
-// ─── Main Component ────────────────────────────────────────────────────────────
+// ------------------------ Main Component ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 export default function AdminStandupStats() {
   const [dark, setDark] = useState(getIsDarkTheme);
   const [rootEl, setRootEl] = useState(null); // ref to the root wrapper
@@ -1415,7 +1415,7 @@ export default function AdminStandupStats() {
     }
   }, [rootEl, dark]);
 
-  // ── Load projects ──────────────────────────────────────────────────────
+  // ---------------- Load projects ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   useEffect(() => {
     if (!tenantId) return;
     let mounted = true;
@@ -1662,7 +1662,7 @@ export default function AdminStandupStats() {
     [projects, search, statusFilter],
   );
 
-  // ── helpers for colour-coded rate ─────────────────────────────────────────
+  // ---------------- helpers for colour-coded rate ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const rateColor = (r) =>
     r >= 80
       ? "var(--present-color)"
@@ -1682,7 +1682,7 @@ export default function AdminStandupStats() {
         ? "var(--late-border)"
         : "var(--absent-border)";
 
-  // ── Calendar columns ──────────────────────────────────────────────────────
+  // ---------------- Calendar columns ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const calendarColumns = useMemo(
     () => [
       {
@@ -1730,7 +1730,7 @@ export default function AdminStandupStats() {
                 {rec.full_name}
               </Text>
               <Text style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                {rec.job_title || rec.department || "—"}
+                {rec.job_title || rec.department || "--------"}
               </Text>
             </div>
           </Space>
@@ -1866,7 +1866,7 @@ export default function AdminStandupStats() {
                         fontWeight: 700,
                       }}
                     >
-                      —
+                      --------
                     </Text>
                   </div>
                 </Tooltip>
@@ -1883,7 +1883,7 @@ export default function AdminStandupStats() {
                         marginBottom: hasSummary ? 6 : 0,
                       }}
                     >
-                      {d.format("MMM DD")} · {cfg.label}
+                      {d.format("MMM DD")} ---- {cfg.label}
                     </div>
                     {hasSummary && (
                       <div
@@ -1994,7 +1994,7 @@ export default function AdminStandupStats() {
               letterSpacing: "0.05em",
             }}
           >
-            P · A · L
+            P ---- A ---- L
           </Text>
         ),
         key: "pal",
@@ -2012,7 +2012,7 @@ export default function AdminStandupStats() {
             >
               {rec.present}
             </Text>
-            <Text style={{ color: "var(--border)", fontSize: 10 }}>·</Text>
+            <Text style={{ color: "var(--border)", fontSize: 10 }}>----</Text>
             <Text
               style={{
                 fontSize: 12,
@@ -2022,7 +2022,7 @@ export default function AdminStandupStats() {
             >
               {rec.absent}
             </Text>
-            <Text style={{ color: "var(--border)", fontSize: 10 }}>·</Text>
+            <Text style={{ color: "var(--border)", fontSize: 10 }}>----</Text>
             <Text
               style={{
                 fontSize: 12,
@@ -2039,7 +2039,7 @@ export default function AdminStandupStats() {
     [weekdays, sessionMap, today, standupStatusCfg],
   );
 
-  // ── Projects table columns ─────────────────────────────────────────────────
+  // ---------------- Projects table columns --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const projectColumns = [
     {
       title: "Project",
@@ -2101,7 +2101,7 @@ export default function AdminStandupStats() {
                 display: "inline-block",
               }}
             />
-            {capitalize(status || "—")}
+            {capitalize(status || "--------")}
           </span>
         );
       },
@@ -2224,7 +2224,7 @@ export default function AdminStandupStats() {
               >
                 {s.p}P
               </Text>
-              <Text style={{ color: "var(--border)" }}>·</Text>
+              <Text style={{ color: "var(--border)" }}>----</Text>
               <Text
                 style={{
                   fontSize: 12,
@@ -2234,7 +2234,7 @@ export default function AdminStandupStats() {
               >
                 {s.a}A
               </Text>
-              <Text style={{ color: "var(--border)" }}>·</Text>
+              <Text style={{ color: "var(--border)" }}>----</Text>
               <Text
                 style={{
                   fontSize: 12,
@@ -2306,7 +2306,7 @@ export default function AdminStandupStats() {
   const isStarterPlan =
     orgPlan != null && orgPlan.trim().toLowerCase().includes("starter");
 
-  // ── Loading ────────────────────────────────────────────────────────────────
+  // ---------------- Loading --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   if (planLoading) {
     return (
       <div
@@ -2325,14 +2325,14 @@ export default function AdminStandupStats() {
           <p
             style={{ marginTop: 16, color: "var(--text-muted)", fontSize: 13 }}
           >
-            Loading your workspace…
+            Loading your workspace-------
           </p>
         </div>
       </div>
     );
   }
 
-  // ── Starter-plan paywall ───────────────────────────────────────────────────
+  // ---------------- Starter-plan paywall ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   if (isStarterPlan) {
     return (
       <div
@@ -2349,7 +2349,7 @@ export default function AdminStandupStats() {
     );
   }
 
-  // ── Full paid view ─────────────────────────────────────────────────────────
+  // ---------------- Full paid view ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   return (
     <div
       ref={setRootEl}
@@ -2358,7 +2358,7 @@ export default function AdminStandupStats() {
     >
       <style>{THEME_STYLES}</style>
 
-      {/* ── Header ── */}
+      {/* ---------------- Header ---------------- */}
       <div
         style={{
           borderBottom: "1px solid var(--border)",
@@ -2424,8 +2424,8 @@ export default function AdminStandupStats() {
                   }}
                 >
                   {view === VIEW.PROJECT_DETAIL
-                    ? `${activeProject?.name} · Detail`
-                    : "Admin · Standup Stats"}
+                    ? `${activeProject?.name} ---- Detail`
+                    : "Admin ---- Standup Stats"}
                 </Text>
               </div>
               <Title
@@ -2438,7 +2438,7 @@ export default function AdminStandupStats() {
                 }}
               >
                 {view === VIEW.PROJECT_DETAIL
-                  ? `Attendance · ${selectedMonth.format("MMMM YYYY")}`
+                  ? `Attendance ---- ${selectedMonth.format("MMMM YYYY")}`
                   : "Standup Overview"}
               </Title>
             </div>
@@ -2447,7 +2447,7 @@ export default function AdminStandupStats() {
             {view === VIEW.PROJECTS && (
               <>
                 <Input
-                  placeholder="Search projects…"
+                  placeholder="Search projects-------"
                   prefix={
                     <SearchOutlined style={{ color: "var(--text-muted)" }} />
                   }
@@ -2500,9 +2500,9 @@ export default function AdminStandupStats() {
         </div>
       </div>
 
-      {/* ── Body ── */}
+      {/* ---------------- Body ---------------- */}
       <div style={{ padding: "28px 40px" }}>
-        {/* ════════════ PROJECTS VIEW ════════════ */}
+        {/* ------------------------------------------------------------------------------------ PROJECTS VIEW ------------------------------------------------------------------------------------ */}
         {view === VIEW.PROJECTS && (
           <>
             {/* Stat cards */}
@@ -2693,7 +2693,7 @@ export default function AdminStandupStats() {
           </>
         )}
 
-        {/* ════════════ PROJECT DETAIL VIEW ════════════ */}
+        {/* ------------------------------------------------------------------------------------ PROJECT DETAIL VIEW ------------------------------------------------------------------------------------ */}
         {view === VIEW.PROJECT_DETAIL && (
           <>
             {loadingDetail ? (
@@ -2766,7 +2766,7 @@ export default function AdminStandupStats() {
                   {[
                     {
                       label: "Status",
-                      value: capitalize(activeProject?.status || "—"),
+                      value: capitalize(activeProject?.status || "--------"),
                       color:
                         projectStatusCfg[
                           (activeProject?.status || "").toLowerCase()
@@ -2947,7 +2947,7 @@ export default function AdminStandupStats() {
                       letterSpacing: "0.06em",
                     }}
                   >
-                    {activeProject?.name} · {selectedMonth.format("MMMM YYYY")}
+                    {activeProject?.name} ---- {selectedMonth.format("MMMM YYYY")}
                   </Text>
                   <div
                     style={{
@@ -3040,7 +3040,7 @@ export default function AdminStandupStats() {
                             fontWeight: 500,
                           }}
                         >
-                          Has summary — click to read
+                          Has summary -------- click to read
                         </Text>
                       </div>
                     </>
@@ -3169,7 +3169,7 @@ export default function AdminStandupStats() {
                       </span>
                     </div>
                     <Text style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                      {selectedMonth.format("MMMM YYYY")} · most recent first
+                      {selectedMonth.format("MMMM YYYY")} ---- most recent first
                     </Text>
                   </div>
 
@@ -3477,7 +3477,7 @@ export default function AdminStandupStats() {
                                     color: "var(--border)",
                                   }}
                                 >
-                                  —
+                                  --------
                                 </Text>
                               )}
                             </div>
@@ -3563,7 +3563,7 @@ export default function AdminStandupStats() {
                                     color: "var(--text-muted)",
                                   }}
                                 >
-                                  {emp.job_title || emp.department || "—"}
+                                  {emp.job_title || emp.department || "--------"}
                                 </Text>
                               </div>
                             </Space>
@@ -3856,3 +3856,5 @@ export default function AdminStandupStats() {
     </div>
   );
 }
+
+

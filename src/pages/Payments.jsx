@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
 import { Button, message, Select, Input, Drawer, Modal } from "antd";
 const { TextArea } = Input;
 import {
@@ -16,7 +16,7 @@ import {
 import { supabase } from "../lib/supabase";
 import dayjs from "dayjs";
 
-// ── Status config ──────────────────────────────────────────────────────────
+// ---------------- Status config --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const STATUS = {
   paid: {
     label: "Paid",
@@ -52,65 +52,65 @@ const fmt = (n, currency = "USD") => {
 };
 
 const getIsDarkTheme = () => {
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 };
 
-// ── All world currencies ───────────────────────────────────────────────────
+// ---------------- All world currencies ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const CURRENCIES = [
   { code: "USD", name: "US Dollar", symbol: "$" },
-  { code: "EUR", name: "Euro", symbol: "€" },
-  { code: "GBP", name: "British Pound", symbol: "£" },
-  { code: "JPY", name: "Japanese Yen", symbol: "¥" },
+  { code: "EUR", name: "Euro", symbol: "-------" },
+  { code: "GBP", name: "British Pound", symbol: "----" },
+  { code: "JPY", name: "Japanese Yen", symbol: "----" },
   { code: "AUD", name: "Australian Dollar", symbol: "A$" },
   { code: "CAD", name: "Canadian Dollar", symbol: "C$" },
   { code: "CHF", name: "Swiss Franc", symbol: "Fr" },
-  { code: "CNY", name: "Chinese Yuan", symbol: "¥" },
+  { code: "CNY", name: "Chinese Yuan", symbol: "----" },
   { code: "SEK", name: "Swedish Krona", symbol: "kr" },
   { code: "NZD", name: "New Zealand Dollar", symbol: "NZ$" },
   { code: "MXN", name: "Mexican Peso", symbol: "$" },
   { code: "SGD", name: "Singapore Dollar", symbol: "S$" },
   { code: "HKD", name: "Hong Kong Dollar", symbol: "HK$" },
   { code: "NOK", name: "Norwegian Krone", symbol: "kr" },
-  { code: "KRW", name: "South Korean Won", symbol: "₩" },
-  { code: "TRY", name: "Turkish Lira", symbol: "₺" },
-  { code: "INR", name: "Indian Rupee", symbol: "₹" },
-  { code: "RUB", name: "Russian Ruble", symbol: "₽" },
+  { code: "KRW", name: "South Korean Won", symbol: "-------" },
+  { code: "TRY", name: "Turkish Lira", symbol: "-------" },
+  { code: "INR", name: "Indian Rupee", symbol: "-------" },
+  { code: "RUB", name: "Russian Ruble", symbol: "-------" },
   { code: "BRL", name: "Brazilian Real", symbol: "R$" },
   { code: "ZAR", name: "South African Rand", symbol: "R" },
   { code: "DKK", name: "Danish Krone", symbol: "kr" },
-  { code: "PLN", name: "Polish Złoty", symbol: "zł" },
+  { code: "PLN", name: "Polish Z-----oty", symbol: "z-----" },
   { code: "TWD", name: "Taiwan Dollar", symbol: "NT$" },
-  { code: "THB", name: "Thai Baht", symbol: "฿" },
+  { code: "THB", name: "Thai Baht", symbol: "------" },
   { code: "IDR", name: "Indonesian Rupiah", symbol: "Rp" },
   { code: "HUF", name: "Hungarian Forint", symbol: "Ft" },
-  { code: "CZK", name: "Czech Koruna", symbol: "Kč" },
-  { code: "ILS", name: "Israeli Shekel", symbol: "₪" },
+  { code: "CZK", name: "Czech Koruna", symbol: "K----" },
+  { code: "ILS", name: "Israeli Shekel", symbol: "-------" },
   { code: "CLP", name: "Chilean Peso", symbol: "$" },
-  { code: "PHP", name: "Philippine Peso", symbol: "₱" },
-  { code: "AED", name: "UAE Dirham", symbol: "د.إ" },
+  { code: "PHP", name: "Philippine Peso", symbol: "-------" },
+  { code: "AED", name: "UAE Dirham", symbol: "----.----" },
   { code: "COP", name: "Colombian Peso", symbol: "$" },
-  { code: "SAR", name: "Saudi Riyal", symbol: "﷼" },
+  { code: "SAR", name: "Saudi Riyal", symbol: "------" },
   { code: "MYR", name: "Malaysian Ringgit", symbol: "RM" },
   { code: "RON", name: "Romanian Leu", symbol: "lei" },
   { code: "ARS", name: "Argentine Peso", symbol: "$" },
-  { code: "VND", name: "Vietnamese Dong", symbol: "₫" },
-  { code: "EGP", name: "Egyptian Pound", symbol: "£" },
-  { code: "NGN", name: "Nigerian Naira", symbol: "₦" },
-  { code: "UAH", name: "Ukrainian Hryvnia", symbol: "₴" },
+  { code: "VND", name: "Vietnamese Dong", symbol: "-------" },
+  { code: "EGP", name: "Egyptian Pound", symbol: "----" },
+  { code: "NGN", name: "Nigerian Naira", symbol: "-------" },
+  { code: "UAH", name: "Ukrainian Hryvnia", symbol: "-------" },
   { code: "KWD", name: "Kuwaiti Dinar", symbol: "KD" },
   { code: "QAR", name: "Qatari Riyal", symbol: "QR" },
-  { code: "BGN", name: "Bulgarian Lev", symbol: "лв" },
+  { code: "BGN", name: "Bulgarian Lev", symbol: "--------" },
   { code: "HRK", name: "Croatian Kuna", symbol: "kn" },
-  { code: "ISK", name: "Icelandic Króna", symbol: "kr" },
-  { code: "PKR", name: "Pakistani Rupee", symbol: "₨" },
-  { code: "BDT", name: "Bangladeshi Taka", symbol: "৳" },
-  { code: "LKR", name: "Sri Lankan Rupee", symbol: "₨" },
+  { code: "ISK", name: "Icelandic Kr----na", symbol: "kr" },
+  { code: "PKR", name: "Pakistani Rupee", symbol: "-------" },
+  { code: "BDT", name: "Bangladeshi Taka", symbol: "------" },
+  { code: "LKR", name: "Sri Lankan Rupee", symbol: "-------" },
   { code: "MAD", name: "Moroccan Dirham", symbol: "MAD" },
   { code: "KES", name: "Kenyan Shilling", symbol: "KSh" },
-  { code: "GHS", name: "Ghanaian Cedi", symbol: "₵" },
+  { code: "GHS", name: "Ghanaian Cedi", symbol: "-------" },
   { code: "TZS", name: "Tanzanian Shilling", symbol: "TSh" },
   { code: "UGX", name: "Ugandan Shilling", symbol: "USh" },
   { code: "ETB", name: "Ethiopian Birr", symbol: "Br" },
@@ -124,42 +124,42 @@ const CURRENCIES = [
   { code: "XOF", name: "West African CFA Franc", symbol: "CFA" },
   { code: "XAF", name: "Central African CFA Franc", symbol: "CFA" },
   { code: "JOD", name: "Jordanian Dinar", symbol: "JD" },
-  { code: "LBP", name: "Lebanese Pound", symbol: "L£" },
+  { code: "LBP", name: "Lebanese Pound", symbol: "L----" },
   { code: "IQD", name: "Iraqi Dinar", symbol: "ID" },
-  { code: "IRR", name: "Iranian Rial", symbol: "﷼" },
+  { code: "IRR", name: "Iranian Rial", symbol: "------" },
   { code: "OMR", name: "Omani Rial", symbol: "OR" },
   { code: "BHD", name: "Bahraini Dinar", symbol: "BD" },
-  { code: "YER", name: "Yemeni Rial", symbol: "﷼" },
-  { code: "AFN", name: "Afghan Afghani", symbol: "؋" },
+  { code: "YER", name: "Yemeni Rial", symbol: "------" },
+  { code: "AFN", name: "Afghan Afghani", symbol: "-----" },
   { code: "UZS", name: "Uzbekistani Som", symbol: "so'm" },
-  { code: "KZT", name: "Kazakhstani Tenge", symbol: "₸" },
-  { code: "GEL", name: "Georgian Lari", symbol: "₾" },
-  { code: "AMD", name: "Armenian Dram", symbol: "֏" },
-  { code: "AZN", name: "Azerbaijani Manat", symbol: "₼" },
+  { code: "KZT", name: "Kazakhstani Tenge", symbol: "-------" },
+  { code: "GEL", name: "Georgian Lari", symbol: "-------" },
+  { code: "AMD", name: "Armenian Dram", symbol: "----" },
+  { code: "AZN", name: "Azerbaijani Manat", symbol: "-------" },
   { code: "BYN", name: "Belarusian Ruble", symbol: "Br" },
   { code: "MDL", name: "Moldovan Leu", symbol: "L" },
   { code: "MKD", name: "Macedonian Denar", symbol: "den" },
   { code: "ALL", name: "Albanian Lek", symbol: "L" },
   { code: "BAM", name: "Bosnia Mark", symbol: "KM" },
   { code: "RSD", name: "Serbian Dinar", symbol: "din" },
-  { code: "MNT", name: "Mongolian Tögrög", symbol: "₮" },
-  { code: "KHR", name: "Cambodian Riel", symbol: "៛" },
-  { code: "LAK", name: "Lao Kip", symbol: "₭" },
+  { code: "MNT", name: "Mongolian T----gr----g", symbol: "-------" },
+  { code: "KHR", name: "Cambodian Riel", symbol: "-------" },
+  { code: "LAK", name: "Lao Kip", symbol: "-------" },
   { code: "MMK", name: "Myanmar Kyat", symbol: "K" },
-  { code: "NPR", name: "Nepalese Rupee", symbol: "₨" },
+  { code: "NPR", name: "Nepalese Rupee", symbol: "-------" },
   { code: "BTN", name: "Bhutanese Ngultrum", symbol: "Nu" },
   { code: "MVR", name: "Maldivian Rufiyaa", symbol: "Rf" },
   { code: "PGK", name: "Papua New Guinean Kina", symbol: "K" },
   { code: "FJD", name: "Fijian Dollar", symbol: "FJ$" },
   { code: "SBD", name: "Solomon Islands Dollar", symbol: "SI$" },
   { code: "VUV", name: "Vanuatu Vatu", symbol: "VT" },
-  { code: "WST", name: "Samoan Tālā", symbol: "T" },
-  { code: "TOP", name: "Tongan Paʻanga", symbol: "T$" },
+  { code: "WST", name: "Samoan T----l----", symbol: "T" },
+  { code: "TOP", name: "Tongan Pa----anga", symbol: "T$" },
   { code: "PEN", name: "Peruvian Sol", symbol: "S/." },
   { code: "BOB", name: "Bolivian Boliviano", symbol: "Bs." },
-  { code: "PYG", name: "Paraguayan Guaraní", symbol: "₲" },
+  { code: "PYG", name: "Paraguayan Guaran----", symbol: "-------" },
   { code: "UYU", name: "Uruguayan Peso", symbol: "$U" },
-  { code: "VES", name: "Venezuelan Bolívar", symbol: "Bs.S" },
+  { code: "VES", name: "Venezuelan Bol----var", symbol: "Bs.S" },
   { code: "GYD", name: "Guyanese Dollar", symbol: "G$" },
   { code: "SRD", name: "Surinamese Dollar", symbol: "Sr$" },
   { code: "TTD", name: "Trinidad Dollar", symbol: "TT$" },
@@ -171,17 +171,17 @@ const CURRENCIES = [
   { code: "DOP", name: "Dominican Peso", symbol: "RD$" },
   { code: "GTQ", name: "Guatemalan Quetzal", symbol: "Q" },
   { code: "HNL", name: "Honduran Lempira", symbol: "L" },
-  { code: "NIO", name: "Nicaraguan Córdoba", symbol: "C$" },
-  { code: "CRC", name: "Costa Rican Colón", symbol: "₡" },
+  { code: "NIO", name: "Nicaraguan C----rdoba", symbol: "C$" },
+  { code: "CRC", name: "Costa Rican Col----n", symbol: "-------" },
   { code: "PAB", name: "Panamanian Balboa", symbol: "B/." },
-  { code: "AWG", name: "Aruban Florin", symbol: "ƒ" },
-  { code: "ANG", name: "Netherlands Antillean Guilder", symbol: "ƒ" },
+  { code: "AWG", name: "Aruban Florin", symbol: "-----" },
+  { code: "ANG", name: "Netherlands Antillean Guilder", symbol: "-----" },
   { code: "XCD", name: "East Caribbean Dollar", symbol: "EC$" },
   { code: "BMD", name: "Bermudian Dollar", symbol: "$" },
   { code: "KYD", name: "Cayman Islands Dollar", symbol: "CI$" },
 ];
 
-// ── Component ──────────────────────────────────────────────────────────────
+// ---------------- Component ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const Payments = () => {
   const [dark, setDark] = useState(getIsDarkTheme);
   const [tenantId, setTenantId] = useState(null);
@@ -366,7 +366,7 @@ const Payments = () => {
     setEditingPayment(null);
   };
 
-  // ── Stats ──────────────────────────────────────────────────────────────
+  // ---------------- Stats ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const total = filtered.reduce((s, p) => s + parseFloat(p.amount || 0), 0);
   const paid = filtered
     .filter((p) => p.status === "paid")
@@ -376,7 +376,7 @@ const Payments = () => {
     .reduce((s, p) => s + parseFloat(p.amount || 0), 0);
   const paidPct = total > 0 ? Math.round((paid / total) * 100) : 0;
 
-  // ── Theme-aware values ─────────────────────────────────────────────────
+  // ---------------- Theme-aware values --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const t = {
     bgPage: dark ? "#141416" : "#f8fafc",
     bgCard: dark ? "#141416" : "#ffffff",
@@ -401,7 +401,7 @@ const Payments = () => {
     dotColor: dark ? "#94a3b8" : "#0f172a",
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────
+  // ---------------- Render --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   return (
     <div
       className={`payments-page${dark ? " dark" : ""}`}
@@ -418,7 +418,7 @@ const Payments = () => {
         * { font-family: 'DM Sans', sans-serif !important; box-sizing: border-box; }
         .mono { font-family: 'DM Mono', monospace !important; }
 
-        /* ── Ant Design dark overrides scoped to our wrapper ── */
+        /* ---------------- Ant Design dark overrides scoped to our wrapper ---------------- */
         .payments-page.dark .ant-select-selector,
         .payments-page.dark .ant-input,
         .payments-page.dark textarea.ant-input {
@@ -456,7 +456,7 @@ const Payments = () => {
         .payments-page.dark .ant-select-clear { background: #1c1c22 !important; color: #94a3b8 !important; }
         .payments-page.dark .ant-tag { background: #1c1c22 !important; border-color: #34343d !important; color: #f1f5f9 !important; }
 
-        /* Dropdown portal — must be global since it's outside DOM tree */
+        /* Dropdown portal -------- must be global since it's outside DOM tree */
         .pay-dropdown-dark {
           background: #141416 !important;
           border: 1px solid #34343d !important;
@@ -538,7 +538,7 @@ const Payments = () => {
         .payments-page.dark ::-webkit-scrollbar-thumb:hover { background: #4a4a56; }
       `}</style>
 
-      {/* ── Header ── */}
+      {/* ---------------- Header ---------------- */}
       <div
         style={{
           display: "flex",
@@ -636,7 +636,7 @@ const Payments = () => {
         </div>
       </div>
 
-      {/* ── Stat Cards ── */}
+      {/* ---------------- Stat Cards ---------------- */}
       <div
         style={{
           display: "grid",
@@ -706,7 +706,7 @@ const Payments = () => {
             {fmt(total)}
           </div>
           <div style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>
-            {filtered.length} entries · mixed currencies
+            {filtered.length} entries ---- mixed currencies
           </div>
         </div>
 
@@ -873,14 +873,14 @@ const Payments = () => {
         </div>
       </div>
 
-      {/* ── Search + Filter ── */}
+      {/* ---------------- Search + Filter ---------------- */}
       <div
         style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}
       >
         <div style={{ flex: 1, minWidth: 220 }}>
           <Input
             prefix={<SearchOutlined style={{ color: t.textMuted }} />}
-            placeholder="Search client name or remarks…"
+            placeholder="Search client name or remarks-------"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             allowClear
@@ -901,8 +901,8 @@ const Payments = () => {
           style={{ minWidth: 180 }}
           dropdownClassName={dark ? "pay-dropdown-dark" : ""}
           options={[
-            { label: "✓ Paid", value: "paid" },
-            { label: "✕ Not Paid", value: "not_paid" },
+            { label: "------- Paid", value: "paid" },
+            { label: "------- Not Paid", value: "not_paid" },
           ]}
         />
         <Button
@@ -921,7 +921,7 @@ const Payments = () => {
         </Button>
       </div>
 
-      {/* ── Table ── */}
+      {/* ---------------- Table ---------------- */}
       <div
         style={{
           background: t.tableBg,
@@ -981,7 +981,7 @@ const Payments = () => {
               spin
               style={{ fontSize: 24, marginBottom: 10, display: "block" }}
             />
-            Loading payments…
+            Loading payments-------
           </div>
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: "center", padding: "64px 0" }}>
@@ -1071,7 +1071,7 @@ const Payments = () => {
                             className="saving-pulse"
                             style={{ fontSize: 10, color: t.textMuted }}
                           >
-                            saving…
+                            saving-------
                           </span>
                         )}
                       </td>
@@ -1124,7 +1124,7 @@ const Payments = () => {
                           popupClassName={dark ? "pay-dropdown-dark" : ""}
                           options={CURRENCIES.map((c) => ({
                             value: c.code,
-                            label: `${c.code} – ${c.name}`,
+                            label: `${c.code} -------- ${c.name}`,
                             code: c.code,
                             symbol: c.symbol,
                           }))}
@@ -1153,7 +1153,7 @@ const Payments = () => {
                                   color: dark ? "#94a3b8" : "#475569",
                                 }}
                               >
-                                <strong>{opt.data.code}</strong> —{" "}
+                                <strong>{opt.data.code}</strong> --------{" "}
                                 {
                                   CURRENCIES.find(
                                     (c) => c.code === opt.data.code,
@@ -1219,7 +1219,7 @@ const Payments = () => {
                               e.target.value,
                             )
                           }
-                          placeholder="Add note…"
+                          placeholder="Add note-------"
                           bordered={false}
                           autoSize={{ minRows: 1, maxRows: 3 }}
                         />
@@ -1330,7 +1330,7 @@ const Payments = () => {
         )}
       </div>
 
-      {/* ── Drawer ── */}
+      {/* ---------------- Drawer ---------------- */}
       <Drawer
         rootClassName={dark ? "pay-drawer-dark" : "pay-drawer-light"}
         title={
@@ -1525,7 +1525,7 @@ const Payments = () => {
                 popupClassName={dark ? "pay-dropdown-dark" : ""}
                 options={CURRENCIES.map((c) => ({
                   value: c.code,
-                  label: `${c.code} – ${c.name}`,
+                  label: `${c.code} -------- ${c.name}`,
                   symbol: c.symbol,
                 }))}
                 optionRender={(opt) => (
@@ -1634,7 +1634,7 @@ const Payments = () => {
               value={form.remarks}
               onChange={(e) => setForm({ ...form, remarks: e.target.value })}
               rows={4}
-              placeholder="Invoice number, notes, payment terms…"
+              placeholder="Invoice number, notes, payment terms-------"
               style={{
                 resize: "none",
                 borderRadius: 9,
@@ -1651,3 +1651,5 @@ const Payments = () => {
 };
 
 export default Payments;
+
+

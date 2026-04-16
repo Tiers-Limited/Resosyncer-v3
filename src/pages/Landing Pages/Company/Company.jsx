@@ -19,7 +19,7 @@ import { useEffect, useRef, useState } from "react";
 import LandingNavbar from "../../../components/Landing/LandingNavbar";
 import ProductCtaFooterSection from "../../../components/Landing/ProductCtaFooterSection";
 
-/* ─────────────────────── data ─────────────────────── */
+/* ----------------------- data ----------------------- */
 
 const coreValues = [
   {
@@ -79,7 +79,7 @@ const founderMessage = [
   "Founder & CEO, RYZENT",
 ];
 
-/* Pills — static, no animation, exact layout from screenshot */
+/* Pills - static, no animation, exact layout from screenshot */
 const pillsLeft = [
   {
     label: "New Features",
@@ -121,13 +121,13 @@ const pillsRight = [
   },
 ];
 
-/* ─────────────── Lottie component (lottie-react) ─────────────── */
+/* --------------- Lottie component (lottie-react) --------------- */
 function LottieSearch() {
   const [animData, setAnimData] = useState(null);
 
   useEffect(() => {
     // lottie-react expects JSON animation data.
-    // .lottie is a zipped binary — we attempt to fetch and parse it.
+    // .lottie is a zipped binary - we attempt to fetch and parse it.
     // If the file is actually JSON rename it or export as JSON from LottieFiles.
     fetch("/Search.json")
       .then((r) => {
@@ -161,7 +161,7 @@ function LottieSearch() {
   );
 }
 
-/* ─────────────────────────── page ─────────────────────────────── */
+/* --------------------------- page ------------------------------- */
 
 export default function CompanyPage() {
   return (
@@ -251,7 +251,7 @@ export default function CompanyPage() {
         </div>
       </div>
 
-      {/* ── Hero ── */}
+      {/* -- Hero -- */}
       <section className="w-full bg-[linear-gradient(180deg,#f2f5fb_0%,#e7eefb_55%,#d9e5f8_100%)] pb-14 pt-[84px] text-center md:pt-[92px]">
         <div className="mx-auto max-w-[1240px] px-6 md:px-10">
           <p className="hf hf1 mx-auto inline-flex items-center rounded-full bg-[#dfe7f4] px-4 py-1 text-[11px] font-bold uppercase tracking-[.14em] text-[#2156a8]">
@@ -287,7 +287,7 @@ export default function CompanyPage() {
       </section>
 
       <main className="mx-auto w-full max-w-[1240px] px-4 pb-20 pt-8 md:px-8 md:pb-24">
-        {/* ── Mission + Vision ── */}
+        {/* -- Mission + Vision -- */}
         <section className="mt-8 grid gap-8 border-y border-slate-200 py-10 md:grid-cols-2">
           <article>
             <div className="sl">
@@ -301,7 +301,7 @@ export default function CompanyPage() {
             <p className="mt-3 text-[15px] leading-7 text-slate-700">
               Every day, thousands of SMBs lose time, money, and momentum
               switching between disconnected tools. We're on a mission to end
-              that — by building the platform that thinks, connects, and grows
+              that - by building the platform that thinks, connects, and grows
               with your business from day one.
             </p>
           </article>
@@ -311,19 +311,19 @@ export default function CompanyPage() {
               Our Vision
             </div>
             <p className="mt-4 text-[15px] leading-7 text-slate-700">
-              A world where growing businesses run on one platform — not twenty.
+              A world where growing businesses run on one platform - not twenty.
             </p>
             <p className="mt-3 text-[15px] leading-7 text-slate-700">
               We believe the future of work isn't more tools. It's smarter ones.
               Ryzent exists to give every SMB the operational clarity and
               AI-powered intelligence that was once only available to
-              enterprises with million-dollar tech stacks — packaged into one
+              enterprises with million-dollar tech stacks - packaged into one
               platform, at a price that makes sense.
             </p>
           </article>
         </section>
 
-        {/* ── Core Values ── */}
+        {/* -- Core Values -- */}
         <section className="mt-12 border-b border-slate-200 pb-14">
           <div className="flex items-end justify-between">
             <div>
@@ -377,7 +377,7 @@ export default function CompanyPage() {
           </div>
         </section>
 
-        {/* ── Founder Message ── */}
+        {/* -- Founder Message -- */}
         <section className="mt-12 border-b border-slate-200 pb-14">
           <p className="sl">Founder message</p>
           <div className="mt-6 grid gap-8 md:grid-cols-[300px_minmax(0,1fr)]">
@@ -399,14 +399,14 @@ export default function CompanyPage() {
                       : "text-slate-700"
                   }`}
                 >
-                  {idx === founderMessage.length - 1 ? `— ${line}` : line}
+                  {idx === founderMessage.length - 1 ? `- ${line}` : line}
                 </p>
               ))}
             </div>
           </div>
         </section>
 
-        {/* ── Careers / Lookout CTA ── */}
+        {/* -- Careers / Lookout CTA -- */}
         <section className="mt-12">
           <div className="cta-wrap px-8 py-12 md:px-14 md:py-16">
             <div
@@ -485,3 +485,4 @@ export default function CompanyPage() {
     </div>
   );
 }
+

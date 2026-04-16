@@ -54,12 +54,12 @@ dayjs.extend(relativeTime);
 
 const { TextArea } = Input;
 
-// ── Env ───────────────────────────────────────────────────────────────────
+// ------ Env ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const GROQ_API_KEY = import.meta.env.VITE_GROK_API_KEY;
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const EMAIL_API = import.meta.env.VITE_EMAIL_API_URL;
 
-// ── Groq ──────────────────────────────────────────────────────────────────
+// ------ Groq ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const groq = async (systemPrompt, userContent) => {
   const res = await fetch(GROQ_URL, {
     method: "POST",
@@ -82,7 +82,7 @@ const groq = async (systemPrompt, userContent) => {
   return data.choices[0].message.content.trim();
 };
 
-// ── Email ─────────────────────────────────────────────────────────────────
+// ------ Email ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const sendEmail = async ({ to, subject, body, companyName }) => {
   try {
     const res = await fetch(`${EMAIL_API}/api/email/send`, {
@@ -127,7 +127,7 @@ const followupEmailTemplate = ({
           <a href="${dashboardUrl}" style="display:inline-block;background:#111827;color:#ffffff;font-size:13px;font-weight:600;padding:10px 22px;border-radius:5px;text-decoration:none;">View Lead</a>
         </td></tr>
         <tr><td style="padding:24px 0 0;text-align:center;">
-          <p style="margin:0;font-size:12px;color:#9ca3af;">Sent by ${senderName} · ${companyName || "Resosyncer"}</p>
+          <p style="margin:0;font-size:12px;color:#9ca3af;">Sent by ${senderName} -- ${companyName || "Resosyncer"}</p>
         </td></tr>
       </table>
     </td></tr>
@@ -135,58 +135,58 @@ const followupEmailTemplate = ({
 </body>
 </html>`;
 
-// ── Config ────────────────────────────────────────────────────────────────
+// ------ Config ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const AVAILABLE_ICONS = [
-  "👤",
-  "👨",
-  "👩",
-  "👔",
-  "💼",
-  "🏢",
-  "🏭",
-  "🏪",
-  "🏬",
-  "🛍️",
-  "💻",
-  "📱",
-  "🖥️",
-  "⌨️",
-  "🖱️",
-  "🎯",
-  "📊",
-  "📈",
-  "💰",
-  "💵",
-  "🌐",
-  "🌍",
-  "🌎",
-  "🌏",
-  "🗺️",
-  "📍",
-  "🚀",
-  "✈️",
-  "🎨",
-  "🎭",
-  "⭐",
-  "🌟",
-  "💫",
-  "✨",
-  "🔥",
-  "💡",
-  "🎪",
-  "🎬",
-  "📺",
-  "📻",
-  "📞",
-  "☎️",
-  "📧",
-  "✉️",
-  "📮",
-  "🔔",
-  "🎁",
-  "🎉",
-  "🎊",
-  "🎈",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
+  "-------",
+  "----",
+  "----",
+  "-------",
+  "------",
+  "-------",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
+  "-------",
+  "----",
+  "----",
+  "------",
+  "----",
+  "----",
+  "---",
+  "----",
+  "----",
+  "---",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
+  "------",
+  "----",
+  "------",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
 ];
 
 const STATUS_CFG = {
@@ -243,7 +243,7 @@ const pctDarkBd = (v) =>
   v >= 75 ? "#059669" : v >= 40 ? "#d97706" : "#e11d48";
 
 const getIsDarkTheme = () => {
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -376,7 +376,7 @@ const LeadsStarterPaywall = ({ dark = false }) => {
           Leads Pipeline
         </h1>
         <p style={{ margin: 0, color: colors.textMuted, fontSize: 13 }}>
-          Starter locked · Growth manual · Pro/Enterprise with AI insights
+          Starter locked -- Growth manual -- Pro/Enterprise with AI insights
         </p>
       </div>
 
@@ -881,10 +881,10 @@ const LeadsStarterPaywall = ({ dark = false }) => {
   );
 };
 
-// ── CSS Variables approach ─────────────────────────────────────────────────
+// ------ CSS Variables approach ---------------------------------------------------------------------------------------------------------------------------------------------------
 // All colours come from CSS vars set on .leads-page / .leads-page.dark
 const GLOBAL_CSS = `
-  /* ── Light tokens ── */
+  /* ------ Light tokens ------ */
   .leads-page,
   .ld-drawer {
     --bg-page:        #f8fafc;
@@ -912,7 +912,7 @@ const GLOBAL_CSS = `
     --input-focus-bg: #ffffff;
   }
 
-  /* ── Dark tokens ── */
+  /* ------ Dark tokens ------ */
   .leads-page.dark,
   .ld-drawer.dark {
     --bg-page:        #141416;
@@ -940,10 +940,10 @@ const GLOBAL_CSS = `
     --input-focus-bg: #141416;
   }
 
-  /* ── Base resets using vars ── */
+  /* ------ Base resets using vars ------ */
   .leads-page { background: var(--bg-page); color: var(--text-primary); }
 
-  /* ── Ant overrides scoped to .leads-page ── */
+  /* ------ Ant overrides scoped to .leads-page ------ */
   .leads-page .ant-input,
   .leads-page .ant-input-affix-wrapper,
   .leads-page .ant-select-selector,
@@ -1017,7 +1017,7 @@ const GLOBAL_CSS = `
   .ant-popover-content .ant-popover-title { color: var(--text-primary) !important; border-bottom: 1px solid var(--border) !important; }
   .ant-popover-content .ant-popover-inner-content { color: var(--text-primary) !important; }
 
-  /* ── Component styles ── */
+  /* ------ Component styles ------ */
   @keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
   .fade-up { animation: fadeUp 0.2s ease forwards; }
 
@@ -1068,7 +1068,7 @@ const GLOBAL_CSS = `
   .lead-row td { vertical-align: middle; border-bottom: 1px solid var(--border); }
   .lead-row:last-child td { border-bottom: none; }
 
-  /* Ghost inputs — no border, blends into table */
+  /* Ghost inputs --- no border, blends into table */
   .ghost-input .ant-input {
     border: none !important;
     background: transparent !important;
@@ -1366,7 +1366,7 @@ const GLOBAL_CSS = `
   .lead-avatar:hover { border-color: var(--text-primary); }
 `;
 
-// ── Main Component ────────────────────────────────────────────────────────
+// ------ Main Component ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const Leads = () => {
   const { profile } = useAuth();
   const [dark, setDark] = useState(getIsDarkTheme);
@@ -1563,7 +1563,7 @@ const Leads = () => {
     hot: filtered.filter((l) => (l.closing_percentage || 0) >= 75).length,
   };
 
-  // Stat tile colour tokens — use dark-aware values
+  // Stat tile colour tokens --- use dark-aware values
   const statTiles = [
     {
       label: "Total",
@@ -1818,7 +1818,7 @@ const Leads = () => {
           <div className="search-wrap" style={{ flex: 1, minWidth: 200 }}>
             <Input
               prefix={<SearchOutlined style={{ color: "var(--text-muted)" }} />}
-              placeholder="Search leads…"
+              placeholder="Search leads---"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               allowClear
@@ -1831,9 +1831,9 @@ const Leads = () => {
             style={{ width: 168 }}
             options={[
               { label: "All Statuses", value: "all" },
-              { label: "↻ In Progress", value: "in_progress" },
-              { label: "✓ Closed", value: "closed" },
-              { label: "✕ Not Closed", value: "not_closed" },
+              { label: "--- In Progress", value: "in_progress" },
+              { label: "--- Closed", value: "closed" },
+              { label: "--- Not Closed", value: "not_closed" },
             ]}
           />
           <span
@@ -2078,7 +2078,7 @@ const Leads = () => {
                                 )
                               }
                               onClick={(e) => e.stopPropagation()}
-                              placeholder="Add note…"
+                              placeholder="Add note---"
                               bordered={false}
                               autoSize={{ minRows: 1, maxRows: 3 }}
                             />
@@ -2292,7 +2292,7 @@ const Leads = () => {
               <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>
                 {Math.min((currentPage - 1) * PAGE_SIZE + 1, filtered.length)}
               </span>
-              {" – "}
+              {" --- "}
               <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>
                 {Math.min(currentPage * PAGE_SIZE, filtered.length)}
               </span>
@@ -2309,7 +2309,7 @@ const Leads = () => {
                 onClick={() => setCurrentPage((p) => p - 1)}
                 style={{ fontSize: 13, fontWeight: 700 }}
               >
-                ‹
+                ---
               </button>
               {(() => {
                 const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
@@ -2337,7 +2337,7 @@ const Leads = () => {
                           padding: "0 2px",
                         }}
                       >
-                        …
+                        ---
                       </span>,
                     );
                 }
@@ -2363,7 +2363,7 @@ const Leads = () => {
                           padding: "0 2px",
                         }}
                       >
-                        …
+                        ---
                       </span>,
                     );
                   pages.push(
@@ -2384,7 +2384,7 @@ const Leads = () => {
                 onClick={() => setCurrentPage((p) => p + 1)}
                 style={{ fontSize: 13, fontWeight: 700 }}
               >
-                ›
+                ---
               </button>
             </div>
           </div>
@@ -2562,7 +2562,7 @@ const Leads = () => {
   );
 };
 
-// ── LeadForm ──────────────────────────────────────────────────────────────
+// ------ LeadForm ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const LeadForm = ({ lead, profile, tenantId, dark, onClose, aiEnabled = true }) => {
   const [form, setForm] = useState({
     name: lead?.name || "",
@@ -2925,7 +2925,7 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
               }}
             >
               <span style={{ fontSize: 11, color: pb.color, fontWeight: 700 }}>
-                {pct >= 75 ? "🔥 Hot" : pct >= 40 ? "🌤 Warm" : "🧊 Cold"}
+                {pct >= 75 ? "---- Hot" : pct >= 40 ? "---- Warm" : "---- Cold"}
               </span>
               <span style={{ fontSize: 12, fontWeight: 700, color: pb.color }}>
                 {pct}%
@@ -2971,7 +2971,7 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
         <Input.TextArea
           value={form.remarks}
           onChange={(e) => set("remarks", e.target.value)}
-          placeholder="Notes, context, next steps…"
+          placeholder="Notes, context, next steps---"
           rows={3}
           style={{ resize: "none" }}
         />
@@ -3043,7 +3043,7 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
                   className="ai-shimmer"
                   style={{ display: "flex", alignItems: "center", gap: 5 }}
                 >
-                  <Sparkles size={12} /> Analyzing…
+                  <Sparkles size={12} /> Analyzing---
                 </span>
               ) : (
                 <>
@@ -3061,7 +3061,7 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
                   className="ai-shimmer"
                   style={{ display: "flex", alignItems: "center", gap: 5 }}
                 >
-                  <MessageCircle size={12} /> Writing…
+                  <MessageCircle size={12} /> Writing---
                 </span>
               ) : (
                 <>
@@ -3188,7 +3188,7 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
               fontStyle: "italic",
             }}
           >
-            Analyze to get closing probability, status suggestion & next steps —
+            Analyze to get closing probability, status suggestion & next steps ---
             or draft an instant follow-up message.
           </p>
         )}
@@ -3241,7 +3241,7 @@ Return exactly: {"closing_percentage":<int 0-100>,"status":"in_progress"|"closed
   );
 };
 
-// ── LeadsSettings ─────────────────────────────────────────────────────────
+// ------ LeadsSettings ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const LeadsSettings = ({ profile, tenantId, leads, dark, aiEnabled = true }) => {
   const [settings, setSettings] = useState({
     followup_reminders_enabled: false,
@@ -3386,7 +3386,7 @@ const LeadsSettings = ({ profile, tenantId, leads, dark, aiEnabled = true }) => 
       let aiSummary = "";
       if (aiEnabled && settings.reminder_include_ai_message) {
         try {
-          const SYSTEM = `You are a sales assistant. Write a brief 2-3 sentence overall summary for a sales rep about their overdue leads that need attention today. Be direct and motivating. No lists, no lead names — just a high-level nudge.`;
+          const SYSTEM = `You are a sales assistant. Write a brief 2-3 sentence overall summary for a sales rep about their overdue leads that need attention today. Be direct and motivating. No lists, no lead names --- just a high-level nudge.`;
           aiSummary = await groq(
             SYSTEM,
             `${toNotify.length} leads need follow-up out of ${overdue.length} overdue. Top priorities by close %: ${toNotify
@@ -3423,7 +3423,7 @@ const LeadsSettings = ({ profile, tenantId, leads, dark, aiEnabled = true }) => 
 
       const skipped = overdue.length - toNotify.length;
       message.success(
-        `Digest sent for ${toNotify.length} lead${toNotify.length !== 1 ? "s" : ""}${skipped > 0 ? ` · AI skipped ${skipped} low-priority` : ""}`,
+        `Digest sent for ${toNotify.length} lead${toNotify.length !== 1 ? "s" : ""}${skipped > 0 ? ` -- AI skipped ${skipped} low-priority` : ""}`,
       );
     } catch (e) {
       console.error(e);
@@ -3444,7 +3444,7 @@ const LeadsSettings = ({ profile, tenantId, leads, dark, aiEnabled = true }) => 
     reminderDays,
   }) => {
     const pctLabel = (v) =>
-      v >= 75 ? "🔥 Hot" : v >= 40 ? "🌤 Warm" : "🧊 Cold";
+      v >= 75 ? "---- Hot" : v >= 40 ? "---- Warm" : "---- Cold";
     const leadItems = leads
       .sort((a, b) => (b.closing_percentage || 0) - (a.closing_percentage || 0))
       .map((l) => {
@@ -3459,7 +3459,7 @@ const LeadsSettings = ({ profile, tenantId, leads, dark, aiEnabled = true }) => 
               <span style="font-size:14px;font-weight:700;color:#0f172a;">${l.icon ? l.icon + " " : ""}${l.name}</span>
               <span style="margin-left:8px;font-size:11px;font-weight:700;color:#64748b;background:#f1f5f9;padding:2px 8px;border-radius:20px;">${statusLabel}</span>
             </div>
-            <span style="font-size:12px;font-weight:700;color:#64748b;">${pctLabel(pct)} · ${pct}%</span>
+            <span style="font-size:12px;font-weight:700;color:#64748b;">${pctLabel(pct)} -- ${pct}%</span>
           </div>
           ${l.remarks ? `<div style="margin-top:4px;font-size:12px;color:#64748b;line-height:1.5;">${l.remarks}</div>` : ""}
           <div style="margin-top:4px;font-size:11px;color:#94a3b8;">Last contact: ${daysSince !== null ? `${daysSince} days ago` : `<span style='color:#e11d48;font-weight:700;'>Never contacted</span>`}</div>
@@ -3475,11 +3475,11 @@ const LeadsSettings = ({ profile, tenantId, leads, dark, aiEnabled = true }) => 
       <tr><td style="background:#fff;border-radius:8px;border:1px solid #e5e7eb;padding:28px 32px;">
         <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;">Follow-up Digest</p>
         <h2 style="margin:0 0 6px;font-size:20px;font-weight:800;color:#0f172a;">${leads.length} lead${leads.length !== 1 ? "s" : ""} need attention</h2>
-        <p style="margin:0 0 24px;font-size:12px;color:#94a3b8;">${totalOverdue} overdue · ${leads.length} prioritized ${aiEnabled ? "by AI" : "by rules"} · ${reminderDays}+ days without contact</p>
-        ${aiSummary ? `<div style="background:#f8faff;border:1px solid #e0e7ff;border-radius:8px;padding:14px 16px;margin-bottom:24px;"><p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#4338ca;text-transform:uppercase;letter-spacing:0.06em;">✦ AI Summary</p><p style="margin:0;font-size:13px;color:#1e293b;line-height:1.65;">${aiSummary}</p></div>` : ""}
+        <p style="margin:0 0 24px;font-size:12px;color:#94a3b8;">${totalOverdue} overdue -- ${leads.length} prioritized ${aiEnabled ? "by AI" : "by rules"} -- ${reminderDays}+ days without contact</p>
+        ${aiSummary ? `<div style="background:#f8faff;border:1px solid #e0e7ff;border-radius:8px;padding:14px 16px;margin-bottom:24px;"><p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#4338ca;text-transform:uppercase;letter-spacing:0.06em;">--- AI Summary</p><p style="margin:0;font-size:13px;color:#1e293b;line-height:1.65;">${aiSummary}</p></div>` : ""}
         <table width="100%" cellpadding="0" cellspacing="0"><tbody>${leadItems}</tbody></table>
         <div style="margin-top:24px;padding-top:20px;border-top:1px solid #f1f5f9;">
-          <span style="font-size:11px;color:#94a3b8;">Sent by ${senderName} · ${companyName}</span>
+          <span style="font-size:11px;color:#94a3b8;">Sent by ${senderName} -- ${companyName}</span>
         </div>
       </td></tr>
     </table></td></tr>
@@ -3631,7 +3631,7 @@ const LeadsSettings = ({ profile, tenantId, leads, dark, aiEnabled = true }) => 
           <div style={{ flex: 1, marginRight: 20 }}>
             <SettingLabel
               title="Hot Lead Threshold"
-              desc="Leads above this closing % are considered hot 🔥"
+              desc="Leads above this closing % are considered hot ----"
             />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -3715,7 +3715,7 @@ const LeadsSettings = ({ profile, tenantId, leads, dark, aiEnabled = true }) => 
                 color: "var(--bg-card)",
               }}
             >
-              {runningReminders ? "Sending…" : "Run Now"}
+              {runningReminders ? "Sending---" : "Run Now"}
             </Button>
             <Button
               loading={testSending}
@@ -3767,3 +3767,5 @@ const LeadsSettings = ({ profile, tenantId, leads, dark, aiEnabled = true }) => 
 };
 
 export default Leads;
+
+

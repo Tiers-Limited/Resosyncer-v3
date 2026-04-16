@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { message } from "antd";
 import {
@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
-/* ── helpers ─────────────────────────────────────────── */
+/* ---------------- helpers -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const PALETTE = [
   "#3b5bdb",
   "#0ca678",
@@ -58,12 +58,12 @@ const fmt = (d) =>
         month: "short",
         day: "numeric",
       })
-    : "—";
+    : "N/A";
 const fmtCurrency = (n, currency = "PKR") =>
   `${currency} ${(n || 0).toLocaleString()}`;
 
 const getIsDarkTheme = () => {
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -157,7 +157,7 @@ const TagChip = ({ label }) => (
   </span>
 );
 
-/* ── CSS ──────────────────────────────────────────────── */
+/* ---------------- CSS ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Mulish:wght@400;500;600&display=swap');
 
@@ -227,13 +227,14 @@ const CSS = `
 .ed-info-value { font-size:13.5px; font-weight:600; color:var(--ed-text); display:flex; align-items:center; gap:6px; }
 .ed-info-value a { color:#3b5bdb; text-decoration:none; }
 .ed-info-value a:hover { text-decoration:underline; }
-.ed-info-value.muted { color:var(--ed-muted); font-weight:400; font-style:italic; }
+.ed-info-value.muted { color:var(--ed-muted); font-weight:400; font-style:normal; }
 
 .ed-divider { border:none; border-top:1px solid var(--ed-border); margin:16px 0; }
 
 .ed-bio { font-size:13.5px; color:var(--ed-sub); line-height:1.65; background:var(--ed-card2); border-radius:10px; padding:12px 14px; margin-top:4px; }
 
-.ed-table { width:100%; border-collapse:collapse; font-size:13px; }
+.ed-table-scroll { width:100%; overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; }
+.ed-table { width:100%; min-width:720px; border-collapse:collapse; font-size:13px; }
 .ed-table thead tr { border-bottom:1px solid var(--ed-border); }
 .ed-table thead th { padding:10px 14px; text-align:left; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--ed-muted-2); white-space:nowrap; }
 .ed-table tbody tr { border-bottom:1px solid var(--ed-border); transition:background .12s; }
@@ -251,9 +252,27 @@ const CSS = `
 .ed-sk { background:linear-gradient(90deg,#f2f2f2 25%,#e8e8e8 50%,#f2f2f2 75%); background-size:200% 100%; animation:ed-sweep 1.5s ease-in-out infinite; border-radius:8px; }
 .ed.dark .ed-sk { background:linear-gradient(90deg,#1b273d 25%,#23324d 50%,#1b273d 75%); background-size:200% 100%; }
 .ed-sk-card { background:var(--ed-card); border-radius:18px; box-shadow:0 2px 12px rgba(0,0,0,.06); padding:24px; margin-bottom:16px; }
+
+@media (max-width: 768px) {
+  .ed-back { margin-bottom: 16px; }
+  .ed-hero { padding: 18px 16px; gap: 16px; border-radius: 18px; }
+  .ed-hero-av img,.ed-hero-av-fallback { width: 64px; height: 64px; border-radius: 16px; }
+  .ed-hero-av-fallback { font-size: 22px; }
+  .ed-hero-name { font-size: 20px; }
+  .ed-hero-right { width: 100%; align-items: flex-start; }
+  .ed-tabs { width: 100%; overflow-x: auto; flex-wrap: nowrap; }
+  .ed-tab { flex: 0 0 auto; padding: 8px 14px; }
+  .ed-card { border-radius: 16px; }
+  .ed-card-head { padding: 16px 16px 0; }
+  .ed-card-body { padding: 14px 16px 18px; }
+  .ed-info-grid { grid-template-columns: 1fr; gap: 14px; }
+  .ed-salary-box { padding: 16px; border-radius: 14px; }
+  .ed-salary-value { font-size: 22px; }
+  .ed-table { min-width: 640px; }
+}
 `;
 
-/* ════════════════════════════════════════════════════════ */
+/* -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const EmployeeDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -263,6 +282,9 @@ const EmployeeDetail = () => {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("details");
   const [dark, setDark] = useState(getIsDarkTheme);
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth : 1440,
+  );
 
   useEffect(() => {
     const syncTheme = () => setDark(getIsDarkTheme());
@@ -281,6 +303,16 @@ const EmployeeDetail = () => {
   useEffect(() => {
     fetchAll();
   }, [id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const syncViewport = () => setViewportWidth(window.innerWidth);
+    syncViewport();
+    window.addEventListener("resize", syncViewport);
+    return () => window.removeEventListener("resize", syncViewport);
+  }, []);
+
+  const isMobile = viewportWidth < 768;
 
   const fetchAll = async () => {
     setLoading(true);
@@ -318,12 +350,16 @@ const EmployeeDetail = () => {
     }
   };
 
-  /* ── Skeleton ──────────────────────────────────────── */
+  /* ---------------- Skeleton -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
   if (loading)
     return (
       <div
         className={`ed${dark ? " dark" : ""}`}
-        style={{ background: "var(--ed-bg)", minHeight: "100vh" }}
+        style={{
+          background: "var(--ed-bg)",
+          minHeight: "100vh",
+          padding: isMobile ? "0 0 16px" : 0,
+        }}
       >
         <style>{CSS}</style>
         <div
@@ -335,11 +371,12 @@ const EmployeeDetail = () => {
             background: "var(--ed-card)",
             borderRadius: 20,
             boxShadow: "0 2px 16px rgba(0,0,0,.07)",
-            padding: "28px 32px",
+            padding: isMobile ? "18px 16px" : "28px 32px",
             marginBottom: 20,
             display: "flex",
             gap: 24,
             alignItems: "center",
+            flexWrap: "wrap",
           }}
         >
           <div
@@ -379,7 +416,7 @@ const EmployeeDetail = () => {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(3,1fr)",
+                gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)",
                 gap: 16,
               }}
             >
@@ -402,7 +439,11 @@ const EmployeeDetail = () => {
     return (
       <div
         className={`ed${dark ? " dark" : ""}`}
-        style={{ background: "var(--ed-bg)", minHeight: "100vh" }}
+        style={{
+          background: "var(--ed-bg)",
+          minHeight: "100vh",
+          padding: isMobile ? "0 0 16px" : 0,
+        }}
       >
         <style>{CSS}</style>
         <button className="ed-back" onClick={() => navigate("/employees")}>
@@ -413,7 +454,7 @@ const EmployeeDetail = () => {
             background: "var(--ed-card)",
             borderRadius: 18,
             boxShadow: "0 2px 12px rgba(0,0,0,.06)",
-            padding: "60px 24px",
+            padding: isMobile ? "40px 18px" : "60px 24px",
             textAlign: "center",
           }}
         >
@@ -447,7 +488,7 @@ const EmployeeDetail = () => {
       : Number(employee.tax_deductions || 0);
   const finalSalary = salaryBase + allowanceTotal - deductionTotal;
 
-  /* ── Info item helper ──────────────────────────────── */
+  /* ---------------- Info item helper ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
   const InfoItem = ({ label, value, icon: Icon, link, span1, span2 }) => (
     <div
       className="ed-info-item"
@@ -463,13 +504,13 @@ const EmployeeDetail = () => {
             {value}
           </a>
         ) : (
-          value || "—"
+          value || "N/A"
         )}
       </div>
     </div>
   );
 
-  /* ── Tags item helper ──────────────────────────────── */
+  /* ---------------- Tags item helper ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
   const TagsItem = ({ label, items }) => (
     <div className="ed-info-item" style={{ gridColumn: "1 / -1" }}>
       <div className="ed-info-label">{label}</div>
@@ -480,12 +521,12 @@ const EmployeeDetail = () => {
           ))}
         </div>
       ) : (
-        <div className="ed-info-value muted">—</div>
+        <div className="ed-info-value muted">N/A</div>
       )}
     </div>
   );
 
-  /* ── Section card helper ───────────────────────────── */
+  /* ---------------- Section card helper ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
   const SectionCard = ({ icon: Icon, iconColor, iconBg, title, children }) => (
     <div className="ed-card">
       <div className="ed-card-head">
@@ -498,7 +539,7 @@ const EmployeeDetail = () => {
     </div>
   );
 
-  /* ── TABS ──────────────────────────────────────────── */
+  /* ---------------- TABS ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
   const TABS = [
     { key: "details", label: "Details", icon: User },
     {
@@ -515,11 +556,15 @@ const EmployeeDetail = () => {
     },
   ];
 
-  /* ────────────────────────────── RENDER ──────────────── */
+  /* ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ RENDER -------------------------------------------------------------------------------------------------------------------------------- */
   return (
     <div
       className={`ed${dark ? " dark" : ""}`}
-      style={{ background: "var(--ed-bg)", minHeight: "100vh" }}
+      style={{
+        background: "var(--ed-bg)",
+        minHeight: "100vh",
+        padding: isMobile ? "0 0 16px" : 0,
+      }}
     >
       <style>{CSS}</style>
 
@@ -709,7 +754,7 @@ const EmployeeDetail = () => {
         ))}
       </div>
 
-      {/* ── DETAILS TAB ─────────────────────────────── */}
+      {/* ---------------- DETAILS TAB -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */}
       {tab === "details" && (
         <>
           {/* Personal */}
@@ -907,43 +952,47 @@ const EmployeeDetail = () => {
             {allowanceItems.length > 0 && (
               <>
                 <hr className="ed-divider" />
-                <table className="ed-table">
-                  <thead>
-                    <tr>
-                      <th>Allowance</th>
-                      <th>Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allowanceItems.map((row, idx) => (
-                      <tr key={`allow-${idx}`}>
-                        <td>{row?.label || "—"}</td>
-                        <td>{fmtCurrency(Number(row?.amount || 0), currency)}</td>
+                <div className="ed-table-scroll">
+                  <table className="ed-table">
+                    <thead>
+                      <tr>
+                        <th>Allowance</th>
+                        <th>Amount</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {allowanceItems.map((row, idx) => (
+                        <tr key={`allow-${idx}`}>
+                          <td>{row?.label || "N/A"}</td>
+                          <td>{fmtCurrency(Number(row?.amount || 0), currency)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </>
             )}
             {deductionItems.length > 0 && (
               <>
                 <hr className="ed-divider" />
-                <table className="ed-table">
-                  <thead>
-                    <tr>
-                      <th>Deduction</th>
-                      <th>Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {deductionItems.map((row, idx) => (
-                      <tr key={`ded-${idx}`}>
-                        <td>{row?.label || "—"}</td>
-                        <td>{fmtCurrency(Number(row?.amount || 0), currency)}</td>
+                <div className="ed-table-scroll">
+                  <table className="ed-table">
+                    <thead>
+                      <tr>
+                        <th>Deduction</th>
+                        <th>Amount</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {deductionItems.map((row, idx) => (
+                        <tr key={`ded-${idx}`}>
+                          <td>{row?.label || "N/A"}</td>
+                          <td>{fmtCurrency(Number(row?.amount || 0), currency)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </>
             )}
           </SectionCard>
@@ -970,96 +1019,100 @@ const EmployeeDetail = () => {
         </>
       )}
 
-      {/* ── PROJECTS TAB ────────────────────────────── */}
+      {/* ---------------- PROJECTS TAB ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */}
       {tab === "projects" && (
         <div className="ed-card">
           <div className="ed-card-body" style={{ padding: 0 }}>
             {projects.length === 0 ? (
               <div className="ed-table-empty">No projects assigned yet</div>
             ) : (
-              <table className="ed-table">
-                <thead>
-                  <tr>
-                    <th>Project</th>
-                    <th>Status</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Assigned</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {projects.map((p) => {
-                    const s =
-                      STATUS_PROJECT[p.projects?.status] ||
-                      STATUS_PROJECT.not_started;
-                    return (
-                      <tr key={p.project_id}>
-                        <td style={{ fontWeight: 600, color: "var(--ed-text)" }}>
-                          {p.projects?.name || "—"}
-                        </td>
-                        <td>
-                          <Pill label={s.label} color={s.color} bg={s.bg} dark={dark} />
-                        </td>
-                        <td>{fmt(p.projects?.start_date)}</td>
-                        <td>{fmt(p.projects?.end_date)}</td>
-                        <td style={{ color: "var(--ed-muted)" }}>
-                          {fmt(p.created_at)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div className="ed-table-scroll">
+                <table className="ed-table">
+                  <thead>
+                    <tr>
+                      <th>Project</th>
+                      <th>Status</th>
+                      <th>Start Date</th>
+                      <th>End Date</th>
+                      <th>Assigned</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {projects.map((p) => {
+                      const s =
+                        STATUS_PROJECT[p.projects?.status] ||
+                        STATUS_PROJECT.not_started;
+                      return (
+                        <tr key={p.project_id}>
+                          <td style={{ fontWeight: 600, color: "var(--ed-text)" }}>
+                            {p.projects?.name || "N/A"}
+                          </td>
+                          <td>
+                            <Pill label={s.label} color={s.color} bg={s.bg} dark={dark} />
+                          </td>
+                          <td>{fmt(p.projects?.start_date)}</td>
+                          <td>{fmt(p.projects?.end_date)}</td>
+                          <td style={{ color: "var(--ed-muted)" }}>
+                            {fmt(p.created_at)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>
       )}
 
-      {/* ── TICKETS TAB ─────────────────────────────── */}
+      {/* ---------------- TICKETS TAB -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */}
       {tab === "tickets" && (
         <div className="ed-card">
           <div className="ed-card-body" style={{ padding: 0 }}>
             {tickets.length === 0 ? (
               <div className="ed-table-empty">No work history found</div>
             ) : (
-              <table className="ed-table">
-                <thead>
-                  <tr>
-                    <th>Title</th>
-                    <th>Status</th>
-                    <th>Priority</th>
-                    <th>Created</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tickets.map((t) => {
-                    const s = STATUS_TICKET[t.status] || STATUS_TICKET.open;
-                    const p = PRIORITY[t.priority] || PRIORITY.low;
-                    return (
-                      <tr key={t.id}>
-                        <td
-                          style={{
-                            fontWeight: 600,
-                            color: "var(--ed-text)",
-                            maxWidth: 280,
-                          }}
-                        >
-                          {t.title}
-                        </td>
-                        <td>
-                          <Pill label={s.label} color={s.color} bg={s.bg} dark={dark} />
-                        </td>
-                        <td>
-                          <Pill label={p.label} color={p.color} bg={p.bg} dark={dark} />
-                        </td>
-                        <td style={{ color: "var(--ed-muted)" }}>
-                          {fmt(t.created_at)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div className="ed-table-scroll">
+                <table className="ed-table">
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Status</th>
+                      <th>Priority</th>
+                      <th>Created</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tickets.map((t) => {
+                      const s = STATUS_TICKET[t.status] || STATUS_TICKET.open;
+                      const p = PRIORITY[t.priority] || PRIORITY.low;
+                      return (
+                        <tr key={t.id}>
+                          <td
+                            style={{
+                              fontWeight: 600,
+                              color: "var(--ed-text)",
+                              maxWidth: 280,
+                            }}
+                          >
+                            {t.title}
+                          </td>
+                          <td>
+                            <Pill label={s.label} color={s.color} bg={s.bg} dark={dark} />
+                          </td>
+                          <td>
+                            <Pill label={p.label} color={p.color} bg={p.bg} dark={dark} />
+                          </td>
+                          <td style={{ color: "var(--ed-muted)" }}>
+                            {fmt(t.created_at)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>
@@ -1070,3 +1123,5 @@ const EmployeeDetail = () => {
 };
 
 export default EmployeeDetail;
+
+

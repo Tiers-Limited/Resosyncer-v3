@@ -53,10 +53,10 @@ const SEED_COORDS = {
   IE: [-8.24, 53.41],
 };
 
-/* ─── Flag image component using flagcdn.com (works on all OS incl. Windows) */
+/* â”€â”€â”€ Flag image component using flagcdn.com (works on all OS incl. Windows) */
 const FlagImg = ({ code, size = 20 }) => {
   if (!code || code.length !== 2) {
-    return <span style={{ fontSize: size * 0.8, lineHeight: 1 }}>🌐</span>;
+    return <span style={{ fontSize: size * 0.8, lineHeight: 1 }}>ðŸŒ</span>;
   }
   const lower = code.toLowerCase();
   return (
@@ -81,7 +81,7 @@ const FlagImg = ({ code, size = 20 }) => {
   );
 };
 
-/* ─── Normalise any country string ──────────────────────────────────────── */
+/* â”€â”€â”€ Normalise any country string â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const normaliseCountry = (() => {
   const allNames = getNames();
   const index = {};
@@ -163,7 +163,6 @@ const geoNameToCode = (geoName) => {
   return r?.code ?? null;
 };
 
-/* ─── Component ───────────────────────────────────────────────────────────── */
 const ClientWorldMap = ({ countries }) => {
   const [tooltip, setTooltip] = useState(null);
   const [zoom, setZoom] = useState(1);
@@ -172,7 +171,7 @@ const ClientWorldMap = ({ countries }) => {
   const dark = (() => {
     try {
       const root = document.documentElement;
-      const mode = localStorage.getItem("themeMode") || "system";
+      const mode = localStorage.getItem("themeMode") || "light";
       if (mode === "dark") return true;
       if (mode === "light") return false;
       const bg = getComputedStyle(root)
@@ -185,7 +184,7 @@ const ClientWorldMap = ({ countries }) => {
     }
   })();
 
-  /* Build { isoCode → count } */
+  /* Build { isoCode â†’ count } */
   const countryData = useMemo(() => {
     if (!countries?.length) return {};
     const map = {};
@@ -264,7 +263,7 @@ const ClientWorldMap = ({ countries }) => {
 
   return (
     <div style={{ fontFamily: "'DM Sans',sans-serif" }}>
-      {/* ── Map ──────────────────────────────────────────────────────────── */}
+      {/* â”€â”€ Map â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div
         style={{
           borderRadius: 12,
@@ -287,9 +286,9 @@ const ClientWorldMap = ({ countries }) => {
           }}
         >
           {[
-            { label: "+", action: () => setZoom((z) => Math.min(z * 1.5, 8)) },
-            { label: "−", action: () => setZoom((z) => Math.max(z / 1.5, 1)) },
-            { label: "⌂", action: () => setZoom(1) },
+            // { label: "+", action: () => setZoom((z) => Math.min(z * 1.5, 8)) },
+            // { label: "âˆ’", action: () => setZoom((z) => Math.max(z / 1.5, 1)) },
+            // { label: "âŒ‚", action: () => setZoom(1) },
           ].map(({ label, action }) => (
             <button
               key={label}
@@ -301,7 +300,7 @@ const ClientWorldMap = ({ countries }) => {
                 background: dark ? "#202127" : "#ffffff",
                 border: "1px solid var(--d-border)",
                 color: "var(--d-sub)",
-                fontSize: label === "⌂" ? 13 : 16,
+                fontSize: label === "âŒ‚" ? 13 : 16,
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
@@ -415,7 +414,6 @@ const ClientWorldMap = ({ countries }) => {
         `}</style>
       </div>
 
-      {/* ── Tooltip with flag ─────────────────────────────────────────────── */}
       {tooltip && (
         <div
           style={{
@@ -445,7 +443,6 @@ const ClientWorldMap = ({ countries }) => {
         </div>
       )}
 
-      {/* ── Country list ─────────────────────────────────────────────────── */}
       {displayList.length > 0 && (
         <div style={{ marginTop: 20 }}>
           {/* Legend + summary row */}
@@ -471,7 +468,7 @@ const ClientWorldMap = ({ countries }) => {
                 {displayList.length === 1 ? "country" : "countries"}
               </span>
               <span style={{ fontSize: 12, color: "var(--d-muted)" }}>
-                · {total} project{total !== 1 ? "s" : ""} total
+                 {total} project{total !== 1 ? "s" : ""} total
               </span>
             </div>
 
@@ -507,7 +504,7 @@ const ClientWorldMap = ({ countries }) => {
             </div>
           </div>
 
-          {/* Country grid — flag replaces the ISO code badge */}
+          {/* Country grid â€” flag replaces the ISO code badge */}
           <div
             style={{
               display: "grid",
@@ -616,3 +613,4 @@ const ClientWorldMap = ({ countries }) => {
 };
 
 export default ClientWorldMap;
+

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import {
   Tabs,
   Form,
@@ -60,9 +60,9 @@ import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
 import dayjs from "dayjs";
 
-/* ─────────────────────────────────────────────────────────
+/* ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
    Email API helper
-───────────────────────────────────────────────────────── */
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const EMAIL_API = import.meta.env.VITE_EMAIL_API_URL;
 
 const sendEmail = async ({ to, subject, body, companyName }) => {
@@ -74,13 +74,13 @@ const sendEmail = async ({ to, subject, body, companyName }) => {
     });
     const data = await res.json();
     if (!res.ok) {
-      console.error("❌ Email send failed:", data);
+      console.error("------ Email send failed:", data);
       return { success: false, error: data };
     }
-    console.log("✅ Email sent:", data.messageId);
+    console.log("------- Email sent:", data.messageId);
     return { success: true, data };
   } catch (err) {
-    console.error("❌ Email send error:", err);
+    console.error("------ Email send error:", err);
     return { success: false, error: err.message };
   }
 };
@@ -107,9 +107,9 @@ const otpEmailHtml = (otp, name) => `
   </div>
 `;
 
-/* ─────────────────────────────────────────────────────────
+/* ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
    Shared Layout Helpers
-───────────────────────────────────────────────────────── */
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const SectionTitle = ({ children }) => (
   <p className="text-[10.5px] font-bold tracking-widest uppercase text-slate-400 mb-4 mt-1">
     {children}
@@ -142,9 +142,9 @@ const DAYS = [
   "Sunday",
 ];
 
-/* ─────────────────────────────────────────────────────────
+/* ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
    Page permission definitions (mirrors admin sidebar)
-───────────────────────────────────────────────────────── */
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const PAGE_GROUPS = [
   {
     group: "Workspace",
@@ -207,15 +207,15 @@ const ALL_PAGE_KEYS = PAGE_GROUPS.flatMap((g) => g.pages.map((p) => p.key));
 
 const getIsDarkTheme = () => {
   if (typeof window === "undefined") return false;
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 };
 
-/* ─────────────────────────────────────────────────────────
+/* ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
    Admin Permissions Modal
-───────────────────────────────────────────────────────── */
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const AdminPermissionsModal = ({ admin, visible, onClose, onSave, dark = false }) => {
   const [permissions, setPermissions] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -258,7 +258,7 @@ const AdminPermissionsModal = ({ admin, visible, onClose, onSave, dark = false }
           </div>
           <div>
             <div className="text-sm font-bold text-slate-800">
-              Page Access — {admin?.full_name}
+              Page Access -------- {admin?.full_name}
             </div>
             <div className="text-xs text-slate-400 font-normal">
               Control which pages this admin can access
@@ -346,9 +346,9 @@ const AdminPermissionsModal = ({ admin, visible, onClose, onSave, dark = false }
   );
 };
 
-/* ─────────────────────────────────────────────────────────
+/* ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
    2FA Section Component
-───────────────────────────────────────────────────────── */
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const TwoFactorSection = ({ profile, dark = false }) => {
   const [emailOtpEnabled, setEmailOtpEnabled] = useState(false);
   const [totpEnabled, setTotpEnabled] = useState(false);
@@ -394,7 +394,7 @@ const TwoFactorSection = ({ profile, dark = false }) => {
     }
   };
 
-  /* ── TOTP (Authenticator App) ── */
+  /* ---------------- TOTP (Authenticator App) ---------------- */
   const handleSetupTotp = async () => {
     setLoadingTotp(true);
     try {
@@ -469,7 +469,7 @@ const TwoFactorSection = ({ profile, dark = false }) => {
     });
   };
 
-  /* ── Email OTP — uses custom email API ── */
+  /* ---------------- Email OTP -------- uses custom email API ---------------- */
   const sendOtpEmail = async () => {
     const otp = generateOtp();
     const expiry = Date.now() + 10 * 60 * 1000; // 10 min
@@ -748,7 +748,7 @@ const TwoFactorSection = ({ profile, dark = false }) => {
               }}
               onClick={() => setTotpStep(1)}
             >
-              I've scanned it →
+              I've scanned it --------
             </Button>
           </div>
         )}
@@ -786,7 +786,7 @@ const TwoFactorSection = ({ profile, dark = false }) => {
               className="mt-2 w-full text-slate-400 text-xs"
               onClick={() => setTotpStep(0)}
             >
-              ← Back
+              ------- Back
             </Button>
           </div>
         )}
@@ -869,9 +869,9 @@ const TwoFactorSection = ({ profile, dark = false }) => {
   );
 };
 
-/* ─────────────────────────────────────────────────────────
+/* ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
    Main Settings Component
-───────────────────────────────────────────────────────── */
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const Settings = () => {
   const { profile } = useAuth();
   const [dark, setDark] = useState(getIsDarkTheme);
@@ -944,7 +944,7 @@ const Settings = () => {
   const formatSalary = (amount) =>
     `${salaryCurrency} ${parseAmount(amount).toLocaleString()}`;
 
-  /* ── Handlers ── */
+  /* ---------------- Handlers ---------------- */
   const handleUpdateProfile = async (values) => {
     setProfileLoading(true);
     try {
@@ -1219,7 +1219,7 @@ const Settings = () => {
     };
   }, []);
 
-  /* ── Columns ── */
+  /* ---------------- Columns ---------------- */
   const adminColumns = [
     {
       title: "Administrator",
@@ -1245,7 +1245,7 @@ const Settings = () => {
       title: "Contact",
       dataIndex: "contact",
       key: "contact",
-      render: (t) => <span className="text-sm text-slate-500">{t || "—"}</span>,
+      render: (t) => <span className="text-sm text-slate-500">{t || "--------"}</span>,
     },
     {
       title: "Page Access",
@@ -1383,7 +1383,7 @@ const Settings = () => {
   ];
 
   const tabItems = [
-    /* ── Profile ── */
+    /* ---------------- Profile ---------------- */
     {
       key: "profile",
       label: (
@@ -1421,7 +1421,7 @@ const Settings = () => {
                 {profile?.full_name || "Your Name"}
               </div>
               <div className="text-xs text-slate-400 capitalize mt-0.5">
-                {profile?.role} · {profile?.email}
+                {profile?.role} ---- {profile?.email}
               </div>
             </div>
             <Button
@@ -1714,7 +1714,7 @@ const Settings = () => {
       ),
     },
 
-    /* ── Security ── */
+    /* ---------------- Security ---------------- */
     {
       key: "password",
       label: (
@@ -1731,7 +1731,7 @@ const Settings = () => {
               Change Password
             </h3>
             <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-              Use a strong password — at least 6 characters with a mix of
+              Use a strong password -------- at least 6 characters with a mix of
               letters, numbers and symbols.
             </p>
           </div>
@@ -1806,7 +1806,7 @@ const Settings = () => {
   ];
 
   if (profile?.role === "admin") {
-    /* ── General Settings ── */
+    /* ---------------- General Settings ---------------- */
     tabItems.push({
       key: "general",
       label: (
@@ -1991,7 +1991,7 @@ const Settings = () => {
       ),
     });
 
-    /* ── Admins ── */
+    /* ---------------- Admins ---------------- */
     tabItems.push({
       key: "admins",
       label: (
@@ -2009,7 +2009,7 @@ const Settings = () => {
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
                 {admins.length} admin{admins.length !== 1 ? "s" : ""} with
-                workspace access · click{" "}
+                workspace access ---- click{" "}
                 <SafetyOutlined className="text-slate-400" /> to manage page
                 permissions
               </p>
@@ -2142,7 +2142,7 @@ const Settings = () => {
       ),
     });
 
-    /* ── Holidays ── */
+    /* ---------------- Holidays ---------------- */
     tabItems.push({
       key: "holidays",
       label: (
@@ -2160,7 +2160,7 @@ const Settings = () => {
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
                 {holidays.filter((h) => dayjs(h.date).isAfter(dayjs())).length}{" "}
-                upcoming ·{" "}
+                upcoming ----{" "}
                 {
                   holidays.filter(
                     (h) => dayjs(h.date).year() === dayjs().year(),
@@ -2376,3 +2376,5 @@ const Settings = () => {
 };
 
 export default Settings;
+
+

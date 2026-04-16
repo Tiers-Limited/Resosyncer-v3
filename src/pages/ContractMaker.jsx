@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+﻿import { useState, useRef, useEffect } from "react";
 import {
   Button,
   Input,
@@ -54,13 +54,13 @@ const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const TNR = "'Times New Roman', Times, serif";
 const MIN_PROMPT_CHARS = 300;
 const getIsDarkTheme = () => {
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 };
 
-// ─── Document Types ─────────────────────────────────────────────────────────
+// ------------------------ Document Types ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const DOC_TYPES = [
   {
     key: "contract",
@@ -168,7 +168,7 @@ REQUIRED SECTIONS:
 2. PARTIES AND RECITALS
 3. POSITION AND DUTIES
 4. COMMENCEMENT AND TERM
-5. COMPENSATION AND BENEFITS — use table: Benefit | Details
+5. COMPENSATION AND BENEFITS -------- use table: Benefit | Details
 6. WORKING HOURS AND LOCATION
 7. LEAVE ENTITLEMENTS
 8. CONFIDENTIALITY AND NON-DISCLOSURE
@@ -198,7 +198,7 @@ REQUIRED SECTIONS:
 1. DEFINITIONS AND INTERPRETATION
 2. PARTIES AND FORMATION
 3. PURPOSE AND SCOPE
-4. CAPITAL CONTRIBUTIONS — use table: Partner | Contribution | Percentage
+4. CAPITAL CONTRIBUTIONS -------- use table: Partner | Contribution | Percentage
 5. PROFIT AND LOSS SHARING
 6. MANAGEMENT AND DECISION MAKING
 7. BANKING AND ACCOUNTS
@@ -229,7 +229,7 @@ REQUIRED SECTIONS:
 1. DEFINITIONS
 2. PARTIES AND PREMISES
 3. LEASE TERM
-4. RENT AND PAYMENT TERMS — use table: Item | Amount | Due Date
+4. RENT AND PAYMENT TERMS -------- use table: Item | Amount | Due Date
 5. SECURITY DEPOSIT
 6. USE OF PREMISES
 7. MAINTENANCE AND REPAIRS
@@ -261,8 +261,8 @@ REQUIRED SECTIONS:
 1. PURPOSE AND BACKGROUND
 2. PARTIES
 3. SCOPE OF COLLABORATION
-4. ROLES AND RESPONSIBILITIES — use table: Party | Responsibilities
-5. TIMELINE AND MILESTONES — use table: Milestone | Target Date
+4. ROLES AND RESPONSIBILITIES -------- use table: Party | Responsibilities
+5. TIMELINE AND MILESTONES -------- use table: Milestone | Target Date
 6. FINANCIAL ARRANGEMENTS
 7. CONFIDENTIALITY
 8. INTELLECTUAL PROPERTY
@@ -292,8 +292,8 @@ REQUIRED SECTIONS:
 2. PARTIES AND RECITALS
 3. SCOPE OF SERVICES
 4. DELIVERABLES AND ACCEPTANCE
-5. PROJECT TIMELINE — use table: Milestone | Deadline | Deliverable
-6. FEES AND PAYMENT — use table: Item | Rate/Amount
+5. PROJECT TIMELINE -------- use table: Milestone | Deadline | Deliverable
+6. FEES AND PAYMENT -------- use table: Item | Rate/Amount
 7. INDEPENDENT CONTRACTOR STATUS
 8. INTELLECTUAL PROPERTY
 9. CONFIDENTIALITY
@@ -305,7 +305,7 @@ REQUIRED SECTIONS:
 
 RULES: paragraphs are plain text arrays, no markdown, return ONLY JSON.`,
 
-  contract: `You are a professional legal contract drafting assistant. Return ONLY a raw JSON object — no markdown, no code fences, no explanation.
+  contract: `You are a professional legal contract drafting assistant. Return ONLY a raw JSON object -------- no markdown, no code fences, no explanation.
 
 JSON structure:
 {
@@ -324,9 +324,9 @@ REQUIRED SECTIONS:
 2. PARTIES AND RECITALS
 3. SCOPE OF WORK
 4. DELIVERABLES AND ACCEPTANCE CRITERIA
-5. PROJECT TIMELINE AND MILESTONES — use table: Phase | Duration | Deliverable
-6. PAYMENT TERMS — use table if milestone-based
-7. TECHNOLOGY STACK — use table: Layer | Technology
+5. PROJECT TIMELINE AND MILESTONES -------- use table: Phase | Duration | Deliverable
+6. PAYMENT TERMS -------- use table if milestone-based
+7. TECHNOLOGY STACK -------- use table: Layer | Technology
 8. INTELLECTUAL PROPERTY RIGHTS
 9. CONFIDENTIALITY AND NON-DISCLOSURE
 10. WARRANTIES AND REPRESENTATIONS
@@ -359,7 +359,7 @@ RULES:
 - Return ONLY JSON`,
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ------------------------ Helpers ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function loadScript(src) {
   return new Promise((resolve, reject) => {
     if (document.querySelector(`script[src="${src}"]`)) {
@@ -675,7 +675,7 @@ async function downloadDocumentPDF({
       doc.setFont("times", "normal");
       doc.setFontSize(10.5);
       doc.setTextColor(...C.dark);
-      const info = [p.name, p.address, p.email].filter(Boolean).join("   ·   ");
+      const info = [p.name, p.address, p.email].filter(Boolean).join("   ----   ");
       const infoLines = doc.splitTextToSize(info, CW - 32);
       infoLines.forEach((l) => {
         doc.text(l, ML + 16, y);
@@ -851,7 +851,7 @@ async function downloadDocumentPDF({
   doc.save(filename);
 }
 
-// ─── Paywall ──────────────────────────────────────────────────────────────────
+// ------------------------ Paywall ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function DocumentGeneratorPaywall({ dark = false }) {
   const colors = dark
     ? {
@@ -919,7 +919,7 @@ function DocumentGeneratorPaywall({ dark = false }) {
 
   const mockDocs = [
     {
-      name: "Service Agreement — Acme Corp",
+      name: "Service Agreement -------- Acme Corp",
       type: "Contract",
       color: "#3b82f6",
       date: "Mar 28, 2026",
@@ -931,7 +931,7 @@ function DocumentGeneratorPaywall({ dark = false }) {
       date: "Mar 25, 2026",
     },
     {
-      name: "Employment Contract — J. Smith",
+      name: "Employment Contract -------- J. Smith",
       type: "Employment",
       color: "#10b981",
       date: "Mar 20, 2026",
@@ -983,7 +983,7 @@ function DocumentGeneratorPaywall({ dark = false }) {
               Document Generator
             </h1>
             <p style={{ margin: 0, color: colors.textMuted, fontSize: 13 }}>
-              AI-powered · 8 document types · PDF export · Digital signatures
+              AI-powered ---- 8 document types ---- PDF export ---- Digital signatures
             </p>
           </div>
         </div>
@@ -1298,7 +1298,7 @@ function DocumentGeneratorPaywall({ dark = false }) {
               }}
             >
               From NDAs to employment contracts, lease agreements to
-              partnerships — describe your document and get a complete,
+              partnerships -------- describe your document and get a complete,
               professional draft ready to sign and download.
             </p>
 
@@ -1580,7 +1580,7 @@ function DocumentGeneratorPaywall({ dark = false }) {
   );
 }
 
-// ─── Signature Modal ──────────────────────────────────────────────────────────
+// ------------------------ Signature Modal --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function SignatureModal({ visible, onClose, onSave, signerName }) {
   const [mode, setMode] = useState("draw");
   const [textSig, setTextSig] = useState(signerName || "");
@@ -1854,7 +1854,7 @@ function SignatureModal({ visible, onClose, onSave, signerName }) {
   );
 }
 
-// ─── Editable Block ───────────────────────────────────────────────────────────
+// ------------------------ Editable Block ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function EditableBlock({ value, isHeading, onEdit, onDelete, onAddAfter }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(value);
@@ -1900,7 +1900,7 @@ function EditableBlock({ value, isHeading, onEdit, onDelete, onAddAfter }) {
           }}
           className="border border-gray-200 rounded-md w-7 h-7 flex items-center justify-center bg-white cursor-pointer text-gray-400 flex-shrink-0 text-sm"
         >
-          ✕
+          -------
         </button>
       </div>
     );
@@ -1966,7 +1966,7 @@ function EditableBlock({ value, isHeading, onEdit, onDelete, onAddAfter }) {
   );
 }
 
-// ─── Signature Card ───────────────────────────────────────────────────────────
+// ------------------------ Signature Card ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function SignatureCard({ sig, idx, onChange, onRemove }) {
   const [sigModalOpen, setSigModalOpen] = useState(false);
   return (
@@ -1986,7 +1986,7 @@ function SignatureCard({ sig, idx, onChange, onRemove }) {
         {[
           {
             key: "role",
-            placeholder: "Role (Client, Vendor…)",
+            placeholder: "Role (Client, Vendor-------)",
             icon: <SafetyCertificateOutlined className="text-gray-300" />,
           },
           {
@@ -2089,7 +2089,7 @@ function SidePanel({ title, children, action }) {
   );
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// ------------------------ Main ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 export default function DocumentGenerator() {
   const [dark, setDark] = useState(getIsDarkTheme);
   const [orgPlan, setOrgPlan] = useState(null);
@@ -2137,7 +2137,7 @@ export default function DocumentGenerator() {
   ]);
   const [setupOpen, setSetupOpen] = useState(false);
 
-  // ── Fetch plan ──
+  // ---------------- Fetch plan ----------------
   useEffect(() => {
     const init = async () => {
       try {
@@ -2404,7 +2404,7 @@ export default function DocumentGenerator() {
     };
   }, []);
 
-  // ── Loading ──
+  // ---------------- Loading ----------------
   if (planLoading) {
     return (
       <div
@@ -2420,7 +2420,7 @@ export default function DocumentGenerator() {
     );
   }
 
-  // ── Paywall ──
+  // ---------------- Paywall ----------------
   if (isStarterPlan) {
     return <DocumentGeneratorPaywall dark={dark} />;
   }
@@ -2644,14 +2644,14 @@ export default function DocumentGenerator() {
               }}
               className="mt-1"
             >
-              Open Document Editor →
+              Open Document Editor --------
             </Button>
           </div>
         </div>
       </Modal>
 
       <main className="max-w-6xl mx-auto px-6 pb-20">
-        {/* ── INPUT STEP ── */}
+        {/* ---------------- INPUT STEP ---------------- */}
         {step === "input" && (
           <div className="pt-16 pb-8">
             <div className="text-center mb-10 fade-up">
@@ -2667,7 +2667,7 @@ export default function DocumentGenerator() {
                   className="text-amber-500"
                   style={{ fontSize: 11 }}
                 />
-                Powered by Llama 3.3 · 8 document types · Legal grade output
+                Powered by Llama 3.3 ---- 8 document types ---- Legal grade output
               </div>
               <h1
                 className="text-5xl font-extrabold text-gray-950 tracking-tight leading-none mb-4 fade-up fade-up-1"
@@ -2775,7 +2775,7 @@ export default function DocumentGenerator() {
                   <span
                     style={{ fontSize: 12, color: "#94a3b8", marginLeft: 4 }}
                   >
-                    — {selectedDocType?.desc}
+                    -------- {selectedDocType?.desc}
                   </span>
                 </div>
 
@@ -2805,14 +2805,14 @@ export default function DocumentGenerator() {
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
                         rows={6}
-                        placeholder={`Describe your ${selectedDocType?.label.toLowerCase()}… e.g. ${
+                        placeholder={`Describe your ${selectedDocType?.label.toLowerCase()}------- e.g. ${
                           docType === "nda"
-                            ? "mutual NDA between two software companies, 2-year term, covers source code and client data…"
+                            ? "mutual NDA between two software companies, 2-year term, covers source code and client data-------"
                             : docType === "employment"
-                              ? "full-time frontend engineer, $85k salary, 3-month probation, remote work, London governing law…"
+                              ? "full-time frontend engineer, $85k salary, 3-month probation, remote work, London governing law-------"
                               : docType === "lease"
-                                ? "office space lease, 12 months, $3,500/month, tenant responsible for utilities…"
-                                : "web development contract, 60 days, $5,500 in 3 milestones, React/Node.js, full IP transfer…"
+                                ? "office space lease, 12 months, $3,500/month, tenant responsible for utilities-------"
+                                : "web development contract, 60 days, $5,500 in 3 milestones, React/Node.js, full IP transfer-------"
                         }`}
                         style={{
                           fontSize: 14,
@@ -2835,7 +2835,7 @@ export default function DocumentGenerator() {
                           {promptLength}/{MIN_PROMPT_CHARS} characters minimum
                         </span>
                         <span className="text-xs text-gray-300">
-                          ⌘ Enter to generate
+                          ------ Enter to generate
                         </span>
                       </div>
                     </>
@@ -2858,7 +2858,7 @@ export default function DocumentGenerator() {
                               Drop your document here
                             </p>
                             <p className="text-xs text-gray-300">
-                              PDF, DOCX, TXT — proposals, briefs, SOWs
+                              PDF, DOCX, TXT -------- proposals, briefs, SOWs
                             </p>
                           </div>
                         </Dragger>
@@ -2877,7 +2877,7 @@ export default function DocumentGenerator() {
                               </div>
                               <div className="text-xs text-gray-400 mt-0.5">
                                 {extracting
-                                  ? "Extracting text…"
+                                  ? "Extracting text-------"
                                   : `${uploadedText.length.toLocaleString()} characters extracted`}
                               </div>
                             </div>
@@ -2899,7 +2899,7 @@ export default function DocumentGenerator() {
                           </div>
                           {uploadedText && !extracting && (
                             <div className="mt-3 p-3 bg-gray-100 rounded-lg text-xs text-gray-400 leading-relaxed line-clamp-3">
-                              {uploadedText.slice(0, 280)}…
+                              {uploadedText.slice(0, 280)}-------
                             </div>
                           )}
                         </div>
@@ -2912,7 +2912,7 @@ export default function DocumentGenerator() {
                           value={prompt}
                           onChange={(e) => setPrompt(e.target.value)}
                           rows={2}
-                          placeholder="e.g. Add 6-month warranty, use UK governing law…"
+                          placeholder="e.g. Add 6-month warranty, use UK governing law-------"
                           style={{
                             fontSize: 13.5,
                             borderColor: "#e8e8e8",
@@ -2954,7 +2954,7 @@ export default function DocumentGenerator() {
                     }}
                   >
                     {loading
-                      ? `Drafting your ${selectedDocType?.label}…`
+                      ? `Drafting your ${selectedDocType?.label}-------`
                       : `Generate ${selectedDocType?.label}`}
                   </Button>
 
@@ -3014,7 +3014,7 @@ export default function DocumentGenerator() {
           </div>
         )}
 
-        {/* ── EDITOR STEP ── */}
+        {/* ---------------- EDITOR STEP ---------------- */}
         {step === "editor" && (
           <div className="pt-6">
             <div
@@ -3030,9 +3030,9 @@ export default function DocumentGenerator() {
                         onClick={handleReset}
                         className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-700 border-0 bg-transparent cursor-pointer transition-colors"
                       >
-                        ← New Document
+                        ------- New Document
                       </button>
-                      <span style={{ fontSize: 10, color: "#94a3b8" }}>·</span>
+                      <span style={{ fontSize: 10, color: "#94a3b8" }}>----</span>
                       <span
                         style={{
                           fontSize: 11,
@@ -3058,7 +3058,7 @@ export default function DocumentGenerator() {
                         day: "numeric",
                         year: "numeric",
                       })}{" "}
-                      · {sections.length} sections
+                      ---- {sections.length} sections
                     </p>
                   </div>
                   <Button
@@ -3076,7 +3076,7 @@ export default function DocumentGenerator() {
                       fontSize: 13,
                     }}
                   >
-                    {downloading ? "Generating…" : "Download PDF"}
+                    {downloading ? "Generating-------" : "Download PDF"}
                   </Button>
                 </div>
 
@@ -3667,7 +3667,7 @@ export default function DocumentGenerator() {
                     fontSize: 14,
                   }}
                 >
-                  {downloading ? "Generating PDF…" : "Download PDF"}
+                  {downloading ? "Generating PDF-------" : "Download PDF"}
                 </Button>
               </div>
             </div>
@@ -3677,3 +3677,5 @@ export default function DocumentGenerator() {
     </div>
   );
 }
+
+

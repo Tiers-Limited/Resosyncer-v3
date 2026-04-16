@@ -1,4 +1,4 @@
-import {
+﻿import {
   useState,
   useEffect,
   useCallback,
@@ -53,16 +53,17 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import dayjs from "dayjs";
 import debounce from "lodash.debounce";
+import countryList from "react-select-country-list";
 import CountrySelect from "../components/CountrySelect";
 import IconPicker from "../components/IconPicker";
 import * as flags from "country-flag-icons/react/3x2";
 
-/* ── ENV ─────────────────────────────────────────────────────────────────── */
+/* - ENV - */
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_API_KEY = import.meta.env.VITE_GROK_API_KEY;
 const EMAIL_API = import.meta.env.VITE_EMAIL_API_URL;
 
-/* ── Groq helper ─────────────────────────────────────────────────────────── */
+/* - Groq helper - */
 const groq = async (systemPrompt, userContent) => {
   const res = await fetch(GROQ_URL, {
     method: "POST",
@@ -85,7 +86,7 @@ const groq = async (systemPrompt, userContent) => {
   return data.choices[0].message.content.trim();
 };
 
-/* ── Email helper ────────────────────────────────────────────────────────── */
+/* - Email helper - */
 const sendEmail = async ({ to, subject, body, companyName }) => {
   try {
     const res = await fetch(`${EMAIL_API}/api/email/send`, {
@@ -105,7 +106,7 @@ const sendEmail = async ({ to, subject, body, companyName }) => {
   }
 };
 
-/* ── Fonts ──────────────────────────────────────────────────────────────── */
+/* - Fonts - */
 if (!document.getElementById("proj-fonts")) {
   const l = document.createElement("link");
   l.id = "proj-fonts";
@@ -115,7 +116,7 @@ if (!document.getElementById("proj-fonts")) {
   document.head.appendChild(l);
 }
 
-/* ── CSS ────────────────────────────────────────────────────────────────── */
+/* - CSS - */
 if (!document.getElementById("proj-css")) {
   const s = document.createElement("style");
   s.id = "proj-css";
@@ -198,18 +199,18 @@ if (!document.getElementById("proj-css")) {
   document.head.appendChild(s);
 }
 
-/* ── Theme context ───────────────────────────────────────────────────────── */
+/* - Theme context - */
 const ThemeCtx = createContext();
 const useTheme = () => useContext(ThemeCtx);
 
 const getIsDarkTheme = () => {
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 };
 
-/* ── Status config ───────────────────────────────────────────────────────── */
+/* - Status config - */
 const ST = {
   not_started: {
     label: "Not Started",
@@ -290,7 +291,7 @@ const StatusChip = ({ status, isDark, sm }) => {
   );
 };
 
-/* ── Flag renderer ───────────────────────────────────────────────────────── */
+/* - Flag renderer - */
 const FlagIcon = ({ value, size = 20 }) => {
   if (!value) return null;
   if (value.startsWith("FLAG:")) {
@@ -303,7 +304,20 @@ const FlagIcon = ({ value, size = 20 }) => {
   return <span style={{ fontSize: size }}>{value}</span>;
 };
 
-/* ── Tiny avatar stack ───────────────────────────────────────────────────── */
+const COUNTRY_CODE_BY_NAME = countryList()
+  .getData()
+  .reduce((acc, country) => {
+    acc[country.label.toLowerCase()] = country.value;
+    return acc;
+  }, {});
+
+const getCountryFlagValue = (countryName) => {
+  if (!countryName) return null;
+  const code = COUNTRY_CODE_BY_NAME[String(countryName).trim().toLowerCase()];
+  return code ? `FLAG:${code}` : null;
+};
+
+/* - Tiny avatar stack - */
 const AvaStack = ({ people = [], max = 3 }) => (
   <div style={{ display: "flex", alignItems: "center" }}>
     {people.slice(0, max).map((p, i) => (
@@ -368,7 +382,7 @@ const AvaStack = ({ people = [], max = 3 }) => (
   </div>
 );
 
-/* ── AI Suggest Panel ────────────────────────────────────────────────────── */
+/* - AI Suggest Panel - */
 const AISuggestPanel = ({
   employees,
   allProjects,
@@ -888,9 +902,12 @@ ${JSON.stringify(empContext, null, 2)}`;
   );
 };
 
-/* ═══════════════════════════════════════════════════════════════════════════ */
+/* - */
 const Projects = () => {
   const [dark, setDark] = useState(getIsDarkTheme);
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth : 1440,
+  );
   useEffect(() => {
     const syncTheme = () => setDark(getIsDarkTheme());
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -902,6 +919,14 @@ const Projects = () => {
       window.removeEventListener("themeModeChanged", syncTheme);
       mediaQuery.removeEventListener("change", syncTheme);
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const syncViewport = () => setViewportWidth(window.innerWidth);
+    syncViewport();
+    window.addEventListener("resize", syncViewport);
+    return () => window.removeEventListener("resize", syncViewport);
   }, []);
 
   useEffect(() => {
@@ -931,9 +956,12 @@ const Projects = () => {
     }
   }, [dark]);
 
+  const isMobile = viewportWidth < 768;
+  const isTablet = viewportWidth < 1100;
+
   const [projects, setProjects] = useState([]);
   const [filteredProjects, setFilteredProjects] = useState([]);
-  // ── FIX 1: start loading=true so skeleton shows immediately ──
+  // - FIX 1: start loading=true so skeleton shows immediately -
   const [loading, setLoading] = useState(true);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
@@ -1306,7 +1334,7 @@ const Projects = () => {
     }
   };
 
-  /* ── Skeleton rows ──────────────────────────────────────────────────── */
+  /* - Skeleton rows - */
   const TableSkeleton = () => (
     <div style={{ padding: 0 }}>
       {[1, 2, 3, 4, 5, 6, 7].map((i) => (
@@ -1339,7 +1367,7 @@ const Projects = () => {
     </div>
   );
 
-  /* ── Kanban ─────────────────────────────────────────────────────────── */
+  /* - Kanban - */
   const KanbanView = () => {
     const cols = [
       { key: "not_started", color: "#64748b" },
@@ -1373,12 +1401,15 @@ const Projects = () => {
           style={{
             display: "flex",
             gap: 14,
-            padding: "20px 24px",
+            padding: isMobile ? "16px" : "20px 24px",
             overflowX: "auto",
           }}
         >
           {cols.map((c) => (
-            <div key={c.key} style={{ flexShrink: 0, width: 300 }}>
+            <div
+              key={c.key}
+              style={{ flexShrink: 0, width: isMobile ? 272 : 300 }}
+            >
               <Skeleton.Input
                 active
                 size="small"
@@ -1402,10 +1433,10 @@ const Projects = () => {
         style={{
           display: "flex",
           gap: 14,
-          padding: "20px 24px",
+          padding: isMobile ? "16px" : "20px 24px",
           overflowX: "auto",
           background: "var(--p-bg)",
-          minHeight: "calc(100vh - 200px)",
+          minHeight: isMobile ? "auto" : "calc(100vh - 200px)",
         }}
       >
         {cols.map((col) => {
@@ -1416,7 +1447,7 @@ const Projects = () => {
           return (
             <div
               key={col.key}
-              style={{ flexShrink: 0, width: 300 }}
+              style={{ flexShrink: 0, width: isMobile ? 272 : 300 }}
               onDragOver={onDragOver}
               onDrop={(e) => onDrop(e, col.key)}
             >
@@ -1672,7 +1703,7 @@ const Projects = () => {
     );
   };
 
-  /* ── Gantt ──────────────────────────────────────────────────────────── */
+  /* - Gantt - */
   const GanttView = () => {
     const [month, setMonth] = useState(dayjs());
     const daysCount = month.daysInMonth();
@@ -1703,10 +1734,16 @@ const Projects = () => {
 
     if (loading)
       return (
-        <div style={{ display: "flex", height: "calc(100vh - 200px)" }}>
+        <div
+          style={{
+            display: "flex",
+            height: isMobile ? "auto" : "calc(100vh - 200px)",
+            minHeight: isMobile ? 420 : undefined,
+          }}
+        >
           <div
             style={{
-              width: 280,
+              width: isMobile ? 220 : 280,
               borderRight: "1px solid var(--p-border)",
               padding: 16,
               background: "var(--p-card)",
@@ -1732,14 +1769,15 @@ const Projects = () => {
       <div
         style={{
           display: "flex",
-          height: "calc(100vh - 200px)",
+          height: isMobile ? "auto" : "calc(100vh - 200px)",
+          minHeight: isMobile ? 460 : undefined,
           background: "var(--p-bg)",
           overflow: "hidden",
         }}
       >
         <div
           style={{
-            width: 280,
+            width: isMobile ? 220 : 280,
             borderRight: "1px solid var(--p-border)",
             display: "flex",
             flexDirection: "column",
@@ -2043,7 +2081,7 @@ const Projects = () => {
     { key: "gantt", icon: <GanttChart size={13} />, label: "Timeline" },
   ];
 
-  /* ═══════════════════════════════════════════════════════════════════════ */
+  /* - */
   return (
     <ThemeCtx.Provider value={{ isDark: dark }}>
       <div
@@ -2055,7 +2093,7 @@ const Projects = () => {
           color: "var(--p-text)",
         }}
       >
-        {/* ── Project Limit Alert ──────────────────────────────────────── */}
+        {/* - Project Limit Alert - */}
         {isProjectLimitReached &&
           maxProjects !== null &&
           maxProjects !== undefined && (
@@ -2181,10 +2219,10 @@ const Projects = () => {
             </div>
           )}
 
-        {/* ── Header ──────────────────────────────────────────────────── */}
+        {/* - Header - */}
         <div
           style={{
-            padding: "18px 28px 16px",
+            padding: isMobile ? "16px" : "18px 28px 16px",
             borderBottom: "1px solid var(--p-border)",
             background: "var(--p-card)",
             display: "flex",
@@ -2195,8 +2233,10 @@ const Projects = () => {
           <div
             style={{
               display: "flex",
-              alignItems: "center",
+              alignItems: isMobile ? "flex-start" : "center",
               justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: 12,
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -2241,7 +2281,16 @@ const Projects = () => {
                 </div>
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                flexWrap: "wrap",
+                width: isMobile ? "100%" : "auto",
+                justifyContent: isMobile ? "stretch" : "flex-end",
+              }}
+            >
               <button
                 className="p-btn-ghost"
                 onClick={() => setShowArchived(!showArchived)}
@@ -2262,6 +2311,8 @@ const Projects = () => {
                   fontWeight: 600,
                   cursor: "pointer",
                   fontFamily: "'DM Sans',sans-serif",
+                  justifyContent: "center",
+                  flex: isMobile ? "1 1 0" : "0 0 auto",
                 }}
               >
                 <Archive size={13} />
@@ -2302,6 +2353,8 @@ const Projects = () => {
                       ? "0 2px 10px rgba(0,0,0,0.28)"
                       : "0 2px 8px rgba(30,64,175,0.3)",
                   opacity: isProjectLimitReached ? 0.6 : 1,
+                  justifyContent: "center",
+                  flex: isMobile ? "1 1 0" : "0 0 auto",
                 }}
                 onMouseEnter={(e) =>
                   !isProjectLimitReached &&
@@ -2320,9 +2373,10 @@ const Projects = () => {
           <div
             style={{
               display: "flex",
-              alignItems: "center",
+              alignItems: isMobile ? "stretch" : "center",
               justifyContent: "space-between",
               gap: 12,
+              flexDirection: isTablet ? "column" : "row",
             }}
           >
             <div
@@ -2334,6 +2388,8 @@ const Projects = () => {
                 borderRadius: 9,
                 padding: 3,
                 border: "1px solid var(--p-border)",
+                width: isTablet ? "100%" : "auto",
+                overflowX: "auto",
               }}
             >
               {VIEW_OPTS.map((v) => (
@@ -2358,14 +2414,24 @@ const Projects = () => {
                     fontFamily: "'DM Sans',sans-serif",
                     boxShadow:
                       viewMode === v.key ? "0 1px 4px rgba(0,0,0,0.1)" : "none",
+                    whiteSpace: "nowrap",
+                    flex: isMobile ? "1 0 auto" : "0 0 auto",
                   }}
                 >
                   {v.icon} {v.label}
                 </button>
               ))}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ position: "relative" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: isMobile ? "stretch" : "center",
+                gap: 8,
+                width: isTablet ? "100%" : "auto",
+                flexDirection: isMobile ? "column" : "row",
+              }}
+            >
+              <div style={{ position: "relative", flex: isTablet ? 1 : "0 0 auto" }}>
                 <Search
                   size={13}
                   style={{
@@ -2389,7 +2455,7 @@ const Projects = () => {
                     background: "var(--p-card)",
                     color: "var(--p-text)",
                     outline: "none",
-                    width: 220,
+                    width: isTablet ? "100%" : 220,
                     fontFamily: "'DM Sans',sans-serif",
                   }}
                 />
@@ -2402,7 +2468,10 @@ const Projects = () => {
                 placeholder="Filter status"
                 size="middle"
                 maxTagCount="responsive"
-                style={{ width: 200, fontFamily: "'DM Sans',sans-serif" }}
+                style={{
+                  width: isTablet ? "100%" : 200,
+                  fontFamily: "'DM Sans',sans-serif",
+                }}
                 options={Object.entries(ST).map(([k, v]) => ({
                   label: v.label,
                   value: k,
@@ -2412,13 +2481,19 @@ const Projects = () => {
           </div>
         </div>
 
-        {/* ── Views ──────────────────────────────────────────────────── */}
+        {/* - Views - */}
         {viewMode === "status" && <KanbanView />}
         {viewMode === "gantt" && <GanttView />}
 
         {viewMode === "all" && (
-          <div style={{ height: "calc(100vh - 200px)", overflowY: "auto" }}>
-            {/* ── FIX 1: Show skeleton while loading, empty state only when done ── */}
+          <div
+            style={{
+              height: isMobile ? "auto" : "calc(100vh - 200px)",
+              overflowY: "auto",
+              overflowX: "auto",
+            }}
+          >
+            {/* - FIX 1: Show skeleton while loading, empty state only when done - */}
             {loading ? (
               <TableSkeleton />
             ) : filteredProjects.length === 0 ? (
@@ -2445,6 +2520,7 @@ const Projects = () => {
               <table
                 style={{
                   width: "100%",
+                  minWidth: isTablet ? 1080 : "100%",
                   borderCollapse: "collapse",
                   fontFamily: "'DM Sans',sans-serif",
                 }}
@@ -2762,12 +2838,13 @@ const Projects = () => {
                                     style={{
                                       cursor: "pointer",
                                       color: "var(--p-muted)",
-                                      fontSize: 11,
-                                      lineHeight: 1,
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
                                       marginLeft: 2,
                                     }}
                                   >
-                                    ×
+                                    <X size={9} strokeWidth={2.5} />
                                   </span>
                                 )}
                               </span>
@@ -2870,7 +2947,7 @@ const Projects = () => {
                           }}
                           onClick={(e) => e.stopPropagation()}
                           bordered={false}
-                          placeholder="—"
+                                  placeholder="—"
                           style={{
                             fontSize: 12,
                             color: "var(--p-sub)",
@@ -2885,21 +2962,13 @@ const Projects = () => {
                         onClick={(e) => e.stopPropagation()}
                       >
                         <TextArea
-                          value={project.remarks || ""}
-                          onChange={(e) => {
+                          key={`${project.id}-${project.remarks || ""}`}
+                          defaultValue={project.remarks || ""}
+                          onBlur={(e) => {
                             e.stopPropagation();
-                            setProjects((prev) =>
-                              prev.map((p) =>
-                                p.id === project.id
-                                  ? { ...p, remarks: e.target.value }
-                                  : p,
-                              ),
-                            );
-                            debouncedUpdate(
-                              project.id,
-                              "remarks",
-                              e.target.value,
-                            );
+                            const next = e.target.value;
+                            if ((project.remarks || "") === next) return;
+                            handleInlineEdit(project.id, "remarks", next);
                           }}
                           onClick={(e) => e.stopPropagation()}
                           bordered={false}
@@ -2963,7 +3032,7 @@ const Projects = () => {
                           bordered={false}
                           suffixIcon={null}
                           format="MMM D, YY"
-                          placeholder="—"
+                          placeholder="-"
                           style={{
                             marginLeft: -8,
                             fontSize: 11,
@@ -2980,7 +3049,7 @@ const Projects = () => {
           </div>
         )}
 
-        {/* ── Drawer ────────────────────────────────────────────────── */}
+        {/* - Drawer - */}
         <Drawer
           title={
             <div
@@ -3080,7 +3149,7 @@ const Projects = () => {
           }}
           open={drawerVisible}
           rootClassName={dark ? "p-dark-drawer" : undefined}
-          width={620}
+          width={isMobile ? "100vw" : isTablet ? 520 : 620}
           destroyOnClose
           closeIcon={<X size={16} color="var(--p-muted)" />}
           styles={{
@@ -3114,7 +3183,7 @@ const Projects = () => {
   );
 };
 
-/* ═══════════════════════════════════════════════════════════════════════════ */
+/* - */
 const ProjectForm = ({
   project,
   teams,
@@ -3167,6 +3236,13 @@ const ProjectForm = ({
   const isAiLockedForFreePlan = normalizedPlan.includes("free");
 
   const set = (k, v) => setForm((prev) => ({ ...prev, [k]: v }));
+  const setClientCountry = (countryName) => {
+    setForm((prev) => ({
+      ...prev,
+      client_country: countryName || "",
+      country_flag: countryName ? getCountryFlagValue(countryName) : null,
+    }));
+  };
 
   useEffect(() => {
     if (!tenantId) return;
@@ -3332,11 +3408,11 @@ const ProjectForm = ({
     try {
       let text = "";
 
-      // ── Plain text / Markdown ──────────────────────────────────────
+      // - Plain text / Markdown -
       if (file.type === "text/plain" || file.name.endsWith(".md")) {
         text = await file.text();
 
-        // ── PDF ────────────────────────────────────────────────────────
+        // - PDF -
       } else if (
         file.type === "application/pdf" ||
         file.name.endsWith(".pdf")
@@ -3358,7 +3434,7 @@ const ProjectForm = ({
         }
         text = pages.join("\n\n");
 
-        // ── DOCX ───────────────────────────────────────────────────────
+        // - DOCX -
       } else if (
         file.type ===
           "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
@@ -3369,7 +3445,7 @@ const ProjectForm = ({
         const result = await mammoth.extractRawText({ arrayBuffer });
         text = result.value;
 
-        // ── DOC (old Word) ─────────────────────────────────────────────
+        // - DOC (old Word) -
       } else if (
         file.type === "application/msword" ||
         file.name.endsWith(".doc")
@@ -3414,7 +3490,7 @@ const ProjectForm = ({
     }
   };
 
-  /* ── Email helper: send to newly added assignees ──────────────────── */
+  /* - Email helper: send to newly added assignees - */
   const notifyNewAssignees = async (projectId, projectName, newIds) => {
     const added = newIds.filter((id) => !prevAssignees.includes(id));
     if (!added.length) return;
@@ -3433,7 +3509,7 @@ const ProjectForm = ({
         const html = `
           <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:12px;">
             <div style="background:#1e40af;border-radius:10px;padding:24px;margin-bottom:24px;text-align:center;">
-              <h1 style="color:#fff;margin:0;font-size:20px;letter-spacing:-0.5px;">You've been assigned to a project 🎉</h1>
+                      <h1 style="color:#fff;margin:0;font-size:20px;letter-spacing:-0.5px;">You've been assigned to a project 🎉</h1>
             </div>
             <p style="color:#0f172a;font-size:15px;margin:0 0 8px;">Hi <strong>${emp.full_name}</strong>,</p>
             <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 20px;">
@@ -3634,17 +3710,23 @@ const ProjectForm = ({
     }
     setSaving(true);
     try {
+      const payload = {
+        ...form,
+        client_country: form.client_country || "",
+        country_flag:
+          form.country_flag || getCountryFlagValue(form.client_country) || null,
+      };
       let pid = project?.id;
       if (project) {
         const { error } = await supabase
           .from("projects")
-          .update(form)
+          .update(payload)
           .eq("id", project.id);
         if (error) throw error;
       } else {
         const { data: np, error } = await supabase
           .from("projects")
-          .insert([{ ...form, tenant_id: tenantId }])
+          .insert([{ ...payload, tenant_id: tenantId }])
           .select()
           .single();
         if (error) throw error;
@@ -3797,7 +3879,7 @@ const ProjectForm = ({
 
       {/* Form body */}
       <div style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
-        {/* ── General ── */}
+        {/* - General - */}
         {section === "general" && (
           <div>
             <div style={FIELD}>
@@ -4095,7 +4177,7 @@ const ProjectForm = ({
           </div>
         )}
 
-        {/* ── AI Match Tab ── */}
+        {/* - AI Match Tab - */}
         {section === "ai" && (
           <div>
             {isAiLockedForFreePlan ? (
@@ -4355,7 +4437,7 @@ const ProjectForm = ({
           </div>
         )}
 
-        {/* ── Client ── */}
+        {/* - Client - */}
         {section === "client" && (
           <div>
             <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
@@ -4453,7 +4535,7 @@ const ProjectForm = ({
                           set("client_name", client.name);
                           set("client_email", client.email);
                           set("client_phone", client.phone);
-                          set("client_country", client.country);
+                          setClientCountry(client.country);
                         }
                       }}
                       optionLabelProp="label"
@@ -4561,7 +4643,7 @@ const ProjectForm = ({
                           set("client_name", "");
                           set("client_email", "");
                           set("client_phone", "");
-                          set("client_country", "");
+                          setClientCountry("");
                         }}
                         style={{
                           background: "none",
@@ -4683,7 +4765,7 @@ const ProjectForm = ({
                     <LBL>Country</LBL>
                     <CountrySelect
                       value={form.client_country}
-                      onChange={(v) => set("client_country", v)}
+                      onChange={setClientCountry}
                       placeholder="Select country"
                       style={{ width: "100%" }}
                     />
@@ -4772,7 +4854,7 @@ const ProjectForm = ({
           </div>
         )}
 
-        {/* ── Details ── */}
+        {/* - Details - */}
         {section === "details" && (
           <div>
             <div style={FIELD}>

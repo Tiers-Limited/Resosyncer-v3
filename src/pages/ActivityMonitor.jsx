@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+﻿import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import {
   Table,
@@ -50,7 +50,7 @@ dayjs.extend(duration);
 dayjs.extend(utc);
 dayjs.extend(isSameOrAfter);
 
-/* ── Fonts ──────────────────────────────────────────────────────────────── */
+/* ------ Fonts ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 if (!document.getElementById("ets-fonts")) {
   const l = document.createElement("link");
   l.id = "ets-fonts";
@@ -60,7 +60,7 @@ if (!document.getElementById("ets-fonts")) {
   document.head.appendChild(l);
 }
 
-/* ── CSS ────────────────────────────────────────────────────────────────── */
+/* ------ CSS ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 if (!document.getElementById("ets-css")) {
   const s = document.createElement("style");
   s.id = "ets-css";
@@ -234,14 +234,14 @@ const DEFAULT_WS = {
   half_day_hours: 4,
 };
 
-/* ── Helpers ────────────────────────────────────────────────────────────── */
+/* ------ Helpers ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const fmt = (s) => {
   if (!s) return "0m";
   const h = Math.floor(s / 3600),
     m = Math.floor((s % 3600) / 60);
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 };
-const fmtH = (ts) => (ts ? dayjs(ts).format("h:mm A") : "—");
+const fmtH = (ts) => (ts ? dayjs(ts).format("h:mm A") : "-");
 const dayRange = (d) => ({
   from: dayjs(d).startOf("day").toISOString(),
   to: dayjs(d).endOf("day").toISOString(),
@@ -325,13 +325,13 @@ const isWeekOff = (dateStr, ws) => {
 };
 
 const isDarkMode = () => {
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 };
 
-/* ── Config maps ────────────────────────────────────────────────────────── */
+/* ------ Config maps ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const ATT = {
   working: {
     label: "Working",
@@ -400,7 +400,7 @@ const APP_COLORS = [
   "#6366f1",
 ];
 
-/* ── Skeleton primitives ────────────────────────────────────────────────── */
+/* ------ Skeleton primitives ------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const Skel = ({ w = "100%", h = 14, radius = 5, style = {} }) => (
   <div
     className="ets-skel"
@@ -575,7 +575,7 @@ const TableSkeletons = ({ count = 8 }) => (
   </div>
 );
 
-/* ── Holiday Screen ─────────────────────────────────────────────────────── */
+/* ------ Holiday Screen --------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const HolidayScreen = ({ holiday, date }) => {
   const isToday = date === dayjs().format("YYYY-MM-DD");
   const dark = isDarkMode();
@@ -632,7 +632,7 @@ const HolidayScreen = ({ holiday, date }) => {
               display: "block",
             }}
           >
-            {isToday ? "Public Holiday — Today" : "Public Holiday"}
+            {isToday ? "Public Holiday - Today" : "Public Holiday"}
           </span>
           <h2
             style={{
@@ -719,7 +719,7 @@ const HolidayScreen = ({ holiday, date }) => {
   );
 };
 
-/* ── Week Off Screen ────────────────────────────────────────────────────── */
+/* ------ Week Off Screen ------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const WeekOffScreen = ({ date, dayName }) => {
   const isToday = date === dayjs().format("YYYY-MM-DD");
   const dark = isDarkMode();
@@ -776,7 +776,7 @@ const WeekOffScreen = ({ date, dayName }) => {
               display: "block",
             }}
           >
-            {isToday ? "Weekly Off — Today" : "Weekly Off Day"}
+            {isToday ? "Weekly Off - Today" : "Weekly Off Day"}
           </span>
           <h2
             style={{
@@ -860,7 +860,7 @@ const WeekOffScreen = ({ date, dayName }) => {
   );
 };
 
-/* ── Attendance Dropdown ─────────────────────────────────────────────────── */
+/* ------ Attendance Dropdown --------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const AttCell = ({ value, onChange, disabled }) => {
   const cfg = ATT[value] || ATT.absent;
   const darkTone = isDarkMode();
@@ -936,7 +936,7 @@ const AttCell = ({ value, onChange, disabled }) => {
   );
 };
 
-/* ── Hours Cell ─────────────────────────────────────────────────────────── */
+/* ------ Hours Cell --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const HoursCell = ({ log, effectiveHours, ws, manualSecs = 0 }) => {
   const targetHours = effectiveHours || 8;
   const overtimeEnabled = ws?.overtime_enabled ?? true;
@@ -950,7 +950,7 @@ const HoursCell = ({ log, effectiveHours, ws, manualSecs = 0 }) => {
   }, [log?.status]);
 
   if (!log && manualSecs === 0)
-    return <span style={{ color: "var(--ets-muted)", fontSize: 12 }}>—</span>;
+    return <span style={{ color: "var(--ets-muted)", fontSize: 12 }}>-</span>;
 
   const workedSecs = netSecs(log, now, manualSecs);
   const h = workedSecs / 3600;
@@ -1110,7 +1110,7 @@ const HoursCell = ({ log, effectiveHours, ws, manualSecs = 0 }) => {
   );
 };
 
-/* ── Overtime Cell ──────────────────────────────────────────────────────── */
+/* ------ Overtime Cell ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const OvertimeCell = ({ log, effectiveHours, ws, manualSecs = 0 }) => {
   const darkTone = isDarkMode();
   const [now, setNow] = useState(dayjs());
@@ -1121,7 +1121,7 @@ const OvertimeCell = ({ log, effectiveHours, ws, manualSecs = 0 }) => {
   }, [log?.status]);
 
   if ((!log && manualSecs === 0) || !ws?.overtime_enabled)
-    return <span style={{ color: "var(--ets-muted)", fontSize: 12 }}>—</span>;
+    return <span style={{ color: "var(--ets-muted)", fontSize: 12 }}>-</span>;
 
   const otSecs = overtimeSecs(log, now, effectiveHours, ws, manualSecs);
   if (otSecs <= 0)
@@ -1133,7 +1133,7 @@ const OvertimeCell = ({ log, effectiveHours, ws, manualSecs = 0 }) => {
           fontFamily: "'JetBrains Mono',monospace",
         }}
       >
-        —
+        -
       </span>
     );
 
@@ -1181,7 +1181,7 @@ const OvertimeCell = ({ log, effectiveHours, ws, manualSecs = 0 }) => {
   );
 };
 
-/* ── App Mini ───────────────────────────────────────────────────────────── */
+/* ------ App Mini --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const AppMini = ({ apps, onViewAll }) => {
   if (!apps?.length)
     return (
@@ -1192,7 +1192,7 @@ const AppMini = ({ apps, onViewAll }) => {
           fontFamily: "'DM Sans',sans-serif",
         }}
       >
-        —
+        -
       </span>
     );
   const sorted = [...apps].sort(
@@ -1271,7 +1271,7 @@ const AppMini = ({ apps, onViewAll }) => {
   );
 };
 
-/* ── App Sidebar ────────────────────────────────────────────────────────── */
+/* ------ App Sidebar ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const AppSidebar = ({ apps, loading }) => {
   const sorted = [...(apps || [])].sort(
     (a, b) => b.duration_seconds - a.duration_seconds,
@@ -1317,7 +1317,7 @@ const AppSidebar = ({ apps, loading }) => {
             App Usage
           </div>
           <div style={{ fontSize: 11, color: "var(--ets-muted)" }}>
-            {loading ? "Loading…" : `${fmt(total)} total`}
+            {loading ? "Loading---" : `${fmt(total)} total`}
           </div>
         </div>
       </div>
@@ -1452,9 +1452,429 @@ const AppSidebar = ({ apps, loading }) => {
   );
 };
 
-/* ── Screenshots Drawer ─────────────────────────────────────────────────── */
+const MobileActivityCard = ({
+  row,
+  dark,
+  ws,
+  isFixed,
+  getAtt,
+  handleAtt,
+  getEffHours,
+  getManualSecs,
+  hasFinalAttendance,
+  setDrawer,
+  setActionDrawer,
+}) => {
+  const attendanceValue = getAtt(row);
+  const manualSecs = getManualSecs(row);
+
+  return (
+    <div
+      className="ets-fade"
+      style={{
+        background: "var(--ets-card)",
+        border: "1px solid var(--ets-border)",
+        borderRadius: 12,
+        padding: 14,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 12,
+          marginBottom: 12,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            <Avatar
+              src={row.user_photo || row.profile_picture_url}
+              icon={<User size={15} />}
+              size={38}
+              style={{
+                background: "var(--ets-hover)",
+                color: "var(--ets-accent)",
+              }}
+            />
+            <span
+              style={{
+                position: "absolute",
+                bottom: 0,
+                right: 0,
+                width: 10,
+                height: 10,
+                borderRadius: "50%",
+                background:
+                  row.log?.status === "active"
+                    ? "#22c55e"
+                    : row.log?.status === "break" || row.log?.status === "paused"
+                      ? "#8b5cf6"
+                      : row.hasLog
+                        ? "#94a3b8"
+                        : "var(--ets-border)",
+                border: "2px solid var(--ets-card)",
+              }}
+            />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                minWidth: 0,
+                marginBottom: 2,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "var(--ets-text)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {row.full_name}
+              </div>
+              {isFixed && row.hasLog && isLate(row.log, ws) && (
+                <Tooltip
+                  title={`Late - grace period: ${ws.late_grace_minutes}min after ${ws.check_in_time}`}
+                >
+                  <AlertTriangle
+                    size={11}
+                    color={dark ? "#fb923c" : "#c2410c"}
+                    style={{ flexShrink: 0 }}
+                  />
+                </Tooltip>
+              )}
+            </div>
+            <div
+              style={{
+                fontSize: 11,
+                color: "var(--ets-muted)",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {row.job_title || row.role}
+            </div>
+          </div>
+        </div>
+
+        <Button
+          size="small"
+          onClick={() => setActionDrawer({ open: true, employee: row })}
+          style={{ flexShrink: 0 }}
+        >
+          Details
+        </Button>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 10,
+          marginBottom: 12,
+        }}
+      >
+        <div>
+          <div
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              color: "var(--ets-muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
+              marginBottom: 5,
+            }}
+          >
+            Status
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {row.hasAttendanceRecord ? (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  padding: "3px 9px",
+                  borderRadius: 6,
+                  background: dark ? "rgba(148,163,184,0.16)" : "#f1f5f9",
+                  color: dark ? "#cbd5e1" : "#475569",
+                  border: dark
+                    ? "1px solid rgba(148,163,184,0.35)"
+                    : "1px solid #cbd5e1",
+                }}
+              >
+                Recorded
+              </span>
+            ) : !row.hasLog && manualSecs > 0 ? (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  padding: "3px 9px",
+                  borderRadius: 6,
+                  background: dark ? "rgba(14,165,233,0.16)" : "#e0f2fe",
+                  color: dark ? "#7dd3fc" : "#0369a1",
+                  border: dark
+                    ? "1px solid rgba(125,211,252,0.35)"
+                    : "1px solid #7dd3fc",
+                }}
+              >
+                <PenLine size={11} />
+                Manual
+              </span>
+            ) : !row.hasLog ? (
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 500,
+                  color: "var(--ets-muted)",
+                  background: "var(--ets-hover)",
+                  border: "1px solid var(--ets-border)",
+                  padding: "3px 9px",
+                  borderRadius: 6,
+                }}
+              >
+                Not in
+              </span>
+            ) : (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  padding: "3px 9px",
+                  borderRadius: 6,
+                  background:
+                    row.log?.status === "active"
+                      ? "rgba(34,197,94,0.16)"
+                      : row.log?.status === "break" || row.log?.status === "paused"
+                        ? "rgba(139,92,246,0.16)"
+                        : "rgba(148,163,184,0.14)",
+                  color:
+                    row.log?.status === "active"
+                      ? "#22c55e"
+                      : row.log?.status === "break" || row.log?.status === "paused"
+                        ? "#a78bfa"
+                        : "#94a3b8",
+                  border:
+                    row.log?.status === "active"
+                      ? "1px solid rgba(74,222,128,0.35)"
+                      : row.log?.status === "break" || row.log?.status === "paused"
+                        ? "1px solid rgba(167,139,250,0.35)"
+                        : "1px solid rgba(148,163,184,0.28)",
+                }}
+              >
+                {(row.log?.status === "active" || row.log?.status === "break") && (
+                  <span
+                    className="ets-live"
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background:
+                        row.log?.status === "active" ? "#22c55e" : "#8b5cf6",
+                    }}
+                  />
+                )}
+                {row.log?.status === "active"
+                  ? "Active"
+                  : row.log?.status === "break" || row.log?.status === "paused"
+                    ? "On Break"
+                    : "Done"}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <div
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              color: "var(--ets-muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
+              marginBottom: 5,
+            }}
+          >
+            Attendance
+          </div>
+          <AttCell
+            value={attendanceValue}
+            disabled={hasFinalAttendance(row)}
+            onChange={(v) => handleAtt(row.id, v)}
+          />
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 10,
+          marginBottom: 12,
+        }}
+      >
+        <div>
+          <div
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              color: "var(--ets-muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
+              marginBottom: 5,
+            }}
+          >
+            Start
+          </div>
+          <div style={{ fontSize: 12, color: "var(--ets-text)", fontWeight: 600 }}>
+            {fmtH(row.log?.start_time)}
+          </div>
+        </div>
+        <div>
+          <div
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              color: "var(--ets-muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
+              marginBottom: 5,
+            }}
+          >
+            End
+          </div>
+          <div style={{ fontSize: 12, color: "var(--ets-text)", fontWeight: 600 }}>
+            {fmtH(row.log?.end_time)}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 12 }}>
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            color: "var(--ets-muted)",
+            textTransform: "uppercase",
+            letterSpacing: "0.04em",
+            marginBottom: 6,
+          }}
+        >
+          Net Hours
+        </div>
+        <HoursCell
+          log={row.log}
+          effectiveHours={getEffHours(row)}
+          ws={ws}
+          manualSecs={manualSecs}
+        />
+      </div>
+
+      {ws.overtime_enabled && (
+        <div style={{ marginBottom: 12 }}>
+          <div
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              color: "var(--ets-muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
+              marginBottom: 6,
+            }}
+          >
+            Overtime
+          </div>
+          <OvertimeCell
+            log={row.log}
+            effectiveHours={getEffHours(row)}
+            ws={ws}
+            manualSecs={manualSecs}
+          />
+        </div>
+      )}
+
+      <div style={{ marginBottom: 12 }}>
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            color: "var(--ets-muted)",
+            textTransform: "uppercase",
+            letterSpacing: "0.04em",
+            marginBottom: 6,
+          }}
+        >
+          App Activity
+        </div>
+        <AppMini
+          apps={row.apps}
+          onViewAll={() => setDrawer({ open: true, employee: row })}
+        />
+      </div>
+
+      <div style={{ marginBottom: 12 }}>
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            color: "var(--ets-muted)",
+            textTransform: "uppercase",
+            letterSpacing: "0.04em",
+            marginBottom: 6,
+          }}
+        >
+          Standup
+        </div>
+        <div
+          style={{
+            background: "var(--ets-hover)",
+            border: "1px solid var(--ets-border)",
+            borderRadius: 8,
+            padding: "10px 12px",
+            fontSize: 12,
+            color: row.log?.standup_message ? "var(--ets-sub)" : "var(--ets-muted)",
+            lineHeight: 1.45,
+          }}
+        >
+          {row.log?.standup_message || "No standup message"}
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <Button onClick={() => setDrawer({ open: true, employee: row })}>
+          Screenshots ({row.screenshotCount || 0})
+        </Button>
+        <Button onClick={() => setActionDrawer({ open: true, employee: row })}>
+          Open Details
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+/* ------ Screenshots Drawer --------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const ShotsDrawer = ({ open, onClose, employee, date }) => {
   const dark = isDarkMode();
+  const isMobile =
+    typeof window !== "undefined" ? window.innerWidth < 768 : false;
   const [shots, setShots] = useState([]);
   const [apps, setApps] = useState([]);
   const [loadShots, setLoadShots] = useState(false);
@@ -1510,7 +1930,7 @@ const ShotsDrawer = ({ open, onClose, employee, date }) => {
     <Drawer
       open={open}
       onClose={onClose}
-      width={1060}
+      width={isMobile ? "100vw" : 1060}
       rootClassName={dark ? "ets-drawer-dark" : undefined}
       title={
         <div
@@ -1544,7 +1964,7 @@ const ShotsDrawer = ({ open, onClose, employee, date }) => {
                 {employee?.full_name}
               </div>
               <div style={{ fontSize: 11, color: "var(--ets-muted)" }}>
-                {dayjs(date).format("DD MMM YYYY")} · {shots.length} screenshot
+                {dayjs(date).format("DD MMM YYYY")} -- {shots.length} screenshot
                 {shots.length !== 1 ? "s" : ""}
               </div>
             </div>
@@ -1575,6 +1995,7 @@ const ShotsDrawer = ({ open, onClose, employee, date }) => {
           padding: 0,
           background: "var(--ets-bg)",
           display: "flex",
+          flexDirection: isMobile ? "column" : "row",
           overflow: "hidden",
           height: "100%",
         },
@@ -1590,7 +2011,11 @@ const ShotsDrawer = ({ open, onClose, employee, date }) => {
       >
         {loadShots && shots.length === 0 ? (
           <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+              gap: 14,
+            }}
           >
             {Array.from({ length: 6 }).map((_, i) => (
               <div
@@ -1631,7 +2056,11 @@ const ShotsDrawer = ({ open, onClose, employee, date }) => {
           </div>
         ) : (
           <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+              gap: 14,
+            }}
           >
             {shots.map((s) => (
               <div
@@ -1683,9 +2112,10 @@ const ShotsDrawer = ({ open, onClose, employee, date }) => {
       <div
         className="ets-scroll"
         style={{
-          width: 240,
+          width: isMobile ? "100%" : 240,
           flexShrink: 0,
-          borderLeft: "1px solid var(--ets-border)",
+          borderLeft: isMobile ? "none" : "1px solid var(--ets-border)",
+          borderTop: isMobile ? "1px solid var(--ets-border)" : "none",
           background: "var(--ets-card)",
           padding: 16,
           overflowY: "auto",
@@ -1697,9 +2127,9 @@ const ShotsDrawer = ({ open, onClose, employee, date }) => {
   );
 };
 
-/* ══════════════════════════════════════════════════════════════════════════
+/* ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
    MAIN PAGE
-══════════════════════════════════════════════════════════════════════════ */
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 export default function EmployeeTimingStats() {
   const [date, setDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [rows, setRows] = useState([]);
@@ -1725,8 +2155,11 @@ export default function EmployeeTimingStats() {
   });
   const ivRef = useRef(null);
 
-  /* ── Theme ──────────────────────────────────────────────────────────── */
+  /* ------ Theme ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
   const [dark, setDark] = useState(isDarkMode);
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth : 1440,
+  );
   useEffect(() => {
     const apply = (d) => {
       setDark(d);
@@ -1772,7 +2205,15 @@ export default function EmployeeTimingStats() {
     };
   }, []);
 
-  /* ── Bootstrap ──────────────────────────────────────────────────────── */
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const syncViewport = () => setViewportWidth(window.innerWidth);
+    syncViewport();
+    window.addEventListener("resize", syncViewport);
+    return () => window.removeEventListener("resize", syncViewport);
+  }, []);
+
+  /* ------ Bootstrap ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
   useEffect(() => {
     (async () => {
       try {
@@ -1792,7 +2233,7 @@ export default function EmployeeTimingStats() {
     })();
   }, []);
 
-  /* ── Workspace settings ─────────────────────────────────────────────── */
+  /* ------ Workspace settings --------------------------------------------------------------------------------------------------------------------------------------------- */
   useEffect(() => {
     if (!tenantId) return;
     setWsLoading(true);
@@ -1807,7 +2248,7 @@ export default function EmployeeTimingStats() {
       });
   }, [tenantId]);
 
-  /* ── Holiday lookup ─────────────────────────────────────────────────── */
+  /* ------ Holiday lookup --------------------------------------------------------------------------------------------------------------------------------------------------------- */
   useEffect(() => {
     if (!tenantId) return;
     setHolidayLoading(true);
@@ -1824,7 +2265,7 @@ export default function EmployeeTimingStats() {
       });
   }, [date, tenantId]);
 
-  /* ── Main fetch ─────────────────────────────────────────────────────── */
+  /* ------ Main fetch --------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
   const fetchData = useCallback(async (d, tid) => {
     if (!tid) return;
     setLoading(true);
@@ -2051,7 +2492,7 @@ export default function EmployeeTimingStats() {
     return () => clearInterval(ivRef.current);
   }, [date, tenantId, fetchData]);
 
-  /* ── Attendance save ────────────────────────────────────────────────── */
+  /* ------ Attendance save ------------------------------------------------------------------------------------------------------------------------------------------------------ */
   const handleAtt = useCallback(
     async (uid, status) => {
       setAttOver((prev) => ({ ...prev, [uid]: status }));
@@ -2072,7 +2513,7 @@ export default function EmployeeTimingStats() {
     [date],
   );
 
-  /* ── Manual time approval ───────────────────────────────────────────── */
+  /* ------ Manual time approval --------------------------------------------------------------------------------------------------------------------------------------- */
   const handleManualRequest = useCallback(
     async (request, action) => {
       if (!request?.id) return;
@@ -2109,7 +2550,7 @@ export default function EmployeeTimingStats() {
     [date, fetchData, profile?.role, tenantId],
   );
 
-  /* ── Derived values ─────────────────────────────────────────────────── */
+  /* ------ Derived values --------------------------------------------------------------------------------------------------------------------------------------------------------- */
   const now = dayjs();
   const isToday = date === dayjs().format("YYYY-MM-DD");
   const dateIsWeekOff = isWeekOff(date, ws);
@@ -2332,7 +2773,7 @@ export default function EmployeeTimingStats() {
     );
   });
 
-  /* ── KPIs ───────────────────────────────────────────────────────────── */
+  /* ------ KPIs --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
   const KPIs = [
     {
       label: "Total Staff",
@@ -2411,7 +2852,7 @@ export default function EmployeeTimingStats() {
       : []),
   ];
 
-  /* ── Table columns ──────────────────────────────────────────────────── */
+  /* ------ Table columns ------------------------------------------------------------------------------------------------------------------------------------------------------------ */
   const columns = [
     {
       title: "Employee",
@@ -2469,7 +2910,7 @@ export default function EmployeeTimingStats() {
               {r.full_name}
               {isFixed && r.hasLog && isLate(r.log, ws) && (
                 <Tooltip
-                  title={`Late — grace period: ${ws.late_grace_minutes}min after ${ws.check_in_time}`}
+                  title={`Late - grace period: ${ws.late_grace_minutes}min after ${ws.check_in_time}`}
                 >
                   <AlertTriangle
                     size={11}
@@ -2695,7 +3136,7 @@ export default function EmployeeTimingStats() {
           );
         }
         return (
-          <span style={{ color: "var(--ets-muted)", fontSize: 11 }}>—</span>
+          <span style={{ color: "var(--ets-muted)", fontSize: 11 }}>-</span>
         );
       },
     },
@@ -2767,7 +3208,7 @@ export default function EmployeeTimingStats() {
       render: (_, r) => {
         if (!r.log)
           return (
-            <span style={{ color: "var(--ets-muted)", fontSize: 12 }}>—</span>
+            <span style={{ color: "var(--ets-muted)", fontSize: 12 }}>-</span>
           );
         if (r.log.end_time)
           return (
@@ -2819,7 +3260,7 @@ export default function EmployeeTimingStats() {
             </span>
           );
         return (
-          <span style={{ color: "var(--ets-muted)", fontSize: 12 }}>—</span>
+          <span style={{ color: "var(--ets-muted)", fontSize: 12 }}>-</span>
         );
       },
     },
@@ -2911,8 +3352,10 @@ export default function EmployeeTimingStats() {
   ];
 
   const kpiCount = KPIs.length;
+  const isMobile = viewportWidth < 768;
+  const isTablet = viewportWidth < 1100;
 
-  /* ── Render ─────────────────────────────────────────────────────────── */
+  /* ------ Render --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
   return (
     <div
       className={dark ? "ets-dark" : "ets-light"}
@@ -2927,18 +3370,25 @@ export default function EmployeeTimingStats() {
       <div
         className="ets-fade"
         style={{
-          padding: "14px 28px",
+          padding: isMobile ? "14px 12px" : "14px 28px",
           background: "var(--ets-card)",
           borderBottom: "1px solid var(--ets-border)",
           display: "flex",
-          alignItems: "center",
+          alignItems: isMobile ? "flex-start" : "center",
           justifyContent: "space-between",
           gap: 12,
           flexWrap: "wrap",
           marginBottom: 20,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            width: isMobile ? "100%" : "auto",
+          }}
+        >
           <div
             style={{
               width: 36,
@@ -3063,8 +3513,8 @@ export default function EmployeeTimingStats() {
                   }}
                 >
                   {isFixed
-                    ? `Fixed · ${ws.check_in_time}–${ws.check_out_time} · ${ws.working_hours}h`
-                    : `Flexible · ${ws.working_hours}h`}
+                    ? `Fixed -- ${ws.check_in_time}---${ws.check_out_time} -- ${ws.working_hours}h`
+                    : `Flexible -- ${ws.working_hours}h`}
                   {ws.overtime_enabled && (
                     <span
                       style={{
@@ -3096,7 +3546,11 @@ export default function EmployeeTimingStats() {
           allowClear={false}
           format="DD MMM YYYY"
           popupClassName={dark ? "ets-picker-popup-dark" : undefined}
-          style={{ borderRadius: 8, fontFamily: "'DM Sans',sans-serif" }}
+          style={{
+            borderRadius: 8,
+            fontFamily: "'DM Sans',sans-serif",
+            width: isMobile ? "100%" : "auto",
+          }}
         />
       </div>
 
@@ -3106,7 +3560,7 @@ export default function EmployeeTimingStats() {
       ) : !holidayLoading && !wsLoading && dateIsWeekOff ? (
         <WeekOffScreen date={date} dayName={dayjs(date).format("dddd")} />
       ) : (
-        <div style={{ padding: "0 28px 28px" }}>
+        <div style={{ padding: isMobile ? "0 12px 16px" : "0 28px 28px" }}>
           {/* KPIs */}
           {holidayLoading || wsLoading || (loading && rows.length === 0) ? (
             <KpiSkeletons count={kpiCount || 8} />
@@ -3115,7 +3569,11 @@ export default function EmployeeTimingStats() {
               className="ets-fade"
               style={{
                 display: "grid",
-                gridTemplateColumns: `repeat(${kpiCount},1fr)`,
+                gridTemplateColumns: isMobile
+                  ? "1fr 1fr"
+                  : isTablet
+                    ? "repeat(4,1fr)"
+                    : `repeat(${kpiCount},1fr)`,
                 gap: 10,
                 marginBottom: 20,
               }}
@@ -3165,7 +3623,7 @@ export default function EmployeeTimingStats() {
                       marginBottom: 5,
                     }}
                   >
-                    {loading ? "—" : k.value}
+                    {loading ? "-" : k.value}
                   </div>
                   <div
                     style={{
@@ -3182,9 +3640,77 @@ export default function EmployeeTimingStats() {
             </div>
           )}
 
-          {/* Table */}
+          {/* Activity list */}
           {holidayLoading || wsLoading || (loading && rows.length === 0) ? (
             <TableSkeletons count={8} />
+          ) : isMobile ? (
+            <div
+              className="ets-fade"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+              }}
+            >
+              <div
+                style={{
+                  background: "var(--ets-card)",
+                  border: "1px solid var(--ets-border)",
+                  borderRadius: 12,
+                  padding: "12px 14px",
+                }}
+              >
+                <Input
+                  allowClear
+                  value={tableSearch}
+                  onChange={(e) => setTableSearch(e.target.value)}
+                  prefix={<Search size={14} color="var(--ets-muted)" />}
+                  placeholder="Search employee, email, role, department"
+                  style={{ width: "100%" }}
+                />
+              </div>
+
+              {filteredRows.length === 0 ? (
+                <div
+                  style={{
+                    background: "var(--ets-card)",
+                    border: "1px solid var(--ets-border)",
+                    borderRadius: 12,
+                    padding: "28px 16px",
+                  }}
+                >
+                  <Empty
+                    description={
+                      <span
+                        style={{
+                          color: "var(--ets-muted)",
+                          fontFamily: "'DM Sans',sans-serif",
+                        }}
+                      >
+                        No data for this date
+                      </span>
+                    }
+                  />
+                </div>
+              ) : (
+                filteredRows.map((row) => (
+                  <MobileActivityCard
+                    key={row.id}
+                    row={row}
+                    dark={dark}
+                    ws={ws}
+                    isFixed={isFixed}
+                    getAtt={getAtt}
+                    handleAtt={handleAtt}
+                    getEffHours={getEffHours}
+                    getManualSecs={getManualSecs}
+                    hasFinalAttendance={hasFinalAttendance}
+                    setDrawer={setDrawer}
+                    setActionDrawer={setActionDrawer}
+                  />
+                ))
+              )}
+            </div>
           ) : (
             <div
               className="ets-fade"
@@ -3213,7 +3739,7 @@ export default function EmployeeTimingStats() {
                   onChange={(e) => setTableSearch(e.target.value)}
                   prefix={<Search size={14} color="var(--ets-muted)" />}
                   placeholder="Search employee, email, role, department"
-                  style={{ width: 320, maxWidth: "100%" }}
+                  style={{ width: isMobile ? "100%" : 320, maxWidth: "100%" }}
                 />
               </div>
               <Table
@@ -3299,7 +3825,7 @@ export default function EmployeeTimingStats() {
       <Drawer
         open={actionDrawer.open}
         onClose={() => setActionDrawer({ open: false, employee: null })}
-        width={420}
+        width={isMobile ? "100vw" : 420}
         title="Employee Details"
         rootClassName={dark ? "ets-drawer-dark" : undefined}
       >
@@ -3410,5 +3936,4 @@ export default function EmployeeTimingStats() {
     </div>
   );
 }
-
 

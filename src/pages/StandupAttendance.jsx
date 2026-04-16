@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import {
   Table, Button, DatePicker, Modal, Tag, Avatar, Space,
   Typography, Tooltip, Radio, Empty, Row, Col, message,
@@ -27,7 +27,7 @@ import { supabase } from "../lib/supabase";
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 
-// ── Constants ──────────────────────────────────────────────────────────────
+// ---------------- Constants ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const ATTENDANCE_STATUS = {
   present: { label: "Present", color: "#059669", bg: "#ecfdf5", border: "#a7f3d0", icon: <CheckOutlined /> },
   absent:  { label: "Absent",  color: "#e11d48", bg: "#fff1f2", border: "#fecdd3", icon: <CloseOutlined /> },
@@ -50,7 +50,7 @@ const getInitials = (name = "") =>
 const capitalize = (s = "") => s.charAt(0).toUpperCase() + s.slice(1);
 
 const getIsDarkTheme = () => {
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -180,7 +180,7 @@ function StarterStandupAttendancePaywall({ dark = false }) {
           Standups
         </h1>
         <p style={{ margin: 0, color: "var(--text-tertiary)", fontSize: 13 }}>
-          Async check-ins · AI summaries · Zero extra meetings
+          Async check-ins ---- AI summaries ---- Zero extra meetings
         </p>
       </div>
 
@@ -384,9 +384,9 @@ function StarterStandupAttendancePaywall({ dark = false }) {
                       }}
                     >
                       <span>Today, Mar 29</span>
-                      <span>·</span>
+                      <span>----</span>
                       <span style={{ color: "#22c55e", fontWeight: 700 }}>
-                        ● 6/8 responded
+                        ------- 6/8 responded
                       </span>
                     </div>
                   </div>
@@ -598,7 +598,7 @@ function StarterStandupAttendancePaywall({ dark = false }) {
                 lineHeight: 1.6,
               }}
             >
-              A complete async check-in system — from team prompts and smart
+              A complete async check-in system -------- from team prompts and smart
               reminders to AI-generated summaries, participation tracking, and
               full org visibility.
             </p>
@@ -831,7 +831,7 @@ function StarterStandupAttendancePaywall({ dark = false }) {
                     border: "1px solid var(--present-border)",
                   }}
                 >
-                  ● 3/3 responded
+                  ------- 3/3 responded
                 </span>
               </div>
               {mockStandups.map((m, i) => (
@@ -997,7 +997,7 @@ function StarterStandupAttendancePaywall({ dark = false }) {
   );
 }
 
-// ─── Main Component ────────────────────────────────────────────────────────────
+// ------------------------ Main Component ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 export default function StandupAttendance() {
   const [dark, setDark] = useState(getIsDarkTheme);
   const [currentUser, setCurrentUser]         = useState(null);
@@ -1200,7 +1200,7 @@ export default function StandupAttendance() {
   const normalizedPlan = (orgPlan ?? "").trim().toLowerCase();
   const isStarterPlan = normalizedPlan.includes("starter");
 
-  // ── Projects table columns ─────────────────────────────────────────────
+  // ---------------- Projects table columns ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const projectColumns = [
     {
       title: "Project",
@@ -1211,7 +1211,7 @@ export default function StandupAttendance() {
             <Text strong style={{ fontSize: 14, color: "var(--sa-text-primary)", display: "block", lineHeight: 1.3 }}>
               {rec.name}
             </Text>
-            <Text style={{ fontSize: 12, color: "var(--sa-text-muted)" }}>{rec.client_name || "—"}</Text>
+            <Text style={{ fontSize: 12, color: "var(--sa-text-muted)" }}>{rec.client_name || "--------"}</Text>
           </div>
         </Space>
       ),
@@ -1258,9 +1258,9 @@ export default function StandupAttendance() {
         return (
           <Space size={6}>
             <span style={{ fontSize: 12, fontWeight: 700, color: "#059669" }}>{p}P</span>
-            <span style={{ color: "var(--sa-border)", fontSize: 10 }}>·</span>
+            <span style={{ color: "var(--sa-border)", fontSize: 10 }}>----</span>
             <span style={{ fontSize: 12, fontWeight: 700, color: "#e11d48" }}>{a}A</span>
-            <span style={{ color: "var(--sa-border)", fontSize: 10 }}>·</span>
+            <span style={{ color: "var(--sa-border)", fontSize: 10 }}>----</span>
             <span style={{ fontSize: 12, fontWeight: 700, color: "#d97706" }}>{l}L</span>
             {session.summary && (
               <Tooltip title="Has summary">
@@ -1302,7 +1302,7 @@ export default function StandupAttendance() {
     },
   ];
 
-  // ── Attendance table columns ───────────────────────────────────────────
+  // ---------------- Attendance table columns --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const attendanceColumns = [
     {
       title: "Member",
@@ -1327,7 +1327,7 @@ export default function StandupAttendance() {
       title: (
         <Space size={6}>
           <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Attendance</span>
-          <span style={{ color: "var(--sa-border)" }}>·</span>
+          <span style={{ color: "var(--sa-border)" }}>----</span>
           {Object.entries(ATTENDANCE_STATUS).map(([key, cfg]) => (
             <button
               key={key}
@@ -1379,7 +1379,7 @@ export default function StandupAttendance() {
     },
   ];
 
-  // ── Render ─────────────────────────────────────────────────────────────
+  // ---------------- Render --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   if (planLoading) {
     return (
       <div
@@ -1466,7 +1466,7 @@ export default function StandupAttendance() {
         .sa-root .back-btn:hover { background: var(--sa-bg-muted) !important; }
       `}</style>
 
-      {/* ── Header ── */}
+      {/* ---------------- Header ---------------- */}
       <div style={{padding: "0 40px" }}>
         <div style={{margin: "0 auto" }}>
           {/* Top row */}
@@ -1485,12 +1485,12 @@ export default function StandupAttendance() {
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--sa-text-primary)" }} />
                   <Text style={{ fontSize: 11, fontWeight: 700, color: "var(--sa-text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                    {activeProject ? `${activeProject.name} · Standup` : "Standup Attendance"}
+                    {activeProject ? `${activeProject.name} ---- Standup` : "Standup Attendance"}
                   </Text>
                 </div>
                 <Title level={4} style={{ margin: 0, color: "var(--sa-text-primary)", fontWeight: 800, letterSpacing: -0.5, lineHeight: 1.2, marginTop: 2 }}>
                   {activeProject
-                    ? `Mark Attendance · ${selectedDate.format("MMM DD, YYYY")}`
+                    ? `Mark Attendance ---- ${selectedDate.format("MMM DD, YYYY")}`
                     : `${selectedDate.format("dddd, MMMM DD YYYY")}`
                   }
                 </Title>
@@ -1533,7 +1533,7 @@ export default function StandupAttendance() {
             </Space>
           </div>
 
-          {/* Sub stats bar — only in mark view */}
+          {/* Sub stats bar -------- only in mark view */}
           {activeProject && (
             <div style={{ display: "flex", gap: 0, borderTop: "1px solid var(--sa-border-soft)", paddingBottom: 0 }}>
               {[
@@ -1564,10 +1564,10 @@ export default function StandupAttendance() {
         </div>
       </div>
 
-      {/* ── Body ── */}
+      {/* ---------------- Body ---------------- */}
       <div style={{margin: "0 auto", padding: "28px 40px" }}>
 
-        {/* ── Projects table view ── */}
+        {/* ---------------- Projects table view ---------------- */}
         {!activeProject && (
           <>
             {/* Summary chips */}
@@ -1619,7 +1619,7 @@ export default function StandupAttendance() {
           </>
         )}
 
-        {/* ── Mark attendance view ── */}
+        {/* ---------------- Mark attendance view ---------------- */}
         {activeProject && (
           <>
             <div style={{ background: "var(--sa-bg-card)", borderRadius: 14, border: "1px solid var(--sa-border-soft)", overflow: "hidden", boxShadow: dark ? "none" : "0 1px 4px rgba(15,23,42,0.04)" }}>
@@ -1629,7 +1629,7 @@ export default function StandupAttendance() {
                   <Text strong style={{ fontSize: 14, color: "var(--sa-text-primary)" }}>{activeProject.name}</Text>
                   {existingSessionId && (
                     <span style={{ fontSize: 11, fontWeight: 700, color: "#059669", background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: 20, padding: "1px 10px" }}>
-                      ✓ Saved
+                      ------- Saved
                     </span>
                   )}
                 </Space>
@@ -1668,7 +1668,7 @@ export default function StandupAttendance() {
         )}
       </div>
 
-      {/* ── Summary modal ── */}
+      {/* ---------------- Summary modal ---------------- */}
       <Modal
         title={
           <Space>
@@ -1692,7 +1692,7 @@ export default function StandupAttendance() {
           rows={9}
           value={summary}
           onChange={(e) => setSummary(e.target.value)}
-          placeholder={"• What did the team complete yesterday?\n• What is everyone working on today?\n• Any blockers or dependencies?\n• Key decisions made..."}
+          placeholder={"------- What did the team complete yesterday?\n------- What is everyone working on today?\n------- Any blockers or dependencies?\n------- Key decisions made..."}
           style={{ borderRadius: 10, fontSize: 13, lineHeight: 1.8, resize: "none", border: "1.5px solid var(--sa-border)", background: "var(--sa-bg-card)", color: "var(--sa-text-primary)" }}
         />
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
@@ -1702,5 +1702,7 @@ export default function StandupAttendance() {
     </div>
   );
 }
+
+
 
 

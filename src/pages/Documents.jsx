@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import { message, Modal, Form, Input, Upload } from "antd";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
@@ -109,7 +109,7 @@ const ChevronRightIcon = () => (
   </svg>
 );
 
-// ─── Previewable file types ───────────────────────────────────────────────────
+// ------------------------ Previewable file types ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const PREVIEWABLE = {
   image: ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"],
   pdf: ["pdf"],
@@ -128,13 +128,13 @@ const getPreviewType = (name = "") => {
 
 const getIsDarkTheme = () => {
   if (typeof window === "undefined") return false;
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 };
 
-// ─── File Preview Overlay ─────────────────────────────────────────────────────
+// ------------------------ File Preview Overlay ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const FilePreview = ({
   file,
   onClose,
@@ -271,7 +271,7 @@ const FilePreview = ({
         <button
           onClick={onPrev}
           style={{ ...navArrowStyle, left: 16 }}
-          title="Previous (←)"
+          title="Previous (-------)"
         >
           <ChevronLeftIcon />
         </button>
@@ -280,7 +280,7 @@ const FilePreview = ({
         <button
           onClick={onNext}
           style={{ ...navArrowStyle, right: 16 }}
-          title="Next (→)"
+          title="Next (--------)"
         >
           <ChevronRightIcon />
         </button>
@@ -297,13 +297,13 @@ const FilePreview = ({
                 fontSize: 14,
               }}
             >
-              Loading preview…
+              Loading preview-------
             </span>
           </div>
         )}
         {!loading && loadError && (
           <div style={centeredMsg}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>------------</div>
             <div
               style={{
                 color: "rgba(255,255,255,0.7)",
@@ -427,7 +427,7 @@ const FilePreview = ({
       {!loading && !loadError && (
         <div style={previewFooterStyle}>
           <span>{formatSize(file.file_size)}</span>
-          <span>•</span>
+          <span>-------</span>
           <span>{formatDate(file.created_at)}</span>
         </div>
       )}
@@ -435,7 +435,7 @@ const FilePreview = ({
   );
 };
 
-// ─── Context Menu ─────────────────────────────────────────────────────────────
+// ------------------------ Context Menu --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const ContextMenu = ({
   x,
   y,
@@ -569,7 +569,7 @@ const FOLDER_COLORS = [
 ];
 
 const formatSize = (bytes) => {
-  if (!bytes) return "—";
+  if (!bytes) return "--------";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -581,7 +581,7 @@ const formatDate = (d) =>
     year: "numeric",
   });
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ------------------------ Main Component ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const Documents = () => {
   const [dark, setDark] = useState(getIsDarkTheme);
   const [documents, setDocuments] = useState([]);
@@ -599,13 +599,13 @@ const Documents = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedItem, setSelectedItem] = useState(null);
   const [previewFile, setPreviewFile] = useState(null);
-  // ── Tenant state ──────────────────────────────────────────────────────────
+  // ---------------- Tenant state --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const [currentTenantId, setCurrentTenantId] = useState(null);
   const [tenantLoading, setTenantLoading] = useState(true);
   const [form] = Form.useForm();
   const { profile } = useAuth();
 
-  // ── Fetch tenant on mount ─────────────────────────────────────────────────
+  // ---------------- Fetch tenant on mount --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   useEffect(() => {
     fetchCurrentTenant();
   }, []);
@@ -643,7 +643,7 @@ const Documents = () => {
     }
   };
 
-  // ── Fetch documents only after tenant is resolved ─────────────────────────
+  // ---------------- Fetch documents only after tenant is resolved --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   useEffect(() => {
     if (!tenantLoading && currentTenantId) {
       fetchDocuments();
@@ -657,7 +657,7 @@ const Documents = () => {
       let query = supabase
         .from("documents")
         .select("*")
-        .eq("tenant_id", currentTenantId) // ← tenant filter
+        .eq("tenant_id", currentTenantId) // ------- tenant filter
         .order("type", { ascending: false })
         .order("name");
       if (currentFolder) query = query.eq("parent_id", currentFolder);
@@ -682,7 +682,7 @@ const Documents = () => {
           .from("documents")
           .update({ name: values.name })
           .eq("id", editingFolder.id)
-          .eq("tenant_id", currentTenantId); // ← tenant guard
+          .eq("tenant_id", currentTenantId); // ------- tenant guard
         if (error) throw error;
         message.success("Folder renamed");
       } else {
@@ -692,7 +692,7 @@ const Documents = () => {
             type: "folder",
             parent_id: currentFolder,
             uploaded_by: profile.id,
-            tenant_id: currentTenantId, // ← stamp tenant
+            tenant_id: currentTenantId, // ------- stamp tenant
           },
         ]);
         if (error) throw error;
@@ -749,7 +749,7 @@ const Documents = () => {
           file_size: file.size,
           parent_id: currentFolder,
           uploaded_by: profile.id,
-          tenant_id: currentTenantId, // ← stamp tenant
+          tenant_id: currentTenantId, // ------- stamp tenant
         },
       ]);
       if (dbError) throw dbError;
@@ -796,7 +796,7 @@ const Documents = () => {
         .from("documents")
         .delete()
         .eq("id", record.id)
-        .eq("tenant_id", currentTenantId); // ← tenant guard
+        .eq("tenant_id", currentTenantId); // ------- tenant guard
       if (error) throw error;
       message.success("Deleted");
       setDeleteConfirm(null);
@@ -853,7 +853,7 @@ const Documents = () => {
       }
     : undefined;
 
-  // ── Show a loading state while tenant resolves ────────────────────────────
+  // ---------------- Show a loading state while tenant resolves --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   if (tenantLoading) {
     return (
       <div
@@ -873,7 +873,7 @@ const Documents = () => {
               borderTopColor: "#1a73e8",
             }}
           />
-          <div style={{ fontSize: 14 }}>Loading workspace…</div>
+          <div style={{ fontSize: 14 }}>Loading workspace-------</div>
         </div>
       </div>
     );
@@ -891,7 +891,7 @@ const Documents = () => {
         }}
       >
         <div style={{ textAlign: "center", color: dark ? "#9ca3af" : "#5f6368" }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>------------</div>
           <div
             style={{
               fontSize: 16,
@@ -1110,7 +1110,7 @@ const Documents = () => {
               color: dark ? "#9ca3af" : "#5f6368",
             }}
           >
-            <div style={{ fontSize: 64, marginBottom: 16 }}>📂</div>
+            <div style={{ fontSize: 64, marginBottom: 16 }}>----------</div>
             <div
               style={{
                 fontSize: 18,
@@ -1676,7 +1676,7 @@ const Documents = () => {
             }}
           >
             <div style={{ padding: 24 }}>
-              <div style={{ fontSize: 36, marginBottom: 8 }}>☁️</div>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>------------</div>
               <p
                 style={{
                   fontSize: 14,
@@ -1732,7 +1732,7 @@ const Documents = () => {
   );
 };
 
-// ─── Shared Styles ────────────────────────────────────────────────────────────
+// ------------------------ Shared Styles ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const actionBtnStyle = {
   display: "flex",
   alignItems: "center",
@@ -1965,3 +1965,5 @@ const spinnerStyle = {
 };
 
 export default Documents;
+
+

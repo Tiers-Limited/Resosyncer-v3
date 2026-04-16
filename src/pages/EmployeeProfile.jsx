@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import {
   Form,
   Input,
@@ -67,20 +67,20 @@ const otpEmailHtml = (otp, name) => `
   </div>
 `;
 
-/* ─── Constants ─────────────────────────────────────────────────────── */
+/* ------------------------ Constants -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const CURRENCIES = [
   { code: "USD", symbol: "$", name: "US Dollar" },
-  { code: "EUR", symbol: "€", name: "Euro" },
-  { code: "GBP", symbol: "£", name: "British Pound" },
-  { code: "PKR", symbol: "₨", name: "Pakistani Rupee" },
-  { code: "INR", symbol: "₹", name: "Indian Rupee" },
-  { code: "AED", symbol: "د.إ", name: "UAE Dirham" },
-  { code: "SAR", symbol: "﷼", name: "Saudi Riyal" },
+  { code: "EUR", symbol: "-------", name: "Euro" },
+  { code: "GBP", symbol: "----", name: "British Pound" },
+  { code: "PKR", symbol: "-------", name: "Pakistani Rupee" },
+  { code: "INR", symbol: "-------", name: "Indian Rupee" },
+  { code: "AED", symbol: "----.----", name: "UAE Dirham" },
+  { code: "SAR", symbol: "------", name: "Saudi Riyal" },
   { code: "CAD", symbol: "CA$", name: "Canadian Dollar" },
   { code: "AUD", symbol: "A$", name: "Australian Dollar" },
   { code: "SGD", symbol: "S$", name: "Singapore Dollar" },
-  { code: "JPY", symbol: "¥", name: "Japanese Yen" },
-  { code: "CNY", symbol: "¥", name: "Chinese Yuan" },
+  { code: "JPY", symbol: "----", name: "Japanese Yen" },
+  { code: "CNY", symbol: "----", name: "Chinese Yuan" },
   { code: "CHF", symbol: "Fr", name: "Swiss Franc" },
   { code: "OTHER", symbol: "", name: "Other (specify)" },
 ];
@@ -229,13 +229,13 @@ const getAvatarColor = (name = "") => {
 };
 
 const isDarkModeActive = () => {
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 };
 
-/* ─── CSS ─────────────────────────────────────────────────────────────── */
+/* ------------------------ CSS ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap');
 
@@ -601,7 +601,7 @@ const CSS = `
 }
 `;
 
-/* ─── Salary display helper ─────────────────────────────────────────── */
+/* ------------------------ Salary display helper -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const SalaryDisplay = ({ profile }) => {
   const cur = profile?.currency || "PKR";
   const sym = CURRENCIES.find((c) => c.code === cur)?.symbol || cur;
@@ -613,7 +613,7 @@ const SalaryDisplay = ({ profile }) => {
           <div className="ep-salary-value">
             {sym} {parseFloat(profile.salary_amount).toLocaleString()}
           </div>
-          <div className="ep-salary-sub">Fixed • {cur}</div>
+          <div className="ep-salary-sub">Fixed ------- {cur}</div>
         </div>
         <div className="ep-salary-badge">
           <div style={{ fontSize: 10, color: "#64748b", marginBottom: 2 }}>
@@ -652,7 +652,7 @@ const SalaryDisplay = ({ profile }) => {
   return null;
 };
 
-/* ═══════════════════════════════════════════════════════════════════════ */
+/* ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const EmployeeProfile = () => {
   const [form] = Form.useForm();
   const [passwordForm] = Form.useForm();
@@ -681,10 +681,10 @@ const EmployeeProfile = () => {
   const [resendCooldown, setResendCooldown] = useState(0);
   const { profile, refreshProfile } = useAuth();
 
-  // ─── This ref holds ALL field values across all tabs at all times ───
+  // ------------------------ This ref holds ALL field values across all tabs at all times ------------------------
   const allValuesRef = useRef({});
 
-  // ─── Seed ref + form when profile loads ────────────────────────────
+  // ------------------------ Seed ref + form when profile loads --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   useEffect(() => {
     if (!profile) return;
 
@@ -816,14 +816,14 @@ const EmployeeProfile = () => {
     loadTwoFactorStatus();
   }, [profile?.id]);
 
-  // ─── Sync form → ref on every field change ─────────────────────────
+  // ------------------------ Sync form -------- ref on every field change --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const handleValuesChange = (_, allCurrentValues) => {
     allValuesRef.current = { ...allValuesRef.current, ...allCurrentValues };
   };
 
-  // ─── When switching tabs: flush current tab's values into ref,
+  // ------------------------ When switching tabs: flush current tab's values into ref,
   //     then set ALL values from ref onto the form so the next tab
-  //     mounts with its fields already populated ─────────────────────
+  //     mounts with its fields already populated ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const handleTabSwitch = (tabKey) => {
     // Capture whatever is mounted right now before unmounting
     const currentFormValues = form.getFieldsValue();
@@ -837,7 +837,7 @@ const EmployeeProfile = () => {
     }, 0);
   };
 
-  // ─── Save: always use ref (complete data) ─────────────────────────
+  // ------------------------ Save: always use ref (complete data) --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const handleUpdateProfile = async () => {
     try {
       // Validate only the currently visible fields
@@ -1242,15 +1242,15 @@ const EmployeeProfile = () => {
           img.src = url;
         });
 
-      // ── White background ──────────────────────────────────────────
+      // ---------------- White background ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
       doc.setFillColor(255, 255, 255);
       doc.rect(0, 0, PAGE_W, PAGE_H, "F");
 
-      // ── Top navy bar ──────────────────────────────────────────────
+      // ---------------- Top navy bar --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
       doc.setFillColor(10, 15, 36);
       doc.rect(0, 0, PAGE_W, 4, "F");
 
-      // ── Header ────────────────────────────────────────────────────
+      // ---------------- Header --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
       const HEADER_Y = 28;
       const BADGE = 34;
 
@@ -1295,7 +1295,7 @@ const EmployeeProfile = () => {
       doc.setFontSize(8.5);
       doc.setTextColor(160, 160, 170);
       doc.text(
-        `Salary Slip  ·  ${payrollMonthLabel}`,
+        `Salary Slip  ----  ${payrollMonthLabel}`,
         MARGIN + BADGE + 10,
         HEADER_Y + 26,
       );
@@ -1318,7 +1318,7 @@ const EmployeeProfile = () => {
         align: "right",
       });
 
-      // ── Separator ─────────────────────────────────────────────────
+      // ---------------- Separator --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
       const sep = (y) => {
         doc.setDrawColor(229, 231, 235);
         doc.setLineWidth(0.4);
@@ -1329,7 +1329,7 @@ const EmployeeProfile = () => {
       sep(Y);
       Y += 10;
 
-      // ── Info grid (4 columns) ─────────────────────────────────────
+      // ---------------- Info grid (4 columns) --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
       const infoField = (label, value, x, y) => {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(7);
@@ -1352,7 +1352,7 @@ const EmployeeProfile = () => {
       sep(Y);
       Y += 10;
 
-      // ── Table helper ──────────────────────────────────────────────
+      // ---------------- Table helper --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
       const drawTable = (title, rows, startY) => {
         // Section title
         doc.setFont("helvetica", "bold");
@@ -1415,7 +1415,7 @@ const EmployeeProfile = () => {
       sep(Y);
       Y += 10;
 
-      // ── Net Pay box ───────────────────────────────────────────────
+      // ---------------- Net Pay box ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
       doc.setDrawColor(10, 15, 36);
       doc.setLineWidth(0.5);
       doc.roundedRect(MARGIN, Y, CONTENT_W, 38, 4, 4, "S");
@@ -1434,7 +1434,7 @@ const EmployeeProfile = () => {
       doc.setTextColor(10, 15, 36);
       doc.text(amountText, PAGE_W - MARGIN - 12, Y + 25, { align: "right" });
 
-      // ── Footer ────────────────────────────────────────────────────
+      // ---------------- Footer --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
       const FOOTER_Y = PAGE_H - 38;
       sep(FOOTER_Y);
 
@@ -1447,7 +1447,7 @@ const EmployeeProfile = () => {
         FOOTER_Y + 12,
       );
       doc.text(
-        "Confidential — intended solely for the named employee.",
+        "Confidential -------- intended solely for the named employee.",
         MARGIN,
         FOOTER_Y + 22,
       );
@@ -1455,7 +1455,7 @@ const EmployeeProfile = () => {
         align: "right",
       });
 
-      // ── Bottom navy bar ───────────────────────────────────────────
+      // ---------------- Bottom navy bar --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
       doc.setFillColor(10, 15, 36);
       doc.rect(0, PAGE_H - 4, PAGE_W, 4, "F");
 
@@ -1470,7 +1470,7 @@ const EmployeeProfile = () => {
     }
   };
 
-  // ─── Shared save button ─────────────────────────────────────────────
+  // ------------------------ Shared save button ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const SaveBar = () => (
     <div className="ep-save-bar">
       <Button
@@ -1536,7 +1536,7 @@ const EmployeeProfile = () => {
           </Upload>
         </div>
         <div className="ep-hero-info">
-          <div className="ep-hero-name">{profile?.full_name || "—"}</div>
+          <div className="ep-hero-name">{profile?.full_name || "--------"}</div>
           <div className="ep-hero-role">{roleLabel}</div>
           <div className="ep-hero-chips">
             {profile?.email && (
@@ -1584,15 +1584,15 @@ const EmployeeProfile = () => {
         ))}
       </div>
 
-      {/* ── Single Form wrapping ALL tabs ─────────────────────────────
+      {/* ---------------- Single Form wrapping ALL tabs ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
            preserveValue keeps unmounted fields' values in the store  */}
       <Form
         form={form}
         layout="vertical"
         onValuesChange={handleValuesChange}
-        // Do NOT use onFinish here — we call handleUpdateProfile manually
+        // Do NOT use onFinish here -------- we call handleUpdateProfile manually
       >
-        {/* ── Personal Tab ── */}
+        {/* ---------------- Personal Tab ---------------- */}
         {activeTab === "personal" && (
           <>
             <div className="ep-sec">
@@ -1645,14 +1645,14 @@ const EmployeeProfile = () => {
                 <TextArea rows={2} placeholder="Street, City, Country" />
               </Form.Item>
               <Form.Item name="bio" label="Bio">
-                <TextArea rows={3} placeholder="Tell us about yourself…" />
+                <TextArea rows={3} placeholder="Tell us about yourself-------" />
               </Form.Item>
             </div>
             <SaveBar />
           </>
         )}
 
-        {/* ── Work Tab ── */}
+        {/* ---------------- Work Tab ---------------- */}
         {activeTab === "work" && (
           <>
             <div className="ep-sec">
@@ -1712,7 +1712,7 @@ const EmployeeProfile = () => {
               <Form.Item name="skills" label="Skills">
                 <Select
                   mode="multiple"
-                  placeholder="Add skills…"
+                  placeholder="Add skills-------"
                   allowClear
                   showSearch
                 >
@@ -1776,7 +1776,7 @@ const EmployeeProfile = () => {
           </>
         )}
 
-        {/* ── Emergency Tab ── */}
+        {/* ---------------- Emergency Tab ---------------- */}
         {activeTab === "emergency" && (
           <>
             <div className="ep-sec">
@@ -1801,7 +1801,7 @@ const EmployeeProfile = () => {
           </>
         )}
 
-        {/* ── Bank Tab ── */}
+        {/* ---------------- Bank Tab ---------------- */}
         {activeTab === "bank" && (
           <>
             <div className="ep-sec">
@@ -1819,7 +1819,7 @@ const EmployeeProfile = () => {
                     </span>
                   }
                 >
-                  <Input placeholder="e.g. HSBC, Chase, Meezan Bank…" />
+                  <Input placeholder="e.g. HSBC, Chase, Meezan Bank-------" />
                 </Form.Item>
                 <Form.Item name="bank_account_name" label="Account Holder Name">
                   <Input placeholder="As on bank records" />
@@ -1854,7 +1854,7 @@ const EmployeeProfile = () => {
                       <Select.Option key={c.code} value={c.code}>
                         {c.code === "OTHER"
                           ? "Other (type manually)"
-                          : `${c.symbol} ${c.code} — ${c.name}`}
+                          : `${c.symbol} ${c.code} -------- ${c.name}`}
                       </Select.Option>
                     ))}
                   </Select>
@@ -2240,7 +2240,7 @@ const EmployeeProfile = () => {
         </Button>
       </Modal>
 
-      {/* ── Password Tab — separate form, no data conflict ── */}
+      {/* ---------------- Password Tab -------- separate form, no data conflict ---------------- */}
       {activeTab === "password" && (
         <div className="ep-pw-card">
           <div className="ep-pw-note">
@@ -2310,3 +2310,5 @@ const EmployeeProfile = () => {
 };
 
 export default EmployeeProfile;
+
+

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+﻿import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { supabase } from "../lib/supabase";
 import {
   Modal,
@@ -56,7 +56,7 @@ dayjs.extend(isSameOrAfter);
 const { Option } = Select;
 const { TextArea } = Input;
 
-// ─── Groq ─────────────────────────────────────────────────────────────────────
+// - Groq -
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_API_KEY = import.meta.env.VITE_GROK_API_KEY;
 const EMAIL_API = import.meta.env.VITE_EMAIL_API_URL;
@@ -97,7 +97,7 @@ const sendEmail = async ({ to, subject, body, companyName }) => {
   }
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// - Helpers -
 const AVATAR_COLORS = [
   ["#dbeafe", "#2563eb"],
   ["#dcfce7", "#16a34a"],
@@ -163,7 +163,7 @@ function getStatusColor(status) {
 }
 
 function getIsDarkTheme() {
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -197,7 +197,23 @@ function parseDateValue(value) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-// ─── Avatar ───────────────────────────────────────────────────────────────────
+function getDurationMinutes(meeting) {
+  const numeric = Number(meeting?.duration);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : 60;
+}
+
+function getComputedMeetingStatus(meeting, now = dayjs()) {
+  if (meeting?.status === "ended") return "ended";
+  const start = dayjs(meeting?.meeting_date);
+  if (!start.isValid()) return meeting?.status || "scheduled";
+
+  const end = start.add(getDurationMinutes(meeting), "minute");
+  if (now.isBefore(start)) return "scheduled";
+  if (now.isBefore(end)) return "live";
+  return "ended";
+}
+
+// - Avatar -
 function UserAvatar({ profile, size = 32 }) {
   const [bg, fg] = avatarColor(profile?.full_name || profile?.email || "");
   if (profile?.user_photo) {
@@ -237,7 +253,7 @@ function UserAvatar({ profile, size = 32 }) {
   );
 }
 
-// ─── FREE PLAN PAYWALL ────────────────────────────────────────────────────────
+// - FREE PLAN PAYWALL -
 function FreePlanPaywall({ navigate, dark = false }) {
   const features = [
     {
@@ -348,7 +364,7 @@ function FreePlanPaywall({ navigate, dark = false }) {
 
   return (
     <div style={{ minHeight: "100vh", background: ui.pageBg }}>
-      {/* ── Header — mirrors the real Meetings page header ── */}
+      {/* - Header - mirrors the real Meetings page header - */}
       <div
         style={{
           background: ui.headerBg,
@@ -380,7 +396,7 @@ function FreePlanPaywall({ navigate, dark = false }) {
               Meetings
             </h1>
             <p style={{ margin: 0, color: ui.sub, fontSize: 13 }}>
-              Schedule · Join · Summarise — all in one place
+              Schedule - Join - Summarise - all in one place
             </p>
           </div>
 
@@ -410,7 +426,7 @@ function FreePlanPaywall({ navigate, dark = false }) {
       </div>
 
       <div style={{ padding: "0 28px 40px" }}>
-        {/* ── Blurred mock KPI strip ── */}
+        {/* - Blurred mock KPI strip - */}
         <div
           style={{
             display: "grid",
@@ -481,7 +497,7 @@ function FreePlanPaywall({ navigate, dark = false }) {
           ))}
         </div>
 
-        {/* ── Main paywall card ── */}
+        {/* - Main paywall card - */}
         <div
           style={{
             position: "relative",
@@ -686,7 +702,7 @@ function FreePlanPaywall({ navigate, dark = false }) {
                 lineHeight: 1.6,
               }}
             >
-              A complete meeting platform — from HD video rooms and smart
+              A complete meeting platform - from HD video rooms and smart
               scheduling to AI-generated summaries, recordings, and real-time
               team visibility.
             </p>
@@ -953,9 +969,9 @@ function FreePlanPaywall({ navigate, dark = false }) {
                         }}
                       >
                         <span>{m.time}</span>
-                        <span>·</span>
+                        <span>-</span>
                         <span>{m.dur} min</span>
-                        <span>·</span>
+                        <span>-</span>
                         <span>{m.people} people</span>
                       </div>
                     </div>
@@ -1051,7 +1067,7 @@ function FreePlanPaywall({ navigate, dark = false }) {
   );
 }
 
-// ─── Calendar Grid ────────────────────────────────────────────────────────────
+// - Calendar Grid -
 function CalendarView({
   meetings,
   currentMonth,
@@ -1059,6 +1075,7 @@ function CalendarView({
   selectedDay,
   onMeetingClick,
   dark = false,
+  isMobile = false,
 }) {
   const startOfMonth = currentMonth.startOf("month");
   const endOfMonth = currentMonth.endOf("month");
@@ -1128,6 +1145,8 @@ function CalendarView({
         overflow: "hidden",
       }}
     >
+      <div style={{ overflowX: isMobile ? "auto" : "visible" }}>
+      <div style={{ minWidth: isMobile ? 700 : "auto" }}>
       <div
         style={{
           display: "grid",
@@ -1264,7 +1283,7 @@ function CalendarView({
                               (e.currentTarget.style.opacity = "1")
                             }
                           >
-                            {m.status === "live" && "● "}
+                            {m.status === "live" && "- "}
                             {fmtTime(m.meeting_date)} {m.title}
                           </div>
                         );
@@ -1289,11 +1308,13 @@ function CalendarView({
           })}
         </div>
       ))}
+      </div>
+      </div>
     </div>
   );
 }
 
-// ─── Meeting Detail Panel ─────────────────────────────────────────────────────
+// - Meeting Detail Panel -
 function MeetingDetailPanel({
   meeting,
   profiles,
@@ -1305,6 +1326,7 @@ function MeetingDetailPanel({
   currentUser,
   userId,
   onDelete,
+  isMobile = false,
 }) {
   if (!meeting) return null;
   const c = getStatusColor(meeting.status);
@@ -1332,9 +1354,9 @@ function MeetingDetailPanel({
         right: 0,
         top: 0,
         bottom: 0,
-        width: 380,
+        width: isMobile ? "100vw" : 380,
         background: "#fff",
-        borderLeft: "1px solid #f1f5f9",
+        borderLeft: isMobile ? "none" : "1px solid #f1f5f9",
         boxShadow: "-8px 0 32px rgba(0,0,0,0.06)",
         zIndex: 1060,
         display: "flex",
@@ -1441,7 +1463,7 @@ function MeetingDetailPanel({
         >
           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <Clock size={12} />
-            {fmtTime(meeting.meeting_date)} · {meeting.duration || "—"} min
+            {fmtTime(meeting.meeting_date)} - {meeting.duration || "-"} min
           </span>
           {meeting.is_recurring && (
             <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -1490,7 +1512,7 @@ function MeetingDetailPanel({
               marginBottom: 10,
             }}
           >
-            Participants · {attendeeProfiles.length}
+            Participants - {attendeeProfiles.length}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {attendeeProfiles.map((p, i) => (
@@ -1776,7 +1798,7 @@ function MeetingDetailPanel({
   );
 }
 
-// ─── Day Agenda List ──────────────────────────────────────────────────────────
+// - Day Agenda List -
 function DayAgendaList({
   meetings,
   selectedDay,
@@ -1989,8 +2011,8 @@ function DayAgendaList({
                           <Clock size={10} />
                           {fmtTime(m.meeting_date)}
                         </span>
-                        <span>·</span>
-                        <span>{m.duration || "—"} min</span>
+                        <span>-</span>
+                        <span>{m.duration || "-"} min</span>
                       </div>
                     </div>
                     <div
@@ -2101,10 +2123,13 @@ function DayAgendaList({
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// - Main Component -
 export default function MeetingsPage() {
   const navigate = useNavigate();
   const [dark, setDark] = useState(getIsDarkTheme);
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth : 1440,
+  );
 
   const [tenantId, setTenantId] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
@@ -2120,7 +2145,7 @@ export default function MeetingsPage() {
   const [copiedLink, setCopiedLink] = useState(null);
   const [search, setSearch] = useState("");
 
-  // ── Subscription detection ────────────────────────────────────────────────
+  // - Subscription detection -
   const [tenantSubscription, setTenantSubscription] = useState(null);
   const [planLoading, setPlanLoading] = useState(true);
 
@@ -2143,10 +2168,11 @@ export default function MeetingsPage() {
   const [summaryMeeting, setSummaryMeeting] = useState(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryData, setSummaryData] = useState(null);
+  const [statusNow, setStatusNow] = useState(() => dayjs());
 
   const meetingsChannelRef = useRef(null);
 
-  // ── Init ──────────────────────────────────────────────────────────────────
+  // - Init -
   useEffect(() => {
     const init = async () => {
       try {
@@ -2163,7 +2189,7 @@ export default function MeetingsPage() {
         setCurrentUser(profile);
         setTenantId(profile?.tenant_id ?? null);
 
-        // ── Fetch tenant subscription validity info ─────────────────────────
+        // - Fetch tenant subscription validity info -
         if (profile?.tenant_id) {
           const { data: tenantSubscriptionRow } = await supabase
             .from("tenants")
@@ -2205,6 +2231,19 @@ export default function MeetingsPage() {
       window.removeEventListener("themeModeChanged", syncTheme);
       mediaQuery.removeEventListener("change", syncTheme);
     };
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => setStatusNow(dayjs()), 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const syncViewport = () => setViewportWidth(window.innerWidth);
+    syncViewport();
+    window.addEventListener("resize", syncViewport);
+    return () => window.removeEventListener("resize", syncViewport);
   }, []);
 
   const fetchProfiles = async () => {
@@ -2272,7 +2311,7 @@ export default function MeetingsPage() {
     meetingsChannelRef.current = ch;
   };
 
-  // ── Actions ───────────────────────────────────────────────────────────────
+  // - Actions -
   const openMeetingRoom = async (meeting) => {
     if (meeting.status === "scheduled") {
       await supabase
@@ -2502,14 +2541,27 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
     }
   };
 
-  // ── Derived ───────────────────────────────────────────────────────────────
+  // - Derived -
+  const meetingsWithComputedStatus = useMemo(
+    () =>
+      meetings.map((m) => ({
+        ...m,
+        status: getComputedMeetingStatus(m, statusNow),
+      })),
+    [meetings, statusNow],
+  );
+
   const filteredMeetings = search
-    ? meetings.filter((m) =>
+    ? meetingsWithComputedStatus.filter((m) =>
         m.title?.toLowerCase().includes(search.toLowerCase()),
       )
-    : meetings;
+    : meetingsWithComputedStatus;
 
-  const liveMeetings = meetings.filter((m) => m.status === "live");
+  const liveMeetings = meetingsWithComputedStatus.filter(
+    (m) => m.status === "live",
+  );
+  const isMobile = viewportWidth < 768;
+  const isTablet = viewportWidth < 1100;
   const filteredProfiles = profiles.filter(
     (p) =>
       p.id !== userId &&
@@ -2517,11 +2569,11 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
       (p.full_name?.toLowerCase().includes(participantSearch.toLowerCase()) ||
         p.email?.toLowerCase().includes(participantSearch.toLowerCase())),
   );
-  const todayMeetings = meetings.filter((m) =>
+  const todayMeetings = meetingsWithComputedStatus.filter((m) =>
     dayjs(m.meeting_date).isSame(dayjs(), "day"),
   );
 
-  // ── Subscription validity check ──────────────────────────────────────────
+  // - Subscription validity check -
   // Meetings are available on all plans while the subscription is active.
   const isMeetingsLocked = (() => {
     if (!tenantId) return false;
@@ -2569,14 +2621,14 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
         <div style={{ textAlign: "center" }}>
           <Spin size="large" />
           <p style={{ marginTop: 16, color: "#94a3b8", fontSize: 13 }}>
-            Loading your workspace…
+            Loading your workspace-
           </p>
         </div>
       </div>
     );
   }
 
-  // ── FREE PLAN: show paywall instead of full page ──────────────────────────
+  // - FREE PLAN: show paywall instead of full page -
   if (isMeetingsLocked) {
     return (
       <div
@@ -2593,7 +2645,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
     );
   }
 
-  // ── FULL PAGE (paid plans) ────────────────────────────────────────────────
+  // - FULL PAGE (paid plans) -
   return (
     <div
       className={`meetings-page${dark ? " dark" : ""}`}
@@ -2612,14 +2664,23 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
           background: "rgba(255,255,255,0.92)",
           backdropFilter: "blur(12px)",
           borderBottom: "1px solid #f1f5f9",
-          padding: "0 28px",
-          height: 60,
+          padding: isMobile ? "10px 12px" : "0 28px",
+          minHeight: 60,
           display: "flex",
           alignItems: "center",
           gap: 16,
+          flexWrap: "wrap",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            flex: isMobile ? 1 : "0 1 auto",
+            minWidth: 0,
+          }}
+        >
           <div
             style={{
               width: 32,
@@ -2652,13 +2713,20 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                 <span
                   style={{ marginLeft: 8, color: "#22c55e", fontWeight: 700 }}
                 >
-                  ● {liveMeetings.length} live
+                  - {liveMeetings.length} live
                 </span>
               )}
             </div>
           </div>
         </div>
-        <div style={{ position: "relative", marginLeft: "auto" }}>
+        <div
+          style={{
+            position: "relative",
+            marginLeft: isMobile ? 0 : "auto",
+            width: isMobile ? "100%" : "auto",
+            order: isMobile ? 3 : 0,
+          }}
+        >
           <Search
             size={13}
             style={{
@@ -2671,7 +2739,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
             }}
           />
           <input
-            placeholder="Search meetings…"
+            placeholder="Search meetings-"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{
@@ -2685,7 +2753,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
               fontSize: 13,
               color: "#374151",
               outline: "none",
-              width: 200,
+              width: isMobile ? "100%" : 200,
             }}
           />
         </div>
@@ -2697,6 +2765,10 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
             borderRadius: 10,
             padding: 3,
             gap: 2,
+            marginLeft: isMobile ? 0 : undefined,
+            marginRight: isMobile ? 0 : undefined,
+            order: isMobile ? 1 : 0,
+            marginTop: isMobile ? 0 : undefined,
           }}
         >
           {[
@@ -2744,6 +2816,9 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
               boxShadow: dark
                 ? "0 2px 10px rgba(0,0,0,0.28)"
                 : "0 4px 12px rgba(59,130,246,0.35)",
+              width: isMobile ? "100%" : "auto",
+              justifyContent: "center",
+              order: isMobile ? 2 : 0,
             }}
           >
             <Plus size={14} /> New Meeting
@@ -2757,10 +2832,11 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
           style={{
             background: "linear-gradient(135deg, #dcfce7, #d1fae5)",
             borderBottom: "1px solid #a7f3d0",
-            padding: "10px 28px",
+            padding: isMobile ? "10px 12px" : "10px 28px",
             display: "flex",
             alignItems: "center",
             gap: 12,
+            flexWrap: "wrap",
           }}
         >
           <div
@@ -2777,7 +2853,14 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
             {liveMeetings.length} meeting{liveMeetings.length > 1 ? "s" : ""} in
             progress
           </span>
-          <div style={{ display: "flex", gap: 8, marginLeft: 4 }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              marginLeft: 4,
+              flexWrap: "wrap",
+            }}
+          >
             {liveMeetings.slice(0, 3).map((m) => (
               <button
                 key={m.id}
@@ -2819,8 +2902,9 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
         <div
           style={{
             display: "flex",
-            height: "calc(100vh - 60px)",
-            overflow: "hidden",
+            flexDirection: isMobile ? "column" : "row",
+            height: isMobile ? "auto" : "calc(100vh - 60px)",
+            overflow: isMobile ? "visible" : "hidden",
             background: dark ? "#141416" : "transparent",
           }}
         >
@@ -2828,7 +2912,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
             style={{
               flex: 1,
               overflowY: "auto",
-              padding: 28,
+              padding: isMobile ? 12 : 28,
               background: dark ? "#141416" : "transparent",
             }}
           >
@@ -2838,6 +2922,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                 alignItems: "center",
                 gap: 12,
                 marginBottom: 20,
+                flexWrap: "wrap",
               }}
             >
               <button
@@ -2863,6 +2948,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                   fontWeight: 800,
                   color: "#0f172a",
                   flex: 1,
+                  minWidth: isMobile ? "100%" : 0,
                 }}
               >
                 {currentMonth.format("MMMM YYYY")}
@@ -2903,24 +2989,27 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                 <ChevronRight size={16} />
               </button>
             </div>
-            <CalendarView
-              meetings={filteredMeetings}
-              currentMonth={currentMonth}
+              <CalendarView
+                meetings={filteredMeetings}
+                currentMonth={currentMonth}
               onDayClick={(day) =>
                 setSelectedDay(selectedDay === day ? null : day)
               }
-              selectedDay={selectedDay}
-              onMeetingClick={(m) => setSelectedMeeting(m)}
-              dark={dark}
-            />
+                selectedDay={selectedDay}
+                onMeetingClick={(m) => setSelectedMeeting(m)}
+                dark={dark}
+                isMobile={isMobile}
+              />
           </div>
           <div
             style={{
-              width: 300,
-              borderLeft: "1px solid #f1f5f9",
+              width: isMobile ? "100%" : 300,
+              borderLeft: isMobile ? "none" : "1px solid #f1f5f9",
+              borderTop: isMobile ? "1px solid #f1f5f9" : "none",
               background: "#fff",
               flexShrink: 0,
               overflowY: "auto",
+              maxHeight: isMobile ? "none" : undefined,
             }}
           >
             <DayAgendaList
@@ -2937,9 +3026,15 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
           </div>
         </div>
       ) : (
-        <div style={{ margin: "0 auto", padding: "28px 24px" }}>
+        <div style={{ margin: "0 auto", padding: isMobile ? "16px 12px" : "28px 24px" }}>
           {["live", "scheduled", "ended"].map((status) => {
-            const group = filteredMeetings.filter((m) => m.status === status);
+            const group = filteredMeetings
+              .filter((m) => m.status === status)
+              .sort((a, b) => {
+                const aTs = dayjs(a.meeting_date).valueOf();
+                const bTs = dayjs(b.meeting_date).valueOf();
+                return status === "ended" ? bTs - aTs : aTs - bTs;
+              });
             if (group.length === 0) return null;
             const labels = {
               live: "Live Now",
@@ -3017,7 +3112,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                           border: dark
                             ? "none"
                             : `1px solid ${status === "live" ? c.border : "#f1f5f9"}`,
-                          padding: "16px 20px",
+                          padding: isMobile ? "14px" : "16px 20px",
                           cursor: "pointer",
                           transition: "all 0.15s",
                           borderLeft: dark ? "none" : `3px solid ${c.dot}`,
@@ -3037,6 +3132,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                             display: "flex",
                             alignItems: "flex-start",
                             gap: 16,
+                            flexDirection: isMobile ? "column" : "row",
                           }}
                         >
                           <div
@@ -3093,7 +3189,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                                 }}
                               >
                                 <Clock size={10} />
-                                {m.duration || "—"} min
+                                {m.duration || "-"} min
                               </span>
                               <span
                                 style={{
@@ -3134,9 +3230,12 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                           <div
                             style={{
                               display: "flex",
-                              alignItems: "center",
+                              alignItems: isMobile ? "flex-start" : "center",
                               gap: 12,
                               flexShrink: 0,
+                              width: isMobile ? "100%" : "auto",
+                              justifyContent: isMobile ? "space-between" : "flex-start",
+                              flexWrap: "wrap",
                             }}
                           >
                             <div
@@ -3288,6 +3387,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
             currentUser={currentUser}
             userId={userId}
             onDelete={deleteMeeting}
+            isMobile={isMobile}
           />
         </>
       )}
@@ -3297,7 +3397,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
         open={showCreate}
         onCancel={() => setShowCreate(false)}
         footer={null}
-        width={580}
+        width={isMobile ? "96vw" : 580}
         centered
         destroyOnClose
         wrapClassName={dark ? "meetings-dark-modal" : undefined}
@@ -3356,7 +3456,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
           <div
             style={{
               overflowY: "auto",
-              padding: "10px 10px",
+              padding: isMobile ? "10px 12px" : "10px 10px",
               display: "flex",
               flexDirection: "column",
               gap: 18,
@@ -3378,7 +3478,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                 Title <span style={{ color: "#ef4444" }}>*</span>
               </label>
               <Input
-                placeholder="e.g. Sprint Planning · Team Sync · Design Review"
+                placeholder="e.g. Sprint Planning - Team Sync - Design Review"
                 value={form.title}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, title: e.target.value }))
@@ -3428,7 +3528,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
+                  gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
                   gap: 10,
                 }}
               >
@@ -3511,7 +3611,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                   }}
                 />
                 <Input
-                  placeholder="Search teammates…"
+                  placeholder="Search teammates-"
                   value={participantSearch}
                   onChange={(e) => setParticipantSearch(e.target.value)}
                   style={{ borderRadius: 10, paddingLeft: 32 }}
@@ -3624,7 +3724,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr 1fr",
+                gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr",
                 gap: 12,
               }}
             >
@@ -3802,7 +3902,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                           ),
                         )
                       }
-                      placeholder="Agenda item…"
+                      placeholder="Agenda item-"
                       style={{
                         flex: 1,
                         background: "transparent",
@@ -3960,7 +4060,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                 }}
               >
                 {creating ? <Spin size="small" /> : <Calendar size={13} />}
-                {creating ? "Creating…" : "Create Meeting"}
+                {creating ? "Creating-" : "Create Meeting"}
               </button>
             </div>
           </div>
@@ -4049,7 +4149,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
               >
                 <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                   <Clock size={11} />
-                  {summaryMeeting.duration || "—"} min
+                  {summaryMeeting.duration || "-"} min
                 </span>
                 <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                   <Users size={11} />
@@ -4090,7 +4190,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                         color: dark ? "#c4b5fd" : "#4c1d95",
                       }}
                     >
-                      Analyzing meeting…
+                      Analyzing meeting-
                     </div>
                     <div
                       style={{
@@ -4238,7 +4338,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                                     fontWeight: 600,
                                   }}
                                 >
-                                  {a.assignee} · {a.due}
+                                  {a.assignee} - {a.due}
                                 </div>
                               </div>
                             </div>
@@ -4435,7 +4535,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                 {summaryData && (
                   <button
                     onClick={() => {
-                      const text = `Meeting Summary: ${summaryMeeting.title}\n\n${summaryData.summary}\n\nKey Topics: ${(summaryData.keyTopics || []).join(", ")}\n\nAction Items:\n${summaryData.actionItems?.map((a) => `• ${a.text} (${a.assignee}, ${a.due})`).join("\n")}\n\nDecisions:\n${summaryData.decisions?.map((d) => `• ${d}`).join("\n")}`;
+                      const text = `Meeting Summary: ${summaryMeeting.title}\n\n${summaryData.summary}\n\nKey Topics: ${(summaryData.keyTopics || []).join(", ")}\n\nAction Items:\n${summaryData.actionItems?.map((a) => `- ${a.text} (${a.assignee}, ${a.due})`).join("\n")}\n\nDecisions:\n${summaryData.decisions?.map((d) => `- ${d}`).join("\n")}`;
                       navigator.clipboard?.writeText(text);
                       message.success("Summary copied!");
                     }}
@@ -4572,3 +4672,4 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
     </div>
   );
 }
+

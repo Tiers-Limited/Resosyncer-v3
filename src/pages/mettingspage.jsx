@@ -44,7 +44,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 
-// â”€â”€â”€ ICE Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// - ICE Config -
 const ICE_SERVERS = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
@@ -54,7 +54,7 @@ const ICE_SERVERS = {
   ],
 };
 
-// â”€â”€â”€ Groq â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// - Groq -
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_API_KEY = import.meta.env.VITE_GROK_API_KEY;
 const EMAIL_API = import.meta.env.VITE_EMAIL_API_URL;
@@ -95,7 +95,7 @@ const sendEmail = async ({ to, subject, body, companyName }) => {
   }
 };
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// - Helpers -
 const AVATAR_COLORS = [
   ["#e0e7ff", "#4338ca"],
   ["#dcfce7", "#15803d"],
@@ -162,7 +162,7 @@ function fmtMeetingDate(dt) {
 }
 
 function getIsDarkTheme() {
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -190,7 +190,7 @@ function createGuestProfile(roomId, name = "") {
   };
 }
 
-// â”€â”€â”€ Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// - Styles -
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -402,7 +402,7 @@ const styles = `
   .drawer-backdrop.open { opacity: 1; pointer-events: all; }
 `;
 
-// â”€â”€â”€ Avatar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// - Avatar -
 function UserAvatar({ profile, size = 32, online = false }) {
   const [bg, fg] = avatarColor(profile?.full_name || profile?.email || "");
   const avatar = profile?.user_photo ? (
@@ -460,7 +460,7 @@ function UserAvatar({ profile, size = 32, online = false }) {
   );
 }
 
-// â”€â”€â”€ RemoteAudio: dedicated component that attaches a remote audio stream â”€â”€â”€â”€â”€
+// - RemoteAudio: dedicated component that attaches a remote audio stream -
 // This is KEY - audio must be played via its own <audio> element, not piggy-backed on video
 function RemoteAudio({ stream }) {
   const audioRef = useRef(null);
@@ -482,7 +482,7 @@ function RemoteAudio({ stream }) {
   );
 }
 
-// â”€â”€â”€ VideoTile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// - VideoTile -
 function VideoTile({
   participant,
   isLocal,
@@ -620,11 +620,11 @@ function VideoTile({
           "Guest"}
         {isLocal ? " (You)" : ""}
         {participant.isHost && (
-          <span style={{ color: "var(--amber)", marginLeft: 4 }}>Â· Host</span>
+          <span style={{ color: "var(--amber)", marginLeft: 4 }}>- Host</span>
         )}
         {isScreenShare && (
           <span style={{ color: "var(--accent)", marginLeft: 4 }}>
-            Â· Screen
+            - Screen
           </span>
         )}
       </div>
@@ -700,7 +700,7 @@ function VideoTile({
   );
 }
 
-// â”€â”€â”€ Control Button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// - Control Button -
 function CtrlBtn({
   onClick,
   activeMuted,
@@ -755,14 +755,7 @@ function CtrlBtn({
   );
 }
 
-// â”€â”€â”€ Background Options â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-const MEETING_BG_IMAGES = {
-  bg1: "/meetings-bg/bg1.webp",
-  bg2: "/meetings-bg/bg2.avif",
-  bg3: "/meetings-bg/bg3.jpg",
-  bg4: "/meetings-bg/bg4.jpg",
-};
+// - Background Options -
 
 const BG_OPTIONS = [
   { id: "none", label: "None", style: { background: "#e6e5e0" } },
@@ -801,58 +794,6 @@ const BG_OPTIONS = [
     id: "space",
     label: "Space",
     style: { background: "linear-gradient(135deg,#0d0d2b,#1a1a4e,#16213e)" },
-  },
-  {
-    id: "bg1",
-    label: "Image 1",
-    isImage: true,
-    imageSrc: MEETING_BG_IMAGES.bg1,
-    style: {
-      backgroundImage: `url("${MEETING_BG_IMAGES.bg1}")`,
-      backgroundSize: "contain",
-      backgroundPosition: "center",
-      backgroundRepeat: "no-repeat",
-      backgroundColor: "#111827",
-    },
-  },
-  {
-    id: "bg2",
-    label: "Image 2",
-    isImage: true,
-    imageSrc: MEETING_BG_IMAGES.bg2,
-    style: {
-      backgroundImage: `url("${MEETING_BG_IMAGES.bg2}")`,
-      backgroundSize: "contain",
-      backgroundPosition: "center",
-      backgroundRepeat: "no-repeat",
-      backgroundColor: "#111827",
-    },
-  },
-  {
-    id: "bg3",
-    label: "Image 3",
-    isImage: true,
-    imageSrc: MEETING_BG_IMAGES.bg3,
-    style: {
-      backgroundImage: `url("${MEETING_BG_IMAGES.bg3}")`,
-      backgroundSize: "contain",
-      backgroundPosition: "center",
-      backgroundRepeat: "no-repeat",
-      backgroundColor: "#111827",
-    },
-  },
-  {
-    id: "bg4",
-    label: "Image 4",
-    isImage: true,
-    imageSrc: MEETING_BG_IMAGES.bg4,
-    style: {
-      backgroundImage: `url("${MEETING_BG_IMAGES.bg4}")`,
-      backgroundSize: "contain",
-      backgroundPosition: "center",
-      backgroundRepeat: "no-repeat",
-      backgroundColor: "#111827",
-    },
   },
 ];
 
@@ -932,7 +873,7 @@ function drawVirtualBackground(ctx, w, h, bgId, sourceVideo, bgImage) {
   switch (bgId) {
     case "blur":
       ctx.save();
-      ctx.filter = "blur(18px)";
+      ctx.filter = "blur(10px)";
       ctx.drawImage(sourceVideo, 0, 0, w, h);
       ctx.restore();
       break;
@@ -961,7 +902,7 @@ function drawVirtualBackground(ctx, w, h, bgId, sourceVideo, bgImage) {
   }
 }
 
-// â”€â”€â”€ Meeting Created Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// - Meeting Created Modal -
 function MeetingCreatedModal({ meeting, onJoin, onClose }) {
   const [copied, setCopied] = useState(false);
   const link = `${window.location.origin}/meet/${meeting.room_id || meeting.id}`;
@@ -1145,7 +1086,7 @@ function MeetingCreatedModal({ meeting, onJoin, onClose }) {
   );
 }
 
-// â”€â”€â”€ Lobby Screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// - Lobby Screen -
 function LobbyScreen({
   meeting,
   currentUser,
@@ -1341,7 +1282,7 @@ function LobbyScreen({
                 }}
               />
               {currentUser?.full_name || "You"}
-              {isHost && <span style={{ color: "var(--amber)" }}>Â· Host</span>}
+              {isHost && <span style={{ color: "var(--amber)" }}>- Host</span>}
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
@@ -1608,9 +1549,9 @@ function LobbyScreen({
                 <LogIn size={15} />
               )}
               {joining
-                ? "Connectingâ€¦"
+                ? "Connecting-"
                 : guestJoinStatus === "pending"
-                  ? "Waiting For Host Approvalâ€¦"
+                  ? "Waiting For Host Approval-"
                   : isHost
                     ? "Start Meeting"
                     : guestJoinStatus === "rejected"
@@ -1705,7 +1646,7 @@ function LobbyScreen({
               (e.currentTarget.style.color = "var(--text-3)")
             }
           >
-            â† Back to meetings
+            - Back to meetings
           </button>
         </div>
       </div>
@@ -1713,7 +1654,7 @@ function LobbyScreen({
   );
 }
 
-// â”€â”€â”€ Main Room â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// - Main Room -
 export default function MeetingRoom() {
   const { roomId } = useParams();
   const [dark, setDark] = useState(getIsDarkTheme);
@@ -1794,6 +1735,7 @@ export default function MeetingRoom() {
     selfieSegmentation: null,
     rafId: null,
     processing: false,
+    lastProcessAt: 0,
     outputStream: null,
     outputTrack: null,
   });
@@ -1822,7 +1764,6 @@ export default function MeetingRoom() {
 
     const promise = new Promise((resolve, reject) => {
       const img = new window.Image();
-      img.crossOrigin = "anonymous";
       img.onload = () => {
         bgImageCacheRef.current[bgId] = { img };
         resolve(img);
@@ -1840,6 +1781,7 @@ export default function MeetingRoom() {
     if (vb.rafId) cancelAnimationFrame(vb.rafId);
     vb.rafId = null;
     vb.processing = false;
+    vb.lastProcessAt = 0;
     try {
       vb.outputTrack?.stop();
     } catch {}
@@ -1901,16 +1843,12 @@ export default function MeetingRoom() {
       sourceVideo.srcObject = new MediaStream([camTrack]);
       await sourceVideo.play();
 
-      const width = Math.max(
-        settings.width || 0,
-        sourceVideo.videoWidth || 0,
-        1280,
-      );
-      const height = Math.max(
-        settings.height || 0,
-        sourceVideo.videoHeight || 0,
-        720,
-      );
+      const baseWidth = Math.max(settings.width || 0, sourceVideo.videoWidth || 0, 640);
+      const baseHeight = Math.max(settings.height || 0, sourceVideo.videoHeight || 0, 360);
+      const targetMaxWidth = 720;
+      const scale = Math.min(1, targetMaxWidth / baseWidth);
+      const width = Math.max(640, Math.round((baseWidth * scale) / 2) * 2);
+      const height = Math.max(360, Math.round((baseHeight * scale) / 2) * 2);
 
       const processingCanvas = document.createElement("canvas");
       processingCanvas.width = width;
@@ -1924,7 +1862,8 @@ export default function MeetingRoom() {
         locateFile: (file) =>
           `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`,
       });
-      selfieSegmentation.setOptions({ modelSelection: 1 });
+      // modelSelection: 0 is lighter/faster and improves stability on lower-end devices.
+      selfieSegmentation.setOptions({ modelSelection: 0 });
 
       const vb = virtualBgRef.current;
       vb.active = true;
@@ -1932,6 +1871,7 @@ export default function MeetingRoom() {
       vb.processingCanvas = processingCanvas;
       vb.processingCtx = processingCtx;
       vb.selfieSegmentation = selfieSegmentation;
+      vb.lastProcessAt = 0;
 
       let firstFrameResolved = false;
       let resolveFirstFrame = null;
@@ -1946,18 +1886,25 @@ export default function MeetingRoom() {
         const h = vb.processingCanvas.height;
         ctx.save();
         ctx.clearRect(0, 0, w, h);
+
+        // Keep foreground person.
         ctx.drawImage(results.segmentationMask, 0, 0, w, h);
-        ctx.globalCompositeOperation = "source-out";
+        ctx.globalCompositeOperation = "source-in";
+        ctx.drawImage(results.image, 0, 0, w, h);
+
+        // Draw selected background behind foreground.
+        ctx.globalCompositeOperation = "destination-over";
         drawVirtualBackground(
           ctx,
           w,
           h,
           selectedBgRef.current,
           results.image,
-          bgImage || bgImageCacheRef.current[selectedBgRef.current]?.img || null,
+          (selectedBgRef.current === bgId ? bgImage : null) ||
+            bgImageCacheRef.current[selectedBgRef.current]?.img ||
+            null,
         );
-        ctx.globalCompositeOperation = "destination-atop";
-        ctx.drawImage(results.image, 0, 0, w, h);
+        ctx.globalCompositeOperation = "source-over";
         ctx.restore();
         if (!firstFrameResolved && resolveFirstFrame) {
           firstFrameResolved = true;
@@ -1965,7 +1912,7 @@ export default function MeetingRoom() {
         }
       });
 
-      const outputStream = processingCanvas.captureStream(24);
+      const outputStream = processingCanvas.captureStream(15);
       const outputTrack = outputStream.getVideoTracks()[0];
       vb.outputStream = outputStream;
       vb.outputTrack = outputTrack;
@@ -1978,6 +1925,12 @@ export default function MeetingRoom() {
         if (!camOnRef.current || screenOnRef.current || selectedBgRef.current === "none") {
           return;
         }
+        const now = performance.now();
+        if (now - (vb.lastProcessAt || 0) < 1000 / 15) {
+          vb.rafId = requestAnimationFrame(renderLoop);
+          return;
+        }
+        vb.lastProcessAt = now;
         if (!vb.processing && vb.sourceVideo.readyState >= 2) {
           vb.processing = true;
           try {
@@ -2022,11 +1975,15 @@ export default function MeetingRoom() {
     const seq = ++bgApplySeqRef.current;
 
     const applyBgSelection = async () => {
-      setBgApplying(true);
-      if (screenOnRef.current) return;
+      const vb = virtualBgRef.current;
+      if (screenOnRef.current) {
+        setBgApplying(false);
+        return;
+      }
       const cameraTrack = cameraStreamRef.current?.getVideoTracks?.()[0] || null;
 
       if (!selectedBg || selectedBg === "none") {
+        setBgApplying(true);
         stopVirtualBackground();
         if (!cancelled) {
           syncLocalDisplayStream(cameraTrack);
@@ -2035,8 +1992,29 @@ export default function MeetingRoom() {
         return;
       }
 
-      if (!camOnRef.current || !cameraTrack) return;
+      // Preload image background once to avoid stutters on first frame.
+      try {
+        await ensureBackgroundAsset(selectedBg);
+      } catch (err) {
+        console.warn("Background asset preload failed:", err);
+      }
 
+      if (!camOnRef.current || !cameraTrack) {
+        setBgApplying(false);
+        return;
+      }
+
+      // Fast-path: VB pipeline already active; just switch selectedBgRef and keep running.
+      if (vb.active && vb.outputTrack) {
+        if (!cancelled) {
+          syncLocalDisplayStream(vb.outputTrack);
+          await applyOutgoingVideoTrack(camOnRef.current ? vb.outputTrack : null);
+        }
+        setBgApplying(false);
+        return;
+      }
+
+      setBgApplying(true);
       stopVirtualBackground();
       if (!cancelled) {
         try {
@@ -2058,6 +2036,7 @@ export default function MeetingRoom() {
     };
   }, [
     selectedBg,
+    ensureBackgroundAsset,
     startVirtualBackground,
     stopVirtualBackground,
     applyOutgoingVideoTrack,
@@ -2334,7 +2313,7 @@ export default function MeetingRoom() {
     };
   }, [roomId, phase, currentUser?.id]);
 
-  // â”€â”€â”€ createPC: clean peer connection setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // - createPC: clean peer connection setup -
   const createPC = useCallback((peerId, userId) => {
     // Close existing connection for this peer
     if (peerConnectionsRef.current[peerId]) {
@@ -2441,7 +2420,7 @@ export default function MeetingRoom() {
     return pc;
   }, []);
 
-  // â”€â”€â”€ setupSignaling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // - setupSignaling -
   const setupSignaling = useCallback(
     async (roomId, userId, profile) => {
       if (signalingRef.current)
@@ -2675,7 +2654,7 @@ export default function MeetingRoom() {
 
         .on("broadcast", { event: "hand-raised" }, ({ payload }) => {
           if (payload.userId === userId) return;
-          addSysMsg(`âœ‹ ${payload.name || "Guest"} raised their hand`);
+          addSysMsg(`- ${payload.name || "Guest"} raised their hand`);
           setParticipants((prev) =>
             prev.map((p) =>
               p.peerId === payload.userId ? { ...p, handRaised: true } : p,
@@ -3214,7 +3193,7 @@ export default function MeetingRoom() {
     ]);
   };
 
-  // â”€â”€â”€ Toggle Mic â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // - Toggle Mic -
   const toggleMic = useCallback(async () => {
     const activeStream = localStreamRef.current;
     const cameraStream = cameraStreamRef.current;
@@ -3264,7 +3243,7 @@ export default function MeetingRoom() {
     });
   }, []);
 
-  // â”€â”€â”€ Toggle Cam â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // - Toggle Cam -
   // Strategy: keep a camera stream reference and swap video output as needed.
   // Avoid mutating the live screen-sharing stream. Use cameraStreamRef for camera management.
   const toggleCam = useCallback(async () => {
@@ -3402,14 +3381,14 @@ export default function MeetingRoom() {
     syncLocalDisplayStream,
   ]);
 
-  // â”€â”€â”€ Screen Share â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // - Screen Share -
   // Strategy: use a SEPARATE screen stream. Replace only the video sender track.
   // Never mutate localStreamRef tracks - keep camera track intact for restoration.
   const toggleScreen = useCallback(async () => {
     const userId = currentUserRef.current?.id;
 
     if (screenOnRef.current) {
-      // â”€â”€ Stop screen sharing â”€â”€
+      // - Stop screen sharing -
       const screenTracks = screenStreamRef.current?.getTracks() || [];
       screenTracks.forEach((t) => t.stop());
       screenStreamRef.current = null;
@@ -3457,7 +3436,7 @@ export default function MeetingRoom() {
       setScreenOn(false);
       screenOnRef.current = false;
     } else {
-      // â”€â”€ Start screen sharing â”€â”€
+      // - Start screen sharing -
       try {
         stopVirtualBackground();
         const ss = await navigator.mediaDevices.getDisplayMedia({
@@ -3591,7 +3570,7 @@ export default function MeetingRoom() {
       } catch (e) {
         if (e.name !== "NotAllowedError") {
           console.error("Screen share error:", e);
-          addSysMsg("âŒ Screen sharing failed");
+          addSysMsg("- Screen sharing failed");
         }
       }
     }
@@ -3602,7 +3581,7 @@ export default function MeetingRoom() {
     syncLocalDisplayStream,
   ]);
 
-  // â”€â”€â”€ Recording â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // - Recording -
   const toggleRec = useCallback(() => {
     if (!recOn) {
       try {
@@ -3623,14 +3602,14 @@ export default function MeetingRoom() {
         };
         recorder.start(1000);
         mediaRecorderRef.current = recorder;
-        addSysMsg("ðŸ”´ Recording started");
+        addSysMsg("- Recording started");
       } catch (e) {
         console.error("Recording failed:", e);
       }
     } else {
       mediaRecorderRef.current?.stop();
       mediaRecorderRef.current = null;
-      addSysMsg("â¹ Recording stopped, savingâ€¦");
+      addSysMsg("- Recording stopped, saving-");
     }
     setRecOn((p) => !p);
   }, [recOn]);
@@ -3659,7 +3638,7 @@ export default function MeetingRoom() {
           name: currentUserRef.current?.full_name,
         },
       });
-      addSysMsg("âœ‹ You raised your hand");
+      addSysMsg("- You raised your hand");
       setTimeout(() => {
         setHandRaised(false);
         setParticipants((prev) =>
@@ -3683,7 +3662,7 @@ export default function MeetingRoom() {
           name: currentUserRef.current?.full_name,
         },
       });
-      addSysMsg("ðŸ‘‡ You lowered your hand");
+      addSysMsg("- You lowered your hand");
     }
   };
 
@@ -3796,12 +3775,42 @@ export default function MeetingRoom() {
         }
       })();
       const attendeeEmails = mtg.attendee_emails || [];
-      const attendeeNames = attendeeEmails
-        .map(
-          (email) =>
-            profiles.find((p) => p.email === email)?.full_name || email,
-        )
-        .join(", ");
+      const attendeeNameList = attendeeEmails.map(
+        (email) => profiles.find((p) => p.email === email)?.full_name || email,
+      );
+      const joinedParticipantNames = (participants || [])
+        .map((p) => p?.profile?.full_name || p?.name || "")
+        .filter(Boolean);
+      const knownParticipantNames = Array.from(
+        new Set(
+          [...attendeeNameList, ...joinedParticipantNames, currentUserRef.current?.full_name]
+            .map((n) => String(n || "").trim())
+            .filter(Boolean),
+        ),
+      );
+      const attendeeNames = knownParticipantNames.join(", ");
+      const participantNameMap = new Map(
+        knownParticipantNames.map((n) => [n.toLowerCase(), n]),
+      );
+      const resolveAssignee = (value) => {
+        const raw = String(value || "").trim();
+        if (!raw) return "Unassigned";
+        if (
+          /^(unassigned|unknown|n\/a|na|tbd|none|no owner|team)$/i.test(raw)
+        ) {
+          return "Unassigned";
+        }
+        const normalized = raw.replace(/^@/, "").trim().toLowerCase();
+        if (participantNameMap.has(normalized)) {
+          return participantNameMap.get(normalized);
+        }
+        // Loose match (e.g. "Smith J." -> "Smith")
+        const fuzzy = knownParticipantNames.find((pName) => {
+          const p = pName.toLowerCase();
+          return p.includes(normalized) || normalized.includes(p);
+        });
+        return fuzzy || "Unassigned";
+      };
       const chatLog = chatLogRef.current.filter((m) => !m.isSystem);
       let transcription = null;
       try {
@@ -3824,12 +3833,15 @@ Rules:
 - Include what happened in the meeting, not generic filler.
 - Keep facts grounded in the provided meeting data.
 - Attribute actions/decisions to specific people when clear; otherwise use "Unassigned".
+- NEVER invent participant names. Allowed assignees must be from the provided Participants list. If unsure, use "Unassigned".
+- Extract explicit task assignments (who owns what) from transcript/chat and include them in actionItems/assignedTasks.
 - If dates are unclear, set due to "TBD".
 - Return ONLY valid JSON (no markdown, no backticks) with this exact shape:
 {
   "summary": "1-2 short paragraphs (at least 120 words) covering context, discussion flow, outcomes, blockers, and status",
   "meetingNotes": ["chronological note 1", "chronological note 2", "chronological note 3"],
   "actionItems": [{"text": "...", "assignee": "...", "due": "...", "priority": "High|Medium|Low"}],
+  "assignedTasks": [{"task": "...", "assignee": "...", "due": "...", "priority": "High|Medium|Low"}],
   "decisions": ["confirmed decision 1", "confirmed decision 2"],
   "futureDecisions": ["decision still pending 1", "decision still pending 2"],
   "nextSteps": ["next step 1", "next step 2"],
@@ -3852,10 +3864,21 @@ Rules:
               .filter((a) => a && a.text)
               .map((a) => ({
                 text: String(a.text || "").trim(),
-                assignee: String(a.assignee || "Unassigned").trim(),
+                assignee: resolveAssignee(a.assignee),
                 due: String(a.due || "TBD").trim(),
                 priority: String(a.priority || "Medium").trim(),
               }))
+          : [],
+        assignedTasks: Array.isArray(parsedRaw.assignedTasks)
+          ? parsedRaw.assignedTasks
+              .filter((a) => a && (a.task || a.text))
+              .map((a) => ({
+                task: String(a.task || a.text || "").trim(),
+                assignee: resolveAssignee(a.assignee),
+                due: String(a.due || "TBD").trim(),
+                priority: String(a.priority || "Medium").trim(),
+              }))
+              .filter((a) => a.task)
           : [],
         decisions: Array.isArray(parsedRaw.decisions)
           ? parsedRaw.decisions.filter(Boolean).slice(0, 12)
@@ -3884,6 +3907,16 @@ Rules:
           ),
         },
       };
+      if (!parsed.assignedTasks.length) {
+        parsed.assignedTasks = parsed.actionItems
+          .filter((a) => a.assignee && a.assignee !== "Unassigned")
+          .map((a) => ({
+            task: a.text,
+            assignee: a.assignee,
+            due: a.due,
+            priority: a.priority,
+          }));
+      }
       if (meetingDbId) {
         await supabase
           .from("meetings")
@@ -3898,6 +3931,7 @@ Rules:
               _speakerTimeline: speakingTimelineRef.current,
               _transcription: transcription?.text || "",
               _attributedTranscript: attributedTranscript || "",
+              _knownParticipants: knownParticipantNames,
             }),
           })
           .eq("id", meetingDbId);
@@ -3913,32 +3947,109 @@ Rules:
   };
 
   const emailSummary = async (mtg, summary, attendeeNames, emails) => {
+    const escapeHtml = (value) =>
+      String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
     const actionHtml = (summary.actionItems || [])
       .map(
         (a) =>
-          `<tr><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">${a.text}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#2563eb;font-weight:600;">${a.assignee}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#6b7280;">${a.due}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#b45309;font-weight:600;">${a.priority || "Medium"}</td></tr>`,
+          `<tr>
+            <td style="padding:8px;border:1px solid #d1d5db;">${escapeHtml(a.text)}</td>
+            <td style="padding:8px;border:1px solid #d1d5db;">${escapeHtml(a.assignee)}</td>
+            <td style="padding:8px;border:1px solid #d1d5db;">${escapeHtml(a.due)}</td>
+            <td style="padding:8px;border:1px solid #d1d5db;">${escapeHtml(a.priority || "Medium")}</td>
+          </tr>`,
+      )
+      .join("");
+    const assignedTaskHtml = (summary.assignedTasks || [])
+      .map(
+        (a) =>
+          `<tr>
+            <td style="padding:8px;border:1px solid #d1d5db;">${escapeHtml(a.task)}</td>
+            <td style="padding:8px;border:1px solid #d1d5db;">${escapeHtml(a.assignee)}</td>
+            <td style="padding:8px;border:1px solid #d1d5db;">${escapeHtml(a.due)}</td>
+            <td style="padding:8px;border:1px solid #d1d5db;">${escapeHtml(a.priority || "Medium")}</td>
+          </tr>`,
       )
       .join("");
     const decisionsHtml = (summary.decisions || [])
-      .map((d) => `<li style="padding:4px 0;color:#374151;">${d}</li>`)
+      .map((d) => `<li style="margin:0 0 6px 0;">${escapeHtml(d)}</li>`)
       .join("");
     const meetingNotesHtml = (summary.meetingNotes || [])
-      .map((n) => `<li style="padding:4px 0;color:#374151;">${n}</li>`)
+      .map((n) => `<li style="margin:0 0 6px 0;">${escapeHtml(n)}</li>`)
       .join("");
     const futureDecisionsHtml = (summary.futureDecisions || [])
-      .map((d) => `<li style="padding:4px 0;color:#374151;">${d}</li>`)
+      .map((d) => `<li style="margin:0 0 6px 0;">${escapeHtml(d)}</li>`)
       .join("");
     const nextStepsHtml = (summary.nextSteps || [])
-      .map((s) => `<li style="padding:4px 0;color:#374151;">${s}</li>`)
+      .map((s) => `<li style="margin:0 0 6px 0;">${escapeHtml(s)}</li>`)
       .join("");
     const topicsHtml = (summary.keyTopics || [])
-      .map(
-        (t) =>
-          `<span style="display:inline-block;padding:4px 12px;background:#ede9fe;color:#7c3aed;border-radius:999px;font-size:12px;margin:3px;">${t}</span>`,
-      )
+      .map((t) => `<li style="margin:0 0 6px 0;">${escapeHtml(t)}</li>`)
       .join("");
 
-    const body = `<!DOCTYPE html><html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f9fafb;margin:0;padding:24px;"><div style="max-width:760px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);"><div style="background:linear-gradient(135deg,#2d6ef5,#7c3aed);padding:32px 32px 24px;"><h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 8px;">${mtg.title || "Team Meeting"}</h1><div style="color:rgba(255,255,255,0.75);font-size:13px;">${mtg.duration || "-"} minutes &nbsp;|&nbsp; ${emails.length} participants</div></div><div style="padding:28px 32px 0;"><h2 style="font-size:13px;font-weight:700;color:#2d6ef5;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 10px;">Summary</h2><p style="color:#374151;line-height:1.7;background:#f9fafb;border-radius:12px;padding:16px;margin:0;font-size:14px;">${summary.summary}</p></div>${topicsHtml ? `<div style="padding:24px 32px 0;"><h2 style="font-size:13px;font-weight:700;color:#2d6ef5;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 10px;">Key Topics</h2>${topicsHtml}</div>` : ""}${meetingNotesHtml ? `<div style="padding:24px 32px 0;"><h2 style="font-size:13px;font-weight:700;color:#2d6ef5;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 10px;">Meeting Notes</h2><ul>${meetingNotesHtml}</ul></div>` : ""}${actionHtml ? `<div style="padding:24px 32px 0;"><h2 style="font-size:13px;font-weight:700;color:#2d6ef5;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 10px;">Action Items</h2><table style="width:100%;border-collapse:collapse;"><thead><tr><th style="text-align:left;padding:8px 12px;font-size:12px;color:#6b7280;">Task</th><th style="text-align:left;padding:8px 12px;font-size:12px;color:#6b7280;">Owner</th><th style="text-align:left;padding:8px 12px;font-size:12px;color:#6b7280;">Due</th><th style="text-align:left;padding:8px 12px;font-size:12px;color:#6b7280;">Priority</th></tr></thead><tbody>${actionHtml}</tbody></table></div>` : ""}${decisionsHtml ? `<div style="padding:24px 32px 0;"><h2 style="font-size:13px;font-weight:700;color:#2d6ef5;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 10px;">Decisions Made</h2><ul>${decisionsHtml}</ul></div>` : ""}${futureDecisionsHtml ? `<div style="padding:24px 32px 0;"><h2 style="font-size:13px;font-weight:700;color:#2d6ef5;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 10px;">Pending / Future Decisions</h2><ul>${futureDecisionsHtml}</ul></div>` : ""}${nextStepsHtml ? `<div style="padding:24px 32px 0;"><h2 style="font-size:13px;font-weight:700;color:#2d6ef5;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 10px;">Next Steps</h2><ul>${nextStepsHtml}</ul></div>` : ""}<div style="padding:24px 32px 32px;margin-top:24px;border-top:1px solid #f0f0f0;"><p style="color:#9ca3af;font-size:12px;margin:0;">AI-generated summary · Participants: ${attendeeNames}</p></div></div></body></html>`;
+    const body = `<!DOCTYPE html>
+<html>
+  <body style="font-family:Arial,sans-serif;color:#111827;margin:0;padding:20px;background:#ffffff;">
+    <div style="max-width:760px;margin:0 auto;">
+      <h2 style="margin:0 0 8px 0;">Meeting Summary</h2>
+      <p style="margin:0 0 4px 0;"><strong>Title:</strong> ${escapeHtml(mtg.title || "Team Meeting")}</p>
+      <p style="margin:0 0 4px 0;"><strong>Duration:</strong> ${escapeHtml(mtg.duration || "-")} minutes</p>
+      <p style="margin:0 0 16px 0;"><strong>Participants:</strong> ${escapeHtml(attendeeNames || "-")}</p>
+
+      <h3 style="margin:16px 0 8px 0;">Overview</h3>
+      <p style="margin:0 0 16px 0;line-height:1.6;">${escapeHtml(summary.summary || "Summary unavailable.")}</p>
+
+      ${topicsHtml ? `<h3 style="margin:16px 0 8px 0;">Key Topics</h3><ul style="margin:0 0 16px 18px;padding:0;">${topicsHtml}</ul>` : ""}
+      ${meetingNotesHtml ? `<h3 style="margin:16px 0 8px 0;">Meeting Notes</h3><ul style="margin:0 0 16px 18px;padding:0;">${meetingNotesHtml}</ul>` : ""}
+
+      ${
+        assignedTaskHtml
+          ? `<h3 style="margin:16px 0 8px 0;">Assigned Tasks</h3>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:8px;border:1px solid #d1d5db;background:#f9fafb;">Task</th>
+            <th style="text-align:left;padding:8px;border:1px solid #d1d5db;background:#f9fafb;">Owner</th>
+            <th style="text-align:left;padding:8px;border:1px solid #d1d5db;background:#f9fafb;">Due</th>
+            <th style="text-align:left;padding:8px;border:1px solid #d1d5db;background:#f9fafb;">Priority</th>
+          </tr>
+        </thead>
+        <tbody>${assignedTaskHtml}</tbody>
+      </table>`
+          : ""
+      }
+
+      ${
+        actionHtml
+          ? `<h3 style="margin:16px 0 8px 0;">Action Items</h3>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:8px;border:1px solid #d1d5db;background:#f9fafb;">Task</th>
+            <th style="text-align:left;padding:8px;border:1px solid #d1d5db;background:#f9fafb;">Owner</th>
+            <th style="text-align:left;padding:8px;border:1px solid #d1d5db;background:#f9fafb;">Due</th>
+            <th style="text-align:left;padding:8px;border:1px solid #d1d5db;background:#f9fafb;">Priority</th>
+          </tr>
+        </thead>
+        <tbody>${actionHtml}</tbody>
+      </table>`
+          : ""
+      }
+
+      ${decisionsHtml ? `<h3 style="margin:16px 0 8px 0;">Decisions</h3><ul style="margin:0 0 16px 18px;padding:0;">${decisionsHtml}</ul>` : ""}
+      ${futureDecisionsHtml ? `<h3 style="margin:16px 0 8px 0;">Pending Decisions</h3><ul style="margin:0 0 16px 18px;padding:0;">${futureDecisionsHtml}</ul>` : ""}
+      ${nextStepsHtml ? `<h3 style="margin:16px 0 8px 0;">Next Steps</h3><ul style="margin:0 0 16px 18px;padding:0;">${nextStepsHtml}</ul>` : ""}
+
+      <p style="margin-top:20px;color:#6b7280;font-size:12px;">AI-generated summary.</p>
+    </div>
+  </body>
+</html>`;
 
     await Promise.allSettled(
       emails.map((email) =>
@@ -3981,7 +4092,7 @@ Rules:
     setOpenDrawer((prev) => (prev === name ? null : name));
   };
 
-  // â”€â”€â”€ PHASE: LOBBY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // - PHASE: LOBBY -
   if (phase === "lobby") {
     if (!currentUser || !meeting) {
       return (
@@ -4017,7 +4128,7 @@ Rules:
             <span
               style={{ fontSize: 13, color: "var(--text-3)", fontWeight: 500 }}
             >
-              Loading meetingâ€¦
+              Loading meeting-
             </span>
           </div>
         </div>
@@ -4037,7 +4148,7 @@ Rules:
     );
   }
 
-  // â”€â”€â”€ PHASE: ENDED â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // - PHASE: ENDED -
   if (phase === "ended") {
     return (
       <div className={`meet-root ended-root${dark ? " dark" : ""}`}>
@@ -4089,7 +4200,7 @@ Rules:
                   lineHeight: 1.6,
                 }}
               >
-                Analyzing your meeting and emailing participantsâ€¦
+                Analyzing your meeting and emailing participants-
               </div>
             </div>
           ) : summaryData ? (
@@ -4507,7 +4618,7 @@ Rules:
     );
   }
 
-  // â”€â”€â”€ PHASE: ROOM â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // - PHASE: ROOM -
   return (
     <div className={`meet-root room-root${dark ? " dark" : ""}`}>
       <style>{styles}</style>
@@ -4530,7 +4641,7 @@ Rules:
         />
       )}
 
-      {/* â”€â”€ Top bar â”€â”€ */}
+      {/* - Top bar - */}
       <div className="room-topbar">
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div
@@ -4714,7 +4825,7 @@ Rules:
         </div>
       )}
 
-      {/* â”€â”€ Content â”€â”€ */}
+      {/* - Content - */}
       <div className="room-content">
         <div className="room-videos">
           {screenSharer ? (
@@ -4846,7 +4957,7 @@ Rules:
             </div>
           )}
 
-          {/* â”€â”€ Bottom Controls â”€â”€ */}
+          {/* - Bottom Controls - */}
           <div className="room-controls">
             <CtrlBtn
               onClick={toggleMic}
@@ -4869,7 +4980,7 @@ Rules:
               <CtrlBtn
                 onClick={toggleRec}
                 activeRec={recOn}
-                label={recOn ? "â— REC" : "Record"}
+                label={recOn ? "- REC" : "Record"}
               >
                 <Circle
                   size={17}
@@ -4927,13 +5038,13 @@ Rules:
           </div>
         </div>
 
-        {/* â”€â”€ Drawer backdrop â”€â”€ */}
+        {/* - Drawer backdrop - */}
         <div
           className={`drawer-backdrop${openDrawer ? " open" : ""}`}
           onClick={() => setOpenDrawer(null)}
         />
 
-        {/* â”€â”€ Drawer â”€â”€ */}
+        {/* - Drawer - */}
         <div className={`room-drawer${openDrawer ? " open" : ""}`}>
           <div className="drawer-header">
             <div className="drawer-title">
@@ -5069,7 +5180,7 @@ Rules:
                   onKeyDown={(e) =>
                     e.key === "Enter" && !e.shiftKey && sendChat()
                   }
-                  placeholder="Message everyoneâ€¦"
+                  placeholder="Message everyone-"
                   className="chat-input"
                 />
                 <button
@@ -5480,7 +5591,7 @@ Rules:
                       color: "var(--text)",
                     }}
                   >
-                    {currentUser?.full_name || "You"} Â·{" "}
+                    {currentUser?.full_name || "You"} -{" "}
                     {selectedBg === "none"
                       ? "No background"
                       : BG_OPTIONS.find((b) => b.id === selectedBg)?.label}
@@ -5494,5 +5605,7 @@ Rules:
     </div>
   );
 }
+
+
 
 

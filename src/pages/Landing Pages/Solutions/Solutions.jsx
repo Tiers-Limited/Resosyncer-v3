@@ -17,7 +17,7 @@ import { useState } from "react";
 import LandingNavbar from "../../../components/Landing/LandingNavbar";
 import ProductCtaFooterSection from "../../../components/Landing/ProductCtaFooterSection";
 
-/* ─── Data ──────────────────────────────────────────────────────── */
+/* --- Data -------------------------------------------------------- */
 
 const solutions = [
   {
@@ -166,7 +166,7 @@ const platformSteps = [
   {
     step: "02",
     title: "Activate modules",
-    desc: "Turn on only the solutions your team needs — no bloat.",
+    desc: "Turn on only the solutions your team needs - no bloat.",
   },
   {
     step: "03",
@@ -210,7 +210,7 @@ const useCases = [
   },
 ];
 
-/* ─── Sub-components ─────────────────────────────────────────────── */
+/* --- Sub-components ----------------------------------------------- */
 
 function TagBadge({ label }) {
   return (
@@ -232,7 +232,7 @@ function TagBadge({ label }) {
   );
 }
 
-/* Live mini-preview cards — actual meaningful UI per module */
+/* Live mini-preview cards - actual meaningful UI per module */
 function ModulePreview({ title, icon: Icon, accent, bg, bullets }) {
   return (
     <div
@@ -399,7 +399,7 @@ function StepCard({ step, title, desc, isLast }) {
   );
 }
 
-/* ─── Page ───────────────────────────────────────────────────────── */
+/* --- Page --------------------------------------------------------- */
 
 export default function SolutionsPage() {
   const [activeFilter, setActiveFilter] = useState("All");
@@ -488,7 +488,7 @@ export default function SolutionsPage() {
         }
       `}</style>
 
-      {/* ── Navbar ─────────────────────────────────────────────── */}
+      {/* -- Navbar ----------------------------------------------- */}
       <div
         className="fixed left-0 right-0 top-0 z-50 bg-[rgba(255,255,255,.82)] backdrop-blur-[14px]"
         style={{ borderBottom: "1px solid rgba(209,223,247,0.6)" }}
@@ -498,7 +498,7 @@ export default function SolutionsPage() {
         </div>
       </div>
 
-      {/* ── Hero ───────────────────────────────────────────────── */}
+      {/* -- Hero ------------------------------------------------- */}
       <section
         className="sol-hero-section"
         style={{
@@ -556,7 +556,7 @@ export default function SolutionsPage() {
               color: "#475569",
             }}
           >
-            Ryzent AI connects your teams, workflows, and data — so every
+            Ryzent AI connects your teams, workflows, and data - so every
             department works from the same picture, not nine different tools.
           </p>
 
@@ -611,9 +611,9 @@ export default function SolutionsPage() {
 
       <hr className="sol-divider" />
 
-      {/* ── Main Content ───────────────────────────────────────── */}
+      {/* -- Main Content ----------------------------------------- */}
       <main className="mx-auto w-full max-w-[1150px] px-6 pb-28 pt-14 md:px-10">
-        {/* Problem / Solution — side by side */}
+        {/* Problem / Solution - side by side */}
         <section className="sol-problem-grid">
           <div
             className="sol-problem-card"
@@ -697,7 +697,7 @@ export default function SolutionsPage() {
               }}
             >
               One connected platform where AI helps with employee-task matching,
-              meeting summaries, CRM reminders, and recruitment interviews — all
+              meeting summaries, CRM reminders, and recruitment interviews - all
               visible from a single dashboard.
             </p>
           </div>
@@ -1063,3 +1063,4 @@ export default function SolutionsPage() {
     </div>
   );
 }
+

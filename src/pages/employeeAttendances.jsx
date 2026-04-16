@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
 import {
   Card,
   Avatar,
@@ -30,7 +30,7 @@ const supabaseAdmin = createClient(
   import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
 );
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ---------------- Helpers --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const MONTHS = [
   "January",
   "February",
@@ -80,13 +80,13 @@ const fmtHours = (h) => {
 };
 
 const getIsDarkTheme = () => {
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 };
 
-// ── Calendar ──────────────────────────────────────────────────────────────────
+// ---------------- Calendar ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const CalendarHeatmap = ({ yearMonth, dailyRecords, workingDays, dark = false }) => {
   const firstDay = dayjs(`${yearMonth}-01`).day();
   const totalDays = dayjs(`${yearMonth}-01`).daysInMonth();
@@ -192,7 +192,7 @@ const CalendarHeatmap = ({ yearMonth, dailyRecords, workingDays, dark = false })
   );
 };
 
-// ── Stat Box ──────────────────────────────────────────────────────────────────
+// ---------------- Stat Box ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const StatBox = ({ icon, label, value, color, bg, tip, borderColor }) => (
   <Tooltip title={tip}>
     <div
@@ -215,7 +215,7 @@ const StatBox = ({ icon, label, value, color, bg, tip, borderColor }) => (
   </Tooltip>
 );
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+// ---------------- Main Page ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 export default function EmployeeAttendanceProfile() {
   const { profile } = useAuth();
   const employeeId = profile?.id;
@@ -435,7 +435,7 @@ export default function EmployeeAttendanceProfile() {
         </div>
       ) : (
         <>
-          {/* ── Low Attendance Warning ──────────────────────────────── */}
+          {/* ---------------- Low Attendance Warning ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */}
           {isLow && (
             <Alert
               className="mb-5 rounded-2xl border-0"
@@ -457,7 +457,7 @@ export default function EmployeeAttendanceProfile() {
             />
           )}
 
-          {/* ── Employee Header ─────────────────────────────────────── */}
+          {/* ---------------- Employee Header ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */}
           <Card
             className="rounded-2xl border-0 shadow-sm mb-5"
             style={{ background: ui.cardBg, border: `1px solid ${ui.cardBorder}` }}
@@ -485,7 +485,7 @@ export default function EmployeeAttendanceProfile() {
                     </span>
                     {employee?.department && (
                       <>
-                        <span style={{ color: ui.textSoft }}>·</span>
+                        <span style={{ color: ui.textSoft }}>----</span>
                         <span className="text-sm" style={{ color: ui.textMuted }}>
                           {employee.department}
                         </span>
@@ -493,7 +493,7 @@ export default function EmployeeAttendanceProfile() {
                     )}
                     {employee?.email && (
                       <>
-                        <span style={{ color: ui.textSoft }}>·</span>
+                        <span style={{ color: ui.textSoft }}>----</span>
                         <span className="text-sm" style={{ color: ui.textMuted }}>
                           {employee.email}
                         </span>
@@ -528,7 +528,7 @@ export default function EmployeeAttendanceProfile() {
                           alignItems: "center",
                         }}
                       >
-                        🔥 {stats.streak} day streak
+                        --------- {stats.streak} day streak
                       </Tag>
                     )}
                     {isCritical && (
@@ -564,7 +564,7 @@ export default function EmployeeAttendanceProfile() {
             <div className="mt-5">
               <div className="flex justify-between text-xs mb-1.5" style={{ color: ui.textMuted }}>
                 <span>
-                  {monthLabel} · {workingDays.length} working days
+                  {monthLabel} ---- {workingDays.length} working days
                 </span>
                 <span style={{ color: rateColor, fontWeight: 600 }}>
                   {attendanceRate}%
@@ -586,7 +586,7 @@ export default function EmployeeAttendanceProfile() {
             </div>
           </Card>
 
-          {/* ── Stats Grid ──────────────────────────────────────────── */}
+          {/* ---------------- Stats Grid ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
             <StatBox
               icon={<CalendarOutlined />}
@@ -600,7 +600,7 @@ export default function EmployeeAttendanceProfile() {
             <StatBox
               icon={<CheckCircleOutlined />}
               label="Present"
-              value={stats?.present ?? "—"}
+              value={stats?.present ?? "--------"}
               color="#10b981"
               bg={dark ? "rgba(16,185,129,0.14)" : "#d1fae5"}
               borderColor={dark ? "rgba(16,185,129,0.3)" : "transparent"}
@@ -609,7 +609,7 @@ export default function EmployeeAttendanceProfile() {
             <StatBox
               icon={<CloseCircleOutlined />}
               label="Absent"
-              value={stats?.absent ?? "—"}
+              value={stats?.absent ?? "--------"}
               color="#ef4444"
               bg={dark ? "rgba(239,68,68,0.16)" : "#fee2e2"}
               borderColor={dark ? "rgba(239,68,68,0.3)" : "transparent"}
@@ -618,7 +618,7 @@ export default function EmployeeAttendanceProfile() {
             <StatBox
               icon={<CalendarOutlined />}
               label="Leave"
-              value={stats?.leave ?? "—"}
+              value={stats?.leave ?? "--------"}
               color="#f59e0b"
               bg={dark ? "rgba(245,158,11,0.16)" : "#fef3c7"}
               borderColor={dark ? "rgba(245,158,11,0.3)" : "transparent"}
@@ -627,7 +627,7 @@ export default function EmployeeAttendanceProfile() {
             <StatBox
               icon={<QuestionCircleOutlined />}
               label="Not Logged"
-              value={stats?.notLogged ?? "—"}
+              value={stats?.notLogged ?? "--------"}
               color="#94a3b8"
               bg={dark ? "rgba(148,163,184,0.16)" : "#f1f5f9"}
               borderColor={dark ? "rgba(148,163,184,0.3)" : "transparent"}
@@ -636,7 +636,7 @@ export default function EmployeeAttendanceProfile() {
             <StatBox
               icon={<ClockCircleOutlined />}
               label="Hours Worked"
-              value={stats ? fmtHours(stats.totalHoursWorked) : "—"}
+              value={stats ? fmtHours(stats.totalHoursWorked) : "--------"}
               color="#3b82f6"
               bg={dark ? "rgba(59,130,246,0.16)" : "#eff6ff"}
               borderColor={dark ? "rgba(59,130,246,0.3)" : "transparent"}
@@ -645,7 +645,7 @@ export default function EmployeeAttendanceProfile() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            {/* ── Calendar ──────────────────────────────────────────── */}
+            {/* ---------------- Calendar ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */}
             <div className="lg:col-span-2">
               <Card
                 className="rounded-2xl border-0 shadow-sm h-full"
@@ -673,7 +673,7 @@ export default function EmployeeAttendanceProfile() {
               </Card>
             </div>
 
-            {/* ── Recent Sessions ───────────────────────────────────── */}
+            {/* ---------------- Recent Sessions -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */}
             <div>
               <Card
                 className="rounded-2xl border-0 shadow-sm"
@@ -711,13 +711,13 @@ export default function EmployeeAttendanceProfile() {
                             <div className="text-xs" style={{ color: ui.textMuted }}>
                               {l.start_time
                                 ? dayjs(l.start_time).format("hh:mm A")
-                                : "—"}
-                              {" → "}
+                                : "--------"}
+                              {" -------- "}
                               {l.end_time
                                 ? dayjs(l.end_time).format("hh:mm A")
                                 : l.status === "active"
                                   ? "ongoing"
-                                  : "—"}
+                                  : "--------"}
                             </div>
                           </div>
                           <div className="text-right">
@@ -750,3 +750,5 @@ export default function EmployeeAttendanceProfile() {
     </div>
   );
 }
+
+

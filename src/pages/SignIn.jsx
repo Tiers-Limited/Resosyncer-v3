@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import { Form, Input, Button, message, Checkbox } from "antd";
 import {
   UserOutlined,
@@ -18,9 +18,9 @@ import { useAuth } from "../contexts/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-/* ─────────────────────────────────────────────────────────
+/* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
    Email helper
-───────────────────────────────────────────────────────── */
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const EMAIL_API = import.meta.env.VITE_EMAIL_API_URL;
 
 const sendEmail = async ({ to, subject, body, companyName }) => {
@@ -32,13 +32,13 @@ const sendEmail = async ({ to, subject, body, companyName }) => {
     });
     const data = await res.json();
     if (!res.ok) {
-      console.error("❌ Email send failed:", data);
+      console.error("--- Email send failed:", data);
       return { success: false, error: data };
     }
-    console.log("✅ Email sent:", data.messageId);
+    console.log("--- Email sent:", data.messageId);
     return { success: true, data };
   } catch (err) {
-    console.error("❌ Email send error:", err);
+    console.error("--- Email send error:", err);
     return { success: false, error: err.message };
   }
 };
@@ -65,10 +65,10 @@ const otpEmailHtml = (otp, name) => `
   </div>
 `;
 
-/* ─────────────────────────────────────────────────────────
-   OTP Input — single hidden input, visual boxes overlay
+/* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+   OTP Input --- single hidden input, visual boxes overlay
    No blink, no setTimeout focus fighting, works on mobile
-───────────────────────────────────────────────────────── */
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const OtpBoxes = ({ value, onChange, disabled }) => {
   const inputRef = useRef(null);
   const [focused, setFocused] = useState(false);
@@ -126,7 +126,7 @@ const OtpBoxes = ({ value, onChange, disabled }) => {
         }}
       />
 
-      {/* Visual boxes — purely decorative */}
+      {/* Visual boxes --- purely decorative */}
       {digits.map((d, i) => {
         const isActive = focused && i === activeIdx;
         return (
@@ -149,9 +149,9 @@ const OtpBoxes = ({ value, onChange, disabled }) => {
   );
 };
 
-/* ─────────────────────────────────────────────────────────
+/* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
    Floating feature card
-───────────────────────────────────────────────────────── */
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const FeatureCard = ({ icon, title, desc, delay, x, y }) => (
   <div
     className="absolute flex items-start gap-3 rounded-2xl px-4 py-3 backdrop-blur-sm"
@@ -184,9 +184,9 @@ const FeatureCard = ({ icon, title, desc, delay, x, y }) => (
   </div>
 );
 
-/* ─────────────────────────────────────────────────────────
+/* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
    Main SignIn
-───────────────────────────────────────────────────────── */
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const SignIn = () => {
   const [loading, setLoading] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
@@ -224,7 +224,7 @@ const SignIn = () => {
     return () => clearTimeout(t);
   }, [resendCooldown]);
 
-  /* ── Step 1: Normal sign-in ── */
+  /* ------ Step 1: Normal sign-in ------ */
   const handleSignIn = async (values) => {
     setLoading(true);
     try {
@@ -267,7 +267,7 @@ const SignIn = () => {
           } else if (profile.totp_enabled) {
             setTwoFaStep("totp");
           } else {
-            // Email OTP — send immediately
+            // Email OTP --- send immediately
             await sendEmailOtp(profile);
             setTwoFaStep("email");
           }
@@ -283,7 +283,7 @@ const SignIn = () => {
     }
   };
 
-  /* ── Send email OTP ── */
+  /* ------ Send email OTP ------ */
   const sendEmailOtp = async (profile) => {
     const otp = generateOtp();
     const expiry = Date.now() + 10 * 60 * 1000; // 10 min
@@ -307,7 +307,7 @@ const SignIn = () => {
 
   const handleChooseTotp = () => setTwoFaStep("totp");
 
-  /* ── Verify Email OTP ── */
+  /* ------ Verify Email OTP ------ */
   const handleVerifyEmailOtp = async () => {
     if (otpCode.length !== 6) return;
     setVerifying(true);
@@ -329,7 +329,7 @@ const SignIn = () => {
     }
   };
 
-  /* ── Verify TOTP (Authenticator App) ── */
+  /* ------ Verify TOTP (Authenticator App) ------ */
   const handleVerifyTotp = async () => {
     if (totpCode.length !== 6) return;
     setVerifying(true);
@@ -374,7 +374,7 @@ const SignIn = () => {
     setTotpCode("");
   };
 
-  /* ── Forgot password ── */
+  /* ------ Forgot password ------ */
   const handleForgotPassword = async (values) => {
     setLoading(true);
     try {
@@ -392,9 +392,9 @@ const SignIn = () => {
     }
   };
 
-  /* ─────────────────────────────────────────────────────────
+  /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
      Render helpers for 2FA panels
-  ───────────────────────────────────────────────────────── */
+  --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
   const TwoFaShell = ({ children, backLabel, onBack }) => (
     <div
       className="w-full max-w-sm transition-all duration-500"
@@ -420,7 +420,7 @@ const SignIn = () => {
     </div>
   );
 
-  /* ── 2FA: Choose method ── */
+  /* ------ 2FA: Choose method ------ */
   const renderChoose = () => (
     <TwoFaShell backLabel="Back to sign in" onBack={handleCancel2fa}>
       <div className="mb-8">
@@ -464,7 +464,7 @@ const SignIn = () => {
               <div className="text-xs text-slate-400 mt-0.5">
                 Send a 6-digit code to{" "}
                 <span className="font-medium text-slate-500">
-                  {pendingProfile?.email?.replace(/(.{2}).+(@.+)/, "$1•••$2")}
+                  {pendingProfile?.email?.replace(/(.{2}).+(@.+)/, "$1---------$2")}
                 </span>
               </div>
             </div>
@@ -503,7 +503,7 @@ const SignIn = () => {
     </TwoFaShell>
   );
 
-  /* ── 2FA: Email OTP ── */
+  /* ------ 2FA: Email OTP ------ */
   const renderEmailOtp = () => (
     <TwoFaShell
       backLabel={
@@ -531,7 +531,7 @@ const SignIn = () => {
         <p className="text-slate-400 text-sm leading-relaxed">
           We sent a 6-digit code to{" "}
           <span className="font-semibold text-slate-600">
-            {pendingProfile?.email?.replace(/(.{2}).+(@.+)/, "$1•••$2")}
+            {pendingProfile?.email?.replace(/(.{2}).+(@.+)/, "$1---------$2")}
           </span>
           . It expires in 10 minutes.
         </p>
@@ -586,7 +586,7 @@ const SignIn = () => {
     </TwoFaShell>
   );
 
-  /* ── 2FA: TOTP ── */
+  /* ------ 2FA: TOTP ------ */
   const renderTotp = () => (
     <TwoFaShell
       backLabel={
@@ -656,12 +656,12 @@ const SignIn = () => {
     </TwoFaShell>
   );
 
-  /* ─────────────────────────────────────────────────────────
+  /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
      Full render
-  ───────────────────────────────────────────────────────── */
+  --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
   return (
     <div className="min-h-screen flex signin-root">
-      {/* ── LEFT — Brand panel ── */}
+      {/* ------ LEFT --- Brand panel ------ */}
       <div
         className="hidden lg:flex flex-col relative overflow-hidden"
         style={{
@@ -731,7 +731,7 @@ const SignIn = () => {
                 className="text-base leading-relaxed max-w-sm"
                 style={{ color: "rgba(255,255,255,0.5)" }}
               >
-                Projects, HR, attendance, payroll, leads — all connected. Built
+                Projects, HR, attendance, payroll, leads --- all connected. Built
                 for teams that move fast.
               </p>
             </div>
@@ -766,7 +766,7 @@ const SignIn = () => {
         </div>
       </div>
 
-      {/* ── RIGHT — Form panel ── */}
+      {/* ------ RIGHT --- Form panel ------ */}
       <div className="flex-1 flex flex-col bg-white">
         {/* Mobile logo */}
         <div className="lg:hidden flex items-center gap-2 p-6 border-b border-slate-100">
@@ -777,12 +777,12 @@ const SignIn = () => {
 
         {/* Form area */}
         <div className="flex-1 flex items-center justify-center px-8 py-12">
-          {/* ── 2FA flows ── */}
+          {/* ------ 2FA flows ------ */}
           {twoFaStep === "choose" && renderChoose()}
           {twoFaStep === "email" && renderEmailOtp()}
           {twoFaStep === "totp" && renderTotp()}
 
-          {/* ── Normal sign-in / forgot ── */}
+          {/* ------ Normal sign-in / forgot ------ */}
           {!twoFaStep && (
             <div
               className="w-full max-w-sm transition-all duration-500"
@@ -863,7 +863,7 @@ const SignIn = () => {
                     >
                       <Input.Password
                         prefix={<LockOutlined className="text-slate-300" />}
-                        placeholder="••••••••"
+                        placeholder="------------------------"
                         className="signin-input"
                       />
                     </Form.Item>
@@ -933,7 +933,7 @@ const SignIn = () => {
                           background: "#fff",
                         }}
                       >
-                        Create your free account →
+                        Create your free account ---
                       </Button>
                     </Link>
                   </div>
@@ -950,7 +950,7 @@ const SignIn = () => {
                       padding: 0,
                     }}
                   >
-                    ← Back to sign in
+                    --- Back to sign in
                   </button>
 
                   <div className="mb-8">
@@ -1028,7 +1028,7 @@ const SignIn = () => {
 
         {/* Footer */}
         <div className="px-8 py-5 border-t border-slate-50 flex items-center justify-between">
-          <span className="text-xs text-slate-300">© 2025 Ryzent AI</span>
+          <span className="text-xs text-slate-300">-- 2025 Ryzent AI</span>
           <div className="flex items-center gap-4">
             {["Privacy", "Terms", "Help"].map((l) => (
               <a
@@ -1043,7 +1043,7 @@ const SignIn = () => {
         </div>
       </div>
 
-      {/* ── Global styles ── */}
+      {/* ------ Global styles ------ */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
 
@@ -1129,3 +1129,4 @@ const SignIn = () => {
 };
 
 export default SignIn;
+

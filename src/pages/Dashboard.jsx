@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+﻿import { useEffect, useState, useCallback } from "react";
 import { Modal, Checkbox, Input, DatePicker, Select, Tooltip } from "antd";
+import { useNavigate } from "react-router-dom";
 const { TextArea } = Input;
 import {
   FolderOpen,
@@ -32,7 +33,7 @@ import isToday from "dayjs/plugin/isToday";
 dayjs.extend(relativeTime);
 dayjs.extend(isToday);
 
-/* ── Google Fonts ─────────────────────────────────────────────────────────── */
+/* ---------------- Google Fonts ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 if (!document.getElementById("dash-fonts")) {
   const link = document.createElement("link");
   link.id = "dash-fonts";
@@ -42,7 +43,7 @@ if (!document.getElementById("dash-fonts")) {
   document.head.appendChild(link);
 }
 
-/* ── CSS ──────────────────────────────────────────────────────────────────── */
+/* ---------------- CSS ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 if (!document.getElementById("dash-css")) {
   const s = document.createElement("style");
   s.id = "dash-css";
@@ -70,7 +71,7 @@ if (!document.getElementById("dash-css")) {
     .d-icon-btn:hover { background: var(--d-hover) !important; }
     .d-icon-btn { transition: background 0.15s; }
 
-    /* ── Skeleton shimmer ── */
+    /* ---------------- Skeleton shimmer ---------------- */
     .skel {
       border-radius: 6px;
       background: linear-gradient(
@@ -83,7 +84,7 @@ if (!document.getElementById("dash-css")) {
       animation: shimmer 1.4s ease-in-out infinite;
     }
 
-    /* ── Banner ── */
+    /* ---------------- Banner ---------------- */
     .d-banner         { animation: slideDown 0.45s ease both; }
     .banner-illo      { animation: bannerFloat 3.5s ease-in-out infinite; }
     .banner-cta:hover { background: rgba(255,255,255,0.22) !important; transform: translateX(2px); }
@@ -142,7 +143,7 @@ if (!document.getElementById("dash-css")) {
   document.head.appendChild(s);
 }
 
-/* ── Helpers ──────────────────────────────────────────────────────────────── */
+/* ---------------- Helpers -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const fmtTime = (s) => {
   const h = Math.floor(s / 3600),
     m = Math.floor((s % 3600) / 60),
@@ -203,7 +204,7 @@ const avatarBg = (name = "") => {
   return list[Math.abs(h) % list.length];
 };
 
-/* ── Avatar ───────────────────────────────────────────────────────────────── */
+/* ---------------- Avatar ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const Ava = ({ name = "", photo, size = 34 }) => {
   const [err, setErr] = useState(false);
   const bg = avatarBg(name);
@@ -244,7 +245,7 @@ const Ava = ({ name = "", photo, size = 34 }) => {
   );
 };
 
-/* ── Live Timer ───────────────────────────────────────────────────────────── */
+/* ---------------- Live Timer -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const LiveTimer = ({ log }) => {
   const [elapsed, setElapsed] = useState(() => getElapsed(log));
   useEffect(() => {
@@ -268,7 +269,7 @@ const LiveTimer = ({ log }) => {
   );
 };
 
-/* ── Pill badge ───────────────────────────────────────────────────────────── */
+/* ---------------- Pill badge -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const Pill = ({ label, color, bg }) => (
   <span
     style={{
@@ -286,7 +287,7 @@ const Pill = ({ label, color, bg }) => (
   </span>
 );
 
-/* ── Modal field label ────────────────────────────────────────────────────── */
+/* ---------------- Modal field label ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const FL = ({ children, req }) => (
   <div
     style={{
@@ -302,7 +303,7 @@ const FL = ({ children, req }) => (
   </div>
 );
 
-/* ── Small Add Button ─────────────────────────────────────────────────────── */
+/* ---------------- Small Add Button -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const AddButton = ({ label, onClick }) => (
   <button
     className="d-btn"
@@ -327,7 +328,7 @@ const AddButton = ({ label, onClick }) => (
   </button>
 );
 
-/* ── Card shell ───────────────────────────────────────────────────────────── */
+/* ---------------- Card shell -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const Panel = ({ children, style = {}, className = "" }) => (
   <div
     className={className}
@@ -343,7 +344,7 @@ const Panel = ({ children, style = {}, className = "" }) => (
   </div>
 );
 
-/* ── Panel header ─────────────────────────────────────────────────────────── */
+/* ---------------- Panel header ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const PHead = ({ icon: Icon, title, sub, right, color }) => (
   <div
     style={{
@@ -378,8 +379,8 @@ const PHead = ({ icon: Icon, title, sub, right, color }) => (
   </div>
 );
 
-/* ══════════════════════════════════════════════════════════════════════════
-   ── SKELETON COMPONENTS ────────────────────────────────────────────────── */
+/* --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+   ---------------- SKELETON COMPONENTS ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 
 const Skel = ({ w = "100%", h = 14, radius = 6, style = {} }) => (
   <div
@@ -511,8 +512,8 @@ const MeetingSkeleton = () => (
   </div>
 );
 
-/* ══════════════════════════════════════════════════════════════════════════
-   ── CARTOON ILLUSTRATIONS ──────────────────────────────────────────────── */
+/* --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+   ---------------- CARTOON ILLUSTRATIONS ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 
 const RocketSVG = () => (
   <svg
@@ -743,15 +744,15 @@ const TimeSVG = () => (
   </svg>
 );
 
-/* ══════════════════════════════════════════════════════════════════════════
-   ── BANNER CONFIG ──────────────────────────────────────────────────────── */
+/* --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+   ---------------- BANNER CONFIG ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const BANNERS = [
   {
     id: "launch-fast",
     bg: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #1e40af 100%)",
     stripeA: "#2563eb",
     stripeB: "#1d4ed8",
-    tag: "🚀  What's new",
+    tag: "What's new",
     tagColor: "#93c5fd",
     title: "Projects just got a turbo boost",
     body: "Smart auto-assignment now matches tasks to the right teammate instantly. No more back-and-forth.",
@@ -763,9 +764,9 @@ const BANNERS = [
     bg: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 55%, #312e81 100%)",
     stripeA: "#3730a3",
     stripeB: "#1e3a8a",
-    tag: "👥  Team feature",
+    tag: "Team feature",
     tagColor: "#a5b4fc",
-    title: "Better together — invite your crew",
+    title: "Better together - invite your crew",
     body: "Shared dashboards, live standups, and group meetings. Your whole team in one place.",
     cta: "Add teammates",
     Illustration: TeamSVG,
@@ -775,7 +776,7 @@ const BANNERS = [
     bg: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #0c4a6e 100%)",
     stripeA: "#1e40af",
     stripeB: "#075985",
-    tag: "⏱  Pro tip",
+    tag: "Pro tip",
     tagColor: "#7dd3fc",
     title: "Time tracking that works like magic",
     body: "One-click timers, daily standups, and automatic summaries. Know exactly where every hour goes.",
@@ -784,9 +785,9 @@ const BANNERS = [
   },
 ];
 
-/* ══════════════════════════════════════════════════════════════════════════
-   ── PRODUCT BANNER (auto-rotating, lucide icons) ───────────────────────── */
-const ProductBanner = ({ dark }) => {
+/* --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+   ---------------- PRODUCT BANNER (auto-rotating, lucide icons) -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
+const ProductBanner = ({ dark, onCtaClick, mobile = false }) => {
   const [dismissed, setDismissed] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("dash-dismissed-banners") || "[]");
@@ -835,7 +836,7 @@ const ProductBanner = ({ dark }) => {
       className="d-banner"
       style={{
         marginBottom: 20,
-        borderRadius: 16,
+        borderRadius: mobile ? 12 : 16,
         overflow: "hidden",
         background: bg,
         position: "relative",
@@ -878,9 +879,9 @@ const ProductBanner = ({ dark }) => {
           position: "relative",
           zIndex: 1,
           display: "flex",
-          alignItems: "center",
+          alignItems: mobile ? "flex-start" : "center",
           justifyContent: "space-between",
-          padding: "16px 20px 28px 24px",
+          padding: mobile ? "14px 14px 24px 14px" : "16px 20px 28px 24px",
           gap: 12,
         }}
       >
@@ -920,7 +921,7 @@ const ProductBanner = ({ dark }) => {
 
           <div
             style={{
-              fontSize: 17,
+              fontSize: mobile ? 15 : 17,
               fontWeight: 800,
               color: "#fff",
               marginBottom: 5,
@@ -934,11 +935,11 @@ const ProductBanner = ({ dark }) => {
 
           <div
             style={{
-              fontSize: 12.5,
+              fontSize: mobile ? 12 : 12.5,
               color: "rgba(255,255,255,0.68)",
               fontFamily: "'DM Sans',sans-serif",
               lineHeight: 1.55,
-              maxWidth: 400,
+              maxWidth: mobile ? "100%" : 400,
               marginBottom: 14,
             }}
           >
@@ -948,8 +949,9 @@ const ProductBanner = ({ dark }) => {
           {/* CTA with Lucide ArrowRight */}
           <button
             className="banner-cta"
+            onClick={() => onCtaClick?.(id)}
             style={{
-              padding: "7px 16px",
+              padding: mobile ? "7px 12px" : "7px 16px",
               borderRadius: 9,
               background: "rgba(255,255,255,0.14)",
               color: "#fff",
@@ -971,7 +973,7 @@ const ProductBanner = ({ dark }) => {
         {/* Illustration + close */}
         <div
           style={{
-            display: "flex",
+            display: mobile ? "none" : "flex",
             flexDirection: "column",
             alignItems: "flex-end",
             gap: 6,
@@ -1003,12 +1005,12 @@ const ProductBanner = ({ dark }) => {
         </div>
       </div>
 
-      {/* Progress dots — clickable */}
+      {/* Progress dots - clickable */}
       <div
         style={{
           position: "absolute",
           bottom: 10,
-          left: 24,
+          left: mobile ? 14 : 24,
           display: "flex",
           gap: 5,
         }}
@@ -1089,7 +1091,7 @@ const BirthdayWidget = ({ tenantId, dark }) => {
         icon={Gift}
         title="Birthdays This Month"
         color="#ec4899"
-        sub={loading ? "Loading…" : `${birthdays.length} in ${monthName}`}
+        sub={loading ? "Loading..." : `${birthdays.length} in ${monthName}`}
       />
       <div style={{ maxHeight: 320, overflowY: "auto", padding: "10px 14px" }}>
         {loading ? (
@@ -1174,7 +1176,7 @@ const BirthdayWidget = ({ tenantId, dark }) => {
                     </span>
                     {isToday && (
                       <Pill
-                        label="🎂 Today!"
+                        label="Today"
                         color="#be185d"
                         bg={dark ? "rgba(236,72,153,0.2)" : "#fce7f3"}
                       />
@@ -1188,11 +1190,13 @@ const BirthdayWidget = ({ tenantId, dark }) => {
                     }}
                   >
                     {dob.format("MMMM D")}
-                    {isToday && " · Happy Birthday! 🎉"}
+                    {isToday && " - Happy Birthday!"}
                   </div>
                 </div>
                 {isToday && (
-                  <span style={{ fontSize: 18, flexShrink: 0 }}>🎈</span>
+                  <span style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+                    <Gift size={16} color="#ec4899" />
+                  </span>
                 )}
               </div>
             );
@@ -1204,23 +1208,40 @@ const BirthdayWidget = ({ tenantId, dark }) => {
 };
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [themeMode, setThemeMode] = useState(
-    () => localStorage.getItem("themeMode") || "system",
+    () => localStorage.getItem("themeMode") || "light",
   );
   const dark =
     themeMode === "dark" ||
     (themeMode === "system" &&
       window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 768 : false,
+  );
+  const [isTablet, setIsTablet] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 1100 : false,
+  );
 
   useEffect(() => {
     const sync = () =>
-      setThemeMode(localStorage.getItem("themeMode") || "system");
+      setThemeMode(localStorage.getItem("themeMode") || "light");
     window.addEventListener("storage", sync);
     const iv = setInterval(sync, 400);
     return () => {
       window.removeEventListener("storage", sync);
       clearInterval(iv);
     };
+  }, []);
+
+  useEffect(() => {
+    const onResize = () => {
+      setIsMobile(window.innerWidth < 768);
+      setIsTablet(window.innerWidth < 1100);
+    };
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   useEffect(() => {
@@ -1252,7 +1273,7 @@ const Dashboard = () => {
     }
   }, [dark]);
 
-  /* ── state ── */
+  /* ---------------- state ---------------- */
   const [tenantId, setTenantId] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1294,7 +1315,7 @@ const Dashboard = () => {
     attendee_emails: [],
   });
 
-  /* ── bootstrap ── */
+  /* ---------------- bootstrap ---------------- */
   useEffect(() => {
     const init = async () => {
       try {
@@ -1332,7 +1353,7 @@ const Dashboard = () => {
     }
   }, [currentUser?.id, tenantId]);
 
-  /* ── fetchers ── */
+  /* ---------------- fetchers ---------------- */
   const fetchStats = async () => {
     setLoading(true);
     try {
@@ -1460,7 +1481,7 @@ const Dashboard = () => {
     setMeetLoading(false);
   };
 
-  /* ── crud ── */
+  /* ---------------- crud ---------------- */
   const addTodo = async () => {
     if (!newTodo.title.trim()) return;
     await supabase
@@ -1508,7 +1529,7 @@ const Dashboard = () => {
     fetchMeetings();
   };
 
-  /* ── maps ── */
+  /* ---------------- maps ---------------- */
   const STATUS_MAP = {
     not_started: {
       label: "Not Started",
@@ -1541,7 +1562,7 @@ const Dashboard = () => {
     low: { label: "Low", color: "#10b981", bg: dark ? "#052e16" : "#f0fdf4" },
   };
 
-  /* ── kpi ── */
+  /* ---------------- kpi ---------------- */
   const KPI = [
     {
       label: "Projects",
@@ -1581,7 +1602,24 @@ const Dashboard = () => {
     },
   ];
 
-  /* ════════════════════════════════════════════════════════════════════════ */
+  const handleBannerCtaClick = useCallback(
+    (bannerId) => {
+      if (bannerId === "launch-fast") {
+        navigate("/projects");
+        return;
+      }
+      if (bannerId === "team-power") {
+        navigate("/employees");
+        return;
+      }
+      if (bannerId === "time-magic") {
+        navigate("/monitor");
+      }
+    },
+    [navigate],
+  );
+
+  /* ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
   return (
     <div
       className={dark ? "d-dark" : "d-light"}
@@ -1592,7 +1630,7 @@ const Dashboard = () => {
         minHeight: "100vh",
       }}
     >
-      {/* ── Page title ── */}
+      {/* ---------------- Page title ---------------- */}
       <div
         className="d-fade"
         style={{
@@ -1624,15 +1662,23 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* ── Product Banner ── */}
-      <ProductBanner dark={dark} />
+      {/* ---------------- Product Banner ---------------- */}
+      <ProductBanner
+        dark={dark}
+        mobile={isMobile}
+        onCtaClick={handleBannerCtaClick}
+      />
 
-      {/* ── KPI Cards ── */}
+      {/* ---------------- KPI Cards ---------------- */}
       <div
         className="d-fade"
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(6,1fr)",
+          gridTemplateColumns: isMobile
+            ? "repeat(2,minmax(0,1fr))"
+            : isTablet
+              ? "repeat(3,minmax(0,1fr))"
+              : "repeat(6,minmax(0,1fr))",
           gap: 12,
           marginBottom: 24,
           animationDelay: "60ms",
@@ -1690,7 +1736,7 @@ const Dashboard = () => {
             ))}
       </div>
 
-      {/* ── Active Employees ── */}
+      {/* ---------------- Active Employees ---------------- */}
       <Panel style={{ marginBottom: 20 }} className="d-fade">
         <PHead
           icon={Clock}
@@ -1698,7 +1744,7 @@ const Dashboard = () => {
           color="#10b981"
           sub={
             empLoading
-              ? "Loading…"
+              ? "Loading..."
               : `${employees.length} employee${employees.length !== 1 ? "s" : ""} tracked today`
           }
           right={
@@ -1863,11 +1909,11 @@ const Dashboard = () => {
         </div>
       </Panel>
 
-      {/* ── Projects + Birthday ── */}
+      {/* ---------------- Projects + Birthday ---------------- */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1fr 340px",
+          gridTemplateColumns: isTablet ? "1fr" : "1fr 340px",
           gap: 16,
           marginBottom: 20,
         }}
@@ -1953,11 +1999,11 @@ const Dashboard = () => {
         <BirthdayWidget tenantId={tenantId} dark={dark} />
       </div>
 
-      {/* ── Todos + Meetings ── */}
+      {/* ---------------- Todos + Meetings ---------------- */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1fr 1fr",
+          gridTemplateColumns: isTablet ? "1fr" : "1fr 1fr",
           gap: 16,
           marginBottom: 20,
         }}
@@ -1970,7 +2016,7 @@ const Dashboard = () => {
             color="#8b5cf6"
             sub={
               todoLoading
-                ? "Loading…"
+                ? "Loading..."
                 : `${todos.filter((t) => !t.completed).length} remaining`
             }
             right={
@@ -2115,7 +2161,7 @@ const Dashboard = () => {
             icon={Calendar}
             title="Meetings"
             color="#06b6d4"
-            sub={meetLoading ? "Loading…" : `${meetings.length} upcoming`}
+            sub={meetLoading ? "Loading..." : `${meetings.length} upcoming`}
             right={
               <AddButton
                 label="Schedule"
@@ -2230,7 +2276,7 @@ const Dashboard = () => {
                           }}
                         >
                           <Calendar size={11} />
-                          {dayjs(m.meeting_date).format("MMM D, YYYY · h:mm A")}
+                          {dayjs(m.meeting_date).format("MMM D, YYYY - h:mm A")}
                         </div>
                         {m.description && (
                           <div
@@ -2308,7 +2354,7 @@ const Dashboard = () => {
         </Panel>
       </div>
 
-      {/* ── World Map ── */}
+      {/* ---------------- World Map ---------------- */}
       <Panel style={{ marginBottom: 20 }}>
         <PHead
           icon={Globe}
@@ -2325,7 +2371,7 @@ const Dashboard = () => {
         </div>
       </Panel>
 
-      {/* ══ MODALS ══ */}
+      {/* -------------- MODALS -------------- */}
 
       {/* Standup */}
       <Modal
@@ -2367,9 +2413,9 @@ const Dashboard = () => {
         {standupData && (
           <div style={{ fontFamily: "'DM Sans',sans-serif", paddingTop: 8 }}>
             <div
-              style={{
+            style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr",
+                gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
                 gap: 10,
                 marginBottom: 14,
               }}
@@ -2465,7 +2511,7 @@ const Dashboard = () => {
         }}
         onOk={addTodo}
         okText="Add Task"
-        width={440}
+        width={isMobile ? "92vw" : 440}
         destroyOnClose
       >
         <div
@@ -2488,7 +2534,11 @@ const Dashboard = () => {
             />
           </div>
           <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+              gap: 12,
+            }}
           >
             <div>
               <FL>Priority</FL>
@@ -2528,7 +2578,7 @@ const Dashboard = () => {
               onChange={(e) =>
                 setNewTodo({ ...newTodo, description: e.target.value })
               }
-              placeholder="Optional notes…"
+              placeholder="Optional notes..."
             />
           </div>
         </div>
@@ -2556,7 +2606,7 @@ const Dashboard = () => {
         }}
         onOk={addMeeting}
         okText="Schedule"
-        width={480}
+        width={isMobile ? "94vw" : 480}
         destroyOnClose
       >
         <div
@@ -2595,7 +2645,11 @@ const Dashboard = () => {
             />
           </div>
           <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+              gap: 12,
+            }}
           >
             <div>
               <FL>Attendees</FL>
@@ -2677,7 +2731,7 @@ const Dashboard = () => {
               onChange={(e) =>
                 setNewMeet({ ...newMeet, description: e.target.value })
               }
-              placeholder="Agenda or notes…"
+              placeholder="Agenda or notes..."
             />
           </div>
         </div>
@@ -2687,3 +2741,5 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
+

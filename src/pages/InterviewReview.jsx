@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Alert, Card, Spin } from "antd";
 import {
   Bot,
@@ -158,7 +158,7 @@ export default function InterviewReviewPage() {
             {applicant.name}
           </h1>
           <div style={{ color: "#64748b", marginTop: 6 }}>
-            {job.title} · {job.department || "Recruitment"} · Applicant ID {applicant.id}
+            {job.title} -- {job.department || "Recruitment"} -- Applicant ID {applicant.id}
           </div>
         </div>
 
@@ -456,3 +456,4 @@ export default function InterviewReviewPage() {
     </div>
   );
 }
+

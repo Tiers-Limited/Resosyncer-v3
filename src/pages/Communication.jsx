@@ -131,7 +131,7 @@ const getIsDarkTheme = () => {
   )
     return false;
 
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -244,7 +244,7 @@ commStyleElement.textContent = `
     .comm ::-webkit-scrollbar-thumb { background:#2a2b31; border-radius:99px; }
     .comm-light ::-webkit-scrollbar-thumb { background:#cbd5e1; }
 
-    /* â”€â”€ Dark sidebar item â”€â”€ */
+    /* ---------------- Dark sidebar item ---------------- */
     .si { display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:8px;
       cursor:pointer;transition:all .15s;color:var(--si-color,#9ca3af);font-size:13.5px;font-weight:500;
       user-select:none;margin-bottom:1px; }
@@ -252,7 +252,7 @@ commStyleElement.textContent = `
     .si.active { background:var(--si-active-bg,linear-gradient(135deg,#1a2540,#1a1d38));color:var(--si-active-color,#60a5fa);font-weight:600;
       box-shadow:0 1px 3px rgba(37,99,235,.15); }
 
-    /* â”€â”€ Message rows â”€â”€ */
+    /* ---------------- Message rows ---------------- */
     .msg-row { position:relative;padding:3px 24px 3px 72px;transition:background .12s; }
     .msg-row:hover { background:var(--msg-hover-bg,#1a1b20); }
     .msg-row.first { padding-top:14px; }
@@ -273,19 +273,19 @@ commStyleElement.textContent = `
     .tb:hover { background:#2a2b31;color:#e5e7eb; }
     .tb.danger:hover { background:rgba(239,68,68,.15);color:#ef4444; }
 
-    /* â”€â”€ Reaction pills â”€â”€ */
+    /* ---------------- Reaction pills ---------------- */
     .rpill { display:inline-flex;align-items:center;gap:4px;padding:3px 9px;
       border-radius:99px;background:#1e1f25;border:1.5px solid #2a2b31;
       cursor:pointer;font-size:13px;transition:all .12s; }
     .rpill:hover { border-color:#3b82f6;background:#1a2540;transform:scale(1.05); }
     .rpill.own { background:linear-gradient(135deg,#1a2540,#1a1d38);border-color:#3b82f6; }
 
-    /* â”€â”€ Reply quote bar â”€â”€ */
+    /* ---------------- Reply quote bar ---------------- */
     .rq-bar { background:#1a1b20;border-left:3px solid #3b82f6;border-radius:0 8px 8px 0;
       padding:6px 12px;margin-bottom:6px;font-size:12px;cursor:pointer; }
     .rq-bar:hover { background:#1a2540; }
 
-    /* â”€â”€ Textarea â”€â”€ */
+    /* ---------------- Textarea ---------------- */
     .comm-ta { background:transparent;border:none;outline:none;color:#e5e7eb;
       font-size:15px;resize:none;width:100%;padding:10px 0;line-height:1.6;
       font-family:'Plus Jakarta Sans',sans-serif;max-height:160px;overflow-y:auto; }
@@ -295,19 +295,19 @@ commStyleElement.textContent = `
     .comm-quill .ql-editor { padding:10px 0; color:#e5e7eb; line-height:1.6; min-height:40px; }
     .comm-quill .ql-editor.ql-blank::before { left:0; right:0; color:#4b5563; font-style:normal; }
 
-    /* â”€â”€ Mention list â”€â”€ */
+    /* ---------------- Mention list ---------------- */
     .mlist { background:#1e1f25;border:1px solid #2a2b31;border-radius:12px;padding:6px;
       min-width:220px;max-height:260px;overflow-y:auto;
       box-shadow:0 16px 40px rgba(0,0,0,.5); }
     .mitem { display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;cursor:pointer;transition:background .1s; }
     .mitem:hover,.mitem.active { background:#1a2540; }
 
-    /* â”€â”€ Presence dots â”€â”€ */
+    /* ---------------- Presence dots ---------------- */
     .dot-active { background:#22c55e;box-shadow:0 0 0 2px #141416,0 0 0 3px rgba(34,197,94,.25); }
     .dot-break  { background:#f59e0b;box-shadow:0 0 0 2px #141416; }
     .dot-off    { background:#374151;box-shadow:0 0 0 2px #141416; }
 
-    /* â”€â”€ Animations â”€â”€ */
+    /* ---------------- Animations ---------------- */
     @keyframes msgIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
     .msg-in { animation:msgIn .2s ease both; }
     @keyframes toastIn { from{opacity:0;transform:translateY(12px) scale(.96)} to{opacity:1;transform:translateY(0) scale(1)} }
@@ -319,28 +319,28 @@ commStyleElement.textContent = `
     @keyframes spin { to{transform:rotate(360deg)} }
     .spin { animation:spin 1s linear infinite; }
 
-    /* â”€â”€ Date divider â”€â”€ */
+    /* ---------------- Date divider ---------------- */
     .datediv { display:flex;align-items:center;gap:12px;margin:18px 24px 8px;
       color:#4b5563;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase; }
     .datediv::before,.datediv::after { content:'';flex:1;height:1px;background:#1e1f25; }
 
-    /* â”€â”€ Input wrap â”€â”€ */
+    /* ---------------- Input wrap ---------------- */
     .input-wrap { background:#1a1b20;border:1.5px solid #2a2b31;border-radius:14px;
       transition:border-color .15s,box-shadow .15s;position:relative;overflow:visible; }
     .input-wrap:focus-within { border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.12); }
 
-    /* â”€â”€ Upload progress bar â”€â”€ */
+    /* ---------------- Upload progress bar ---------------- */
     .upload-bar { position:absolute;bottom:0;left:0;right:0;height:3px;
       background:#2a2b31;border-radius:0 0 14px 14px;overflow:hidden; }
     .upload-bar-fill { height:100%;background:linear-gradient(90deg,#2563eb,#4f46e5);transition:width .3s; }
 
-    /* â”€â”€ Member cards â”€â”€ */
+    /* ---------------- Member cards ---------------- */
     .mem-card { display:flex;align-items:center;justify-content:space-between;
       padding:12px 14px;border:1.5px solid #1e1f25;border-radius:12px;
       transition:border-color .15s,background .15s;margin-bottom:8px;background:#18191e; }
     .mem-card:hover { border-color:var(--mem-hover-border,#2a2b31);background:var(--mem-hover-bg,#1e1f25); }
 
-    /* â”€â”€ Media viewer â”€â”€ */
+    /* ---------------- Media viewer ---------------- */
     .comm-viewer-portal {
       position:fixed;inset:0;z-index:999999;
       display:flex;align-items:center;justify-content:center;
@@ -358,19 +358,19 @@ commStyleElement.textContent = `
       cursor:pointer;transition:background .15s; }
     .mv-btn:hover { background:rgba(255,255,255,.22); }
 
-    /* â”€â”€ Edit textarea â”€â”€ */
+    /* ---------------- Edit textarea ---------------- */
     .edit-ta { background:#1a1b20;border:1.5px solid #3b82f6;border-radius:10px;outline:none;
       color:#e5e7eb;font-size:15px;resize:none;width:100%;padding:8px 12px;line-height:1.6;
       font-family:'Plus Jakarta Sans',sans-serif;max-height:200px;overflow-y:auto;
       box-shadow:0 0 0 3px rgba(59,130,246,.1); }
 
-    /* â”€â”€ Deleted message â”€â”€ */
+    /* ---------------- Deleted message ---------------- */
     .msg-deleted { font-style:italic;color:#4b5563;font-size:14px;display:flex;align-items:center;gap:6px; }
 
-    /* â”€â”€ Poll card â”€â”€ */
+    /* ---------------- Poll card ---------------- */
     .poll-card { background:#1a1b20;border:1.5px solid #2a2b31;border-radius:14px;padding:16px 18px;max-width:340px;margin-bottom:4px; }
 
-    /* â”€â”€ Skeleton shimmer â”€â”€ */
+    /* ---------------- Skeleton shimmer ---------------- */
     @keyframes shimmer {
       0% { background-position: -400px 0; }
       100% { background-position: 400px 0; }
@@ -388,7 +388,7 @@ commStyleElement.textContent = `
       border-radius: 50%;
     }
 
-    /* â”€â”€ Mobile â”€â”€ */
+    /* ---------------- Mobile ---------------- */
     @media(max-width:768px){
       .comm-sidebar { position:fixed!important;left:0;top:0;bottom:0;z-index:50;width:280px!important;
         transform:translateX(-100%);transition:transform .25s cubic-bezier(.4,0,.2,1); }
@@ -398,7 +398,7 @@ commStyleElement.textContent = `
     .mob-overlay { display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40; }
     .dm-tick { display:flex;align-items:center;gap:3px;margin-top:4px;transition:all .2s; }
 
-    /* â”€â”€ Ant Design dark overrides â”€â”€ */
+    /* ---------------- Ant Design dark overrides ---------------- */
     .comm .ant-drawer-content { background:#1a1b20 !important; }
     .comm .ant-drawer-header { background:#1e1f25 !important; border-bottom:1px solid #2a2b31 !important; }
     .comm .ant-modal-content { background:#1a1b20 !important; border:1px solid #2a2b31; }
@@ -419,7 +419,7 @@ commStyleElement.textContent = `
     .comm .ant-modal-footer .ant-btn-default { background:#1e1f25 !important; border-color:#2a2b31 !important; color:#9ca3af !important; }
     .comm .ant-tooltip-inner { background:#1e1f25 !important; color:#e5e7eb !important; border:1px solid #2a2b31; }
 
-    /* â”€â”€ Light theme overrides â”€â”€ */
+    /* ---------------- Light theme overrides ---------------- */
     .comm-light .si { color:#475569; }
     .comm-light .si:hover { background:#f1f5f9; color:#0f172a; }
     .comm-light .si.active {
@@ -501,40 +501,40 @@ commStyleElement.textContent = `
     .comm-light .ant-tooltip-inner { background:#ffffff !important; color:#0f172a !important; border:1px solid #dbe2ea; }
   `;
 
-const QUICK = ["👍", "❤️", "😂", "🎉", "🔥", "👀"];
+const QUICK = ["----", "------", "----", "----", "----", "----"];
 const ALL_EMOJI = [
-  "👍",
-  "👎",
-  "❤️",
-  "😂",
-  "😮",
-  "😢",
-  "🎉",
-  "🔥",
-  "✅",
-  "👀",
-  "🙏",
-  "💯",
-  "🚀",
-  "⭐",
-  "💡",
-  "🎯",
-  "👏",
-  "😎",
-  "🤔",
-  "💪",
-  "🤝",
-  "👋",
-  "❌",
-  "⚠️",
-  "😍",
-  "🥳",
-  "😅",
-  "🤣",
-  "😊",
-  "🙌",
-  "💎",
-  "🌟",
+  "----",
+  "----",
+  "------",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
+  "---",
+  "----",
+  "----",
+  "----",
+  "----",
+  "---",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
+  "---",
+  "------",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
+  "----",
 ];
 let toastId = 0;
 
@@ -934,7 +934,7 @@ const renderText = (text) => {
 
 const extOf = (name = "") => name.split(".").pop()?.toUpperCase() || "FILE";
 
-/* â•â• MEDIA VIEWER â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* -------------- MEDIA VIEWER ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const MediaViewer = ({ item, onClose }) => {
   const [zoom, setZoom] = useState(1);
   const isImg = item.file_type === "image";
@@ -1539,10 +1539,10 @@ const PollCard = ({ msg, profile, onVote, dark = false }) => {
             }}
           >
             {poll.closed
-              ? "🔒 Poll closed"
+              ? "---- Poll closed"
               : hasVoted
-                ? `✓ You voted · ${totalVotes} vote${totalVotes !== 1 ? "s" : ""}`
-                : `${totalVotes} vote${totalVotes !== 1 ? "s" : ""} · Tap to vote`}
+                ? `--- You voted -- ${totalVotes} vote${totalVotes !== 1 ? "s" : ""}`
+                : `${totalVotes} vote${totalVotes !== 1 ? "s" : ""} -- Tap to vote`}
           </div>
         </div>
       </div>
@@ -1630,14 +1630,14 @@ const PollCard = ({ msg, profile, onVote, dark = false }) => {
                     <span
                       style={{ color: "#fff", fontSize: 11, fontWeight: 900 }}
                     >
-                      ✓
+                      ---
                     </span>
                   )}
                   {!isMyVote && isWinner && hasVoted && (
                     <span
                       style={{ color: "#fff", fontSize: 11, fontWeight: 900 }}
                     >
-                      ★
+                      ---
                     </span>
                   )}
                 </div>
@@ -1789,7 +1789,7 @@ const MeetingCard = ({ msg, dark = false }) => {
                 }}
               />
             )}
-            {isLive ? "Live · Join now" : "Scheduled"}
+            {isLive ? "Live -- Join now" : "Scheduled"}
           </div>
         </div>
       </div>
@@ -1973,7 +1973,7 @@ const MsgRow = ({
                   boxShadow: "0 1px 2px rgba(0,0,0,.2)",
                 }}
               >
-                <span style={{ transform: "translateY(-0.4px)" }}>✓</span>
+                <span style={{ transform: "translateY(-0.4px)" }}>---</span>
               </span>
             )}
           </span>
@@ -2002,7 +2002,7 @@ const MsgRow = ({
                 color: isOnline ? "#16a34a" : "#374151",
               }}
             >
-              {isOnline ? "● Online" : "○ Offline"}
+              {isOnline ? "--- Online" : "--- Offline"}
             </span>
           )}
         </div>
@@ -2128,7 +2128,7 @@ const MsgRow = ({
                     {msg.file_name}
                   </span>
                   <span style={{ color: "#374151", flexShrink: 0 }}>
-                    · Click to play
+                    -- Click to play
                   </span>
                 </div>
               </div>
@@ -2202,7 +2202,7 @@ const MsgRow = ({
                     {msg.file_name}
                   </div>
                   <div style={{ fontSize: 11, color: "#4b5563", marginTop: 1 }}>
-                    {extOf(msg.file_name)} · Click to view
+                    {extOf(msg.file_name)} -- Click to view
                   </div>
                 </div>
               </div>
@@ -2258,7 +2258,7 @@ const MsgRow = ({
                     </button>
                   </div>
                   <div style={{ fontSize: 11, color: "#374151", marginTop: 4 }}>
-                    Enter to save · Esc to cancel
+                    Enter to save -- Esc to cancel
                   </div>
                 </div>
               ) : (
@@ -2930,7 +2930,7 @@ function FreePlanPaywall({ navigate, dark = false }) {
                 letterSpacing: "0.08em",
               }}
             >
-              Sample — what you'll see after upgrading
+              Sample --- what you'll see after upgrading
             </span>
           </div>
           <div
@@ -3075,9 +3075,9 @@ function FreePlanPaywall({ navigate, dark = false }) {
                           {c.type === "channel" ? "#" : ""}
                           {c.type}
                         </span>
-                        <span>·</span>
+                        <span>--</span>
                         <span>{c.time}</span>
-                        <span>·</span>
+                        <span>--</span>
                         <span>{c.messages} messages</span>
                       </div>
                     </div>
@@ -3097,7 +3097,7 @@ function FreePlanPaywall({ navigate, dark = false }) {
                         : c.status === "typing"
                           ? "Typing..."
                           : c.status === "voice"
-                            ? "🎤"
+                            ? "----"
                             : "New"}
                     </div>
                   </div>
@@ -3521,16 +3521,16 @@ const Communication = () => {
                 [msg.channel_id || msg.sender_id]: true,
               }));
             const preview = msg.meeting_meta
-              ? `📹 ${msg.meeting_meta.type === "video" ? "Video" : "Audio"} call started`
+              ? `---- ${msg.meeting_meta.type === "video" ? "Video" : "Audio"} call started`
               : msg.message
                 ? msg.message.slice(0, 80)
                 : msg.file_type === "voice"
-                  ? "🎤 Voice"
+                  ? "---- Voice"
                   : msg.file_type === "image"
-                    ? "🖼 Image"
+                    ? "---- Image"
                     : msg.file_type === "video"
-                      ? "🎬 Video"
-                      : "📎 File";
+                      ? "---- Video"
+                      : "---- File";
             if (!inConv && sender)
               addToastRef.current?.({
                 sender,
@@ -4322,12 +4322,12 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
               message_preview: (
                 replyTo.message ||
                 (replyTo.file_type === "image"
-                  ? "🖼 Image"
+                  ? "---- Image"
                   : replyTo.file_type === "voice"
-                    ? "🎤 Voice"
+                    ? "---- Voice"
                     : replyTo.file_type === "video"
-                      ? "🎬 Video"
-                      : "📎 File") ||
+                      ? "---- Video"
+                      : "---- File") ||
                 ""
               ).slice(0, 80),
             }
@@ -4949,7 +4949,7 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
           <div className="mob-overlay" onClick={() => setSidebarOpen(false)} />
         )}
 
-        {/* â•â• SIDEBAR â•â• */}
+        {/* -------------- SIDEBAR -------------- */}
         <div
           className={`comm-sidebar${isMobile && sidebarOpen ? " open" : ""}`}
           style={{
@@ -5373,7 +5373,7 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
           </div>
         </div>
 
-        {/* â•â• CHAT â•â• */}
+        {/* -------------- CHAT -------------- */}
         {selectedUser || selectedChannel ? (
           <div
             style={{
@@ -5459,7 +5459,7 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                             : "#64748b",
                       }}
                     >
-                      {presence[selectedUser.id] ? "● Online" : "○ Offline"}
+                      {presence[selectedUser.id] ? "--- Online" : "--- Offline"}
                     </div>
                   )}
                 </div>
@@ -5816,7 +5816,7 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                               : 1,
                         }}
                       >
-                        🚀 Launch Poll
+                        ---- Launch Poll
                       </button>
                     </div>
                   </div>
@@ -5875,12 +5875,12 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                       >
                         {(replyTo.message || "").slice(0, 90) ||
                           (replyTo.file_type === "image"
-                            ? "🖼 Image"
+                            ? "---- Image"
                             : replyTo.file_type === "voice"
-                              ? "🎤 Voice"
+                              ? "---- Voice"
                               : replyTo.file_type === "video"
-                                ? "🎬 Video"
-                                : "📎 File")}
+                                ? "---- Video"
+                                : "---- File")}
                       </span>
                     </div>
                     <button className="tb" onClick={() => setReplyTo(null)}>
@@ -5978,10 +5978,10 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                           }}
                         >
                           {stagedFile.fileType === "image"
-                            ? "🖼 Image"
+                            ? "---- Image"
                             : stagedFile.fileType === "video"
-                              ? `🎬 ${extOf(stagedFile.name)} Video`
-                              : `📄 ${extOf(stagedFile.name)} document`}
+                              ? `---- ${extOf(stagedFile.name)} Video`
+                              : `---- ${extOf(stagedFile.name)} document`}
                         </div>
                         <input
                           value={pendingCaption}
@@ -6518,7 +6518,7 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                         marginBottom: 10,
                       }}
                     >
-                      ● Online —{" "}
+                      --- Online ---{" "}
                       {
                         channelMembers.filter((m) => !!presence[m.user_id])
                           .length
@@ -6542,7 +6542,7 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                         marginBottom: 10,
                       }}
                     >
-                      ○ Offline —{" "}
+                      --- Offline ---{" "}
                       {
                         channelMembers.filter((m) => !presence[m.user_id])
                           .length
@@ -6986,7 +6986,7 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                     marginBottom: 10,
                   }}
                 >
-                  Not in channel · {availableUsers.length}
+                  Not in channel -- {availableUsers.length}
                 </div>
                 <div
                   style={{ display: "flex", flexDirection: "column", gap: 6 }}
@@ -7062,7 +7062,7 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                                 <span
                                   style={{ color: "#22c55e", fontWeight: 700 }}
                                 >
-                                  ● Online
+                                  --- Online
                                 </span>
                               )}
                             </div>
@@ -7225,7 +7225,7 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                 <span
                   style={{ fontSize: 11, color: "#22c55e", fontWeight: 700 }}
                 >
-                  ● Online
+                  --- Online
                 </span>
               ) : (
                 <span
@@ -7235,7 +7235,7 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                     fontWeight: 600,
                   }}
                 >
-                  ○ Offline
+                  --- Offline
                 </span>
               )}
             </div>
@@ -7270,4 +7270,6 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
 };
 
 export default Communication;
+
+
 

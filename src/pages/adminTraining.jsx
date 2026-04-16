@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+﻿import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Modal,
   Input,
@@ -81,7 +81,7 @@ import dayjs from "dayjs";
 const { Option } = Select;
 const { TextArea } = Input;
 
-// ── Config ────────────────────────────────────────────────────────────────────
+// ---------------- Config ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const STORAGE_BUCKET = "training-materials";
 const GROQ_API_KEY = import.meta.env.VITE_GROK_API_KEY;
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
@@ -89,7 +89,7 @@ const TENANT_NAME = import.meta.env.VITE_TENANT_NAME || "Organization";
 
 const getIsDarkTheme = () => {
   if (typeof window === "undefined") return false;
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -162,7 +162,7 @@ function useDarkThemeMode() {
   return dark;
 }
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// ---------------- Constants ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const CATEGORIES = [
   "Onboarding",
   "Technical",
@@ -349,7 +349,7 @@ const getFT = (mime) =>
   };
 const formatSize = (b) =>
   !b
-    ? "—"
+    ? "--------"
     : b < 1024
       ? `${b} B`
       : b < 1048576
@@ -360,7 +360,7 @@ const isVideo = (mime) => mime?.startsWith("video/");
 const isPDF = (mime) => mime === "application/pdf";
 const isPreviewable = (mime) => isImage(mime) || isVideo(mime) || isPDF(mime);
 
-// ── FREE PLAN PAYWALL ─────────────────────────────────────────────────────────
+// ---------------- FREE PLAN PAYWALL ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function TrainingPaywall() {
   const navigate = useNavigate();
   const dark = useDarkThemeMode();
@@ -608,7 +608,7 @@ function TrainingPaywall() {
           padding: "48px 24px 80px",
         }}
       >
-        {/* ── HERO ─────────────────────────────────────────────────────────── */}
+        {/* ---------------- HERO ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */}
         <div
           className="paywall-hero"
           style={{ textAlign: "center", marginBottom: 64 }}
@@ -697,13 +697,13 @@ function TrainingPaywall() {
             }}
           >
             From onboarding modules to skill development courses, technical
-            training to professional growth — describe what you want to learn
+            training to professional growth -------- describe what you want to learn
             and get structured, practical training content tailored to your
             goals.
           </p>
         </div>
 
-        {/* ── MOCK SCREENSHOT ───────────────────────────────────────────────── */}
+        {/* ---------------- MOCK SCREENSHOT -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */}
         <div
           className="paywall-cards"
           style={{ marginBottom: 72, position: "relative" }}
@@ -830,7 +830,7 @@ function TrainingPaywall() {
                 >
                   <Search size={12} style={{ color: "#94a3b8" }} />
                   <span style={{ fontSize: 12, color: dark ? "#6b7280" : "#cbd5e1" }}>
-                    Search courses…
+                    Search courses-------
                   </span>
                 </div>
                 <div
@@ -1062,7 +1062,7 @@ function TrainingPaywall() {
           </div>
         </div>
 
-        {/* ── FEATURES GRID ─────────────────────────────────────────────────── */}
+        {/* ---------------- FEATURES GRID ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */}
         <div className="paywall-features" style={{ marginBottom: 64 }}>
           <div
             style={{
@@ -1142,7 +1142,7 @@ function TrainingPaywall() {
           </div>
         </div>
 
-        {/* ── BOTTOM CTA ─────────────────────────────────────────────────────── */}
+        {/* ---------------- BOTTOM CTA -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */}
         <div
           className="paywall-cta"
           style={{
@@ -1257,7 +1257,7 @@ function TrainingPaywall() {
   );
 }
 
-// ── Document Viewer Modal ─────────────────────────────────────────────────────
+// ---------------- Document Viewer Modal ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function DocumentViewerModal({ material, onClose }) {
   const dark = useDarkThemeMode();
   const [url, setUrl] = useState(null);
@@ -1343,7 +1343,7 @@ function DocumentViewerModal({ material, onClose }) {
               {material?.title}
             </p>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              {ft.label} · {formatSize(material?.file_size)}
+              {ft.label} ---- {formatSize(material?.file_size)}
             </p>
           </div>
         </div>
@@ -1398,7 +1398,7 @@ function DocumentViewerModal({ material, onClose }) {
           <div className="flex flex-col items-center justify-center py-24 gap-3">
             <Spin size="large" />
             <p className="text-[13px] text-slate-400 font-medium">
-              Loading document…
+              Loading document-------
             </p>
           </div>
         )}
@@ -1499,7 +1499,7 @@ function DocumentViewerModal({ material, onClose }) {
   );
 }
 
-// ── Skeleton Components ───────────────────────────────────────────────────────
+// ---------------- Skeleton Components --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function SkeletonPulse({ className = "" }) {
   return (
     <div className={`animate-pulse bg-slate-200 rounded-lg ${className}`} />
@@ -1605,7 +1605,7 @@ function CourseDetailSkeleton() {
   );
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ---------------- Helpers --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function stripMarkdown(t) {
   return (t || "")
     .replace(/\*\*(.+?)\*\*/g, "$1")
@@ -1649,7 +1649,7 @@ function emptyQuestion() {
   };
 }
 
-// ── Quiz Editor ───────────────────────────────────────────────────────────────
+// ---------------- Quiz Editor ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function QuizEditor({ quiz, onChange, onRegenerate, generating, title }) {
   const dark = useDarkThemeMode();
   const hasQuestions = !!quiz?.questions?.length;
@@ -1685,7 +1685,7 @@ function QuizEditor({ quiz, onChange, onRegenerate, generating, title }) {
           >
             {generating ? <Spin size="small" /> : <Wand2 size={20} />}
             <span className="text-[13px] font-bold">
-              {generating ? "Generating…" : "AI Generate"}
+              {generating ? "Generating-------" : "AI Generate"}
             </span>
             <span className="text-[10px] opacity-80">
               Auto-create 5 questions
@@ -1712,7 +1712,7 @@ function QuizEditor({ quiz, onChange, onRegenerate, generating, title }) {
         <div>
           <p className={`text-sm font-bold ${dark ? "text-slate-100" : "text-slate-800"}`}>{title}</p>
           <p className="text-xs text-slate-400 mt-0.5">
-            {quiz.questions?.length || 0} questions — click circles to set
+            {quiz.questions?.length || 0} questions -------- click circles to set
             correct answer
           </p>
         </div>
@@ -1758,7 +1758,7 @@ function QuizEditor({ quiz, onChange, onRegenerate, generating, title }) {
                     ),
                   }))
                 }
-                placeholder="Enter your question here…"
+                placeholder="Enter your question here-------"
                 className={`flex-1 border rounded-lg px-3 py-1.5 text-[13px] font-semibold outline-none focus:border-indigo-400 transition-all ${dark ? "border-[#2a2b31] bg-[#17181c] text-slate-100" : "border-slate-200 text-slate-800"}`}
               />
               <button
@@ -1832,7 +1832,7 @@ function QuizEditor({ quiz, onChange, onRegenerate, generating, title }) {
                   ),
                 }))
               }
-              placeholder="Explanation (optional) — shown after answering"
+              placeholder="Explanation (optional) -------- shown after answering"
               className={`w-full border border-dashed rounded-lg px-3 py-1.5 text-[11px] outline-none focus:border-indigo-300 transition-all mt-1 ${dark ? "border-[#2a2b31] bg-[#17181c] text-slate-300" : "border-slate-200 text-slate-400"}`}
             />
           </div>
@@ -1852,7 +1852,7 @@ function QuizEditor({ quiz, onChange, onRegenerate, generating, title }) {
   );
 }
 
-// ── Module File Upload Helper ─────────────────────────────────────────────────
+// ---------------- Module File Upload Helper --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function ModuleFileUploader({ tenantId, onUploaded }) {
   const [uploading, setUploading] = useState(false);
 
@@ -1917,7 +1917,7 @@ function ModuleFileUploader({ tenantId, onUploaded }) {
   );
 }
 
-// ── Material Row ──────────────────────────────────────────────────────────────
+// ---------------- Material Row ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function MaterialRow({ mat, onDetach, onView, showDetach = true }) {
   const ft = getFT(mat.file_type);
   const { Icon } = ft;
@@ -1934,7 +1934,7 @@ function MaterialRow({ mat, onDetach, onView, showDetach = true }) {
           {mat.title}
         </p>
         <p className="text-[10px] text-slate-400">
-          {ft.label} · {formatSize(mat.file_size)}
+          {ft.label} ---- {formatSize(mat.file_size)}
         </p>
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
@@ -1961,7 +1961,7 @@ function MaterialRow({ mat, onDetach, onView, showDetach = true }) {
   );
 }
 
-// ── Course Detail View ────────────────────────────────────────────────────────
+// ---------------- Course Detail View ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function CourseDetailView({
   course,
   tenantId,
@@ -2147,7 +2147,7 @@ function CourseDetailView({
       if (finalQuiz?.questions?.length) {
         const savedId = await upsertQuiz(
           finalQuiz.id,
-          `${course.title} — Final Quiz`,
+          `${course.title} -------- Final Quiz`,
           [{ _meta: { type: "final" } }, ...finalQuiz.questions],
         );
         if (savedId && !finalQuiz.id)
@@ -2262,7 +2262,7 @@ function CourseDetailView({
         >
           {saving ? (
             <>
-              <Spin size="small" /> Saving…
+              <Spin size="small" /> Saving-------
             </>
           ) : (
             <>
@@ -2323,7 +2323,7 @@ function CourseDetailView({
                     {isModules
                       ? `${modules.length} module${modules.length !== 1 ? "s" : ""}`
                       : hasContent
-                        ? "Quiz ready ✓"
+                        ? "Quiz ready -------"
                         : "Not generated"}
                   </p>
                 </div>
@@ -2460,7 +2460,7 @@ function CourseDetailView({
                                   ),
                                 )
                               }
-                              placeholder="Module description or learning objectives (optional)…"
+                              placeholder="Module description or learning objectives (optional)-------"
                               rows={2}
                               className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-[13px] text-slate-700 outline-none focus:border-indigo-400 transition-all resize-none mb-4"
                             />
@@ -2506,7 +2506,7 @@ function CourseDetailView({
                                     onClick={() => setMatPickerOpen(mi)}
                                     className="text-[12px] font-semibold text-indigo-500 hover:text-indigo-700"
                                   >
-                                    Browse library →
+                                    Browse library --------
                                   </button>
                                 </div>
                               </div>
@@ -2575,10 +2575,10 @@ function CourseDetailView({
                     </div>
                     <div>
                       <h2 className="text-xl font-bold text-slate-900">
-                        {mod?.title || `Module ${modIdx + 1}`} — Quiz
+                        {mod?.title || `Module ${modIdx + 1}`} -------- Quiz
                       </h2>
                       <p className="text-sm text-slate-500 mt-0.5">
-                        Questions for this module — AI or manual
+                        Questions for this module -------- AI or manual
                       </p>
                     </div>
                   </div>
@@ -2588,7 +2588,7 @@ function CourseDetailView({
                     </p>
                     {attachedMats.length === 0 ? (
                       <p className="text-[13px] text-slate-400 italic">
-                        No materials — quiz will be based on module title only.
+                        No materials -------- quiz will be based on module title only.
                       </p>
                     ) : (
                       <div className="flex flex-col gap-2">
@@ -2713,7 +2713,7 @@ function CourseDetailView({
                 >
                   {saving ? (
                     <>
-                      <Spin size="small" /> Saving…
+                      <Spin size="small" /> Saving-------
                     </>
                   ) : (
                     <>
@@ -2746,7 +2746,7 @@ function CourseDetailView({
             <div className="flex items-center gap-2">
               <Link2 size={15} className="text-indigo-500" />
               <span className="font-bold">
-                Attach Materials — "
+                Attach Materials -------- "
                 {modules[matPickerOpen]?.title || `Module ${matPickerOpen + 1}`}
                 "
               </span>
@@ -2793,7 +2793,7 @@ function CourseDetailView({
                         {mat.title}
                       </p>
                       <p className="text-[11px] text-slate-400">
-                        {mat.category} · {ft.label} ·{" "}
+                        {mat.category} ---- {ft.label} ----{" "}
                         {formatSize(mat.file_size)}
                       </p>
                     </div>
@@ -2833,7 +2833,7 @@ function CourseDetailView({
   );
 }
 
-// ── Courses List View ─────────────────────────────────────────────────────────
+// ---------------- Courses List View ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function CoursesListView({ tenantId, allMaterials, onOpenCourse }) {
   const dark = useDarkThemeMode();
   const [courses, setCourses] = useState([]);
@@ -2910,7 +2910,7 @@ function CoursesListView({ tenantId, allMaterials, onOpenCourse }) {
       setCreating(false);
       return;
     }
-    message.success("Course created! Opening editor…");
+    message.success("Course created! Opening editor-------");
     setCreateOpen(false);
     setForm({
       title: "",
@@ -2969,7 +2969,7 @@ function CoursesListView({ tenantId, allMaterials, onOpenCourse }) {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search courses…"
+              placeholder="Search courses-------"
               className="pl-9 pr-3 h-9 w-48 bg-slate-50 border border-slate-200 rounded-xl text-[13px] text-slate-700 outline-none focus:border-indigo-400 focus:bg-white transition-all"
             />
           </div>
@@ -3284,7 +3284,7 @@ function CoursesListView({ tenantId, allMaterials, onOpenCourse }) {
           >
             {creating ? (
               <>
-                <Spin size="small" /> Creating…
+                <Spin size="small" /> Creating-------
               </>
             ) : (
               <>
@@ -3298,7 +3298,7 @@ function CoursesListView({ tenantId, allMaterials, onOpenCourse }) {
   );
 }
 
-// ── ROOT EXPORT ───────────────────────────────────────────────────────────────
+// ---------------- ROOT EXPORT ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 export default function AdminTrainingCourses() {
   const dark = useDarkThemeMode();
   const [tenantId, setTenantId] = useState(undefined);
@@ -3338,7 +3338,7 @@ export default function AdminTrainingCourses() {
         const tid = profile?.tenant_id || user.id;
         setTenantId(tid);
 
-        // ── Fetch org plan ───────────────────────────────────────────────────
+        // ---------------- Fetch org plan ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
         const { data: org } = await supabase
           .from("tenants")
           .select("plan")
@@ -3409,7 +3409,7 @@ export default function AdminTrainingCourses() {
       </div>
     );
 
-  // ── FREE PLAN GATE ────────────────────────────────────────────────────────
+  // ---------------- FREE PLAN GATE ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   if (isStarterPlan) return <TrainingPaywall />;
 
   // Course detail
@@ -3433,3 +3433,5 @@ export default function AdminTrainingCourses() {
     />
   );
 }
+
+

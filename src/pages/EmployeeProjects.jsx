@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Drawer, message, Spin, Tooltip } from "antd";
 import { Calendar, Search, X } from "lucide-react";
 import dayjs from "dayjs";
@@ -7,7 +7,7 @@ import { useAuth } from "../contexts/AuthContext";
 import TicketDetailsModal from "../components/TicketDetailsModal";
 
 const getIsDarkTheme = () => {
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -37,7 +37,7 @@ const avatarColor = (str = "") => {
   return colors[h];
 };
 
-const fmtDate = (d) => (d ? dayjs(d).format("MMM D") : "—");
+const fmtDate = (d) => (d ? dayjs(d).format("MMM D") : "--------");
 
 const PROJECT_STATUS = [
   {
@@ -635,7 +635,7 @@ const EmployeeProjects = () => {
         </div>
       </div>
 
-      {/* ═══ PROJECT DRAWER (PM-like flow) ═══ */}
+      {/* --------------------- PROJECT DRAWER (PM-like flow) --------------------- */}
       <Drawer
         open={showProjectDrawer}
         onClose={closeProjectDrawer}
@@ -812,7 +812,7 @@ const EmployeeProjects = () => {
             >
               <Search size={12} color={ui.muted} />
               <input
-                placeholder="Search issues…"
+                placeholder="Search issues-------"
                 value={searchQ}
                 onChange={(e) => setSearchQ(e.target.value)}
                 style={{
@@ -960,7 +960,7 @@ const EmployeeProjects = () => {
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between" }}>
                           <span style={{ fontSize: 10, color: ui.muted }}>
-                            {t.priority ? `Priority: ${t.priority}` : "Priority: —"}
+                            {t.priority ? `Priority: ${t.priority}` : "Priority: --------"}
                           </span>
                           <span style={{ fontSize: 10, color: ui.muted }}>
                             {t.due_date ? `Due ${fmtDate(t.due_date)}` : ""}
@@ -1037,7 +1037,7 @@ const EmployeeProjects = () => {
                     </div>
                     <div style={{ fontSize: 11, color: ui.muted, marginTop: 2 }}>
                       {t.ticket_type ? t.ticket_type.toUpperCase() : ""}{" "}
-                      {t.priority ? `• ${t.priority.toUpperCase()}` : ""}
+                      {t.priority ? `------- ${t.priority.toUpperCase()}` : ""}
                     </div>
                   </div>
                 ))
@@ -1063,4 +1063,6 @@ const EmployeeProjects = () => {
 };
 
 export default EmployeeProjects;
+
+
 

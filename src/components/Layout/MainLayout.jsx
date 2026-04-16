@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, createContext, useContext } from "react";
+import { useState, useEffect, useRef, createContext, useContext } from "react";
 import {
   Layout,
   Menu,
@@ -55,6 +55,7 @@ import {
   CreditCardOutlined,
   AuditOutlined,
   RadarChartOutlined,
+  CloseOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
@@ -210,12 +211,15 @@ const setGoogTransCookie = (lang) => {
 
 const MainLayout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 768 : false,
+  );
   const [unreadCount, setUnreadCount] = useState(0);
   const [activityItems, setActivityItems] = useState([]);
   const [activityLoading, setActivityLoading] = useState(false);
   const [themeMode, setThemeMode] = useState(() => {
     const saved = localStorage.getItem("themeMode");
-    return saved || "system";
+    return saved || "light";
   });
   const [uiLanguage, setUiLanguage] = useState(() => {
     const saved = localStorage.getItem("uiLanguage");
@@ -373,6 +377,20 @@ const MainLayout = ({ children }) => {
       new CustomEvent("themeModeChanged", { detail: { themeMode } }),
     );
   }, [themeMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const syncViewport = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      setCollapsed((prev) => (mobile ? true : prev));
+    };
+
+    syncViewport();
+    window.addEventListener("resize", syncViewport);
+    return () => window.removeEventListener("resize", syncViewport);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1253,7 +1271,6 @@ const MainLayout = ({ children }) => {
 
   const SIDER_WIDTH = 232;
   const SIDER_COLLAPSED = 64;
-  const isMobile = window.innerWidth < 768;
   const formatActivityTime = (timestamp) => {
     if (!timestamp) return "";
     const diffMs = Date.now() - new Date(timestamp).getTime();
@@ -1715,6 +1732,21 @@ const MainLayout = ({ children }) => {
             fontFamily: "'Geist', -apple-system, sans-serif",
           }}
         >
+          {isMobile && !collapsed && (
+            <div
+              onClick={() => setCollapsed(true)}
+              aria-hidden="true"
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: isDarkMode
+                  ? "rgba(15, 23, 42, 0.58)"
+                  : "rgba(15, 23, 42, 0.24)",
+                backdropFilter: "blur(2px)",
+                zIndex: 999,
+              }}
+            />
+          )}
           {/* â”€â”€ Sidebar â”€â”€ */}
           <Sider
             trigger={null}
@@ -1753,39 +1785,73 @@ const MainLayout = ({ children }) => {
             >
               <div
                 style={{
-                  width: "18px",
-                  height: "18px",
-                  flexShrink: 0,
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  overflow: "hidden",
+                  gap: "10px",
+                  minWidth: 0,
+                  flex: 1,
                 }}
               >
-                <img
-                  src={isDarkMode ? "/Ryzent1.png" : "/Ryzent.png"}
-                  alt="Ryzent"
+                <div
                   style={{
                     width: "18px",
                     height: "18px",
-                    objectFit: "cover",
-                    display: "block",
-                  }}
-                />
-              </div>
-
-              {!collapsed && (
-                <span
-                  style={{
-                    color: t.text,
-                    fontSize: "15px",
-                    fontWeight: "620",
-                    letterSpacing: "-0.4px",
-                    whiteSpace: "nowrap",
+                    flexShrink: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    overflow: "hidden",
                   }}
                 >
-                  Ryzent
-                </span>
+                  <img
+                    src={isDarkMode ? "/Ryzent1.png" : "/Ryzent.png"}
+                    alt="Ryzent"
+                    style={{
+                      width: "18px",
+                      height: "18px",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+                </div>
+
+                {!collapsed && (
+                  <span
+                    style={{
+                      color: t.text,
+                      fontSize: "15px",
+                      fontWeight: "620",
+                      letterSpacing: "-0.4px",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Ryzent
+                  </span>
+                )}
+              </div>
+
+              {isMobile && !collapsed && (
+                <button
+                  type="button"
+                  onClick={() => setCollapsed(true)}
+                  aria-label="Close sidebar"
+                  className="rs-icon-btn"
+                  style={{
+                    width: "32px",
+                    height: "32px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: "8px",
+                    border: "none",
+                    background: "transparent",
+                    color: t.textSub,
+                    cursor: "pointer",
+                    flexShrink: 0,
+                  }}
+                >
+                  <CloseOutlined style={{ fontSize: "15px" }} />
+                </button>
               )}
             </div>
 

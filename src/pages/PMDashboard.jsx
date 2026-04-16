@@ -24,7 +24,7 @@ import BirthdayWidget from "../components/BirthdayWidget";
 const { Title, Text } = Typography;
 
 const getIsDarkTheme = () => {
-  const mode = localStorage.getItem("themeMode") || "system";
+  const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -534,3 +534,4 @@ const PMDashboard = () => {
 };
 
 export default PMDashboard;
+
