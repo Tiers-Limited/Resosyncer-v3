@@ -25,6 +25,7 @@ import {
   FileText,
   Image,
   File,
+  Eye,
   Download,
   Trash2,
 } from "lucide-react";
@@ -176,6 +177,7 @@ export default function TicketDetailsModal({
   const [loadingAttachments, setLoadingAttachments] = useState(false);
   const [deletingAttachmentId, setDeletingAttachmentId] = useState(null);
   const [dragOver, setDragOver] = useState(false);
+  const [previewAttachment, setPreviewAttachment] = useState(null);
 
   const assigneeOptions = useMemo(
     () =>
@@ -409,6 +411,20 @@ export default function TicketDetailsModal({
     return ["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(ext);
   };
 
+  const isPdfFile = (att = {}) => {
+    const ext = String(att?.file_name || "")
+      .split(".")
+      .pop()
+      ?.toLowerCase();
+    const type = String(att?.file_type || "").toLowerCase();
+    return ext === "pdf" || type.includes("pdf");
+  };
+
+  const canPreviewAttachment = (att = {}) => {
+    if (!att?.file_url) return false;
+    return isImageFile(att.file_name) || isPdfFile(att);
+  };
+
   // ────────────────────────────────────────────────────────────────────────────
 
   const canRequestCompletion =
@@ -597,6 +613,25 @@ export default function TicketDetailsModal({
     if (field === "due_date") return <Calendar size={12} />;
     return <Edit2 size={12} />;
   };
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (document.getElementById("tdm-scrollbar-css")) return;
+    const s = document.createElement("style");
+    s.id = "tdm-scrollbar-css";
+    s.textContent = `
+      .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.55);
+        border-radius: 6px;
+      }
+      .custom-scrollbar {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(148,163,184,0.55) transparent;
+      }
+    `;
+    document.head.appendChild(s);
+  }, []);
 
   const historyLabel = (item) => {
     if (item.field_name === "comment_added") return "added a comment";
@@ -1049,7 +1084,7 @@ export default function TicketDetailsModal({
                     <Upload
                       size={22}
                       color={dragOver ? "#0c66e4" : "#94a3b8"}
-                      style={{ marginBottom: 6 }}
+                      style={{ display: "block", margin: "0 auto 6px" }}
                     />
                     <div
                       style={{
@@ -1096,30 +1131,33 @@ export default function TicketDetailsModal({
                 </div>
               ) : (
                 <div
-                  style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+                    gap: 10,
+                  }}
                 >
                   {attachments.map((att) => (
                     <div
                       key={att.id}
                       style={{
                         display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        padding: "10px 12px",
+                        flexDirection: "column",
+                        gap: 8,
+                        padding: 10,
                         border: "1px solid #e5e7eb",
                         borderRadius: 10,
-                        background: "#fafafa",
-                        transition: "border-color 0.15s",
+                        background: "#fff",
+                        minHeight: 170,
                       }}
                     >
                       {/* Thumbnail or icon */}
                       <div
                         style={{
-                          width: 40,
-                          height: 40,
+                          width: "100%",
+                          height: 92,
                           borderRadius: 8,
                           overflow: "hidden",
-                          flexShrink: 0,
                           background: "#f1f5f9",
                           display: "flex",
                           alignItems: "center",
@@ -1143,10 +1181,10 @@ export default function TicketDetailsModal({
                       </div>
 
                       {/* Info */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ minWidth: 0 }}>
                         <div
                           style={{
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: 700,
                             color: "#0f172a",
                             whiteSpace: "nowrap",
@@ -1158,9 +1196,9 @@ export default function TicketDetailsModal({
                         </div>
                         <div
                           style={{
-                            fontSize: 11,
+                            fontSize: 10,
                             color: "#94a3b8",
-                            marginTop: 2,
+                            marginTop: 3,
                           }}
                         >
                           {att.profiles?.full_name || "Unknown"} ·{" "}
@@ -1170,9 +1208,37 @@ export default function TicketDetailsModal({
                       </div>
 
                       {/* Actions */}
-                      <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 6,
+                          marginTop: "auto",
+                          justifyContent: "flex-end",
+                        }}
+                      >
+                        {canPreviewAttachment(att) && (
+                          <Tooltip title="View">
+                            <button
+                              onClick={() => setPreviewAttachment(att)}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: 30,
+                                height: 30,
+                                borderRadius: 6,
+                                background: "#eff6ff",
+                                border: "1px solid #bfdbfe",
+                                color: "#1d4ed8",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <Eye size={13} />
+                            </button>
+                          </Tooltip>
+                        )}
                         {att.file_url && (
-                          <Tooltip title="Download / View">
+                          <Tooltip title="Download">
                             <a
                               href={att.file_url}
                               target="_blank"
@@ -1629,6 +1695,55 @@ export default function TicketDetailsModal({
           </div>
         </div>
       </div>
+
+      <Modal
+        open={!!previewAttachment}
+        onCancel={() => setPreviewAttachment(null)}
+        footer={null}
+        width={980}
+        title={previewAttachment?.file_name || "Attachment preview"}
+        destroyOnClose
+      >
+        {previewAttachment?.file_url ? (
+          isImageFile(previewAttachment.file_name) ? (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                background: "#f8fafc",
+                border: "1px solid #e5e7eb",
+                borderRadius: 10,
+                minHeight: 420,
+                padding: 12,
+              }}
+            >
+              <img
+                src={previewAttachment.file_url}
+                alt={previewAttachment.file_name}
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "72vh",
+                  objectFit: "contain",
+                  borderRadius: 8,
+                }}
+              />
+            </div>
+          ) : (
+            <iframe
+              title={previewAttachment.file_name || "Attachment preview"}
+              src={previewAttachment.file_url}
+              style={{
+                width: "100%",
+                height: "72vh",
+                border: "1px solid #e5e7eb",
+                borderRadius: 10,
+                background: "#fff",
+              }}
+            />
+          )
+        ) : null}
+      </Modal>
     </Modal>
   );
 }

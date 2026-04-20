@@ -136,8 +136,8 @@ const CSS = `
   font-family:inherit;
 }
 .tm-tab.active {
-  border-color:#3b5bdb;
-  color:#1d4ed8;
+  border-color:#3453B7;
+  color:#3453B7;
   background:#eef2ff;
 }
 .tm-search  { position:relative; flex:1; min-width:200px; max-width:320px; }
@@ -177,12 +177,12 @@ const CSS = `
 .tm-btn.del:hover   { background:#fff1f0; color:#cf1322; }
 
 .tm-empty      { text-align:center; padding:72px 20px; }
-.tm-empty-ico  { font-size:44px; margin-bottom:14px; }
+.tm-empty-ico  { font-size:44px; margin-bottom:14px; display:flex; justify-content:center; align-items:center; }
 .tm-empty-text { font-size:15px; font-weight:600; color:#5a5a5a; }
 .tm-empty-hint { font-size:12.5px; color:#b8b8b8; margin-top:5px; }
 
-.tm-add-btn { background:#0d0d0d !important; border-color:#0d0d0d !important; border-radius:10px !important; font-family:'Sora',sans-serif !important; font-weight:600 !important; height:38px !important; padding:0 18px !important; box-shadow:none !important; }
-.tm-add-btn:hover { background:#2a2a2a !important; border-color:#2a2a2a !important; }
+.tm-add-btn { background:#3453B7 !important; border-color:#3453B7 !important; border-radius:10px !important; font-family:'Sora',sans-serif !important; font-weight:600 !important; height:38px !important; padding:0 18px !important; box-shadow:none !important; }
+.tm-add-btn:hover { background:#2f469d !important; border-color:#2f469d !important; }
 
 /* skeleton */
 @keyframes tm-sweep { to { background-position:-200% 0; } }
@@ -265,7 +265,7 @@ const CSS = `
 .tm.dark .tm-sub,.tm.dark .tm-count,.tm.dark .tm-card-desc,.tm.dark .tm-chip-role,.tm.dark .tm-card-date,.tm.dark .tm-stat-l,.tm.dark .tm-members-label { color:#9ca3af; }
 .tm.dark .tm-stat,.tm.dark .tm-card,.tm.dark .tm-sk { background:#1a1b1f; box-shadow:0 2px 12px rgba(0,0,0,.28); }
 .tm.dark .tm-tab { background:#1a1b1f; border-color:#2a2b31; color:#9ca3af; }
-.tm.dark .tm-tab.active { background:#1e293b; border-color:#3b82f6; color:#bfdbfe; }
+.tm.dark .tm-tab.active { background:#1e293b; border-color:#3453B7; color:#c7d2fe; }
 .tm.dark .tm-search input { background:#17181c; color:#f3f4f6; }
 .tm.dark .tm-search input:focus { background:#1a1b1f; box-shadow:0 0 0 3px rgba(59,91,219,.22); }
 .tm.dark .tm-count-pill,.tm.dark .tm-show-more { background:#202127; color:#d1d5db; }
@@ -757,7 +757,19 @@ const Teams = () => {
               Modal.confirm({
                 title: "Delete Team",
                 content: `Remove "${team.name}"? Members will be unassigned.`,
-                okType: "danger",
+                okButtonProps: {
+                  style: {
+                    background: dark ? "#e2e8f0" : "#3453B7",
+                    borderColor: dark ? "#e2e8f0" : "#3453B7",
+                    color: dark ? "#111111" : "#ffffff",
+                  },
+                },
+                cancelButtonProps: {
+                  style: {
+                    color: dark ? "#e2e8f0" : "#3453B7",
+                    borderColor: dark ? "#e2e8f0" : "#3453B7",
+                  },
+                },
                 onOk: () => handleDelete(team.id, team.name),
               })
             }
@@ -824,7 +836,7 @@ const Teams = () => {
             display: "inline-flex",
             alignItems: "center",
             gap: 7,
-            background: dark ? "#e2e8f0" : "#0d0d0d",
+            background: dark ? "#e2e8f0" : "#3453B7",
             color: dark ? "#111111" : "#fff",
             border: "none",
             borderRadius: 10,
@@ -837,10 +849,10 @@ const Teams = () => {
             transition: "background .15s",
           }}
           onMouseOver={(e) =>
-            (e.currentTarget.style.background = dark ? "#cbd5e1" : "#2a2a2a")
+            (e.currentTarget.style.background = dark ? "#cbd5e1" : "#2f469d")
           }
           onMouseOut={(e) =>
-            (e.currentTarget.style.background = dark ? "#e2e8f0" : "#0d0d0d")
+            (e.currentTarget.style.background = dark ? "#e2e8f0" : "#3453B7")
           }
         >
           <Plus size={15} strokeWidth={2.5} /> Create Team
@@ -855,7 +867,7 @@ const Teams = () => {
             label: "Total Teams",
             color: dark ? "#e8edf5" : "#0d0d0d",
           },
-          { n: stats.members, label: "Total Members", color: "#3b5bdb" },
+          { n: stats.members, label: "Total Members", color: "#3453B7" },
           { n: stats.ongoingProjects, label: "Ongoing Projects", color: "#0ca678" },
           { n: stats.empty, label: "Empty Teams", color: "#e67700" },
         ].map((s) => (
@@ -1067,8 +1079,8 @@ const Teams = () => {
         okText={editingTeam ? "Update" : "Create"}
         okButtonProps={{
           style: {
-            background: dark ? "#e2e8f0" : "#0d0d0d",
-            borderColor: dark ? "#e2e8f0" : "#0d0d0d",
+            background: dark ? "#e2e8f0" : "#3453B7",
+            borderColor: dark ? "#e2e8f0" : "#3453B7",
             color: dark ? "#111111" : "#ffffff",
             borderRadius: 8,
             fontWeight: 600,

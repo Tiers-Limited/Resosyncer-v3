@@ -24,6 +24,7 @@ const PMTickets = () => {
   const [form] = Form.useForm();
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const isAdmin = profile?.role === 'admin';
 
   useEffect(() => {
     if (profile?.id && projectId) {
@@ -36,12 +37,20 @@ const PMTickets = () => {
 
   const fetchCurrentProject = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('projects')
         .select('id, name')
-        .eq('id', projectId)
-        .eq('project_manager_id', profile.id)
-        .single();
+        .eq('id', projectId);
+
+      if (profile?.tenant_id) {
+        query = query.eq('tenant_id', profile.tenant_id);
+      }
+
+      if (!isAdmin) {
+        query = query.eq('project_manager_id', profile.id);
+      }
+
+      const { data, error } = await query.single();
 
       if (error) throw error;
       setCurrentProject(data);
@@ -88,11 +97,20 @@ const PMTickets = () => {
 
   const fetchProjects = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('projects')
         .select('id, name')
-        .eq('project_manager_id', profile.id)
         .order('name');
+
+      if (profile?.tenant_id) {
+        query = query.eq('tenant_id', profile.tenant_id);
+      }
+
+      if (!isAdmin) {
+        query = query.eq('project_manager_id', profile.id);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setProjects(data || []);

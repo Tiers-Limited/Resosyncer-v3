@@ -1,4 +1,4 @@
-﻿import {
+import {
   useState,
   useEffect,
   useCallback,
@@ -48,6 +48,7 @@ import {
   Mail,
   Zap,
   Globe,
+  Download,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -56,6 +57,9 @@ import debounce from "lodash.debounce";
 import countryList from "react-select-country-list";
 import CountrySelect from "../components/CountrySelect";
 import IconPicker from "../components/IconPicker";
+import ProjectImportModal from "../components/ProjectImportModal";
+import PMProjects from "./PMProjects";
+import { executeImportRequest } from "../lib/externalProjectImport";
 import * as flags from "country-flag-icons/react/3x2";
 
 /* - ENV - */
@@ -64,7 +68,8 @@ const GROQ_API_KEY = import.meta.env.VITE_GROK_API_KEY;
 const EMAIL_API = import.meta.env.VITE_EMAIL_API_URL;
 
 /* - Groq helper - */
-const groq = async (systemPrompt, userContent) => {
+const groq = async (systemPrompt, userContent, options = {}) => {
+  const maxTokens = Number(options.maxTokens) > 0 ? Number(options.maxTokens) : 1024;
   const res = await fetch(GROQ_URL, {
     method: "POST",
     headers: {
@@ -78,7 +83,7 @@ const groq = async (systemPrompt, userContent) => {
         { role: "user", content: userContent },
       ],
       temperature: 0.25,
-      max_tokens: 1024,
+      max_tokens: maxTokens,
     }),
   });
   if (!res.ok) throw new Error("Groq failed");
@@ -293,13 +298,13 @@ const StatusChip = ({ status, isDark, sm }) => {
 
 /* - Flag renderer - */
 const FlagIcon = ({ value, size = 20 }) => {
-  if (!value) return null;
+  if (!value) return <Globe size={size} color="#94a3b8" />;
   if (value.startsWith("FLAG:")) {
     const code = value.replace("FLAG:", "");
     const F = flags[code];
     return F ? (
       <F style={{ width: size, height: Math.round(size * 0.75) }} />
-    ) : null;
+    ) : <Globe size={size} color="#94a3b8" />;
   }
   return <span style={{ fontSize: size }}>{value}</span>;
 };
@@ -977,6 +982,8 @@ const Projects = () => {
   const [maxProjects, setMaxProjects] = useState(null);
   const [activeProjectsCount, setActiveProjectsCount] = useState(0);
   const [isProjectLimitReached, setIsProjectLimitReached] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [boardProjectId, setBoardProjectId] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -1074,6 +1081,53 @@ const Projects = () => {
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () =>
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [currentTenantId]);
+
+  /* Auto-run approved client imports (polling while an admin has Projects open) */
+  useEffect(() => {
+    if (!currentTenantId) return undefined;
+    let cancelled = false;
+    const tick = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user || cancelled) return;
+      const { data: pending } = await supabase
+        .from("project_import_requests")
+        .select("id")
+        .eq("tenant_id", currentTenantId)
+        .eq("status", "approved")
+        .is("created_project_id", null)
+        .limit(1);
+      const rid = pending?.[0]?.id;
+      if (!rid) return;
+      try {
+        await executeImportRequest({
+          supabase,
+          requestId: rid,
+          actorUserId: user.id,
+        });
+        if (!cancelled) {
+          message.success("External project import completed");
+          fetchProjects(currentTenantId);
+        }
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) {
+          message.error(
+            e?.message?.includes("Import") || e?.message?.includes("import")
+              ? e.message
+              : "Import failed. Check the import request or try again.",
+          );
+        }
+      }
+    };
+    const t = setInterval(tick, 15000);
+    tick();
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
   }, [currentTenantId]);
 
   const fetchProjects = async (tid) => {
@@ -2091,6 +2145,10 @@ const Projects = () => {
           background: "var(--p-bg)",
           minHeight: "100vh",
           color: "var(--p-text)",
+          position: "relative",
+          transition: "filter 0.2s ease, transform 0.2s ease",
+          filter: importModalOpen ? "blur(3px) saturate(0.88)" : "none",
+          transform: importModalOpen ? "scale(0.995)" : "scale(1)",
         }}
       >
         {/* - Project Limit Alert - */}
@@ -2317,6 +2375,28 @@ const Projects = () => {
               >
                 <Archive size={13} />
                 {showArchived ? "Active" : "Archived"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setImportModalOpen(true)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 7,
+                  padding: "8px 14px",
+                  borderRadius: 9,
+                  border: "1px solid var(--p-border)",
+                  background: "var(--p-card2)",
+                  color: "var(--p-text)",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "'DM Sans',sans-serif",
+                  justifyContent: "center",
+                  flex: isMobile ? "1 1 0" : "0 0 auto",
+                }}
+              >
+                <Download size={14} /> Import
               </button>
               <button
                 onClick={openNewProjectDrawer}
@@ -3061,9 +3141,7 @@ const Projects = () => {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                {editingProject?.country_flag && (
-                  <FlagIcon value={editingProject.country_flag} size={20} />
-                )}
+                <FlagIcon value={editingProject?.country_flag} size={20} />
                 <span
                   style={{
                     fontSize: 16,
@@ -3077,6 +3155,30 @@ const Projects = () => {
               </div>
               {editingProject && (
                 <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    onClick={() => {
+                      setBoardProjectId(editingProject.id);
+                      setDrawerVisible(false);
+                      setEditingProject(null);
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 5,
+                      padding: "5px 10px",
+                      borderRadius: 7,
+                      border: "1px solid var(--p-border)",
+                      background: "transparent",
+                      color: "var(--p-sub)",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      fontFamily: "'DM Sans',sans-serif",
+                    }}
+                    title="Open tickets board"
+                  >
+                    <LayoutGrid size={12} /> Tickets Board
+                  </button>
                   {showArchived ? (
                     <button
                       onClick={() => handleUnarchive(editingProject.id)}
@@ -3178,6 +3280,28 @@ const Projects = () => {
             maxProjects={maxProjects}
           />
         </Drawer>
+
+        <ProjectImportModal
+          open={importModalOpen}
+          onClose={() => setImportModalOpen(false)}
+          tenantId={currentTenantId}
+          groq={groq}
+          sendEmail={sendEmail}
+          senderCompanyName="Your Company"
+          isDark={dark}
+          onImported={() => {
+            fetchProjects(currentTenantId);
+          }}
+        />
+
+        {boardProjectId && (
+          <PMProjects
+            embedded
+            initialProjectId={boardProjectId}
+            onCloseEmbeddedBoard={() => setBoardProjectId(null)}
+          />
+        )}
+
       </div>
     </ThemeCtx.Provider>
   );

@@ -54,8 +54,9 @@ import {
   FolderOutlined,
   MessageOutlined,
   CreditCardOutlined,
-  VideoCameraOutlined
+  VideoCameraOutlined,
 } from "@ant-design/icons";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
 import dayjs from "dayjs";
@@ -874,7 +875,13 @@ const TwoFactorSection = ({ profile, dark = false }) => {
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const Settings = () => {
   const { profile } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [dark, setDark] = useState(getIsDarkTheme);
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search || "");
+    return params.get("tab") || "profile";
+  });
   const [profileForm] = Form.useForm();
   const [passwordForm] = Form.useForm();
   const [adminForm] = Form.useForm();
@@ -943,6 +950,25 @@ const Settings = () => {
   const finalSalary = baseSalary + allowanceTotal - deductionTotal;
   const formatSalary = (amount) =>
     `${salaryCurrency} ${parseAmount(amount).toLocaleString()}`;
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search || "");
+    const tab = params.get("tab");
+    if (tab && tab !== activeTab) {
+      setActiveTab(tab);
+      return;
+    }
+    if (!tab && activeTab !== "profile") {
+      setActiveTab("profile");
+    }
+  }, [location.search]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleTabChange = (nextKey) => {
+    setActiveTab(nextKey);
+    const params = new URLSearchParams(location.search || "");
+    params.set("tab", nextKey);
+    navigate(`/settings?${params.toString()}`, { replace: true });
+  };
 
   /* ---------------- Handlers ---------------- */
   const handleUpdateProfile = async (values) => {
@@ -2253,6 +2279,11 @@ const Settings = () => {
     });
   }
 
+  const validTabKeys = tabItems.map((t) => t.key);
+  const resolvedActiveTab = validTabKeys.includes(activeTab)
+    ? activeTab
+    : "profile";
+
   return (
     <div
       className={`p-6 min-h-screen settings-page ${dark ? "settings-dark" : ""}`}
@@ -2365,6 +2396,8 @@ const Settings = () => {
 
       <Tabs
         items={tabItems}
+        activeKey={resolvedActiveTab}
+        onChange={handleTabChange}
         tabBarStyle={{
           marginBottom: 24,
           borderBottom: `1px solid ${dark ? "#2b2f38" : "#f1f5f9"}`,

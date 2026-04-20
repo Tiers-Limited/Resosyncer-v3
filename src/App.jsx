@@ -68,6 +68,13 @@ import ComparePage from "./pages/Landing Pages/Compare/ComparePage";
 import TrustCenterPage from "./pages/Landing Pages/Trust Center/TrustCenter";
 import StatusPage from "./pages/Landing Pages/Status/StatusPage";
 import ClientProjectProgress from "./pages/ClientProjectProgress";
+import ClientImportReview from "./pages/ClientImportReview";
+import TrelloOAuthCallback from "./pages/TrelloOAuthCallback";
+import JiraOAuthCallback from "./pages/JiraOAuthCallback";
+import JiraIntegrationConnect from "./pages/integrations/Jira/Connect";
+import JiraIntegrationCallback from "./pages/integrations/Jira/Callback";
+import ProviderCallback from "./pages/integrations/ProviderCallback";
+import GoogleCalanderCallback from "./pages/integrations/GoogleCalander/Callback";
 
 // Super-Admin
 import SuperadminDashboard from "./pages/superadmin/Platform/overview";
@@ -141,10 +148,10 @@ const AuthLoadingScreen = () => {
         }}
       >
         <DotLottieReact
-          src="/Ryzent.lottie"
+          src="/loading.lottie"
           loop
           autoplay
-          style={{ width: 140, height: 140 }}
+          style={{ width: 70, height: 70 }}
         />
       </div>
     </div>
@@ -473,6 +480,34 @@ function App() {
           <Route path="/apply/:jobId" element={<ApplyPage />} />
           <Route path="/signin" element={<SignIn />} />
           <Route path="/client/project-progress/:token" element={<ClientProjectProgress />} />
+          <Route path="/client/import-review/:token" element={<ClientImportReview />} />
+          <Route path="/oauth/trello-callback" element={<TrelloOAuthCallback />} />
+          <Route path="/oauth/jira-callback" element={<JiraOAuthCallback />} />
+          <Route path="/integrations/jira" element={<JiraIntegrationConnect />} />
+          <Route
+            path="/integrations/asana/callback"
+            element={<ProviderCallback provider="asana" />}
+          />
+          <Route
+            path="/integrations/trello/callback"
+            element={<ProviderCallback provider="trello" />}
+          />
+          <Route
+            path="/integrations/clickup/callback"
+            element={<ProviderCallback provider="clickup" />}
+          />
+          <Route
+            path="/integrations/googleCalander/callback"
+            element={<GoogleCalanderCallback />}
+          />
+          <Route
+            path="/integrations/jira/callback"
+            element={<JiraIntegrationCallback />}
+          />
+          <Route
+            path="/integrations/jira/callback/*"
+            element={<JiraIntegrationCallback />}
+          />
           <Route path="/ai-interview/:applicantId" element={<AiInterviewPage />} />
 
           <Route
@@ -784,6 +819,7 @@ function App() {
               <ProtectedRoute
                 routePath="/projects"
                 pmComponent={<PMTickets />}
+                adminComponent={<PMProjects />}
                 employeeComponent={<EmployeeTickets />}
               />
             }
@@ -819,4 +855,3 @@ function App() {
 }
 
 export default App;
-

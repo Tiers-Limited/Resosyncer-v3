@@ -95,6 +95,14 @@ const EMPLOYMENT_TYPE_LABEL = {
   intern: "Intern",
 };
 
+const PM_HISTORY_STATUSES = new Set([
+  "completed",
+  "closed",
+  "on_hold",
+  "cancelled",
+  "archived",
+]);
+
 const hexToRgb = (hex) => {
   const raw = (hex || "").replace("#", "").trim();
   const normalized =
@@ -325,14 +333,30 @@ const EmployeeDetail = () => {
       if (e1) throw e1;
       setEmployee(emp);
 
-      const { data: proj, error: e2 } = await supabase
-        .from("project_assignees")
-        .select(
-          "project_id,created_at,projects(id,name,status,start_date,end_date)",
-        )
-        .eq("employee_id", id);
-      if (e2) throw e2;
-      setProjects(proj || []);
+      if (emp?.role === "project_manager") {
+        const { data: managedProjects, error: e2 } = await supabase
+          .from("projects")
+          .select("id,name,status,start_date,end_date,created_at")
+          .eq("project_manager_id", id)
+          .order("created_at", { ascending: false });
+        if (e2) throw e2;
+        setProjects(
+          (managedProjects || []).map((p) => ({
+            project_id: p.id,
+            created_at: p.created_at,
+            projects: p,
+          })),
+        );
+      } else {
+        const { data: proj, error: e2 } = await supabase
+          .from("project_assignees")
+          .select(
+            "project_id,created_at,projects(id,name,status,start_date,end_date)",
+          )
+          .eq("employee_id", id);
+        if (e2) throw e2;
+        setProjects(proj || []);
+      }
 
       const { data: tix, error: e3 } = await supabase
         .from("tickets")
@@ -487,6 +511,20 @@ const EmployeeDetail = () => {
       ? deductionItems.reduce((sum, row) => sum + Number(row?.amount || 0), 0)
       : Number(employee.tax_deductions || 0);
   const finalSalary = salaryBase + allowanceTotal - deductionTotal;
+  const isProjectManager = employee.role === "project_manager";
+  const activePmProjects = isProjectManager
+    ? projects.filter(
+        (p) =>
+          !PM_HISTORY_STATUSES.has(
+            String(p?.projects?.status || "").toLowerCase(),
+          ),
+      )
+    : projects;
+  const historyPmProjects = isProjectManager
+    ? projects.filter((p) =>
+        PM_HISTORY_STATUSES.has(String(p?.projects?.status || "").toLowerCase()),
+      )
+    : [];
 
   /* ---------------- Info item helper ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
   const InfoItem = ({ label, value, icon: Icon, link, span1, span2 }) => (
@@ -546,13 +584,13 @@ const EmployeeDetail = () => {
       key: "projects",
       label: "Projects",
       icon: Briefcase,
-      count: projects.length,
+      count: isProjectManager ? activePmProjects.length : projects.length,
     },
     {
       key: "tickets",
-      label: "Work History",
+      label: isProjectManager ? "History" : "Work History",
       icon: Ticket,
-      count: tickets.length,
+      count: isProjectManager ? historyPmProjects.length : tickets.length,
     },
   ];
 
@@ -1023,8 +1061,12 @@ const EmployeeDetail = () => {
       {tab === "projects" && (
         <div className="ed-card">
           <div className="ed-card-body" style={{ padding: 0 }}>
-            {projects.length === 0 ? (
-              <div className="ed-table-empty">No projects assigned yet</div>
+            {(isProjectManager ? activePmProjects : projects).length === 0 ? (
+              <div className="ed-table-empty">
+                {isProjectManager
+                  ? "No in-progress projects right now"
+                  : "No projects assigned yet"}
+              </div>
             ) : (
               <div className="ed-table-scroll">
                 <table className="ed-table">
@@ -1034,11 +1076,11 @@ const EmployeeDetail = () => {
                       <th>Status</th>
                       <th>Start Date</th>
                       <th>End Date</th>
-                      <th>Assigned</th>
+                      <th>{isProjectManager ? "Managed Since" : "Assigned"}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {projects.map((p) => {
+                    {(isProjectManager ? activePmProjects : projects).map((p) => {
                       const s =
                         STATUS_PROJECT[p.projects?.status] ||
                         STATUS_PROJECT.not_started;
@@ -1070,7 +1112,47 @@ const EmployeeDetail = () => {
       {tab === "tickets" && (
         <div className="ed-card">
           <div className="ed-card-body" style={{ padding: 0 }}>
-            {tickets.length === 0 ? (
+            {isProjectManager ? (
+              historyPmProjects.length === 0 ? (
+                <div className="ed-table-empty">No project history found</div>
+              ) : (
+                <div className="ed-table-scroll">
+                  <table className="ed-table">
+                    <thead>
+                      <tr>
+                        <th>Project</th>
+                        <th>Status</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Managed Since</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historyPmProjects.map((p) => {
+                        const s =
+                          STATUS_PROJECT[p.projects?.status] ||
+                          STATUS_PROJECT.not_started;
+                        return (
+                          <tr key={p.project_id}>
+                            <td style={{ fontWeight: 600, color: "var(--ed-text)" }}>
+                              {p.projects?.name || "N/A"}
+                            </td>
+                            <td>
+                              <Pill label={s.label} color={s.color} bg={s.bg} dark={dark} />
+                            </td>
+                            <td>{fmt(p.projects?.start_date)}</td>
+                            <td>{fmt(p.projects?.end_date)}</td>
+                            <td style={{ color: "var(--ed-muted)" }}>
+                              {fmt(p.created_at)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            ) : tickets.length === 0 ? (
               <div className="ed-table-empty">No work history found</div>
             ) : (
               <div className="ed-table-scroll">

@@ -501,40 +501,40 @@ commStyleElement.textContent = `
     .comm-light .ant-tooltip-inner { background:#ffffff !important; color:#0f172a !important; border:1px solid #dbe2ea; }
   `;
 
-const QUICK = ["----", "------", "----", "----", "----", "----"];
+const QUICK = ["👍", "❤️", "😂", "🎉", "🔥", "👏"];
 const ALL_EMOJI = [
-  "----",
-  "----",
-  "------",
-  "----",
-  "----",
-  "----",
-  "----",
-  "----",
-  "---",
-  "----",
-  "----",
-  "----",
-  "----",
-  "---",
-  "----",
-  "----",
-  "----",
-  "----",
-  "----",
-  "----",
-  "----",
-  "----",
-  "---",
-  "------",
-  "----",
-  "----",
-  "----",
-  "----",
-  "----",
-  "----",
-  "----",
-  "----",
+  "😀",
+  "😁",
+  "😂",
+  "🤣",
+  "😊",
+  "😍",
+  "😎",
+  "🤝",
+  "👏",
+  "👍",
+  "👎",
+  "🙏",
+  "🎉",
+  "🔥",
+  "💡",
+  "✅",
+  "❗",
+  "❤️",
+  "💬",
+  "📌",
+  "🚀",
+  "💼",
+  "🧠",
+  "⭐",
+  "📈",
+  "🛠️",
+  "📎",
+  "🎯",
+  "🧾",
+  "📢",
+  "🔒",
+  "🌟",
 ];
 let toastId = 0;
 
@@ -860,7 +860,26 @@ const EmptyState = ({
   </div>
 );
 
-const Ava = ({ user, size = 34, dot }) => {
+const DM_FALLBACK_BACKGROUNDS = [
+  "linear-gradient(135deg, #0f172a, #1e293b)",
+  "linear-gradient(135deg, #111827, #1f2937)",
+  "linear-gradient(135deg, #172554, #1e3a8a)",
+  "linear-gradient(135deg, #312e81, #3730a3)",
+  "linear-gradient(135deg, #083344, #0f766e)",
+  "linear-gradient(135deg, #3f1d2e, #4c1d95)",
+];
+
+const pickDmFallbackBackground = (user) => {
+  const seed = String(user?.id || user?.email || user?.full_name || "user");
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash << 5) - hash + seed.charCodeAt(i);
+    hash |= 0;
+  }
+  return DM_FALLBACK_BACKGROUNDS[Math.abs(hash) % DM_FALLBACK_BACKGROUNDS.length];
+};
+
+const Ava = ({ user, size = 34, dot, variant = "default" }) => {
   const dc =
     dot === "active"
       ? "dot-active"
@@ -869,15 +888,27 @@ const Ava = ({ user, size = 34, dot }) => {
         : dot === "off"
           ? "dot-off"
           : null;
+  const isDmVariant = variant === "dm";
+  const hasPhoto = Boolean(user?.user_photo);
+  const dmRadius = Math.max(9, Math.round(size * 0.32));
   return (
     <div style={{ position: "relative", flexShrink: 0 }}>
       <Avatar
+        shape={isDmVariant ? "square" : "circle"}
         src={user?.user_photo}
         size={size}
         style={{
-          color: "#60a5fa",
+          color: isDmVariant ? "#f8fafc" : "#60a5fa",
           fontSize: size * 0.38,
           fontWeight: 700,
+          borderRadius: isDmVariant ? dmRadius : "50%",
+          background: !hasPhoto && isDmVariant
+            ? pickDmFallbackBackground(user)
+            : undefined,
+          border: isDmVariant ? "1px solid rgba(255,255,255,0.12)" : "none",
+          boxShadow: isDmVariant
+            ? "0 2px 8px rgba(2,6,23,0.24)"
+            : "none",
         }}
       >
         {!user?.user_photo && (user?.full_name?.[0]?.toUpperCase() || "?")}
@@ -1539,10 +1570,10 @@ const PollCard = ({ msg, profile, onVote, dark = false }) => {
             }}
           >
             {poll.closed
-              ? "---- Poll closed"
+              ? "Poll closed"
               : hasVoted
-                ? `--- You voted -- ${totalVotes} vote${totalVotes !== 1 ? "s" : ""}`
-                : `${totalVotes} vote${totalVotes !== 1 ? "s" : ""} -- Tap to vote`}
+                ? `You voted · ${totalVotes} vote${totalVotes !== 1 ? "s" : ""}`
+                : `${totalVotes} vote${totalVotes !== 1 ? "s" : ""} · Tap to vote`}
           </div>
         </div>
       </div>
@@ -1627,18 +1658,10 @@ const PollCard = ({ msg, profile, onVote, dark = false }) => {
                   }}
                 >
                   {isMyVote && (
-                    <span
-                      style={{ color: "#fff", fontSize: 11, fontWeight: 900 }}
-                    >
-                      ---
-                    </span>
+                    <Check size={10} color="#fff" strokeWidth={3} />
                   )}
                   {!isMyVote && isWinner && hasVoted && (
-                    <span
-                      style={{ color: "#fff", fontSize: 11, fontWeight: 900 }}
-                    >
-                      ---
-                    </span>
+                    <Check size={10} color="#fff" strokeWidth={3} />
                   )}
                 </div>
                 <span
@@ -1789,7 +1812,7 @@ const MeetingCard = ({ msg, dark = false }) => {
                 }}
               />
             )}
-            {isLive ? "Live -- Join now" : "Scheduled"}
+            {isLive ? "Live · Join now" : "Scheduled"}
           </div>
         </div>
       </div>
@@ -1921,7 +1944,12 @@ const MsgRow = ({
       />
       {isFirst && (
         <div style={{ position: "absolute", left: 22, top: 14 }}>
-          <Ava user={displayUser} size={36} dot={dot} />
+          <Ava
+            user={displayUser}
+            size={36}
+            dot={dot}
+            variant={isDm ? "dm" : "default"}
+          />
         </div>
       )}
       {msg.reply_to_snapshot && (
@@ -1973,7 +2001,7 @@ const MsgRow = ({
                   boxShadow: "0 1px 2px rgba(0,0,0,.2)",
                 }}
               >
-                <span style={{ transform: "translateY(-0.4px)" }}>---</span>
+                <Check size={10} color="#fff" strokeWidth={3} />
               </span>
             )}
           </span>
@@ -2000,9 +2028,20 @@ const MsgRow = ({
                 fontSize: 10,
                 fontWeight: 700,
                 color: isOnline ? "#16a34a" : "#374151",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
               }}
             >
-              {isOnline ? "--- Online" : "--- Offline"}
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: isOnline ? "#22c55e" : "#64748b",
+                }}
+              />
+              {isOnline ? "Online" : "Offline"}
             </span>
           )}
         </div>
@@ -2127,8 +2166,17 @@ const MsgRow = ({
                   >
                     {msg.file_name}
                   </span>
-                  <span style={{ color: "#374151", flexShrink: 0 }}>
-                    -- Click to play
+                  <span
+                    style={{
+                      color: "#374151",
+                      flexShrink: 0,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <ArrowRight size={11} />
+                    Click to play
                   </span>
                 </div>
               </div>
@@ -2201,8 +2249,19 @@ const MsgRow = ({
                   >
                     {msg.file_name}
                   </div>
-                  <div style={{ fontSize: 11, color: "#4b5563", marginTop: 1 }}>
-                    {extOf(msg.file_name)} -- Click to view
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "#4b5563",
+                      marginTop: 1,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <span>{extOf(msg.file_name)}</span>
+                    <ArrowRight size={11} />
+                    <span>Click to view</span>
                   </div>
                 </div>
               </div>
@@ -2258,7 +2317,7 @@ const MsgRow = ({
                     </button>
                   </div>
                   <div style={{ fontSize: 11, color: "#374151", marginTop: 4 }}>
-                    Enter to save -- Esc to cancel
+                    Enter to save • Esc to cancel
                   </div>
                 </div>
               ) : (
@@ -2930,7 +2989,7 @@ function FreePlanPaywall({ navigate, dark = false }) {
                 letterSpacing: "0.08em",
               }}
             >
-              Sample --- what you'll see after upgrading
+              Sample preview · what you'll see after upgrading
             </span>
           </div>
           <div
@@ -3097,7 +3156,7 @@ function FreePlanPaywall({ navigate, dark = false }) {
                         : c.status === "typing"
                           ? "Typing..."
                           : c.status === "voice"
-                            ? "----"
+                            ? "Voice"
                             : "New"}
                     </div>
                   </div>
@@ -3521,16 +3580,16 @@ const Communication = () => {
                 [msg.channel_id || msg.sender_id]: true,
               }));
             const preview = msg.meeting_meta
-              ? `---- ${msg.meeting_meta.type === "video" ? "Video" : "Audio"} call started`
+              ? `📞 ${msg.meeting_meta.type === "video" ? "Video" : "Audio"} call started`
               : msg.message
                 ? msg.message.slice(0, 80)
                 : msg.file_type === "voice"
-                  ? "---- Voice"
+                  ? "🎤 Voice"
                   : msg.file_type === "image"
-                    ? "---- Image"
+                    ? "🖼️ Image"
                     : msg.file_type === "video"
-                      ? "---- Video"
-                      : "---- File";
+                      ? "🎬 Video"
+                      : "📎 File";
             if (!inConv && sender)
               addToastRef.current?.({
                 sender,
@@ -4322,12 +4381,12 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
               message_preview: (
                 replyTo.message ||
                 (replyTo.file_type === "image"
-                  ? "---- Image"
+                  ? "🖼️ Image"
                   : replyTo.file_type === "voice"
-                    ? "---- Voice"
+                    ? "🎤 Voice"
                     : replyTo.file_type === "video"
-                      ? "---- Video"
-                      : "---- File") ||
+                      ? "🎬 Video"
+                      : "📎 File") ||
                 ""
               ).slice(0, 80),
             }
@@ -5269,6 +5328,7 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                           user={u}
                           size={26}
                           dot={isOnline ? "active" : "off"}
+                          variant="dm"
                         />
                         <span
                           style={{
@@ -5408,6 +5468,7 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                     user={selectedUser}
                     size={38}
                     dot={presence[selectedUser.id] ? "active" : "off"}
+                    variant="dm"
                   />
                 ) : (
                   <div
@@ -5457,9 +5518,24 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                           : dark
                             ? "#6b7280"
                             : "#64748b",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
                       }}
                     >
-                      {presence[selectedUser.id] ? "--- Online" : "--- Offline"}
+                      <span
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: "50%",
+                          background: presence[selectedUser.id]
+                            ? "#22c55e"
+                            : dark
+                              ? "#6b7280"
+                              : "#94a3b8",
+                        }}
+                      />
+                      {presence[selectedUser.id] ? "Online" : "Offline"}
                     </div>
                   )}
                 </div>
@@ -5814,10 +5890,15 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                             pollOptions.filter((o) => o.trim()).length < 2
                               ? 0.5
                               : 1,
-                        }}
-                      >
-                        ---- Launch Poll
-                      </button>
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 6,
+                      }}
+                    >
+                      <BarChart2 size={14} />
+                      Launch Poll
+                    </button>
                     </div>
                   </div>
                 )}
@@ -5875,12 +5956,12 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                       >
                         {(replyTo.message || "").slice(0, 90) ||
                           (replyTo.file_type === "image"
-                            ? "---- Image"
+                            ? "🖼️ Image"
                             : replyTo.file_type === "voice"
-                              ? "---- Voice"
+                              ? "🎤 Voice"
                               : replyTo.file_type === "video"
-                                ? "---- Video"
-                                : "---- File")}
+                                ? "🎬 Video"
+                                : "📎 File")}
                       </span>
                     </div>
                     <button className="tb" onClick={() => setReplyTo(null)}>
@@ -5978,10 +6059,10 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                           }}
                         >
                           {stagedFile.fileType === "image"
-                            ? "---- Image"
+                            ? "🖼️ Image"
                             : stagedFile.fileType === "video"
-                              ? `---- ${extOf(stagedFile.name)} Video`
-                              : `---- ${extOf(stagedFile.name)} document`}
+                              ? `🎬 ${extOf(stagedFile.name)} Video`
+                              : `📎 ${extOf(stagedFile.name)} Document`}
                         </div>
                         <input
                           value={pendingCaption}
@@ -6516,9 +6597,20 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                         textTransform: "uppercase",
                         letterSpacing: "0.08em",
                         marginBottom: 10,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
                       }}
                     >
-                      --- Online ---{" "}
+                      <span
+                        style={{
+                          width: 7,
+                          height: 7,
+                          borderRadius: "50%",
+                          background: "#22c55e",
+                        }}
+                      />
+                      Online
                       {
                         channelMembers.filter((m) => !!presence[m.user_id])
                           .length
@@ -6540,9 +6632,20 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                         textTransform: "uppercase",
                         letterSpacing: "0.08em",
                         marginBottom: 10,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
                       }}
                     >
-                      --- Offline ---{" "}
+                      <span
+                        style={{
+                          width: 7,
+                          height: 7,
+                          borderRadius: "50%",
+                          background: dark ? "#4b5563" : "#94a3b8",
+                        }}
+                      />
+                      Offline
                       {
                         channelMembers.filter((m) => !presence[m.user_id])
                           .length
@@ -6986,7 +7089,7 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                     marginBottom: 10,
                   }}
                 >
-                  Not in channel -- {availableUsers.length}
+                  Not in channel · {availableUsers.length}
                 </div>
                 <div
                   style={{ display: "flex", flexDirection: "column", gap: 6 }}
@@ -7060,9 +7163,23 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                               </span>
                               {isOnline && (
                                 <span
-                                  style={{ color: "#22c55e", fontWeight: 700 }}
+                                  style={{
+                                    color: "#22c55e",
+                                    fontWeight: 700,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                  }}
                                 >
-                                  --- Online
+                                  <span
+                                    style={{
+                                      width: 6,
+                                      height: 6,
+                                      borderRadius: "50%",
+                                      background: "#22c55e",
+                                    }}
+                                  />
+                                  Online
                                 </span>
                               )}
                             </div>
@@ -7223,9 +7340,24 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
               </span>
               {isOnline ? (
                 <span
-                  style={{ fontSize: 11, color: "#22c55e", fontWeight: 700 }}
+                  style={{
+                    fontSize: 11,
+                    color: "#22c55e",
+                    fontWeight: 700,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
                 >
-                  --- Online
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: "#22c55e",
+                    }}
+                  />
+                  Online
                 </span>
               ) : (
                 <span
@@ -7233,9 +7365,20 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                     fontSize: 11,
                     color: dark ? "#374151" : "#94a3b8",
                     fontWeight: 600,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
                   }}
                 >
-                  --- Offline
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: dark ? "#4b5563" : "#94a3b8",
+                    }}
+                  />
+                  Offline
                 </span>
               )}
             </div>

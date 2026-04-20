@@ -1452,424 +1452,6 @@ const AppSidebar = ({ apps, loading }) => {
   );
 };
 
-const MobileActivityCard = ({
-  row,
-  dark,
-  ws,
-  isFixed,
-  getAtt,
-  handleAtt,
-  getEffHours,
-  getManualSecs,
-  hasFinalAttendance,
-  setDrawer,
-  setActionDrawer,
-}) => {
-  const attendanceValue = getAtt(row);
-  const manualSecs = getManualSecs(row);
-
-  return (
-    <div
-      className="ets-fade"
-      style={{
-        background: "var(--ets-card)",
-        border: "1px solid var(--ets-border)",
-        borderRadius: 12,
-        padding: 14,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: 12,
-          marginBottom: 12,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-          <div style={{ position: "relative", flexShrink: 0 }}>
-            <Avatar
-              src={row.user_photo || row.profile_picture_url}
-              icon={<User size={15} />}
-              size={38}
-              style={{
-                background: "var(--ets-hover)",
-                color: "var(--ets-accent)",
-              }}
-            />
-            <span
-              style={{
-                position: "absolute",
-                bottom: 0,
-                right: 0,
-                width: 10,
-                height: 10,
-                borderRadius: "50%",
-                background:
-                  row.log?.status === "active"
-                    ? "#22c55e"
-                    : row.log?.status === "break" || row.log?.status === "paused"
-                      ? "#8b5cf6"
-                      : row.hasLog
-                        ? "#94a3b8"
-                        : "var(--ets-border)",
-                border: "2px solid var(--ets-card)",
-              }}
-            />
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-                minWidth: 0,
-                marginBottom: 2,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 14,
-                  fontWeight: 700,
-                  color: "var(--ets-text)",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {row.full_name}
-              </div>
-              {isFixed && row.hasLog && isLate(row.log, ws) && (
-                <Tooltip
-                  title={`Late - grace period: ${ws.late_grace_minutes}min after ${ws.check_in_time}`}
-                >
-                  <AlertTriangle
-                    size={11}
-                    color={dark ? "#fb923c" : "#c2410c"}
-                    style={{ flexShrink: 0 }}
-                  />
-                </Tooltip>
-              )}
-            </div>
-            <div
-              style={{
-                fontSize: 11,
-                color: "var(--ets-muted)",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {row.job_title || row.role}
-            </div>
-          </div>
-        </div>
-
-        <Button
-          size="small"
-          onClick={() => setActionDrawer({ open: true, employee: row })}
-          style={{ flexShrink: 0 }}
-        >
-          Details
-        </Button>
-      </div>
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 10,
-          marginBottom: 12,
-        }}
-      >
-        <div>
-          <div
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              color: "var(--ets-muted)",
-              textTransform: "uppercase",
-              letterSpacing: "0.04em",
-              marginBottom: 5,
-            }}
-          >
-            Status
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {row.hasAttendanceRecord ? (
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 5,
-                  fontSize: 11,
-                  fontWeight: 600,
-                  padding: "3px 9px",
-                  borderRadius: 6,
-                  background: dark ? "rgba(148,163,184,0.16)" : "#f1f5f9",
-                  color: dark ? "#cbd5e1" : "#475569",
-                  border: dark
-                    ? "1px solid rgba(148,163,184,0.35)"
-                    : "1px solid #cbd5e1",
-                }}
-              >
-                Recorded
-              </span>
-            ) : !row.hasLog && manualSecs > 0 ? (
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 5,
-                  fontSize: 11,
-                  fontWeight: 600,
-                  padding: "3px 9px",
-                  borderRadius: 6,
-                  background: dark ? "rgba(14,165,233,0.16)" : "#e0f2fe",
-                  color: dark ? "#7dd3fc" : "#0369a1",
-                  border: dark
-                    ? "1px solid rgba(125,211,252,0.35)"
-                    : "1px solid #7dd3fc",
-                }}
-              >
-                <PenLine size={11} />
-                Manual
-              </span>
-            ) : !row.hasLog ? (
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 500,
-                  color: "var(--ets-muted)",
-                  background: "var(--ets-hover)",
-                  border: "1px solid var(--ets-border)",
-                  padding: "3px 9px",
-                  borderRadius: 6,
-                }}
-              >
-                Not in
-              </span>
-            ) : (
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 5,
-                  fontSize: 11,
-                  fontWeight: 600,
-                  padding: "3px 9px",
-                  borderRadius: 6,
-                  background:
-                    row.log?.status === "active"
-                      ? "rgba(34,197,94,0.16)"
-                      : row.log?.status === "break" || row.log?.status === "paused"
-                        ? "rgba(139,92,246,0.16)"
-                        : "rgba(148,163,184,0.14)",
-                  color:
-                    row.log?.status === "active"
-                      ? "#22c55e"
-                      : row.log?.status === "break" || row.log?.status === "paused"
-                        ? "#a78bfa"
-                        : "#94a3b8",
-                  border:
-                    row.log?.status === "active"
-                      ? "1px solid rgba(74,222,128,0.35)"
-                      : row.log?.status === "break" || row.log?.status === "paused"
-                        ? "1px solid rgba(167,139,250,0.35)"
-                        : "1px solid rgba(148,163,184,0.28)",
-                }}
-              >
-                {(row.log?.status === "active" || row.log?.status === "break") && (
-                  <span
-                    className="ets-live"
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: "50%",
-                      background:
-                        row.log?.status === "active" ? "#22c55e" : "#8b5cf6",
-                    }}
-                  />
-                )}
-                {row.log?.status === "active"
-                  ? "Active"
-                  : row.log?.status === "break" || row.log?.status === "paused"
-                    ? "On Break"
-                    : "Done"}
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div>
-          <div
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              color: "var(--ets-muted)",
-              textTransform: "uppercase",
-              letterSpacing: "0.04em",
-              marginBottom: 5,
-            }}
-          >
-            Attendance
-          </div>
-          <AttCell
-            value={attendanceValue}
-            disabled={hasFinalAttendance(row)}
-            onChange={(v) => handleAtt(row.id, v)}
-          />
-        </div>
-      </div>
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 10,
-          marginBottom: 12,
-        }}
-      >
-        <div>
-          <div
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              color: "var(--ets-muted)",
-              textTransform: "uppercase",
-              letterSpacing: "0.04em",
-              marginBottom: 5,
-            }}
-          >
-            Start
-          </div>
-          <div style={{ fontSize: 12, color: "var(--ets-text)", fontWeight: 600 }}>
-            {fmtH(row.log?.start_time)}
-          </div>
-        </div>
-        <div>
-          <div
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              color: "var(--ets-muted)",
-              textTransform: "uppercase",
-              letterSpacing: "0.04em",
-              marginBottom: 5,
-            }}
-          >
-            End
-          </div>
-          <div style={{ fontSize: 12, color: "var(--ets-text)", fontWeight: 600 }}>
-            {fmtH(row.log?.end_time)}
-          </div>
-        </div>
-      </div>
-
-      <div style={{ marginBottom: 12 }}>
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            color: "var(--ets-muted)",
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
-            marginBottom: 6,
-          }}
-        >
-          Net Hours
-        </div>
-        <HoursCell
-          log={row.log}
-          effectiveHours={getEffHours(row)}
-          ws={ws}
-          manualSecs={manualSecs}
-        />
-      </div>
-
-      {ws.overtime_enabled && (
-        <div style={{ marginBottom: 12 }}>
-          <div
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              color: "var(--ets-muted)",
-              textTransform: "uppercase",
-              letterSpacing: "0.04em",
-              marginBottom: 6,
-            }}
-          >
-            Overtime
-          </div>
-          <OvertimeCell
-            log={row.log}
-            effectiveHours={getEffHours(row)}
-            ws={ws}
-            manualSecs={manualSecs}
-          />
-        </div>
-      )}
-
-      <div style={{ marginBottom: 12 }}>
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            color: "var(--ets-muted)",
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
-            marginBottom: 6,
-          }}
-        >
-          App Activity
-        </div>
-        <AppMini
-          apps={row.apps}
-          onViewAll={() => setDrawer({ open: true, employee: row })}
-        />
-      </div>
-
-      <div style={{ marginBottom: 12 }}>
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            color: "var(--ets-muted)",
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
-            marginBottom: 6,
-          }}
-        >
-          Standup
-        </div>
-        <div
-          style={{
-            background: "var(--ets-hover)",
-            border: "1px solid var(--ets-border)",
-            borderRadius: 8,
-            padding: "10px 12px",
-            fontSize: 12,
-            color: row.log?.standup_message ? "var(--ets-sub)" : "var(--ets-muted)",
-            lineHeight: 1.45,
-          }}
-        >
-          {row.log?.standup_message || "No standup message"}
-        </div>
-      </div>
-
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <Button onClick={() => setDrawer({ open: true, employee: row })}>
-          Screenshots ({row.screenshotCount || 0})
-        </Button>
-        <Button onClick={() => setActionDrawer({ open: true, employee: row })}>
-          Open Details
-        </Button>
-      </div>
-    </div>
-  );
-};
-
 /* ------ Screenshots Drawer --------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const ShotsDrawer = ({ open, onClose, employee, date }) => {
   const dark = isDarkMode();
@@ -2279,11 +1861,7 @@ export default function EmployeeTimingStats() {
         )
         .eq("tenant_id", tid)
         .eq("suspended", false)
-        .not(
-          "role",
-          "in",
-          '("admin","superadmin","super_admin")',
-        )
+        .not("role", "in", '("admin","superadmin","super_admin")')
         .order("full_name");
 
       const ids = (profiles || []).map((p) => p.id);
@@ -2324,13 +1902,12 @@ export default function EmployeeTimingStats() {
           .eq("date", d),
       ]);
 
-      
       const { data: manualReqsRaw, error: manualReqsErr } = await supabase
         .from("manual_time_requests")
         .select("*")
         .eq("tenant_id", tid)
         .eq("work_date", d);
-      
+
       console.log(manualReqsRaw, d);
 
       if (manualReqsErr) {
@@ -2380,7 +1957,9 @@ export default function EmployeeTimingStats() {
       manualReqs.forEach((r) => {
         // Only include rows belonging to known employees in this tenant
         if (!idsSet.has(r.user_id)) return;
-        const reqStatus = String(r.status || "").toLowerCase().trim();
+        const reqStatus = String(r.status || "")
+          .toLowerCase()
+          .trim();
         const requestedHours = parseFloat(
           r.requested_hours ?? r.hours ?? r.manual_hours ?? 0,
         );
@@ -2412,7 +1991,9 @@ export default function EmployeeTimingStats() {
           return;
         }
         if (currLive === prevLive) {
-          const prevTs = dayjs(prev.start_time || prev.created_at || 0).valueOf();
+          const prevTs = dayjs(
+            prev.start_time || prev.created_at || 0,
+          ).valueOf();
           const currTs = dayjs(l.start_time || l.created_at || 0).valueOf();
           if (currTs > prevTs) logMap[l.user_id] = l;
         }
@@ -2618,7 +2199,8 @@ export default function EmployeeTimingStats() {
 
         const workedSeconds = Math.max(
           0,
-          dayjs(endedAtIso).diff(dayjs(log.start_time), "second") - breakSeconds,
+          dayjs(endedAtIso).diff(dayjs(log.start_time), "second") -
+            breakSeconds,
         );
         const totalHours = Number((workedSeconds / 3600).toFixed(2));
         const standupMessage = log.standup_message || null;
@@ -2676,20 +2258,20 @@ export default function EmployeeTimingStats() {
           getManualSecs(r),
         );
         const status =
-          finalAtt === "working" || finalAtt === "paused" ? "present" : finalAtt;
+          finalAtt === "working" || finalAtt === "paused"
+            ? "present"
+            : finalAtt;
         const employeeId = r.id;
-        let { error: attError } = await supabase
-          .from("attendance")
-          .upsert(
-            {
-              user_id: employeeId,
-              date: today,
-              hours_worked: totalHours,
-              standup_message: standupMessage || null,
-              status,
-            },
-            { onConflict: "user_id,date" },
-          );
+        let { error: attError } = await supabase.from("attendance").upsert(
+          {
+            user_id: employeeId,
+            date: today,
+            hours_worked: totalHours,
+            standup_message: standupMessage || null,
+            status,
+          },
+          { onConflict: "user_id,date" },
+        );
         if (attError) {
           // Fallback where (user_id,date) unique constraint is missing.
           const { data: existingAtt } = await supabase
@@ -2743,7 +2325,8 @@ export default function EmployeeTimingStats() {
       return attOver[r.id] || r.attendanceRecord?.status || "absent";
     }
     if (r.log?.status === "active") return "working";
-    if (r.log?.status === "break" || r.log?.status === "paused") return "paused";
+    if (r.log?.status === "break" || r.log?.status === "paused")
+      return "paused";
     return (
       attOver[r.id] || autoAtt(r.log, now, ws, getEffHours(r), getManualSecs(r))
     );
@@ -2883,11 +2466,12 @@ export default function EmployeeTimingStats() {
                   isLiveTimer(r) && r.log?.status === "active"
                     ? "#22c55e"
                     : isLiveTimer(r) &&
-                        (r.log?.status === "break" || r.log?.status === "paused")
+                        (r.log?.status === "break" ||
+                          r.log?.status === "paused")
                       ? "#8b5cf6"
-                    : r.hasLog
-                      ? "#94a3b8"
-                      : "var(--ets-border)",
+                      : r.hasLog
+                        ? "#94a3b8"
+                        : "var(--ets-border)",
                 border: "2px solid var(--ets-card)",
               }}
             />
@@ -3146,10 +2730,9 @@ export default function EmployeeTimingStats() {
       width: 132,
       render: (_, r) => {
         const live = r.log?.status;
-        const val =
-          hasFinalAttendance(r)
-            ? attOver[r.id] || r.attendanceRecord?.status || "absent"
-            : live === "active"
+        const val = hasFinalAttendance(r)
+          ? attOver[r.id] || r.attendanceRecord?.status || "absent"
+          : live === "active"
             ? "working"
             : live === "break"
               ? "paused"
@@ -3384,44 +2967,40 @@ export default function EmployeeTimingStats() {
         <div
           style={{
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-start",
             gap: 12,
             width: isMobile ? "100%" : "auto",
           }}
         >
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 9,
-              background: "var(--ets-hover)",
-              border: "1px solid var(--ets-border)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Clock size={16} color="var(--ets-accent)" strokeWidth={2} />
-          </div>
           <div>
             <h1
               style={{
-                margin: 0,
-                fontSize: 16,
-                fontWeight: 700,
+                 margin: "0 0 4px",
+                fontSize: 26,
+                fontWeight: 800,
                 color: "var(--ets-text)",
-                letterSpacing: "-0.02em",
+                letterSpacing: "-0.04em",
                 lineHeight: 1,
               }}
             >
-              Employee Activity
+              Employees Activity
             </h1>
+            <p
+              style={{
+                margin: "6px 0 0",
+                fontSize: 13,
+                color: "var(--ets-muted)",
+                fontFamily: "'DM Sans',sans-serif",
+              }}
+            >
+              Organise your team activity into focused groups
+            </p>
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
-                marginTop: 4,
+                marginTop: 8,
                 flexWrap: "wrap",
               }}
             >
@@ -3512,9 +3091,6 @@ export default function EmployeeTimingStats() {
                     fontFamily: "'JetBrains Mono',monospace",
                   }}
                 >
-                  {isFixed
-                    ? `Fixed -- ${ws.check_in_time}---${ws.check_out_time} -- ${ws.working_hours}h`
-                    : `Flexible -- ${ws.working_hours}h`}
                   {ws.overtime_enabled && (
                     <span
                       style={{
@@ -3640,77 +3216,9 @@ export default function EmployeeTimingStats() {
             </div>
           )}
 
-          {/* Activity list */}
+          {/* Table */}
           {holidayLoading || wsLoading || (loading && rows.length === 0) ? (
             <TableSkeletons count={8} />
-          ) : isMobile ? (
-            <div
-              className="ets-fade"
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 12,
-              }}
-            >
-              <div
-                style={{
-                  background: "var(--ets-card)",
-                  border: "1px solid var(--ets-border)",
-                  borderRadius: 12,
-                  padding: "12px 14px",
-                }}
-              >
-                <Input
-                  allowClear
-                  value={tableSearch}
-                  onChange={(e) => setTableSearch(e.target.value)}
-                  prefix={<Search size={14} color="var(--ets-muted)" />}
-                  placeholder="Search employee, email, role, department"
-                  style={{ width: "100%" }}
-                />
-              </div>
-
-              {filteredRows.length === 0 ? (
-                <div
-                  style={{
-                    background: "var(--ets-card)",
-                    border: "1px solid var(--ets-border)",
-                    borderRadius: 12,
-                    padding: "28px 16px",
-                  }}
-                >
-                  <Empty
-                    description={
-                      <span
-                        style={{
-                          color: "var(--ets-muted)",
-                          fontFamily: "'DM Sans',sans-serif",
-                        }}
-                      >
-                        No data for this date
-                      </span>
-                    }
-                  />
-                </div>
-              ) : (
-                filteredRows.map((row) => (
-                  <MobileActivityCard
-                    key={row.id}
-                    row={row}
-                    dark={dark}
-                    ws={ws}
-                    isFixed={isFixed}
-                    getAtt={getAtt}
-                    handleAtt={handleAtt}
-                    getEffHours={getEffHours}
-                    getManualSecs={getManualSecs}
-                    hasFinalAttendance={hasFinalAttendance}
-                    setDrawer={setDrawer}
-                    setActionDrawer={setActionDrawer}
-                  />
-                ))
-              )}
-            </div>
           ) : (
             <div
               className="ets-fade"
@@ -3849,17 +3357,30 @@ export default function EmployeeTimingStats() {
                 size={34}
               />
               <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ets-text)" }}>
+                <div
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: "var(--ets-text)",
+                  }}
+                >
                   {actionDrawer.employee.full_name}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--ets-muted)" }}>
-                  {actionDrawer.employee.job_title || actionDrawer.employee.role}
+                  {actionDrawer.employee.job_title ||
+                    actionDrawer.employee.role}
                 </div>
               </div>
             </div>
 
             <div>
-              <div style={{ fontSize: 11, color: "var(--ets-muted)", marginBottom: 5 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--ets-muted)",
+                  marginBottom: 5,
+                }}
+              >
                 Standup
               </div>
               <div
@@ -3873,12 +3394,19 @@ export default function EmployeeTimingStats() {
                   lineHeight: 1.45,
                 }}
               >
-                {actionDrawer.employee.log?.standup_message || "No standup message"}
+                {actionDrawer.employee.log?.standup_message ||
+                  "No standup message"}
               </div>
             </div>
 
             <div>
-              <div style={{ fontSize: 11, color: "var(--ets-muted)", marginBottom: 6 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--ets-muted)",
+                  marginBottom: 6,
+                }}
+              >
                 Manual Request
               </div>
               <div style={{ fontSize: 12, color: "var(--ets-sub)" }}>
@@ -3891,9 +3419,11 @@ export default function EmployeeTimingStats() {
                         actionDrawer.employee.rejectedManual.requested_hours,
                       ).toFixed(1)}h`
                     : actionDrawer.employee.manualSecs > 0
-                      ? `Approved ${Math.round(
-                          (actionDrawer.employee.manualSecs / 3600) * 10,
-                        ) / 10}h`
+                      ? `Approved ${
+                          Math.round(
+                            (actionDrawer.employee.manualSecs / 3600) * 10,
+                          ) / 10
+                        }h`
                       : "No manual time request"}
               </div>
             </div>
@@ -3936,4 +3466,3 @@ export default function EmployeeTimingStats() {
     </div>
   );
 }
-

@@ -1,10 +1,9 @@
-﻿import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { supabase } from "../lib/supabase";
 import {
   Modal,
   Input,
   Select,
-  Spin,
   Tooltip,
   DatePicker,
   TimePicker,
@@ -49,6 +48,15 @@ import dayjs from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
 import { useNavigate } from "react-router-dom";
+import {
+  GOOGLE_CALANDER_CALLBACK_PATH,
+  INTEGRATIONS_BACKEND_BASE,
+  createGoogleCalanderEvent,
+  disconnectGoogleCalander,
+  getGoogleCalanderAuthUrl,
+  getGoogleCalanderEvents,
+  getGoogleCalanderStatus,
+} from "./integrations/GoogleCalander/api";
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
@@ -154,7 +162,7 @@ function getStatusColor(status) {
     };
   if (status === "scheduled")
     return {
-      dot: "#3b82f6",
+      dot: "#3453B7",
       bg: "#eff6ff",
       border: "#bfdbfe",
       text: "#1d4ed8",
@@ -440,7 +448,7 @@ function FreePlanPaywall({ navigate, dark = false }) {
           }}
         >
           {[
-            ["#3b82f6", "12", "Upcoming Meetings"],
+            ["#3453B7", "12", "Upcoming Meetings"],
             ["#8b5cf6", "3", "Live Right Now"],
             ["#f59e0b", "48", "Total Recorded"],
             ["#10b981", "24", "AI Summaries"],
@@ -644,7 +652,7 @@ function FreePlanPaywall({ navigate, dark = false }) {
                     width: 20,
                     height: 20,
                     borderRadius: "50%",
-                    background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                    background: "linear-gradient(135deg, #3453B7, #8b5cf6)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -656,7 +664,7 @@ function FreePlanPaywall({ navigate, dark = false }) {
                   style={{
                     fontSize: 12,
                     fontWeight: 700,
-                    background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                    background: "linear-gradient(135deg, #3453B7, #8b5cf6)",
                     WebkitBackgroundClip: "text",
                     WebkitTextFillColor: "transparent",
                   }}
@@ -683,7 +691,7 @@ function FreePlanPaywall({ navigate, dark = false }) {
                 <span
                   style={{
                     background:
-                      "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                      "linear-gradient(135deg, #3453B7 0%, #8b5cf6 100%)",
                     WebkitBackgroundClip: "text",
                     WebkitTextFillColor: "transparent",
                   }}
@@ -741,7 +749,7 @@ function FreePlanPaywall({ navigate, dark = false }) {
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      color: "#3b82f6",
+                      color: "#3453B7",
                       flexShrink: 0,
                     }}
                   >
@@ -799,7 +807,7 @@ function FreePlanPaywall({ navigate, dark = false }) {
                   {
                     label: "Schedule",
                     sub: "Pick date, time & guests",
-                    color: "#3b82f6",
+                    color: "#3453B7",
                     icon: <Calendar size={14} />,
                   },
                   {
@@ -1621,7 +1629,7 @@ function MeetingDetailPanel({
               style={{
                 fontSize: 11,
                 fontFamily: "monospace",
-                color: "#3b82f6",
+                color: "#3453B7",
                 flex: 1,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
@@ -1675,7 +1683,7 @@ function MeetingDetailPanel({
               background:
                 meeting.status === "live"
                   ? "linear-gradient(135deg, #22c55e, #16a34a)"
-                  : "linear-gradient(135deg, #3b82f6, #2563eb)",
+                  : "linear-gradient(135deg, #3453B7, #2563eb)",
               color: "#fff",
               fontSize: 13,
               fontWeight: 700,
@@ -2071,7 +2079,7 @@ function DayAgendaList({
                           border: "none",
                           cursor: "pointer",
                           background:
-                            m.status === "live" ? "#22c55e" : "#3b82f6",
+                            m.status === "live" ? "#22c55e" : "#3453B7",
                           color: "#fff",
                           fontSize: 11,
                           fontWeight: 700,
@@ -2169,6 +2177,12 @@ export default function MeetingsPage() {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryData, setSummaryData] = useState(null);
   const [statusNow, setStatusNow] = useState(() => dayjs());
+  const [meetingToDelete, setMeetingToDelete] = useState(null);
+  const [deletingMeeting, setDeletingMeeting] = useState(false);
+  const [googleCalendarConnected, setGoogleCalendarConnected] = useState(false);
+  const [googleCalendarLoading, setGoogleCalendarLoading] = useState(false);
+  const [googleCalendarEvents, setGoogleCalendarEvents] = useState([]);
+  const [googleCalendarError, setGoogleCalendarError] = useState("");
 
   const meetingsChannelRef = useRef(null);
 
@@ -2245,6 +2259,126 @@ export default function MeetingsPage() {
     window.addEventListener("resize", syncViewport);
     return () => window.removeEventListener("resize", syncViewport);
   }, []);
+
+  const getGoogleCalendarReturnTo = () =>
+    `${window.location.origin}${GOOGLE_CALANDER_CALLBACK_PATH}`;
+
+  const resolveGoogleConnectUrl = (connectUrl) =>
+    connectUrl
+      ? new URL(connectUrl, INTEGRATIONS_BACKEND_BASE).toString()
+      : null;
+
+  const connectGoogleCalendar = () => {
+    window.location.assign(getGoogleCalanderAuthUrl(getGoogleCalendarReturnTo()));
+  };
+
+  const handleGoogleUnauthorized = (err) => {
+    setGoogleCalendarConnected(false);
+    setGoogleCalendarEvents([]);
+    setGoogleCalendarError("Reconnect Google Calendar");
+    message.warning("Reconnect Google Calendar");
+    const connectHref =
+      resolveGoogleConnectUrl(err?.connectUrl) ||
+      getGoogleCalanderAuthUrl(getGoogleCalendarReturnTo());
+    window.location.assign(connectHref);
+    return true;
+  };
+
+  const handleGoogleForbidden = (err) => {
+    setGoogleCalendarError(
+      err?.message ||
+        "Google Calendar access forbidden. Reconnect and grant required permissions.",
+    );
+    message.warning("Reconnect Google Calendar with required permissions.");
+    return true;
+  };
+
+  const loadGoogleCalendarEvents = async () => {
+    const payload = await getGoogleCalanderEvents({ calendarId: "primary" });
+    setGoogleCalendarEvents(payload?.events || []);
+  };
+
+  const loadGoogleCalendarStatus = async ({ includeEvents = true } = {}) => {
+    setGoogleCalendarLoading(true);
+    setGoogleCalendarError("");
+    try {
+      const status = await getGoogleCalanderStatus();
+      const connected = Boolean(status?.connected);
+      setGoogleCalendarConnected(connected);
+      if (connected && includeEvents) {
+        await loadGoogleCalendarEvents();
+      } else if (!connected) {
+        setGoogleCalendarEvents([]);
+      }
+    } catch (err) {
+      if (Number(err?.status) === 401) {
+        handleGoogleUnauthorized(err);
+        return;
+      }
+      if (Number(err?.status) === 403) {
+        setGoogleCalendarConnected(true);
+        setGoogleCalendarEvents([]);
+        handleGoogleForbidden(err);
+        return;
+      }
+      setGoogleCalendarError(err?.message || "Failed to load Google Calendar status.");
+      setGoogleCalendarConnected(false);
+      setGoogleCalendarEvents([]);
+    } finally {
+      setGoogleCalendarLoading(false);
+    }
+  };
+
+  const refreshGoogleCalendarEvents = async () => {
+    setGoogleCalendarLoading(true);
+    setGoogleCalendarError("");
+    try {
+      await loadGoogleCalendarEvents();
+      setGoogleCalendarConnected(true);
+    } catch (err) {
+      if (Number(err?.status) === 401) {
+        handleGoogleUnauthorized(err);
+        return;
+      }
+      if (Number(err?.status) === 403) {
+        setGoogleCalendarConnected(true);
+        setGoogleCalendarEvents([]);
+        handleGoogleForbidden(err);
+        return;
+      }
+      setGoogleCalendarError(err?.message || "Failed to fetch Google Calendar events.");
+    } finally {
+      setGoogleCalendarLoading(false);
+    }
+  };
+
+  const disconnectGoogleCalendar = async () => {
+    setGoogleCalendarLoading(true);
+    setGoogleCalendarError("");
+    try {
+      await disconnectGoogleCalander();
+      setGoogleCalendarConnected(false);
+      setGoogleCalendarEvents([]);
+      message.success("Google Calendar disconnected.");
+    } catch (err) {
+      if (Number(err?.status) === 401) {
+        handleGoogleUnauthorized(err);
+        return;
+      }
+      if (Number(err?.status) === 403) {
+        handleGoogleForbidden(err);
+        return;
+      }
+      setGoogleCalendarError(err?.message || "Failed to disconnect Google Calendar.");
+    } finally {
+      setGoogleCalendarLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!userId) return;
+    loadGoogleCalendarStatus({ includeEvents: true });
+  }, [userId]);
 
   const fetchProfiles = async () => {
     const { data } = await supabase
@@ -2426,7 +2560,50 @@ export default function MeetingsPage() {
       }
       if (createError) throw createError;
 
-      message.success("Meeting created!");
+      let syncedToGoogleCalendar = false;
+      if (googleCalendarConnected) {
+        try {
+          const endTime = dateTime.add(Number(form.duration) || 60, "minute");
+          await createGoogleCalanderEvent({
+            calendarId: "primary",
+            event: {
+              summary: form.title.trim(),
+              description:
+                `${form.description?.trim() || ""}${
+                  meetingUrl ? `\n\nMeeting Link: ${meetingUrl}` : ""
+                }`.trim(),
+              start: { dateTime: dateTime.toISOString() },
+              end: { dateTime: endTime.toISOString() },
+              attendees: selectedParticipants
+                .map((p) => p?.email)
+                .filter(Boolean)
+                .map((email) => ({ email })),
+            },
+          });
+          syncedToGoogleCalendar = true;
+          try {
+            await loadGoogleCalendarEvents();
+          } catch {
+            // Non-blocking: local meeting creation already succeeded.
+          }
+        } catch (err) {
+          if (Number(err?.status) === 401) {
+            handleGoogleUnauthorized(err);
+          } else if (Number(err?.status) === 403) {
+            handleGoogleForbidden(err);
+          } else {
+            message.warning(
+              "Meeting created, but Google Calendar sync failed.",
+            );
+          }
+        }
+      }
+
+      message.success(
+        syncedToGoogleCalendar
+          ? "Meeting created and synced to Google Calendar!"
+          : "Meeting created!",
+      );
       setMeetings((prev) => [...prev, newMeeting]);
       setShowCreate(false);
       setCurrentMonth(dateTime.startOf("month"));
@@ -2505,21 +2682,23 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
     await generateAISummary(meeting);
   };
 
-  const deleteMeeting = async (meeting) => {
-    if (
-      !window.confirm(
-        `Are you sure you want to delete "${meeting.title}"? This action cannot be undone.`,
-      )
-    )
-      return;
+  const deleteMeeting = (meeting) => {
+    setMeetingToDelete(meeting);
+  };
+
+  const confirmDeleteMeeting = async () => {
+    if (!meetingToDelete) return;
+    setDeletingMeeting(true);
     try {
-      if (meeting.recording_url) {
+      if (meetingToDelete.recording_url) {
         try {
-          const urlParts = meeting.recording_url.split("/");
+          const urlParts = meetingToDelete.recording_url.split("/");
           const fileName = urlParts[urlParts.length - 1];
           await supabase.storage
             .from("meeting-recordings")
-            .remove([`recordings/${meeting.meeting_room_id}/${fileName}`]);
+            .remove([
+              `recordings/${meetingToDelete.meeting_room_id}/${fileName}`,
+            ]);
         } catch (storageError) {
           console.warn("Could not delete recording file:", storageError);
         }
@@ -2527,17 +2706,21 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
       await supabase
         .from("meeting_participants")
         .delete()
-        .eq("meeting_id", meeting.id);
+        .eq("meeting_id", meetingToDelete.id);
       const { error } = await supabase
         .from("meetings")
         .delete()
-        .eq("id", meeting.id);
+        .eq("id", meetingToDelete.id);
       if (error) throw error;
       message.success("Meeting deleted successfully");
       setSelectedMeeting(null);
+      setMeetingToDelete(null);
+      await fetchMeetings();
     } catch (error) {
       console.error("Error deleting meeting:", error);
       message.error("Failed to delete meeting");
+    } finally {
+      setDeletingMeeting(false);
     }
   };
 
@@ -2612,18 +2795,161 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
         className={`meetings-page${dark ? " dark" : ""}`}
         style={{
           minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
           background: dark ? "#141416" : "#f8fafc",
+          fontFamily: "'Sora', sans-serif",
         }}
       >
-        <div style={{ textAlign: "center" }}>
-          <Spin size="large" />
-          <p style={{ marginTop: 16, color: "#94a3b8", fontSize: 13 }}>
-            Loading your workspace-
-          </p>
+        <div
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 40,
+            background: dark ? "rgba(15,17,22,0.92)" : "rgba(255,255,255,0.92)",
+            backdropFilter: "blur(12px)",
+            borderBottom: dark ? "1px solid #2a2b31" : "1px solid #f1f5f9",
+            padding: isMobile ? "10px 12px" : "14px 28px",
+            minHeight: isMobile ? "auto" : 86,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 16,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-start",
+              gap: 0,
+              minWidth: 0,
+            }}
+          >
+            <h1
+              style={{
+                fontSize: 26,
+                fontWeight: 700,
+                color: dark ? "#f8fafc" : "#0f172a",
+                margin: 0,
+                lineHeight: 1.2,
+                letterSpacing: "-0.5px",
+              }}
+            >
+              Meetings
+            </h1>
+            <p style={{ fontSize: 13, color: dark ? "#9ca3af" : "#94a3b8", margin: "4px 0 0" }}>
+              Organise your meetings into focused groups
+            </p>
+          </div>
+          <div
+            className={`meetings-skeleton-bar${dark ? " dark" : ""}`}
+            style={{ height: 36, width: 132, borderRadius: 10 }}
+          />
         </div>
+
+        <div
+          style={{
+            padding: isMobile ? 12 : 24,
+            display: "flex",
+            flexDirection: "column",
+            gap: 14,
+          }}
+        >
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile
+                ? "1fr"
+                : "repeat(4, minmax(180px, 1fr))",
+              gap: 12,
+            }}
+          >
+            {Array.from({ length: isMobile ? 2 : 4 }).map((_, idx) => (
+              <div
+                key={`meetings-header-skel-${idx}`}
+                style={{
+                  borderRadius: 12,
+                  padding: 14,
+                  border: dark ? "1px solid #2a2b31" : "1px solid #e2e8f0",
+                  background: dark ? "#1a1b1f" : "#ffffff",
+                }}
+              >
+                <div
+                  className={`meetings-skeleton-bar${dark ? " dark" : ""}`}
+                  style={{ height: 11, width: "54%", marginBottom: 10 }}
+                />
+                <div
+                  className={`meetings-skeleton-bar${dark ? " dark" : ""}`}
+                  style={{ height: 24, width: "38%" }}
+                />
+              </div>
+            ))}
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(220px, 1fr))",
+              gap: 14,
+              minHeight: "60vh",
+            }}
+          >
+            {Array.from({ length: isMobile ? 3 : 6 }).map((_, idx) => (
+              <div
+                key={`meetings-main-skel-${idx}`}
+                style={{
+                  borderRadius: 14,
+                  padding: 14,
+                  border: dark ? "1px solid #2a2b31" : "1px solid #e2e8f0",
+                  background: dark ? "#1a1b1f" : "#ffffff",
+                }}
+              >
+                <div
+                  className={`meetings-skeleton-bar${dark ? " dark" : ""}`}
+                  style={{ height: 12, width: "68%", marginBottom: 12 }}
+                />
+                <div
+                  className={`meetings-skeleton-bar${dark ? " dark" : ""}`}
+                  style={{ height: 10, width: "100%", marginBottom: 8 }}
+                />
+                <div
+                  className={`meetings-skeleton-bar${dark ? " dark" : ""}`}
+                  style={{ height: 10, width: "88%", marginBottom: 8 }}
+                />
+                <div
+                  className={`meetings-skeleton-bar${dark ? " dark" : ""}`}
+                  style={{ height: 10, width: "44%" }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <style>{`
+          @keyframes meetingsShimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+          }
+          .meetings-skeleton-bar {
+            border-radius: 8px;
+            background: linear-gradient(
+              90deg,
+              #eef2f7 25%,
+              #f8fafc 40%,
+              #eef2f7 55%
+            );
+            background-size: 200% 100%;
+            animation: meetingsShimmer 1.2s ease-in-out infinite;
+          }
+          .meetings-skeleton-bar.dark {
+            background: linear-gradient(
+              90deg,
+              #252730 25%,
+              #323542 40%,
+              #252730 55%
+            );
+            background-size: 200% 100%;
+          }
+        `}</style>
       </div>
     );
   }
@@ -2636,7 +2962,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
         style={{
           minHeight: "100vh",
           background: dark ? "#141416" : "#f8fafc",
-          fontFamily: "'Inter', -apple-system, sans-serif",
+          fontFamily: "'Sora', sans-serif",
         }}
       >
         <FreePlanPaywall navigate={navigate} dark={dark} />
@@ -2652,7 +2978,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
       style={{
         minHeight: "100vh",
         background: dark ? "#141416" : "#f8fafc",
-        fontFamily: "'Inter', -apple-system, sans-serif",
+        fontFamily: "'Sora', sans-serif",
       }}
     >
       {/* TOP BAR */}
@@ -2661,11 +2987,11 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
           position: "sticky",
           top: 0,
           zIndex: 40,
-          background: "rgba(255,255,255,0.92)",
+          background: dark ? "rgba(15,17,22,0.92)" : "rgba(255,255,255,0.92)",
           backdropFilter: "blur(12px)",
-          borderBottom: "1px solid #f1f5f9",
-          padding: isMobile ? "10px 12px" : "0 28px",
-          minHeight: 60,
+          borderBottom: dark ? "1px solid #2a2b31" : "1px solid #f1f5f9",
+          padding: isMobile ? "10px 12px" : "14px 28px",
+          minHeight: isMobile ? "auto" : 86,
           display: "flex",
           alignItems: "center",
           gap: 16,
@@ -2675,49 +3001,28 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
         <div
           style={{
             display: "flex",
-            alignItems: "center",
-            gap: 12,
+            flexDirection: "column",
+            alignItems: "flex-start",
+            gap: 0,
             flex: isMobile ? 1 : "0 1 auto",
             minWidth: 0,
           }}
         >
-          <div
+          <h1
             style={{
-              width: 32,
-              height: 32,
-              borderRadius: 10,
-              background: "linear-gradient(135deg, #0f172a, #0f172a)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              fontSize: 26,
+              fontWeight: 700,
+              color: dark ? "#f8fafc" : "#0f172a",
+              margin: 0,
+              lineHeight: 1.2,
+              letterSpacing: "-0.5px",
             }}
           >
-            <Calendar size={16} color="#fff" />
-          </div>
-          <div>
-            <div
-              style={{
-                fontSize: 15,
-                fontWeight: 700,
-                color: "#0f172a",
-                lineHeight: 1.2,
-              }}
-            >
-              Meetings
-            </div>
-            <div style={{ fontSize: 11, color: "#94a3b8" }}>
-              {todayMeetings.length > 0
-                ? `${todayMeetings.length} meeting${todayMeetings.length > 1 ? "s" : ""} today`
-                : "No meetings today"}
-              {liveMeetings.length > 0 && (
-                <span
-                  style={{ marginLeft: 8, color: "#22c55e", fontWeight: 700 }}
-                >
-                  - {liveMeetings.length} live
-                </span>
-              )}
-            </div>
-          </div>
+            Meetings
+          </h1>
+          <p style={{ fontSize: 13, color: dark ? "#9ca3af" : "#94a3b8", margin: "4px 0 0" }}>
+            Organise your meetings into focused groups
+          </p>
         </div>
         <div
           style={{
@@ -2734,7 +3039,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
               left: 10,
               top: "50%",
               transform: "translateY(-50%)",
-              color: "#94a3b8",
+              color: dark ? "#64748b" : "#94a3b8",
               pointerEvents: "none",
             }}
           />
@@ -2748,10 +3053,10 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
               paddingTop: 7,
               paddingBottom: 7,
               borderRadius: 10,
-              border: "1px solid #e2e8f0",
-              background: "#f8fafc",
+              border: dark ? "1px solid #2a2b31" : "1px solid #e2e8f0",
+              background: dark ? "#17181c" : "#f8fafc",
               fontSize: 13,
-              color: "#374151",
+              color: dark ? "#e5e7eb" : "#374151",
               outline: "none",
               width: isMobile ? "100%" : 200,
             }}
@@ -2761,7 +3066,8 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
           style={{
             display: "flex",
             alignItems: "center",
-            background: "#f1f5f9",
+            background: dark ? "#17181c" : "#f1f5f9",
+            border: dark ? "1px solid #2a2b31" : "none",
             borderRadius: 10,
             padding: 3,
             gap: 2,
@@ -2783,10 +3089,10 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                 borderRadius: 8,
                 border: "none",
                 cursor: "pointer",
-                background: view === v.key ? "#fff" : "transparent",
-                color: view === v.key ? "#3b82f6" : "#94a3b8",
+                background: view === v.key ? (dark ? "#202127" : "#fff") : "transparent",
+                color: view === v.key ? "#3453B7" : dark ? "#6b7280" : "#94a3b8",
                 boxShadow:
-                  view === v.key ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                  view === v.key ? (dark ? "0 1px 3px rgba(0,0,0,0.28)" : "0 1px 3px rgba(0,0,0,0.08)") : "none",
                 display: "flex",
                 alignItems: "center",
               }}
@@ -2808,9 +3114,9 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
               border: "none",
               cursor: "pointer",
               background: dark
-                ? "#ffffff"
-                : "linear-gradient(135deg, #0f172a, #0f172a)",
-              color: dark ? "#111111" : "#fff",
+                ? "#3453B7"
+                : "linear-gradient(135deg, #3453B7, #3453B7)",
+              color: "#fff",
               fontSize: 13,
               fontWeight: 700,
               boxShadow: dark
@@ -2826,12 +3132,154 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
         )}
       </div>
 
+      <div
+        style={{
+          padding: isMobile ? "10px 12px" : "12px 28px",
+          borderBottom: dark ? "1px solid #2a2b31" : "1px solid #e2e8f0",
+          background: dark ? "#141416" : "#f8fafc",
+        }}
+      >
+        <div
+          style={{
+            border: dark ? "1px solid #2a2b31" : "1px solid #e2e8f0",
+            borderRadius: 12,
+            background: dark ? "#17181c" : "#ffffff",
+            padding: isMobile ? 12 : 14,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 10,
+              flexWrap: "wrap",
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: dark ? "#f8fafc" : "#0f172a",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 5,
+                    border: dark ? "1px solid #334155" : "1px solid #dbe2ea",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: dark ? "#0f1115" : "#fff",
+                    flexShrink: 0,
+                  }}
+                >
+                  <img
+                    src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Google_Calendar_icon_%282020%29.svg/500px-Google_Calendar_icon_%282020%29.svg.png"
+                    alt="Google Calendar"
+                    style={{ width: 22, height: 22, objectFit: "contain" }}
+                  />
+                </span>
+                Google Calendar
+              </div>
+              <div style={{ fontSize: 12, color: dark ? "#9ca3af" : "#64748b", marginTop: 2 }}>
+                {googleCalendarConnected
+                  ? "Connected. Showing events from primary calendar."
+                  : "Not connected. Connect to sync your events."}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {!googleCalendarConnected ? (
+                <button
+                  onClick={connectGoogleCalendar}
+                  style={{
+                    border: "none",
+                    borderRadius: 9,
+                    background: "#3453B7",
+                    color: "#fff",
+                    padding: "8px 12px",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Connect
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={refreshGoogleCalendarEvents}
+                    disabled={googleCalendarLoading}
+                    style={{
+                      border: "1px solid #3453B7",
+                      borderRadius: 9,
+                      background: dark ? "#1b2230" : "#fff",
+                      color: dark ? "#bfdbfe" : "#3453B7",
+                      padding: "8px 12px",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Refresh Events
+                  </button>
+                  <button
+                    onClick={disconnectGoogleCalendar}
+                    disabled={googleCalendarLoading}
+                    style={{
+                      border: "1px solid #3453B7",
+                      borderRadius: 9,
+                      background: "#3453B7",
+                      color: "#ffffff",
+                      padding: "8px 12px",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Disconnect
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {googleCalendarError ? (
+            <div
+              style={{
+                marginTop: 10,
+                fontSize: 12,
+                color: "#dc2626",
+                fontWeight: 600,
+              }}
+            >
+              {googleCalendarError}
+            </div>
+          ) : null}
+
+          {googleCalendarConnected ? (
+            <div style={{ marginTop: 10, fontSize: 12, color: dark ? "#9ca3af" : "#64748b" }}>
+              Google Calendar sync is active.
+            </div>
+          ) : null}
+        </div>
+      </div>
+
       {/* LIVE BANNER */}
       {liveMeetings.length > 0 && (
         <div
           style={{
-            background: "linear-gradient(135deg, #dcfce7, #d1fae5)",
-            borderBottom: "1px solid #a7f3d0",
+            background: dark
+              ? "linear-gradient(135deg, rgba(20,83,45,0.22), rgba(6,78,59,0.15))"
+              : "linear-gradient(135deg, #dcfce7, #d1fae5)",
+            borderBottom: dark ? "1px solid #14532d" : "1px solid #a7f3d0",
             padding: isMobile ? "10px 12px" : "10px 28px",
             display: "flex",
             alignItems: "center",
@@ -2849,7 +3297,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
               flexShrink: 0,
             }}
           />
-          <span style={{ fontSize: 13, fontWeight: 700, color: "#15803d" }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: dark ? "#86efac" : "#15803d" }}>
             {liveMeetings.length} meeting{liveMeetings.length > 1 ? "s" : ""} in
             progress
           </span>
@@ -2868,9 +3316,9 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                 style={{
                   padding: "4px 12px",
                   borderRadius: 999,
-                  border: "1px solid #86efac",
-                  background: "#fff",
-                  color: "#16a34a",
+                  border: dark ? "1px solid #166534" : "1px solid #86efac",
+                  background: dark ? "#052e16" : "#fff",
+                  color: dark ? "#86efac" : "#16a34a",
                   fontSize: 11,
                   fontWeight: 700,
                   cursor: "pointer",
@@ -2890,13 +3338,41 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
       {loading ? (
         <div
           style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            height: "60vh",
+            display: "grid",
+            gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(220px, 1fr))",
+            gap: 14,
+            padding: isMobile ? 12 : 24,
+            minHeight: "60vh",
           }}
         >
-          <Spin size="large" />
+          {Array.from({ length: isMobile ? 3 : 6 }).map((_, idx) => (
+            <div
+              key={`meetings-skel-card-${idx}`}
+              style={{
+                borderRadius: 14,
+                padding: 14,
+                border: dark ? "1px solid #2a2b31" : "1px solid #e2e8f0",
+                background: dark ? "#1a1b1f" : "#ffffff",
+              }}
+            >
+              <div
+                className={`meetings-skeleton-bar${dark ? " dark" : ""}`}
+                style={{ height: 12, width: "68%", marginBottom: 12 }}
+              />
+              <div
+                className={`meetings-skeleton-bar${dark ? " dark" : ""}`}
+                style={{ height: 10, width: "100%", marginBottom: 8 }}
+              />
+              <div
+                className={`meetings-skeleton-bar${dark ? " dark" : ""}`}
+                style={{ height: 10, width: "88%", marginBottom: 8 }}
+              />
+              <div
+                className={`meetings-skeleton-bar${dark ? " dark" : ""}`}
+                style={{ height: 10, width: "44%" }}
+              />
+            </div>
+          ))}
         </div>
       ) : view === "calendar" ? (
         <div
@@ -2931,13 +3407,13 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                   width: 32,
                   height: 32,
                   borderRadius: 8,
-                  border: "1px solid #e2e8f0",
-                  background: "#fff",
+                  border: dark ? "1px solid #2a2b31" : "1px solid #e2e8f0",
+                  background: dark ? "#17181c" : "#fff",
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  color: "#64748b",
+                  color: dark ? "#9ca3af" : "#64748b",
                 }}
               >
                 <ChevronLeft size={16} />
@@ -2946,7 +3422,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                 style={{
                   fontSize: 20,
                   fontWeight: 800,
-                  color: "#0f172a",
+                  color: dark ? "#f8fafc" : "#0f172a",
                   flex: 1,
                   minWidth: isMobile ? "100%" : 0,
                 }}
@@ -2961,12 +3437,12 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                 style={{
                   padding: "5px 12px",
                   borderRadius: 8,
-                  border: "1px solid #e2e8f0",
-                  background: "#fff",
+                  border: dark ? "1px solid #334155" : "1px solid #e2e8f0",
+                  background: dark ? "#1f2937" : "#fff",
                   cursor: "pointer",
                   fontSize: 12,
                   fontWeight: 600,
-                  color: "#3b82f6",
+                  color: dark ? "#bfdbfe" : "#3453B7",
                 }}
               >
                 Today
@@ -2977,13 +3453,13 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                   width: 32,
                   height: 32,
                   borderRadius: 8,
-                  border: "1px solid #e2e8f0",
-                  background: "#fff",
+                  border: dark ? "1px solid #2a2b31" : "1px solid #e2e8f0",
+                  background: dark ? "#17181c" : "#fff",
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  color: "#64748b",
+                  color: dark ? "#9ca3af" : "#64748b",
                 }}
               >
                 <ChevronRight size={16} />
@@ -3004,9 +3480,9 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
           <div
             style={{
               width: isMobile ? "100%" : 300,
-              borderLeft: isMobile ? "none" : "1px solid #f1f5f9",
-              borderTop: isMobile ? "1px solid #f1f5f9" : "none",
-              background: "#fff",
+              borderLeft: isMobile ? "none" : dark ? "1px solid #2a2b31" : "1px solid #f1f5f9",
+              borderTop: isMobile ? (dark ? "1px solid #2a2b31" : "1px solid #f1f5f9") : "none",
+              background: dark ? "#17181c" : "#fff",
               flexShrink: 0,
               overflowY: "auto",
               maxHeight: isMobile ? "none" : undefined,
@@ -3290,7 +3766,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                                   border: "none",
                                   cursor: "pointer",
                                   background:
-                                    status === "live" ? "#22c55e" : "#3b82f6",
+                                    status === "live" ? "#22c55e" : "#3453B7",
                                   color: "#fff",
                                   fontSize: 11,
                                   fontWeight: 700,
@@ -3429,7 +3905,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                   width: 28,
                   height: 28,
                   borderRadius: 8,
-                  background: "linear-gradient(135deg, #3b82f6, #6366f1)",
+                  background: "linear-gradient(135deg, #3453B7, #6366f1)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -3556,7 +4032,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                       borderRadius: 10,
                       border:
                         form.type === t.key
-                          ? "2px solid #3b82f6"
+                          ? "2px solid #3453B7"
                           : `2px solid ${dark ? "rgba(255,255,255,0.08)" : "#e2e8f0"}`,
                       background:
                         form.type === t.key
@@ -3568,7 +4044,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                             : "#f8fafc",
                       color:
                         form.type === t.key
-                          ? "#3b82f6"
+                          ? "#3453B7"
                           : dark
                             ? "rgba(255,255,255,0.45)"
                             : "#64748b",
@@ -4051,7 +4527,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                   cursor: creating ? "not-allowed" : "pointer",
                   background: creating
                     ? "#93c5fd"
-                    : "linear-gradient(135deg, #3b82f6, #6366f1)",
+                    : "linear-gradient(135deg, #3453B7, #6366f1)",
                   color: "#fff",
                   fontSize: 13,
                   fontWeight: 700,
@@ -4059,7 +4535,14 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                   boxShadow: "0 4px 12px rgba(59,130,246,0.3)",
                 }}
               >
-                {creating ? <Spin size="small" /> : <Calendar size={13} />}
+                {creating ? (
+                  <span
+                    className={`meetings-skeleton-bar${dark ? " dark" : ""}`}
+                    style={{ width: 18, height: 10, borderRadius: 4 }}
+                  />
+                ) : (
+                  <Calendar size={13} />
+                )}
                 {creating ? "Creating-" : "Create Meeting"}
               </button>
             </div>
@@ -4172,36 +4655,28 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
               {summaryLoading ? (
                 <div
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 14,
                     padding: 20,
                     background: dark ? "#1a1b1f" : "#f5f3ff",
                     border: dark ? "1px solid #2a2b31" : "1px solid #ddd6fe",
                     borderRadius: 14,
                   }}
                 >
-                  <Spin />
-                  <div>
-                    <div
-                      style={{
-                        fontSize: 14,
-                        fontWeight: 700,
-                        color: dark ? "#c4b5fd" : "#4c1d95",
-                      }}
-                    >
-                      Analyzing meeting-
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: dark ? "#a78bfa" : "#8b5cf6",
-                        marginTop: 2,
-                      }}
-                    >
-                      Generating insights with Groq AI
-                    </div>
-                  </div>
+                  <div
+                    className={`meetings-skeleton-bar${dark ? " dark" : ""}`}
+                    style={{ height: 12, width: "42%", marginBottom: 12 }}
+                  />
+                  <div
+                    className={`meetings-skeleton-bar${dark ? " dark" : ""}`}
+                    style={{ height: 10, width: "100%", marginBottom: 8 }}
+                  />
+                  <div
+                    className={`meetings-skeleton-bar${dark ? " dark" : ""}`}
+                    style={{ height: 10, width: "90%", marginBottom: 8 }}
+                  />
+                  <div
+                    className={`meetings-skeleton-bar${dark ? " dark" : ""}`}
+                    style={{ height: 10, width: "76%" }}
+                  />
                 </div>
               ) : (
                 summaryData && (
@@ -4333,7 +4808,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                                 <div
                                   style={{
                                     fontSize: 11,
-                                    color: "#3b82f6",
+                                    color: "#3453B7",
                                     marginTop: 3,
                                     fontWeight: 600,
                                   }}
@@ -4429,7 +4904,7 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
                             [
                               "Engagement",
                               summaryData.sentiment.engagement,
-                              "#3b82f6",
+                              "#3453B7",
                             ],
                             [
                               "Positivity",
@@ -4562,8 +5037,40 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
         )}
       </Modal>
 
+      <Modal
+        open={!!meetingToDelete}
+        onCancel={() => setMeetingToDelete(null)}
+        onOk={confirmDeleteMeeting}
+        okText="Delete"
+        cancelText="Cancel"
+        confirmLoading={deletingMeeting}
+        okButtonProps={{
+          style: {
+            background: "#3453B7",
+            borderColor: "#3453B7",
+          },
+        }}
+        cancelButtonProps={{
+          style: {
+            color: "#3453B7",
+            borderColor: "#3453B7",
+          },
+        }}
+        title="Delete Meeting"
+        wrapClassName={dark ? "meetings-dark-modal" : undefined}
+      >
+        <div style={{ fontSize: 14, lineHeight: 1.6 }}>
+          Are you sure you want to delete "{meetingToDelete?.title || "this meeting"}"? This action cannot be undone.
+        </div>
+      </Modal>
+
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap');
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        @keyframes meetingsShimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
         * { box-sizing: border-box; }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -4619,8 +5126,28 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
         .meetings-page.dark [style*="border-right: 1px solid rgb(226, 232, 240)"] { border-right: 1px solid #2a2b31 !important; }
         .meetings-page.dark ::-webkit-scrollbar-thumb { background: #242428; }
         .meetings-page.dark .new-meeting-btn {
-          background: #ffffff !important;
-          color: #111111 !important;
+          background: #3453B7 !important;
+          color: #ffffff !important;
+        }
+        .meetings-skeleton-bar {
+          border-radius: 8px;
+          background: linear-gradient(
+            90deg,
+            #eef2f7 25%,
+            #f8fafc 40%,
+            #eef2f7 55%
+          );
+          background-size: 200% 100%;
+          animation: meetingsShimmer 1.2s ease-in-out infinite;
+        }
+        .meetings-skeleton-bar.dark {
+          background: linear-gradient(
+            90deg,
+            #252730 25%,
+            #323542 40%,
+            #252730 55%
+          );
+          background-size: 200% 100%;
         }
 
         .meetings-dark-modal .ant-modal-content,
@@ -4672,4 +5199,3 @@ SUMMARY FORMAT RULES: The "summary" field must be well-structured plain text. Us
     </div>
   );
 }
-

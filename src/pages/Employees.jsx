@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Button,
   message,
@@ -420,8 +420,7 @@ const CSS = `
 .ep-empty-hint { font-size:12.5px; color:var(--ep-muted-2); margin-top:5px; }
 
 /* Buttons */
-.ep-add-btn { background:#0a0a0a !important; border-color:#0a0a0a !important; border-radius:10px !important; font-weight:700 !important; font-family:'DM Sans',sans-serif !important; height:38px !important; padding:0 18px !important; }
-.ep-add-btn:hover { background:#303030 !important; border-color:#303030 !important; }
+.ep-add-btn { background:#1e40af !important; border-color:#1e40af !important; border-radius:10px !important; font-weight:700 !important; font-family:'DM Sans',sans-serif !important; height:38px !important; padding:0 18px !important; }
 .ep.dark .ep-add-btn { background:#e2e8f0 !important; border-color:#e2e8f0 !important; color:#111111 !important; }
 .ep.dark .ep-add-btn:hover { background:#cbd5e1 !important; border-color:#cbd5e1 !important; color:#111111 !important; }
 .ep.dark .ant-select-selector {
@@ -1276,7 +1275,8 @@ const Employees = () => {
         background: "var(--ep-bg)",
         minHeight: "100vh",
         color: "var(--ep-text)",
-        padding: isMobile ? "0 0 16px" : 0,
+        padding: isMobile ? "12px" : "16px",
+        boxSizing: "border-box",
       }}
     >
       {/* ---------------- User Limit Alert -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */}
@@ -1291,7 +1291,7 @@ const Employees = () => {
             border: "1px solid rgba(239, 68, 68, 0.3)",
             padding: isMobile ? "12px 14px" : "12px 20px",
             borderRadius: 10,
-            margin: isMobile ? "12px 12px 0" : "12px 16px 0",
+            margin: 0,
             display: "flex",
             alignItems: isMobile ? "flex-start" : "center",
             gap: 12,
@@ -1358,17 +1358,26 @@ const Employees = () => {
           <h1 className="ep-title">Employees</h1>
           <p className="ep-sub">Manage your team across the organisation</p>
         </div>
-        {!isUserLimitReached && (
-          <Button
-            type="primary"
-            icon={<Plus size={14} />}
-            className="ep-add-btn"
-            onClick={() => setDrawerVisible(true)}
-            block={isMobile}
-          >
-            Add Employee
-          </Button>
-        )}
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            width: isMobile ? "100%" : "auto",
+            flexWrap: isMobile ? "wrap" : "nowrap",
+          }}
+        >
+            {!isUserLimitReached && (
+              <Button
+                type="primary"
+              icon={<Plus size={14} />}
+              className="ep-add-btn"
+              onClick={() => setDrawerVisible(true)}
+              block={isMobile}
+            >
+              Add Employee
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Stats */}
@@ -1424,7 +1433,7 @@ const Employees = () => {
         <Select
           value={filterRole}
           onChange={setFilterRole}
-          popupClassName={dark ? "ep-dark-popup" : undefined}
+          classNames={dark ? { popup: { root: "ep-dark-popup" } } : undefined}
           style={{ width: isMobile ? "100%" : 158 }}
           options={[
             { label: "All Roles", value: "all" },
@@ -1435,7 +1444,7 @@ const Employees = () => {
         <Select
           value={filterStatus}
           onChange={setFilterStatus}
-          popupClassName={dark ? "ep-dark-popup" : undefined}
+          classNames={dark ? { popup: { root: "ep-dark-popup" } } : undefined}
           style={{ width: isMobile ? "100%" : 140 }}
           options={[
             { label: "All Status", value: "all" },
@@ -1731,7 +1740,7 @@ const Employees = () => {
         open={drawerVisible}
         rootClassName={dark ? "ep-dark-drawer" : undefined}
         onClose={closeDrawer}
-        width={isMobile ? "100vw" : isTablet ? 620 : 700}
+        size={isMobile ? "default" : "large"}
         extra={
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Button onClick={closeDrawer} block={isMobile}>
@@ -1834,7 +1843,7 @@ const Employees = () => {
               rules={[{ required: true }]}
               initialValue="employee"
             >
-              <Select popupClassName={dark ? "ep-dark-popup" : undefined}>
+              <Select classNames={dark ? { popup: { root: "ep-dark-popup" } } : undefined}>
                 <Select.Option value="employee">Employee</Select.Option>
                 <Select.Option value="project_manager">
                   Project Manager
@@ -1852,7 +1861,7 @@ const Employees = () => {
             </Form.Item>
             <Form.Item name="dob" label="Date of Birth">
               <DatePicker
-                popupClassName={dark ? "ep-dark-popup" : undefined}
+                classNames={dark ? { popup: { root: "ep-dark-popup" } } : undefined}
                 style={{ width: "100%" }}
               />
             </Form.Item>
@@ -1861,7 +1870,7 @@ const Employees = () => {
                 mode="multiple"
                 placeholder="Select languages"
                 allowClear
-                popupClassName={dark ? "ep-dark-popup" : undefined}
+                classNames={dark ? { popup: { root: "ep-dark-popup" } } : undefined}
               >
                 {LANGUAGES.map((l) => (
                   <Select.Option key={l} value={l}>
@@ -1896,7 +1905,7 @@ const Employees = () => {
             <Form.Item name="employment_type" label="Employment Type">
               <Select
                 placeholder="Select type"
-                popupClassName={dark ? "ep-dark-popup" : undefined}
+                classNames={dark ? { popup: { root: "ep-dark-popup" } } : undefined}
               >
                 {EMPLOYMENT_TYPES.map((t) => (
                   <Select.Option key={t.value} value={t.value}>
@@ -1912,7 +1921,7 @@ const Employees = () => {
               <Select
                 placeholder="Select timezone"
                 showSearch
-                popupClassName={dark ? "ep-dark-popup" : undefined}
+                classNames={dark ? { popup: { root: "ep-dark-popup" } } : undefined}
               >
                 {TIMEZONES.map((tz) => (
                   <Select.Option key={tz} value={tz}>
@@ -1943,7 +1952,7 @@ const Employees = () => {
               <Select
                 placeholder="Select team"
                 allowClear
-                popupClassName={dark ? "ep-dark-popup" : undefined}
+                classNames={dark ? { popup: { root: "ep-dark-popup" } } : undefined}
               >
                 {teams.map((t) => (
                   <Select.Option key={t.id} value={t.id}>
@@ -1970,7 +1979,7 @@ const Employees = () => {
               placeholder="Add skills..."
               allowClear
               showSearch
-              popupClassName={dark ? "ep-dark-popup" : undefined}
+              classNames={dark ? { popup: { root: "ep-dark-popup" } } : undefined}
             >
               {SKILL_OPTIONS.map((s) => (
                 <Select.Option key={s} value={s}>
@@ -1990,7 +1999,7 @@ const Employees = () => {
               <Select
                 placeholder="Select currency"
                 showSearch
-                popupClassName={dark ? "ep-dark-popup" : undefined}
+                classNames={dark ? { popup: { root: "ep-dark-popup" } } : undefined}
                 filterOption={(input, option) =>
                   option?.children?.toLowerCase().includes(input.toLowerCase())
                 }
@@ -2030,7 +2039,7 @@ const Employees = () => {
             <Form.Item name="salary_type" label="Salary Type">
               <Select
                 placeholder="Select type"
-                popupClassName={dark ? "ep-dark-popup" : undefined}
+                classNames={dark ? { popup: { root: "ep-dark-popup" } } : undefined}
               >
                 <Select.Option value="fixed">Fixed</Select.Option>
                 <Select.Option value="base_commission">
@@ -2206,17 +2215,10 @@ const Employees = () => {
           </div>
         </Form>
       </Drawer>
-
     </div>
   );
 };
 
 export default Employees;
-
-
-
-
-
-
 
 
