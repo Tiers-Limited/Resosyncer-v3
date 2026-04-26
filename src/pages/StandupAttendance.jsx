@@ -2,7 +2,7 @@
 import {
   Table, Button, DatePicker, Modal, Tag, Avatar, Space,
   Typography, Tooltip, Radio, Empty, Row, Col, message,
-  Input, Spin, Divider, Badge, Progress,
+  Input, Divider, Badge, Progress,
 } from "antd";
 import {
   CheckOutlined, CloseOutlined, ClockCircleOutlined,
@@ -32,6 +32,7 @@ const ATTENDANCE_STATUS = {
   present: { label: "Present", color: "#059669", bg: "#ecfdf5", border: "#a7f3d0", icon: <CheckOutlined /> },
   absent:  { label: "Absent",  color: "#e11d48", bg: "#fff1f2", border: "#fecdd3", icon: <CloseOutlined /> },
   late:    { label: "Late",    color: "#d97706", bg: "#fffbeb", border: "#fde68a", icon: <ClockCircleOutlined /> },
+  leave:   { label: "Leave",   color: "#7c3aed", bg: "#f5f3ff", border: "#ddd6fe", icon: <CalendarOutlined /> },
 };
 
 const PROJECT_STATUS_TAG = {
@@ -47,7 +48,163 @@ const AVATAR_COLORS = ["#6366f1","#0ea5e9","#10b981","#f59e0b","#ec4899","#8b5cf
 const getInitials = (name = "") =>
   name.split(" ").filter(Boolean).map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 
-const capitalize = (s = "") => s.charAt(0).toUpperCase() + s.slice(1);
+const formatStatusLabel = (s = "") =>
+  String(s || "")
+    .replace(/[_-]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
+const SkeletonBar = ({ width = "100%", height = 12, radius = 8 }) => (
+  <div
+    style={{
+      width,
+      height,
+      borderRadius: radius,
+      background:
+        "linear-gradient(90deg, var(--sa-skel-base) 25%, var(--sa-skel-shine) 50%, var(--sa-skel-base) 75%)",
+      backgroundSize: "320px 100%",
+      animation: "saSkelShimmer 1.25s ease-in-out infinite",
+    }}
+  />
+);
+
+const StandupPageSkeleton = ({ dark = false }) => (
+  <div
+    className={`sa-skel-root${dark ? " dark" : ""}`}
+    style={{
+      minHeight: "100vh",
+      background: dark ? "#141416" : "#f8fafc",
+      padding: "28px 40px",
+    }}
+  >
+    <style>{`
+      @keyframes saSkelShimmer {
+        0% { background-position: -320px 0; }
+        100% { background-position: 320px 0; }
+      }
+      .sa-skel-root {
+        --sa-skel-base: #e5e7eb;
+        --sa-skel-shine: #f3f4f6;
+        --sa-skel-card: #ffffff;
+        --sa-skel-border: #e2e8f0;
+      }
+      .sa-skel-root.dark {
+        --sa-skel-base: #2a2b31;
+        --sa-skel-shine: #343741;
+        --sa-skel-card: #1a1b1f;
+        --sa-skel-border: #2a2b31;
+      }
+    `}</style>
+
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, gap: 16 }}>
+      <div>
+        <SkeletonBar width={170} height={12} />
+        <div style={{ height: 10 }} />
+        <SkeletonBar width={280} height={28} radius={10} />
+      </div>
+      <SkeletonBar width={150} height={38} radius={10} />
+    </div>
+
+    <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+      {[180, 160, 140].map((w, idx) => (
+        <div
+          key={idx}
+          style={{
+            width: w,
+            borderRadius: 10,
+            border: "1px solid var(--sa-skel-border)",
+            background: "var(--sa-skel-card)",
+            padding: "10px 12px",
+          }}
+        >
+          <SkeletonBar width={24} height={22} radius={6} />
+          <div style={{ height: 6 }} />
+          <SkeletonBar width="72%" height={10} />
+        </div>
+      ))}
+    </div>
+
+    <div style={{ background: "var(--sa-skel-card)", border: "1px solid var(--sa-skel-border)", borderRadius: 14, overflow: "hidden" }}>
+      <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--sa-skel-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <SkeletonBar width={180} height={16} />
+        <SkeletonBar width={180} height={12} />
+      </div>
+      <TableCardSkeleton rows={5} variant="projects" dark={dark} />
+    </div>
+  </div>
+);
+
+const TableCardSkeleton = ({ rows = 4, variant = "projects", dark = false }) => {
+  const columns =
+    variant === "attendance"
+      ? "minmax(280px, 1.4fr) minmax(360px, 1.2fr)"
+      : "minmax(280px, 1.7fr) minmax(140px, 0.8fr) minmax(190px, 1fr) 120px";
+
+  return (
+    <div className={`sa-skel-root${dark ? " dark" : ""}`} style={{ padding: 0 }}>
+      <style>{`
+        @keyframes saSkelShimmer {
+          0% { background-position: -320px 0; }
+          100% { background-position: 320px 0; }
+        }
+        .sa-skel-root {
+          --sa-skel-base: #e5e7eb;
+          --sa-skel-shine: #f3f4f6;
+          --sa-skel-border: #e2e8f0;
+        }
+        .sa-skel-root.dark {
+          --sa-skel-base: #2a2b31;
+          --sa-skel-shine: #343741;
+          --sa-skel-border: #2a2b31;
+        }
+      `}</style>
+
+      <div style={{ display: "grid", gridTemplateColumns: columns, gap: 12, padding: "12px 16px", borderBottom: "1px solid var(--sa-skel-border)" }}>
+        {[1, 2, ...(variant === "projects" ? [3, 4] : [])].map((k) => (
+          <SkeletonBar key={k} width={variant === "projects" && k === 4 ? "75%" : "58%"} height={10} radius={6} />
+        ))}
+      </div>
+
+      <div style={{ padding: "6px 0" }}>
+        {[...Array(rows)].map((_, idx) => (
+          <div
+            key={idx}
+            style={{
+              display: "grid",
+              gridTemplateColumns: columns,
+              gap: 12,
+              alignItems: "center",
+              padding: "12px 16px",
+              borderBottom: idx === rows - 1 ? "none" : "1px solid var(--sa-skel-border)",
+            }}
+          >
+            <div>
+              <SkeletonBar width="64%" height={12} />
+              <div style={{ height: 7 }} />
+              <SkeletonBar width="48%" height={10} />
+            </div>
+            <SkeletonBar width="70%" height={22} radius={999} />
+            {variant === "projects" && (
+              <>
+                <SkeletonBar width="84%" height={12} />
+                <SkeletonBar width="86%" height={32} radius={8} />
+              </>
+            )}
+            {variant === "attendance" && (
+              <div style={{ display: "flex", gap: 8 }}>
+                <SkeletonBar width={90} height={30} radius={8} />
+                <SkeletonBar width={90} height={30} radius={8} />
+                <SkeletonBar width={90} height={30} radius={8} />
+                <SkeletonBar width={90} height={30} radius={8} />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 const getIsDarkTheme = () => {
   const mode = localStorage.getItem("themeMode") || "light";
@@ -180,7 +337,7 @@ function StarterStandupAttendancePaywall({ dark = false }) {
           Standups
         </h1>
         <p style={{ margin: 0, color: "var(--text-tertiary)", fontSize: 13 }}>
-          Async check-ins ---- AI summaries ---- Zero extra meetings
+          Async check-ins • AI summaries • Zero extra meetings
         </p>
       </div>
 
@@ -384,9 +541,9 @@ function StarterStandupAttendancePaywall({ dark = false }) {
                       }}
                     >
                       <span>Today, Mar 29</span>
-                      <span>----</span>
+                      <span>•</span>
                       <span style={{ color: "#22c55e", fontWeight: 700 }}>
-                        ------- 6/8 responded
+                        6/8 responded
                       </span>
                     </div>
                   </div>
@@ -598,7 +755,7 @@ function StarterStandupAttendancePaywall({ dark = false }) {
                 lineHeight: 1.6,
               }}
             >
-              A complete async check-in system -------- from team prompts and smart
+              A complete async check-in system, from team prompts and smart
               reminders to AI-generated summaries, participation tracking, and
               full org visibility.
             </p>
@@ -831,7 +988,7 @@ function StarterStandupAttendancePaywall({ dark = false }) {
                     border: "1px solid var(--present-border)",
                   }}
                 >
-                  ------- 3/3 responded
+                  3/3 responded
                 </span>
               </div>
               {mockStandups.map((m, i) => (
@@ -1024,9 +1181,11 @@ export default function StandupAttendance() {
   useEffect(() => {
     const syncTheme = () => setDark(getIsDarkTheme());
     const media = window.matchMedia("(prefers-color-scheme: dark)");
+    window.addEventListener("themeModeChanged", syncTheme);
     window.addEventListener("storage", syncTheme);
     media.addEventListener("change", syncTheme);
     return () => {
+      window.removeEventListener("themeModeChanged", syncTheme);
       window.removeEventListener("storage", syncTheme);
       media.removeEventListener("change", syncTheme);
     };
@@ -1193,6 +1352,7 @@ export default function StandupAttendance() {
     present:  employees.filter((e) => attendance[e.id] === "present").length,
     absent:   employees.filter((e) => attendance[e.id] === "absent").length,
     late:     employees.filter((e) => attendance[e.id] === "late").length,
+    leave:    employees.filter((e) => attendance[e.id] === "leave").length,
     unmarked: employees.filter((e) => !attendance[e.id]).length,
   };
   const markedCount = employees.length - stats.unmarked;
@@ -1211,7 +1371,7 @@ export default function StandupAttendance() {
             <Text strong style={{ fontSize: 14, color: "var(--sa-text-primary)", display: "block", lineHeight: 1.3 }}>
               {rec.name}
             </Text>
-            <Text style={{ fontSize: 12, color: "var(--sa-text-muted)" }}>{rec.client_name || "--------"}</Text>
+            <Text style={{ fontSize: 12, color: "var(--sa-text-muted)" }}>{rec.client_name || "No client"}</Text>
           </div>
         </Space>
       ),
@@ -1232,7 +1392,7 @@ export default function StandupAttendance() {
             fontSize: 12, fontWeight: 600, color: cfg.color,
           }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: cfg.dot, display: "inline-block" }} />
-            {capitalize(status)}
+            {formatStatusLabel(status)}
           </span>
         );
       },
@@ -1254,14 +1414,17 @@ export default function StandupAttendance() {
         const att = session.attendance ?? {};
         const p = Object.values(att).filter((v) => v === "present").length;
         const a = Object.values(att).filter((v) => v === "absent").length;
-        const l = Object.values(att).filter((v) => v === "late").length;
+        const lt = Object.values(att).filter((v) => v === "late").length;
+        const lv = Object.values(att).filter((v) => v === "leave").length;
         return (
           <Space size={6}>
             <span style={{ fontSize: 12, fontWeight: 700, color: "#059669" }}>{p}P</span>
-            <span style={{ color: "var(--sa-border)", fontSize: 10 }}>----</span>
+            <span style={{ color: "var(--sa-border)", fontSize: 10 }}>•</span>
             <span style={{ fontSize: 12, fontWeight: 700, color: "#e11d48" }}>{a}A</span>
-            <span style={{ color: "var(--sa-border)", fontSize: 10 }}>----</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: "#d97706" }}>{l}L</span>
+            <span style={{ color: "var(--sa-border)", fontSize: 10 }}>•</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#d97706" }}>{lt}Lt</span>
+            <span style={{ color: "var(--sa-border)", fontSize: 10 }}>•</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#7c3aed" }}>{lv}Lv</span>
             {session.summary && (
               <Tooltip title="Has summary">
                 <FileTextOutlined style={{ color: "#d97706", fontSize: 12 }} />
@@ -1289,8 +1452,8 @@ export default function StandupAttendance() {
               height: 34,
               paddingInline: 16,
               border: marked ? "1.5px solid var(--sa-border)" : "none",
-              background: marked ? "var(--sa-bg-card)" : (dark ? "#334155" : "#0f172a"),
-              color: marked ? "var(--sa-text-secondary)" : "#fff",
+              background: marked ? "var(--sa-bg-card)" : "var(--sa-btn-primary-bg)",
+              color: marked ? "var(--sa-text-secondary)" : "var(--sa-btn-primary-text)",
               boxShadow: marked || dark ? "none" : "0 2px 8px rgba(15,23,42,0.18)",
               transition: "all 0.15s",
             }}
@@ -1327,7 +1490,7 @@ export default function StandupAttendance() {
       title: (
         <Space size={6}>
           <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Attendance</span>
-          <span style={{ color: "var(--sa-border)" }}>----</span>
+          <span style={{ color: "var(--sa-border)" }}>•</span>
           {Object.entries(ATTENDANCE_STATUS).map(([key, cfg]) => (
             <button
               key={key}
@@ -1381,19 +1544,7 @@ export default function StandupAttendance() {
 
   // ---------------- Render --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   if (planLoading) {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: dark ? "#141416" : "#f8fafc",
-        }}
-      >
-        <Spin size="large" />
-      </div>
-    );
+    return <StandupPageSkeleton dark={dark} />;
   }
 
   if (isStarterPlan) {
@@ -1401,9 +1552,9 @@ export default function StandupAttendance() {
   }
 
   return (
-    <div className={`sa-root${dark ? " dark" : ""}`} style={{ minHeight: "100vh", fontFamily: "'Outfit', sans-serif", background: "var(--sa-bg-page)" }}>
+    <div className={`sa-root${dark ? " dark" : ""}`} style={{ minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", background: "var(--sa-bg-page)" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
         .sa-root {
           --sa-bg-page: #f8fafc;
           --sa-bg-card: #ffffff;
@@ -1414,6 +1565,8 @@ export default function StandupAttendance() {
           --sa-text-primary: #0f172a;
           --sa-text-secondary: #64748b;
           --sa-text-muted: #94a3b8;
+          --sa-btn-primary-bg: #0f172a;
+          --sa-btn-primary-text: #ffffff;
         }
         .sa-root.dark {
           --sa-bg-page: #141416;
@@ -1425,8 +1578,10 @@ export default function StandupAttendance() {
           --sa-text-primary: #f3f4f6;
           --sa-text-secondary: #cbd5e1;
           --sa-text-muted: #9ca3af;
+          --sa-btn-primary-bg: #334155;
+          --sa-btn-primary-text: #f8fafc;
         }
-        .sa-root * { font-family: 'Outfit', sans-serif !important; }
+        .sa-root * { font-family: 'DM Sans', sans-serif !important; }
         .sa-root .ant-radio-button-wrapper::before { display: none !important; }
         .sa-root .ant-table { background: transparent !important; }
         .sa-root .ant-table-thead > tr > th {
@@ -1485,12 +1640,12 @@ export default function StandupAttendance() {
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--sa-text-primary)" }} />
                   <Text style={{ fontSize: 11, fontWeight: 700, color: "var(--sa-text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                    {activeProject ? `${activeProject.name} ---- Standup` : "Standup Attendance"}
+                    {activeProject ? `${activeProject.name} • Standup` : "Standup Attendance"}
                   </Text>
                 </div>
                 <Title level={4} style={{ margin: 0, color: "var(--sa-text-primary)", fontWeight: 800, letterSpacing: -0.5, lineHeight: 1.2, marginTop: 2 }}>
                   {activeProject
-                    ? `Mark Attendance ---- ${selectedDate.format("MMM DD, YYYY")}`
+                    ? `Mark Attendance • ${selectedDate.format("MMM DD, YYYY")}`
                     : `${selectedDate.format("dddd, MMMM DD YYYY")}`
                   }
                 </Title>
@@ -1524,7 +1679,7 @@ export default function StandupAttendance() {
                   <Button
                     type="primary" icon={<SaveOutlined />}
                     loading={saving} onClick={handleSave}
-                    style={{ borderRadius: 8, height: 36, background: dark ? "#334155" : "#0f172a", border: "none", fontWeight: 700, boxShadow: dark ? "none" : "0 2px 8px rgba(15,23,42,0.2)" }}
+                    style={{ borderRadius: 8, height: 36, background: "var(--sa-btn-primary-bg)", color: "var(--sa-btn-primary-text)", border: "none", fontWeight: 700, boxShadow: dark ? "none" : "0 2px 8px rgba(15,23,42,0.2)" }}
                   >
                     {existingSessionId ? "Update" : "Save Session"}
                   </Button>
@@ -1536,12 +1691,13 @@ export default function StandupAttendance() {
           {/* Sub stats bar -------- only in mark view */}
           {activeProject && (
             <div style={{ display: "flex", gap: 0, borderTop: "1px solid var(--sa-border-soft)", paddingBottom: 0 }}>
-              {[
-                { key: "present",  label: "Present",  color: "#059669" },
-                { key: "absent",   label: "Absent",   color: "#e11d48" },
-                { key: "late",     label: "Late",     color: "#d97706" },
-                { key: "unmarked", label: "Unmarked", color: "#94a3b8" },
-              ].map(({ key, label, color }) => (
+                {[
+                  { key: "present",  label: "Present",  color: "#059669" },
+                  { key: "absent",   label: "Absent",   color: "#e11d48" },
+                  { key: "late",     label: "Late",     color: "#d97706" },
+                  { key: "leave",    label: "Leave",    color: "#7c3aed" },
+                  { key: "unmarked", label: "Unmarked", color: "#94a3b8" },
+                ].map(({ key, label, color }) => (
                 <div key={key} style={{ padding: "12px 24px 12px 0", display: "flex", alignItems: "baseline", gap: 6 }}>
                   <Text style={{ fontSize: 22, fontWeight: 800, color, lineHeight: 1 }}>{stats[key]}</Text>
                   <Text style={{ fontSize: 12, fontWeight: 600, color: "var(--sa-text-muted)" }}>{label}</Text>
@@ -1575,8 +1731,8 @@ export default function StandupAttendance() {
               <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
                 {[
                   { label: "Total Projects", value: projects.length, color: "var(--sa-text-primary)", bg: "var(--sa-bg-subtle)", border: "var(--sa-border)" },
-                  { label: "Marked Today",   value: Object.keys(projectSessions).length, color: "#059669", bg: "#ecfdf5", border: "#a7f3d0" },
-                  { label: "Pending",        value: projects.length - Object.keys(projectSessions).length, color: "#d97706", bg: "#fffbeb", border: "#fde68a" },
+                  { label: "Marked Today",   value: Object.keys(projectSessions).length, color: "#059669", bg: dark ? "rgba(5,150,105,0.18)" : "#ecfdf5", border: dark ? "rgba(167,243,208,0.35)" : "#a7f3d0" },
+                  { label: "Pending",        value: projects.length - Object.keys(projectSessions).length, color: "#d97706", bg: dark ? "rgba(217,119,6,0.18)" : "#fffbeb", border: dark ? "rgba(253,230,138,0.35)" : "#fde68a" },
                 ].map(({ label, value, color, bg, border }) => (
                   <div key={label} style={{ padding: "8px 16px", borderRadius: 10, border: `1px solid ${border}`, background: bg, display: "flex", alignItems: "baseline", gap: 8 }}>
                     <Text style={{ fontSize: 20, fontWeight: 800, color, lineHeight: 1 }}>{value}</Text>
@@ -1601,7 +1757,7 @@ export default function StandupAttendance() {
               </div>
 
               {loadingProjects ? (
-                <div style={{ textAlign: "center", padding: 64 }}><Spin size="large" /></div>
+                <TableCardSkeleton rows={5} variant="projects" dark={dark} />
               ) : projects.length === 0 ? (
                 <Empty description={<Text type="secondary">No active projects found for today</Text>} style={{ padding: 64 }} />
               ) : (
@@ -1629,7 +1785,7 @@ export default function StandupAttendance() {
                   <Text strong style={{ fontSize: 14, color: "var(--sa-text-primary)" }}>{activeProject.name}</Text>
                   {existingSessionId && (
                     <span style={{ fontSize: 11, fontWeight: 700, color: "#059669", background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: 20, padding: "1px 10px" }}>
-                      ------- Saved
+                      Saved
                     </span>
                   )}
                 </Space>
@@ -1637,7 +1793,7 @@ export default function StandupAttendance() {
               </div>
 
               {loadingEmployees || loadingSession ? (
-                <div style={{ textAlign: "center", padding: 64 }}><Spin /></div>
+                <TableCardSkeleton rows={6} variant="attendance" dark={dark} />
               ) : employees.length === 0 ? (
                 <Empty description="No team members assigned to this project" style={{ padding: 64 }} />
               ) : (
@@ -1652,7 +1808,7 @@ export default function StandupAttendance() {
 
               {/* Summary preview strip */}
               {summary && (
-                <div style={{ padding: "14px 20px", background: "#fffbeb", borderTop: "1px solid #fde68a", display: "flex", gap: 10, alignItems: "flex-start" }}>
+                <div style={{ padding: "14px 20px", background: dark ? "rgba(217,119,6,0.14)" : "#fffbeb", borderTop: dark ? "1px solid rgba(253,230,138,0.35)" : "1px solid #fde68a", display: "flex", gap: 10, alignItems: "flex-start" }}>
                   <FileTextOutlined style={{ color: "#d97706", marginTop: 2, flexShrink: 0 }} />
                   <div style={{ flex: 1 }}>
                     <Text style={{ fontSize: 11, fontWeight: 700, color: "#92400e", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>
@@ -1680,7 +1836,7 @@ export default function StandupAttendance() {
         onCancel={() => setSummaryOpen(false)}
         onOk={() => setSummaryOpen(false)}
         okText="Done"
-        okButtonProps={{ style: { background: dark ? "#334155" : "#0f172a", border: "none", borderRadius: 8, fontWeight: 700 } }}
+        okButtonProps={{ style: { background: "var(--sa-btn-primary-bg)", color: "var(--sa-btn-primary-text)", border: "none", borderRadius: 8, fontWeight: 700 } }}
         cancelButtonProps={{ style: { borderRadius: 8 } }}
         width={560}
       >
@@ -1692,7 +1848,7 @@ export default function StandupAttendance() {
           rows={9}
           value={summary}
           onChange={(e) => setSummary(e.target.value)}
-          placeholder={"------- What did the team complete yesterday?\n------- What is everyone working on today?\n------- Any blockers or dependencies?\n------- Key decisions made..."}
+          placeholder={"• What did the team complete yesterday?\n• What is everyone working on today?\n• Any blockers or dependencies?\n• Key decisions made..."}
           style={{ borderRadius: 10, fontSize: 13, lineHeight: 1.8, resize: "none", border: "1.5px solid var(--sa-border)", background: "var(--sa-bg-card)", color: "var(--sa-text-primary)" }}
         />
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>

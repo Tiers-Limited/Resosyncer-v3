@@ -12,7 +12,6 @@ import {
   TeamOutlined,
   StarFilled,
   InfoCircleOutlined,
-  ReloadOutlined,
   ExclamationCircleOutlined,
   CheckCircleFilled,
   CreditCardOutlined,
@@ -150,7 +149,7 @@ const adaptPlan = (row, regionMap = {}, userRegion = "GLOBAL") => {
     yearlyPrice,
     priceLabel: formatMoney(regionPrice, regionCurrency),
     period: Number(monthlyPrice) === 0 ? "forever" : "/mo",
-    periodYearly: Number(yearlyPrice) === 0 ? "forever" : "/mo billed yearly",
+    periodYearly: Number(yearlyPrice) === 0 ? "forever" : "/yr billed yearly",
     tagline: row.tagline ?? "",
     icon: PLAN_ICON_MAP[row.icon] ?? <ThunderboltOutlined />,
     color: row.color ?? "#64748b",
@@ -196,7 +195,7 @@ const planForCycle = (plan, cycle = "monthly") => {
       priceLabel:
         plan.yearlyDisplayLabel ??
         formatMoney(plan.yearlyPrice ?? plan.price, plan.currencyYearly || plan.currency),
-      period: plan.periodYearly || "/mo billed yearly",
+      period: plan.periodYearly || "/yr billed yearly",
       stripePriceId:
         plan.stripeYearlyPriceId || plan.stripeMonthlyPriceId || plan.stripePriceId,
       currency: plan.currencyYearly || plan.currency,
@@ -256,7 +255,7 @@ const addBillingCycle = (date, cycle = "monthly") => {
 
 const formatDate = (dateStr) => {
   const parsed = parseDateValue(dateStr);
-  if (!parsed) return "---";
+  if (!parsed) return "N/A";
   try {
     return parsed.toLocaleDateString("en-US", {
       year: "numeric",
@@ -264,7 +263,7 @@ const formatDate = (dateStr) => {
       day: "numeric",
     });
   } catch {
-    return "---";
+    return "N/A";
   }
 };
 
@@ -580,6 +579,18 @@ const SubscriptionManagement = () => {
   const [autoRenewLoading, setAutoRenewLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [liveUserCount, setLiveUserCount] = useState(null);
+  const yearlySavingsPct = (() => {
+    const savings = (plans || [])
+      .filter((p) => !p.contactForPricing)
+      .map((p) => {
+        const monthly = Number(p.monthlyDisplayPrice ?? p.monthlyPrice ?? 0);
+        const yearly = Number(p.yearlyDisplayPrice ?? p.yearlyPrice ?? 0);
+        if (monthly <= 0 || yearly <= 0 || yearly >= monthly) return 0;
+        return Math.round(((monthly - yearly) / monthly) * 100);
+      })
+      .filter((v) => v > 0);
+    return savings.length ? Math.max(...savings) : 0;
+  })();
 
   useEffect(() => {
     const syncTheme = () => setDark(getIsDarkTheme());
@@ -764,17 +775,19 @@ const SubscriptionManagement = () => {
   const daysLeft = getDaysLeft(displayPeriodEnd);
   const isPeriodEndInPast =
     !!periodEndDate && periodEndDate.getTime() < Date.now();
-  const isCancelled = tenant?.status === "cancelled";
   const tenantStatus = String(tenant?.status || "").toLowerCase();
+  const isCancelled =
+    tenantStatus === "cancelled" || tenantStatus === "canceled";
   const isPlanOverride = tenant?.plan_override === true;
   const autoRenew = tenant?.auto_renew !== false; // default true if not set
+  const hasCancellationFlag =
+    tenant?.cancel_at_period_end === true ||
+    !!tenant?.cancellation_scheduled_at ||
+    !!tenant?.cancelled_at ||
+    !!tenant?.canceled_at;
   const isCancellationScheduled =
     !isPlanOverride &&
-    (isCancelled ||
-    (currentPlan.price > 0 &&
-      !autoRenew &&
-      !!displayPeriodEnd &&
-      (daysLeft === null || daysLeft > 0)));
+    (isCancelled || hasCancellationFlag);
   const canReactivate =
     !isPlanOverride &&
     hasStripeSubscription &&
@@ -996,25 +1009,155 @@ const SubscriptionManagement = () => {
   if (loadingTenant || plansLoading)
     return (
       <div
-        className="flex items-center justify-center min-h-[400px]"
-        style={{ background: dark ? "#101114" : "transparent" }}
+        className="min-h-screen p-3 sm:p-10"
+        style={{ background: dark ? "#141416" : "#f8fafc" }}
       >
-        <div className="text-center">
-          <ReloadOutlined
-            spin
-            className="text-3xl mb-3"
-            style={{ color: dark ? "#9ca3af" : "#94a3b8" }}
-          />
-          <p className="text-sm" style={{ color: dark ? "#9ca3af" : "#94a3b8" }}>
-            Loading subscription...
-          </p>
+        <style>{`
+          @keyframes subSkeletonShimmer {
+            0% { background-position: -420px 0; }
+            100% { background-position: 420px 0; }
+          }
+          .sub-skeleton {
+            background: linear-gradient(
+              90deg,
+              ${dark ? "#1b1c21" : "#e2e8f0"} 25%,
+              ${dark ? "#252830" : "#f1f5f9"} 50%,
+              ${dark ? "#1b1c21" : "#e2e8f0"} 75%
+            );
+            background-size: 840px 100%;
+            animation: subSkeletonShimmer 1.35s ease-in-out infinite;
+            border-radius: 10px;
+          }
+        `}</style>
+
+        <div className="mx-auto">
+          <div className="mb-8">
+            <div className="sub-skeleton h-9 w-72 mb-2" />
+            <div className="sub-skeleton h-5 w-56" />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {Array.from({ length: 4 }).map((_, idx) => (
+              <div
+                key={`sub-stat-sk-${idx}`}
+                className="rounded-2xl p-5"
+                style={{
+                  background: dark ? "#16171b" : "#ffffff",
+                  border: `1.5px solid ${dark ? "#2b2f38" : "#e2e8f0"}`,
+                }}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="sub-skeleton w-11 h-11 rounded-xl flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="sub-skeleton h-3 w-20 mb-2" />
+                    <div className="sub-skeleton h-6 w-28 mb-2" />
+                    <div className="sub-skeleton h-3 w-16" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div
+            className="rounded-2xl p-4 sm:p-6 mb-6"
+            style={{
+              background: dark ? "#16171b" : "#ffffff",
+              border: `1.5px solid ${dark ? "#2b2f38" : "#e2e8f0"}`,
+            }}
+          >
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-4">
+                <div className="sub-skeleton w-14 h-14 rounded-2xl" />
+                <div>
+                  <div className="sub-skeleton h-7 w-44 mb-2" />
+                  <div className="sub-skeleton h-4 w-56" />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="sub-skeleton h-10 w-28 rounded-xl" />
+                <div className="sub-skeleton h-10 w-28 rounded-xl" />
+              </div>
+            </div>
+            <div className="mt-5 pt-5 border-t border-slate-100">
+              <div className="sub-skeleton h-3 w-28 mb-3" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {Array.from({ length: 6 }).map((_, idx) => (
+                  <div
+                    key={`sub-feature-sk-${idx}`}
+                    className="sub-skeleton h-4 w-full"
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <div
+              className="xl:col-span-2 rounded-2xl p-6"
+              style={{
+                background: dark ? "#16171b" : "#ffffff",
+                border: `1.5px solid ${dark ? "#2b2f38" : "#e2e8f0"}`,
+              }}
+            >
+              <div className="sub-skeleton h-5 w-36 mb-4" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Array.from({ length: 4 }).map((_, idx) => (
+                  <div
+                    key={`sub-plan-card-sk-${idx}`}
+                    className="rounded-2xl p-5"
+                    style={{
+                      border: `1.5px solid ${dark ? "#2b2f38" : "#f1f5f9"}`,
+                      background: dark ? "#1b1c21" : "#ffffff",
+                    }}
+                  >
+                    <div className="sub-skeleton h-5 w-28 mb-4" />
+                    <div className="sub-skeleton h-9 w-24 mb-4" />
+                    <div className="space-y-2 mb-5">
+                      <div className="sub-skeleton h-3 w-full" />
+                      <div className="sub-skeleton h-3 w-5/6" />
+                      <div className="sub-skeleton h-3 w-2/3" />
+                    </div>
+                    <div className="sub-skeleton h-10 w-full rounded-xl" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-6">
+              <div
+                className="rounded-2xl p-6"
+                style={{
+                  background: dark ? "#16171b" : "#ffffff",
+                  border: `1.5px solid ${dark ? "#2b2f38" : "#e2e8f0"}`,
+                }}
+              >
+                <div className="sub-skeleton h-5 w-28 mb-5" />
+                <div className="space-y-3">
+                  <div className="sub-skeleton h-4 w-full" />
+                  <div className="sub-skeleton h-4 w-4/5" />
+                  <div className="sub-skeleton h-4 w-3/5" />
+                </div>
+              </div>
+              <div
+                className="rounded-2xl p-6"
+                style={{
+                  background: dark ? "#16171b" : "#ffffff",
+                  border: `1.5px solid ${dark ? "#2b2f38" : "#e2e8f0"}`,
+                }}
+              >
+                <div className="sub-skeleton h-5 w-24 mb-5" />
+                <div className="sub-skeleton h-3 w-full mb-2" />
+                <div className="sub-skeleton h-2 w-full rounded-full mb-4" />
+                <div className="sub-skeleton h-3 w-3/4" />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
 
   return (
     <div
-      className={`min-h-screen p-6 sm:p-10 ${dark ? "sub-dark" : ""}`}
+      className={`min-h-screen p-3 sm:p-10 ${dark ? "sub-dark" : ""}`}
       style={{
         background: dark ? "#141416" : "#f8fafc",
         fontFamily: "'Instrument Sans', system-ui, sans-serif",
@@ -1065,10 +1208,10 @@ const SubscriptionManagement = () => {
           className="mb-8"
           style={{ animation: mounted ? "slideUp 0.4s ease both" : "none" }}
         >
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight mb-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight mb-1">
             Subscription & Billing
           </h1>
-          <p className="text-slate-400 text-base">
+          <p className="text-slate-400 text-sm sm:text-base">
             Manage your plan, usage, and billing.
           </p>
         </div>
@@ -1076,7 +1219,7 @@ const SubscriptionManagement = () => {
         {/* ------ Cancelled banner ------------------------------------------------------------------------------------------------------------------------------------------------ */}
         {isCancellationScheduled && (
           <div
-            className="mb-6 rounded-2xl px-6 py-4 flex items-center justify-between gap-4 flex-wrap"
+            className="mb-6 rounded-2xl px-4 sm:px-6 py-4 flex items-center justify-between gap-4 flex-wrap"
             style={{
               background: dark
                 ? "linear-gradient(135deg, rgba(127,29,29,0.26), rgba(69,10,10,0.2))"
@@ -1108,7 +1251,7 @@ const SubscriptionManagement = () => {
                 </div>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full sm:w-auto">
               {/* Reactivate during billing period */}
               {periodEnd && daysLeft !== null && daysLeft > 0 && (
                 <Button
@@ -1151,7 +1294,7 @@ const SubscriptionManagement = () => {
         {/* ------ Auto-renew warning banner (if disabled but not cancelled) ------------------------ */}
         {!isCancellationScheduled && !autoRenew && currentPlan.price > 0 && (
           <div
-            className="mb-6 rounded-2xl px-6 py-4 flex items-center justify-between gap-4 flex-wrap"
+            className="mb-6 rounded-2xl px-4 sm:px-6 py-4 flex items-center justify-between gap-4 flex-wrap"
             style={{
               background: dark
                 ? "linear-gradient(135deg, rgba(120,53,15,0.25), rgba(69,26,3,0.2))"
@@ -1202,7 +1345,7 @@ const SubscriptionManagement = () => {
 
         {/* Stats row */}
         <div
-          className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
           style={{ animation: "slideUp 0.4s ease 0.08s both" }}
         >
           <StatCard
@@ -1269,7 +1412,7 @@ const SubscriptionManagement = () => {
 
         {/* Current plan card */}
         <div
-          className="bg-white rounded-2xl p-6 mb-6"
+          className="bg-white rounded-2xl p-4 sm:p-6 mb-6"
           style={{
             border: `2px solid ${currentPlan.color}40`,
             animation: "slideUp 0.4s ease 0.12s both",
@@ -1312,23 +1455,23 @@ const SubscriptionManagement = () => {
                   {currentPlan.tagline}
                   {currentPlan.price > 0 && (
                     <span className="ml-2 font-semibold text-slate-600">
-                      -- {currentPlan.priceLabel} {currentPlan.period}
+                      {currentPlan.priceLabel} {currentPlan.period}
                     </span>
                   )}
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-3 flex-wrap w-full sm:w-auto">
               {/* Auto-renew toggle --- shown only on paid, non-cancelled plans */}
               {currentPlan.price > 0 && !isCancellationScheduled && (
                 <Tooltip
                   title={
                     autoRenew
-                      ? `Auto-renew is ON --- your plan renews automatically each ${
+                      ? `Auto-renew is ON. Your plan renews automatically each ${
                           currentBillingCycle === "yearly" ? "year" : "month"
                         }`
-                      : "Auto-renew is OFF --- your plan will not renew"
+                      : "Auto-renew is OFF. Your plan will not renew"
                   }
                 >
                   <div
@@ -1416,7 +1559,7 @@ const SubscriptionManagement = () => {
         >
           {/* Billing details */}
           <div
-            className="bg-white rounded-2xl p-6"
+            className="bg-white rounded-2xl p-4 sm:p-6"
             style={{ border: `1.5px solid ${dark ? "#2b2f38" : "#e2e8f0"}` }}
           >
             <div className="flex items-center justify-between mb-4">
@@ -1468,7 +1611,7 @@ const SubscriptionManagement = () => {
                         ? displayPeriodEnd
                           ? formatDate(displayPeriodEnd)
                           : `Auto-renews ${currentBillingCycle}`
-                        : "---",
+                        : "N/A",
                   highlight:
                     !isPlanOverride && periodEnd && daysLeft !== null && daysLeft <= 7
                       ? "red"
@@ -1498,7 +1641,7 @@ const SubscriptionManagement = () => {
                                 : "#334155",
                       }}
                     >
-                      {r.value || "---"}
+                      {r.value || "N/A"}
                     </span>
                     {r.sub && (
                       <span className="text-[10px] text-slate-400">
@@ -1513,7 +1656,7 @@ const SubscriptionManagement = () => {
 
           {/* Usage overview */}
           <div
-            className="bg-white rounded-2xl p-6"
+            className="bg-white rounded-2xl p-4 sm:p-6"
             style={{ border: `1.5px solid ${dark ? "#2b2f38" : "#e2e8f0"}` }}
           >
             <div className="flex items-center justify-between mb-5">
@@ -1559,7 +1702,7 @@ const SubscriptionManagement = () => {
                 )}
                 {seatDanger && (
                   <div className="text-[10px] text-red-500 mt-1">
-                    Approaching seat limit --- consider upgrading
+                    Approaching seat limit. Consider upgrading.
                   </div>
                 )}
               </div>
@@ -1587,6 +1730,7 @@ const SubscriptionManagement = () => {
         }}
         footer={null}
         width={880}
+        style={{ maxWidth: "calc(100vw - 24px)" }}
         centered
         className={`sub-modal ${dark ? "sub-dark-modal" : ""}`}
         title={
@@ -1616,7 +1760,13 @@ const SubscriptionManagement = () => {
               >
                 {[
                   { key: "monthly", label: "Monthly" },
-                  { key: "yearly", label: "Yearly" },
+                  {
+                    key: "yearly",
+                    label:
+                      yearlySavingsPct > 0
+                        ? `Yearly • Save ${yearlySavingsPct}%`
+                        : "Yearly",
+                  },
                 ].map((opt) => (
                   <button
                     key={opt.key}
@@ -1637,7 +1787,7 @@ const SubscriptionManagement = () => {
                 ))}
               </div>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mt-2 mb-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-2 mb-5">
               {plans.map((plan) => {
                 const planView = planForCycle(plan, billingCycle);
                 const ci = getPlanIndex(tenant?.plan);
@@ -1665,7 +1815,7 @@ const SubscriptionManagement = () => {
               onClick={() => setSelectedPlan(null)}
               className="text-sm text-slate-400 hover:text-slate-600 mb-5 flex items-center gap-1"
             >
-              --- Back to plans
+              Back to plans
             </button>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               {/* Summary */}
@@ -1736,7 +1886,7 @@ const SubscriptionManagement = () => {
                     { label: "Effective", value: "Immediately" },
                     {
                       label: "Next billing date",
-                      value: periodEnd ? formatDate(periodEnd) : "---",
+                      value: periodEnd ? formatDate(periodEnd) : "N/A",
                     },
                   ].map((r) => (
                     <div key={r.label} className="flex justify-between text-sm">
@@ -1746,11 +1896,11 @@ const SubscriptionManagement = () => {
                         style={{
                           color: r.green ? "#10b981" : dark ? "#e5e7eb" : "#1e293b",
                         }}
-                      >
-                        {r.value}
-                      </span>
-                    </div>
-                  ))}
+                    >
+                      {r.value}
+                    </span>
+                  </div>
+                ))}
                 </div>
                 {isDowngrade && (
                   <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-700">
@@ -1784,7 +1934,7 @@ const SubscriptionManagement = () => {
                       className="!h-11 !font-semibold !rounded-xl !border-0"
                       style={{ background: selectedPlan.color, color: "#fff" }}
                     >
-                      {isDowngrade ? "Confirm Downgrade" : "Confirm Upgrade"} ---
+                      {isDowngrade ? "Confirm Downgrade" : "Confirm Upgrade"}
                     </Button>
                   </div>
                 ) : (
@@ -1918,7 +2068,7 @@ const SubscriptionManagement = () => {
                 <div className="text-[10px] text-emerald-600">
                   {isPeriodEndInPast
                     ? "Your subscription was reactivated. Refreshing billing cycle details..."
-                    : `${currentPlan.priceLabel} ${currentPlan.period} -- ${daysLeft} day${daysLeft !== 1 ? "s" : ""} until renewal`}
+                    : `${currentPlan.priceLabel} ${currentPlan.period}. ${daysLeft} day${daysLeft !== 1 ? "s" : ""} until renewal`}
                 </div>
               </div>
             </div>
@@ -1931,7 +2081,7 @@ const SubscriptionManagement = () => {
             {[
               `Your ${tenant?.plan} plan benefits restore immediately`,
               "Auto-renew will be re-enabled",
-              "No extra charges --- billing continues as normal",
+              "No extra charges. Billing continues as normal.",
             ].map((t) => (
               <div key={t} className="flex items-center gap-2 text-emerald-700">
                 <CheckCircleFilled style={{ fontSize: 11 }} />

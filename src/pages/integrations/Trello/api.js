@@ -1,3 +1,5 @@
+import { getIntegrationAuthHeaders, getIntegrationUserIdSync } from "../authHeaders";
+
 const normalizeApiBase = (value) => {
   const v = (value || "").trim().replace(/\/+$/, "");
   if (!v) return "/api";
@@ -21,6 +23,8 @@ export const TRELLO_BACKEND_BASE = `${apiBase}/trello`;
 export function getTrelloBackendAuthUrl(returnTo) {
   const authUrl = new URL(TRELLO_BACKEND_BASE + "/auth", window.location.origin);
   if (returnTo) authUrl.searchParams.set("returnTo", returnTo);
+  const userId = getIntegrationUserIdSync();
+  if (userId) authUrl.searchParams.set("userId", userId);
   return authUrl.toString();
 }
 
@@ -35,7 +39,7 @@ async function trelloRequest(path, { method = "GET", query, body } = {}) {
   const res = await fetch(url.toString(), {
     method,
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(await getIntegrationAuthHeaders()) },
     body: body ? JSON.stringify(body) : undefined,
   });
 
@@ -124,4 +128,3 @@ export async function fetchTrelloBundleViaBackend({ boardId }) {
     })),
   };
 }
-

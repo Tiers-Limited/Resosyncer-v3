@@ -1,6 +1,5 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
-  Tabs,
   Form,
   Input,
   Button,
@@ -55,11 +54,27 @@ import {
   MessageOutlined,
   CreditCardOutlined,
   VideoCameraOutlined,
+  LinkOutlined,
+  DisconnectOutlined,
+  GlobalOutlined,
 } from "@ant-design/icons";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
+import { buildCompanyEmail, buildOtpEmail } from "../lib/emailTemplates";
 import dayjs from "dayjs";
+import {
+  disconnectGoogleCalander,
+  getGoogleCalanderStatus,
+} from "./integrations/GoogleCalander/api";
+import {
+  disconnectDocusign,
+  getDocusignStatus,
+} from "./integrations/DocuSign/api";
+import {
+  disconnectLinkedin,
+  getLinkedinStatus,
+} from "./integrations/LinkedIn/api";
 
 /* ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
    Email API helper
@@ -75,13 +90,13 @@ const sendEmail = async ({ to, subject, body, companyName }) => {
     });
     const data = await res.json();
     if (!res.ok) {
-      console.error("------ Email send failed:", data);
+      console.error("Email send failed:", data);
       return { success: false, error: data };
     }
-    console.log("------- Email sent:", data.messageId);
+    console.log("Email sent:", data.messageId);
     return { success: true, data };
   } catch (err) {
-    console.error("------ Email send error:", err);
+    console.error("Email send error:", err);
     return { success: false, error: err.message };
   }
 };
@@ -89,39 +104,38 @@ const sendEmail = async ({ to, subject, body, companyName }) => {
 const generateOtp = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
-const otpEmailHtml = (otp, name) => `
-  <div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;background:#ffffff;">
-    <div style="background:linear-gradient(135deg,#001529 0%,#002144 100%);padding:36px 44px 28px;border-radius:16px 16px 0 0;">
-      <div style="width:40px;height:40px;background:rgba(255,255,255,0.1);border-radius:10px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;">
-        <span style="color:#fff;font-weight:800;font-size:18px;">R</span>
-      </div>
-      <h1 style="color:#fff;margin:0;font-size:20px;font-weight:700;letter-spacing:-0.5px;">Verify your email</h1>
-      <p style="color:rgba(255,255,255,0.5);margin:8px 0 0;font-size:13px;">Hi ${name}, use the code below to enable Email OTP on your account.</p>
-    </div>
-    <div style="padding:36px 44px;background:#f8fafc;border-radius:0 0 16px 16px;border:1px solid #e2e8f0;border-top:none;">
-      <div style="background:#fff;border:2px dashed #e2e8f0;border-radius:14px;padding:24px;text-align:center;margin-bottom:24px;">
-        <div style="font-size:40px;font-weight:800;letter-spacing:12px;color:#001529;font-family:monospace;">${otp}</div>
-        <p style="color:#94a3b8;font-size:12px;margin:10px 0 0;">Expires in <strong>10 minutes</strong></p>
-      </div>
-      <p style="color:#64748b;font-size:13px;line-height:1.6;margin:0;">If you didn't request this, you can safely ignore this email.</p>
-    </div>
-  </div>
-`;
+const otpEmailHtml = (otp, name) =>
+  buildOtpEmail({
+    otp,
+    name,
+    title: "Your verification code",
+    intro: `Hi ${name}, use the code below to enable Email OTP on your account.`,
+    variant: "company",
+    companyName: "Resosyncer",
+  });
+
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 
 /* ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
    Shared Layout Helpers
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const SectionTitle = ({ children }) => (
-  <p className="text-[10.5px] font-bold tracking-widest uppercase text-slate-400 mb-4 mt-1">
+  <p className="settings-section-title">
     {children}
   </p>
 );
 
 const SettingRow = ({ label, description, children, border = true }) => (
   <div
-    className={`flex items-center justify-between py-4 ${border ? "border-b border-slate-100" : ""}`}
+    className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-4 ${border ? "border-b border-slate-100" : ""}`}
   >
-    <div className="mr-8">
+    <div className="mr-0 sm:mr-8">
       <div className="text-[13px] font-semibold text-slate-800">{label}</div>
       {description && (
         <div className="text-xs text-slate-400 mt-0.5 leading-relaxed">
@@ -142,6 +156,106 @@ const DAYS = [
   "Saturday",
   "Sunday",
 ];
+
+const INTEGRATION_CATALOG = [
+  {
+    key: "jira",
+    name: "Jira",
+    logo: "https://cdn.worldvectorlogo.com/logos/jira-1.svg",
+    description: "Sync issues, projects, and sprint status.",
+    setupRoute: "/projects",
+  },
+  {
+    key: "trello",
+    name: "Trello",
+    logo: "https://images.icon-icons.com/836/PNG/512/Trello_icon-icons.com_66775.png",
+    description: "Connect boards and cards with workspace tasks.",
+    setupRoute: "/projects",
+  },
+  {
+    key: "clickup",
+    name: "ClickUp",
+    logo: "https://img.icons8.com/color/1200/clickup.jpg",
+    description: "Mirror lists, tasks, assignees, and due dates.",
+    setupRoute: "/projects",
+  },
+  {
+    key: "asana",
+    name: "Asana",
+    logo: "https://cdn.freebiesupply.com/logos/large/2x/asana-1-logo-png-transparent.png",
+    description: "Link projects and workload tracking.",
+    setupRoute: "/projects",
+  },
+  {
+    key: "linkedin",
+    name: "LinkedIn",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/c/ca/LinkedIn_logo_initials.png",
+    description:
+      "Connect LinkedIn for recruitment posting and profile sharing.",
+    setupRoute: "/recruitment",
+  },
+  {
+    key: "google_calendar",
+    name: "Google Calendar",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Google_Calendar_icon_%282020%29.svg/500px-Google_Calendar_icon_%282020%29.svg.png",
+    description: "Sync meetings, reminders, and team availability.",
+    setupRoute: "/meetings",
+  },
+  {
+    key: "docusign",
+    name: "DocuSign",
+    logo: "https://static.wikia.nocookie.net/logopedia/images/a/ac/DocuSign_2024_S.svg",
+    description: "Manage contracts and signature workflows.",
+    setupRoute: "/contract-maker",
+  },
+];
+
+const JIRA_CONNECTED_STORAGE_KEY = "jira_backend_connected_at";
+const ASANA_CONNECTED_STORAGE_KEY = "asana_backend_connected_at";
+const TRELLO_CONNECTED_STORAGE_KEY = "trello_backend_connected_at";
+const CLICKUP_CONNECTED_STORAGE_KEY = "clickup_backend_connected_at";
+
+const PROVIDER_ALIASES = {
+  jira: ["jira"],
+  trello: ["trello"],
+  clickup: ["clickup"],
+  asana: ["asana"],
+  linkedin: ["linkedin", "linked_in"],
+  google_calendar: ["google_calendar", "googlecalander", "google_calendar_api"],
+  docusign: ["docusign", "docsign", "docu_sign"],
+};
+
+const toCanonicalProvider = (provider) => {
+  const raw = String(provider || "")
+    .trim()
+    .toLowerCase();
+  if (!raw) return "";
+  const compact = raw.replace(/[^a-z0-9]/g, "");
+  if (compact.includes("jira")) return "jira";
+  if (compact.includes("trello")) return "trello";
+  if (compact.includes("clickup")) return "clickup";
+  if (compact.includes("asana")) return "asana";
+  if (compact.includes("linkedin")) return "linkedin";
+  if (compact.includes("googlecalendar") || compact.includes("googlecalander"))
+    return "google_calendar";
+  if (compact.includes("docusign") || compact.includes("docsign"))
+    return "docusign";
+  for (const [canonical, aliases] of Object.entries(PROVIDER_ALIASES)) {
+    if (aliases.includes(raw)) return canonical;
+  }
+  return raw;
+};
+
+const isIntegrationDisconnected = (row) => {
+  const payload = row?.connection_data || {};
+  const payloadStatus = String(payload?.status || "").toLowerCase();
+  return (
+    payload?.connected === false ||
+    payload?.is_connected === false ||
+    payload?.active === false ||
+    payloadStatus === "disconnected"
+  );
+};
 
 /* ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
    Page permission definitions (mirrors admin sidebar)
@@ -198,7 +312,11 @@ const PAGE_GROUPS = [
         label: "Report a Problem",
         icon: <AlertOutlined />,
       },
-      { key: "/subscription", label: "Subscription", icon: <CreditCardOutlined /> },
+      {
+        key: "/subscription",
+        label: "Subscription",
+        icon: <CreditCardOutlined />,
+      },
       { key: "/settings", label: "Settings", icon: <SettingOutlined /> },
     ],
   },
@@ -217,7 +335,13 @@ const getIsDarkTheme = () => {
 /* ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
    Admin Permissions Modal
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
-const AdminPermissionsModal = ({ admin, visible, onClose, onSave, dark = false }) => {
+const AdminPermissionsModal = ({
+  admin,
+  visible,
+  onClose,
+  onSave,
+  dark = false,
+}) => {
   const [permissions, setPermissions] = useState([]);
   const [saving, setSaving] = useState(false);
 
@@ -259,7 +383,7 @@ const AdminPermissionsModal = ({ admin, visible, onClose, onSave, dark = false }
           </div>
           <div>
             <div className="text-sm font-bold text-slate-800">
-              Page Access -------- {admin?.full_name}
+              Page Access for {admin?.full_name}
             </div>
             <div className="text-xs text-slate-400 font-normal">
               Control which pages this admin can access
@@ -311,7 +435,7 @@ const AdminPermissionsModal = ({ admin, visible, onClose, onSave, dark = false }
               </div>
 
               {/* Page rows */}
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 {group.pages.map((page) => {
                   const isOn = permissions.includes(page.key);
                   return (
@@ -367,6 +491,13 @@ const TwoFactorSection = ({ profile, dark = false }) => {
   const [storedOtp, setStoredOtp] = useState(null);
   const [otpExpiry, setOtpExpiry] = useState(null);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const twoFactorPrimaryBtnStyle = {
+    backgroundColor: dark ? "#ffffff" : "#3453b7",
+    borderColor: dark ? "#ffffff" : "#3453b7",
+    color: dark ? "#0f172a" : "#ffffff",
+    borderRadius: 7,
+    fontWeight: 600,
+  };
 
   useEffect(() => {
     loadTwoFactorStatus();
@@ -614,12 +745,7 @@ const TwoFactorSection = ({ profile, dark = false }) => {
                 type="primary"
                 loading={loadingEmailOtp}
                 onClick={handleSetupEmailOtp}
-                style={{
-                  backgroundColor: "#001529",
-                  borderColor: "#001529",
-                  borderRadius: 7,
-                  fontWeight: 600,
-                }}
+                style={twoFactorPrimaryBtnStyle}
               >
                 Enable
               </Button>
@@ -669,12 +795,7 @@ const TwoFactorSection = ({ profile, dark = false }) => {
                 type="primary"
                 loading={loadingTotp}
                 onClick={handleSetupTotp}
-                style={{
-                  backgroundColor: "#001529",
-                  borderColor: "#001529",
-                  borderRadius: 7,
-                  fontWeight: 600,
-                }}
+                style={twoFactorPrimaryBtnStyle}
               >
                 Set Up
               </Button>
@@ -743,13 +864,12 @@ const TwoFactorSection = ({ profile, dark = false }) => {
               type="primary"
               className="mt-5 w-full rounded-lg font-semibold"
               style={{
-                backgroundColor: "#001529",
-                borderColor: "#001529",
+                ...twoFactorPrimaryBtnStyle,
                 height: 36,
               }}
               onClick={() => setTotpStep(1)}
             >
-              I've scanned it --------
+              I've scanned it
             </Button>
           </div>
         )}
@@ -773,8 +893,7 @@ const TwoFactorSection = ({ profile, dark = false }) => {
               loading={loadingTotp}
               className="mt-4 w-full rounded-lg font-semibold"
               style={{
-                backgroundColor: "#001529",
-                borderColor: "#001529",
+                ...twoFactorPrimaryBtnStyle,
                 height: 36,
               }}
               onClick={handleVerifyTotp}
@@ -787,7 +906,7 @@ const TwoFactorSection = ({ profile, dark = false }) => {
               className="mt-2 w-full text-slate-400 text-xs"
               onClick={() => setTotpStep(0)}
             >
-              ------- Back
+              Back
             </Button>
           </div>
         )}
@@ -835,8 +954,7 @@ const TwoFactorSection = ({ profile, dark = false }) => {
             loading={loadingEmailOtp}
             className="w-full rounded-lg font-semibold mb-2"
             style={{
-              backgroundColor: "#001529",
-              borderColor: "#001529",
+              ...twoFactorPrimaryBtnStyle,
               height: 36,
             }}
             onClick={handleVerifyEmailOtp}
@@ -850,7 +968,8 @@ const TwoFactorSection = ({ profile, dark = false }) => {
               onClick={handleResendEmailOtp}
               disabled={resendCooldown > 0 || loadingEmailOtp}
               style={{
-                color: resendCooldown > 0 ? "#94a3b8" : dark ? "#93c5fd" : "#001529",
+                color:
+                  resendCooldown > 0 ? "#94a3b8" : dark ? "#e5e7eb" : "#3453b7",
                 background: "none",
                 border: "none",
                 cursor: resendCooldown > 0 ? "default" : "pointer",
@@ -911,13 +1030,22 @@ const Settings = () => {
   const [overtimeEnabled, setOvertimeEnabled] = useState(true);
   const [halfDayHours, setHalfDayHours] = useState(4);
   const [workingModel, setWorkingModel] = useState("fixed");
+  const [integrations, setIntegrations] = useState({});
+  const [integrationsLoading, setIntegrationsLoading] = useState(false);
+  const [integrationActionLoading, setIntegrationActionLoading] = useState({});
 
   const primaryBtn = {
-    backgroundColor: "#001529",
-    borderColor: "#001529",
+    backgroundColor: dark ? "#ffffff" : "#3453b7",
+    borderColor: dark ? "#ffffff" : "#3453b7",
+    color: dark ? "#0f172a" : "#ffffff",
     borderRadius: 7,
     fontWeight: 600,
     height: 36,
+  };
+  const selectedToggleStyle = {
+    backgroundColor: dark ? "#ffffff" : "#3453b7",
+    borderColor: dark ? "#ffffff" : "#3453b7",
+    color: dark ? "#0f172a" : "#ffffff",
   };
 
   const parseAmount = (value) => {
@@ -937,7 +1065,12 @@ const Settings = () => {
   const deductionItems = Array.isArray(profile?.tax_deduction_items)
     ? profile.tax_deduction_items
     : parseAmount(profile?.tax_deductions) > 0
-      ? [{ label: "Tax Deductions", amount: parseAmount(profile?.tax_deductions) }]
+      ? [
+          {
+            label: "Tax Deductions",
+            amount: parseAmount(profile?.tax_deductions),
+          },
+        ]
       : [];
   const allowanceTotal = allowanceItems.reduce(
     (sum, row) => sum + parseAmount(row?.amount),
@@ -963,11 +1096,125 @@ const Settings = () => {
     }
   }, [location.search]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (profile?.role === "admin") return;
+    if (activeTab !== "integrations") return;
+    setActiveTab("profile");
+    const params = new URLSearchParams(location.search || "");
+    params.set("tab", "profile");
+    navigate(`/settings?${params.toString()}`, { replace: true });
+  }, [profile?.role, activeTab, location.search, navigate]);
+
+  useEffect(() => {
+    if (profile?.role !== "admin") return;
+    fetchIntegrationConnections();
+  }, [profile?.id, profile?.role]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (profile?.role !== "admin") return;
+    if (activeTab !== "integrations") return;
+    fetchIntegrationConnections();
+  }, [activeTab, profile?.role]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleTabChange = (nextKey) => {
     setActiveTab(nextKey);
     const params = new URLSearchParams(location.search || "");
     params.set("tab", nextKey);
     navigate(`/settings?${params.toString()}`, { replace: true });
+  };
+
+  const fetchIntegrationConnections = async () => {
+    if (!profile?.id || profile?.role !== "admin") return;
+    setIntegrationsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("integration_connections")
+        .select("provider, connection_data, updated_at")
+        .eq("user_id", profile.id);
+      if (error) throw error;
+      const next = {};
+      (data || []).forEach((row) => {
+        const key = toCanonicalProvider(row?.provider);
+        if (key && !isIntegrationDisconnected(row)) next[key] = true;
+      });
+      if (localStorage.getItem(JIRA_CONNECTED_STORAGE_KEY)) next.jira = true;
+      if (localStorage.getItem(ASANA_CONNECTED_STORAGE_KEY)) next.asana = true;
+      if (localStorage.getItem(TRELLO_CONNECTED_STORAGE_KEY))
+        next.trello = true;
+      if (localStorage.getItem(CLICKUP_CONNECTED_STORAGE_KEY))
+        next.clickup = true;
+
+      const [googleResult, docusignResult, linkedinResult] =
+        await Promise.allSettled([
+          getGoogleCalanderStatus(),
+          getDocusignStatus(),
+          getLinkedinStatus(),
+        ]);
+      if (
+        googleResult.status === "fulfilled" &&
+        googleResult.value?.connected
+      ) {
+        next.google_calendar = true;
+      }
+      if (
+        docusignResult.status === "fulfilled" &&
+        docusignResult.value?.connected
+      ) {
+        next.docusign = true;
+      }
+      if (
+        linkedinResult.status === "fulfilled" &&
+        linkedinResult.value?.connected
+      ) {
+        next.linkedin = true;
+      }
+
+      setIntegrations(next);
+    } catch (err) {
+      console.error("Failed to load integration connections:", err);
+      message.error("Failed to load integrations");
+    } finally {
+      setIntegrationsLoading(false);
+    }
+  };
+
+  const handleOpenIntegrationSetup = (item) => {
+    if (!item?.setupRoute) return;
+    if (["jira", "asana", "trello", "clickup"].includes(item.key)) {
+      localStorage.setItem("integrations_selected_provider", item.key);
+    }
+    navigate(item.setupRoute);
+  };
+
+  const handleDisconnectIntegration = async (item) => {
+    if (!profile?.id) return;
+    const canonical = item.key;
+    const aliases = PROVIDER_ALIASES[canonical] || [canonical];
+    setIntegrationActionLoading((prev) => ({ ...prev, [canonical]: true }));
+    try {
+      if (canonical === "google_calendar") {
+        await disconnectGoogleCalander();
+      } else if (canonical === "docusign") {
+        await disconnectDocusign();
+      } else if (canonical === "linkedin") {
+        await disconnectLinkedin();
+      }
+
+      const { error } = await supabase
+        .from("integration_connections")
+        .delete()
+        .eq("user_id", profile.id)
+        .in("provider", aliases);
+      if (error) throw error;
+
+      setIntegrations((prev) => ({ ...prev, [canonical]: false }));
+      message.success(`${item.name} disconnected`);
+    } catch (err) {
+      console.error(`Failed to disconnect ${item?.name}:`, err);
+      message.error(err?.message || `Failed to disconnect ${item?.name}`);
+    } finally {
+      setIntegrationActionLoading((prev) => ({ ...prev, [canonical]: false }));
+    }
   };
 
   /* ---------------- Handlers ---------------- */
@@ -978,6 +1225,9 @@ const Settings = () => {
         full_name: values.full_name,
         contact: values.contact,
         address: values.address,
+        bio: values.bio || null,
+        nationality: values.nationality || null,
+        languages: values.languages || [],
       };
       if (values.cnic) updateData.cnic = values.cnic;
       if (values.dob) updateData.dob = values.dob.format("YYYY-MM-DD");
@@ -1164,11 +1414,34 @@ const Settings = () => {
   const handleAddAdmin = async (values) => {
     setLoadingAdmins(true);
     try {
+      const {
+        data: { session: adminSessionBeforeCreate },
+      } = await supabase.auth.getSession();
+
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: values.email,
         password: values.password,
+        options: { emailRedirectTo: `${window.location.origin}/signin` },
       });
       if (authError) throw authError;
+      if (!authData?.user) throw new Error("Failed to create admin user");
+
+      if (
+        adminSessionBeforeCreate?.access_token &&
+        adminSessionBeforeCreate?.refresh_token
+      ) {
+        const { error: restoreSessionError } = await supabase.auth.setSession({
+          access_token: adminSessionBeforeCreate.access_token,
+          refresh_token: adminSessionBeforeCreate.refresh_token,
+        });
+        if (restoreSessionError) {
+          console.error(
+            "Failed to restore admin session:",
+            restoreSessionError,
+          );
+        }
+      }
+
       const { error: profileError } = await supabase.from("profiles").insert([
         {
           id: authData.user.id,
@@ -1181,6 +1454,46 @@ const Settings = () => {
         },
       ]);
       if (profileError) throw profileError;
+
+      let appName =
+        profile?.company_name ||
+        import.meta.env.VITE_COMPANY_NAME ||
+        import.meta.env.VITE_APP_NAME ||
+        "";
+      if (!appName && profile?.tenant_id) {
+        const { data: tenantData } = await supabase
+          .from("tenants")
+          .select("name")
+          .eq("id", profile.tenant_id)
+          .single();
+        appName = tenantData?.name || "";
+      }
+      appName = appName || "Resosyncer";
+
+      const loginUrl = `${window.location.origin}/signin`;
+      const safeName = escapeHtml(values.full_name || "there");
+      const safeEmail = escapeHtml(values.email);
+      const safePassword = escapeHtml(values.password);
+
+      const credentialsHtml = buildCompanyEmail({
+        companyName: appName,
+        title: "Admin account credentials",
+        intro: `Hello ${values.full_name || "there"}, you were added as an administrator for ${appName}.`,
+        contentHtml: `
+          <p style="margin:0 0 8px;font-size:14px;color:#334155;"><strong>Email:</strong> ${safeEmail}</p>
+          <p style="margin:0 0 8px;font-size:14px;color:#334155;"><strong>Password:</strong> ${safePassword}</p>
+          <p style="margin:0 0 8px;font-size:14px;color:#334155;"><strong>Login URL:</strong> <a href="${loginUrl}" style="color:#334155;">${loginUrl}</a></p>
+          <p style="margin:0;font-size:14px;color:#334155;">Please change your password after first login.</p>
+        `,
+      });
+
+      await sendEmail({
+        to: values.email,
+        subject: `${appName} admin login credentials`,
+        body: credentialsHtml,
+        companyName: appName,
+      });
+
       message.success("Admin added");
       setAdminModalVisible(false);
       adminForm.resetFields();
@@ -1271,7 +1584,9 @@ const Settings = () => {
       title: "Contact",
       dataIndex: "contact",
       key: "contact",
-      render: (t) => <span className="text-sm text-slate-500">{t || "--------"}</span>,
+      render: (t) => (
+        <span className="text-sm text-slate-500">{t || "N/A"}</span>
+      ),
     },
     {
       title: "Page Access",
@@ -1419,48 +1734,7 @@ const Settings = () => {
         </span>
       ),
       children: (
-        <div className="max-w-2xl pt-2">
-          <div className="flex items-center gap-5 mb-8 pb-7 border-b border-slate-100">
-            <div className="relative inline-block">
-              <Avatar
-                size={68}
-                src={profile?.user_photo}
-                icon={<UserOutlined />}
-                className="ring-4 ring-slate-100 shadow-sm"
-              />
-              <Upload
-                showUploadList={false}
-                beforeUpload={handlePhotoUpload}
-                accept="image/*"
-              >
-                <button className="absolute -bottom-1 -right-1 w-[26px] h-[26px] rounded-full bg-white border border-slate-200 shadow-md flex items-center justify-center text-slate-500 hover:text-slate-800 hover:border-slate-400 transition-all cursor-pointer">
-                  {uploadingPhoto ? (
-                    <LoadingOutlined style={{ fontSize: 11 }} />
-                  ) : (
-                    <CameraOutlined style={{ fontSize: 11 }} />
-                  )}
-                </button>
-              </Upload>
-            </div>
-            <div className="flex-1">
-              <div className="text-[15px] font-bold text-slate-800">
-                {profile?.full_name || "Your Name"}
-              </div>
-              <div className="text-xs text-slate-400 capitalize mt-0.5">
-                {profile?.role} ---- {profile?.email}
-              </div>
-            </div>
-            <Button
-              type="primary"
-              htmlType="submit"
-              form="profile-form"
-              loading={profileLoading}
-              style={primaryBtn}
-            >
-              Save Changes
-            </Button>
-          </div>
-
+        <div className="settings-profile-shell">
           <Form
             id="profile-form"
             form={profileForm}
@@ -1473,18 +1747,27 @@ const Settings = () => {
               contact: profile?.contact,
               address: profile?.address,
               cnic: profile?.cnic,
+              nationality: profile?.nationality,
+              languages: profile?.languages || [],
+              bio: profile?.bio,
               dob: profile?.dob ? dayjs(profile.dob) : null,
               bank_name: profile?.bank_name,
               bank_account_number: profile?.bank_account_number,
               bank_account_name: profile?.bank_account_name,
             }}
           >
-            <SectionTitle>Personal Information</SectionTitle>
-            <div className="grid grid-cols-2 gap-x-5">
+            <div className="settings-profile-card">
+            <SectionTitle>
+              <span className="inline-flex items-center gap-2">
+                <UserOutlined />
+                Personal Information
+              </span>
+            </SectionTitle>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 settings-profile-grid">
               <Form.Item
                 name="full_name"
                 label={
-                  <span className="text-xs font-medium text-slate-600">
+                  <span className="settings-field-label">
                     Full Name
                   </span>
                 }
@@ -1499,8 +1782,8 @@ const Settings = () => {
               <Form.Item
                 name="email"
                 label={
-                  <span className="text-xs font-medium text-slate-600">
-                    Email Address
+                  <span className="settings-field-label">
+                    Email
                   </span>
                 }
               >
@@ -1513,8 +1796,8 @@ const Settings = () => {
               <Form.Item
                 name="contact"
                 label={
-                  <span className="text-xs font-medium text-slate-600">
-                    Phone Number
+                  <span className="settings-field-label">
+                    Contact Number
                   </span>
                 }
               >
@@ -1524,24 +1807,42 @@ const Settings = () => {
                   className="rounded-lg"
                 />
               </Form.Item>
-              <Form.Item
-                name="cnic"
-                label={
-                  <span className="text-xs font-medium text-slate-600">
-                    CNIC
-                  </span>
-                }
-              >
-                <Input
-                  prefix={<IdcardOutlined className="text-slate-300 text-xs" />}
-                  placeholder="12345-1234567-1"
-                  className="rounded-lg"
-                />
-              </Form.Item>
+              {profile?.role !== "admin" && (
+                <Form.Item
+                  name="nationality"
+                  label={
+                    <span className="settings-field-label">
+                      Nationality / Country
+                    </span>
+                  }
+                >
+                  <Input
+                    prefix={<GlobalOutlined className="text-slate-300 text-xs" />}
+                    placeholder="e.g. Pakistani, American"
+                    className="rounded-lg"
+                  />
+                </Form.Item>
+              )}
+              {profile?.role !== "admin" && (
+                <Form.Item
+                  name="cnic"
+                  label={
+                    <span className="settings-field-label">
+                      National ID / Passport
+                    </span>
+                  }
+                >
+                  <Input
+                    prefix={<IdcardOutlined className="text-slate-300 text-xs" />}
+                    placeholder="12345-1234567-1"
+                    className="rounded-lg"
+                  />
+                </Form.Item>
+              )}
               <Form.Item
                 name="dob"
                 label={
-                  <span className="text-xs font-medium text-slate-600">
+                  <span className="settings-field-label">
                     Date of Birth
                   </span>
                 }
@@ -1553,20 +1854,77 @@ const Settings = () => {
                 />
               </Form.Item>
             </div>
+            {profile?.role !== "admin" && (
+              <Form.Item
+                name="languages"
+                label={
+                  <span className="settings-field-label">
+                    Languages Spoken
+                  </span>
+                }
+              >
+                <Select
+                  mode="multiple"
+                  allowClear
+                  placeholder="Select languages"
+                  className="rounded-lg"
+                  options={[
+                    "English",
+                    "Urdu",
+                    "Arabic",
+                    "French",
+                    "German",
+                    "Spanish",
+                    "Hindi",
+                    "Chinese (Mandarin)",
+                  ].map((lang) => ({ label: lang, value: lang }))}
+                />
+              </Form.Item>
+            )}
             <Form.Item
               name="address"
               label={
-                <span className="text-xs font-medium text-slate-600">
+                <span className="settings-field-label">
                   Address
                 </span>
               }
             >
               <Input.TextArea
                 rows={2}
-                placeholder="Your address"
+                placeholder="Street, City, Country"
                 className="rounded-lg"
               />
             </Form.Item>
+            {profile?.role !== "admin" && (
+              <Form.Item
+                name="bio"
+                label={
+                  <span className="settings-field-label">
+                    Bio
+                  </span>
+                }
+              >
+                <Input.TextArea
+                  rows={3}
+                  placeholder="Tell us about yourself..."
+                  className="rounded-lg"
+                />
+              </Form.Item>
+            )}
+            </div>
+
+            <div className="settings-save-bar">
+              <Button
+                type="primary"
+                htmlType="submit"
+                form="profile-form"
+                loading={profileLoading}
+                className="w-full sm:w-auto settings-profile-save-btn"
+                style={primaryBtn}
+              >
+                Save Changes
+              </Button>
+            </div>
 
             {profile?.role !== "admin" && (
               <>
@@ -1583,7 +1941,9 @@ const Settings = () => {
                     <div
                       className="rounded-lg px-3 py-2.5"
                       style={{
-                        border: dark ? "1px solid #2f3138" : "1px solid #e2e8f0",
+                        border: dark
+                          ? "1px solid #2f3138"
+                          : "1px solid #e2e8f0",
                         background: dark ? "#141416" : "#ffffff",
                       }}
                     >
@@ -1603,7 +1963,9 @@ const Settings = () => {
                     <div
                       className="rounded-lg px-3 py-2.5"
                       style={{
-                        border: dark ? "1px solid #2f3857" : "1px solid #dbeafe",
+                        border: dark
+                          ? "1px solid #2f3857"
+                          : "1px solid #dbeafe",
                         background: dark ? "rgba(37,99,235,0.12)" : "#eff6ff",
                       }}
                     >
@@ -1623,7 +1985,9 @@ const Settings = () => {
                     <div
                       className="rounded-lg px-3 py-2.5"
                       style={{
-                        border: dark ? "1px solid #4a2a36" : "1px solid #ffe4e6",
+                        border: dark
+                          ? "1px solid #4a2a36"
+                          : "1px solid #ffe4e6",
                         background: dark ? "rgba(225,29,72,0.12)" : "#fff1f2",
                       }}
                     >
@@ -1643,7 +2007,9 @@ const Settings = () => {
                     <div
                       className="rounded-lg px-3 py-2.5"
                       style={{
-                        border: dark ? "1px solid #234236" : "1px solid #bbf7d0",
+                        border: dark
+                          ? "1px solid #234236"
+                          : "1px solid #bbf7d0",
                         background: dark ? "rgba(22,163,74,0.12)" : "#f0fdf4",
                       }}
                     >
@@ -1689,7 +2055,7 @@ const Settings = () => {
 
                 <Divider className="my-5" />
                 <SectionTitle>Bank Account</SectionTitle>
-                <div className="grid grid-cols-2 gap-x-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5">
                   <Form.Item
                     name="bank_name"
                     label={
@@ -1757,7 +2123,7 @@ const Settings = () => {
               Change Password
             </h3>
             <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-              Use a strong password -------- at least 6 characters with a mix of
+              Use a strong password with at least 6 characters and a mix of
               letters, numbers and symbols.
             </p>
           </div>
@@ -1817,6 +2183,7 @@ const Settings = () => {
                 type="primary"
                 htmlType="submit"
                 loading={passwordLoading}
+                className="w-full sm:w-auto"
                 style={primaryBtn}
               >
                 Update Password
@@ -1829,6 +2196,147 @@ const Settings = () => {
         </div>
       ),
     },
+    ...(profile?.role === "admin"
+      ? [
+          {
+            key: "integrations",
+            label: (
+              <span className="flex items-center gap-1.5 text-[13px]">
+                <LinkOutlined />
+                Integrations
+              </span>
+            ),
+            children: (
+              <div className="max-w-3xl pt-2">
+                <div className="mb-6 pb-5 border-b border-slate-100">
+                  <h3 className="text-[13px] font-bold text-slate-800">
+                    Integrations
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Connect and manage third-party tools for your workspace.
+                  </p>
+                </div>
+                <div className="space-y-2.5">
+                  {INTEGRATION_CATALOG.map((item) => {
+                    const connected = integrations[item.key] === true;
+                    const actionLoading =
+                      integrationActionLoading[item.key] === true;
+                    return (
+                      <div
+                        key={item.key}
+                        className="rounded-xl px-4 py-3"
+                        style={{
+                          background: dark ? "#1a1b20" : "#f8fafc",
+                        }}
+                      >
+                        <div className="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div
+                              className="w-9 h-9 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0"
+                              style={{
+                                background: dark ? "#0f1115" : "#ffffff",
+                              }}
+                            >
+                              <img
+                                src={item.logo}
+                                alt={item.name}
+                                className="w-6 h-6 object-contain"
+                              />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-sm font-semibold text-slate-800">
+                                {item.name}
+                              </div>
+                              <div className="text-xs text-slate-400 mt-0.5 truncate">
+                                {item.description}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 ml-auto justify-end flex-wrap sm:flex-nowrap">
+                            <Tag
+                              color={connected ? "green" : "default"}
+                              className="!m-0 text-center"
+                              style={{
+                                minWidth: 108,
+                                borderColor: connected
+                                  ? dark
+                                    ? "#22c55e"
+                                    : "#16a34a"
+                                  : dark
+                                    ? "#4b5563"
+                                    : "#cbd5e1",
+                                background: connected
+                                  ? dark
+                                    ? "rgba(34,197,94,0.18)"
+                                    : "#f0fdf4"
+                                  : dark
+                                    ? "rgba(148,163,184,0.14)"
+                                    : "#f8fafc",
+                                color: connected
+                                  ? dark
+                                    ? "#bbf7d0"
+                                    : "#166534"
+                                  : dark
+                                    ? "#e5e7eb"
+                                    : "#334155",
+                                fontWeight: 600,
+                              }}
+                            >
+                              {connected ? "Connected" : "Not connected"}
+                            </Tag>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="small"
+                                icon={<LinkOutlined />}
+                                onClick={() => handleOpenIntegrationSetup(item)}
+                                style={{
+                                  borderColor: dark ? "#93c5fd" : "#cbd5e1",
+                                  background: dark
+                                    ? "rgba(59,130,246,0.16)"
+                                    : "#ffffff",
+                                  color: dark ? "#dbeafe" : "#334155",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                Open setup
+                              </Button>
+                              {connected && (
+                                <Button
+                                  size="small"
+                                  loading={actionLoading}
+                                  icon={<DisconnectOutlined />}
+                                  onClick={() =>
+                                    handleDisconnectIntegration(item)
+                                  }
+                                  style={{
+                                    borderColor: dark ? "#fb7185" : "#fca5a5",
+                                    background: dark
+                                      ? "rgba(244,63,94,0.16)"
+                                      : "#fff1f2",
+                                    color: dark ? "#fecdd3" : "#b91c1c",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  Disconnect
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {integrationsLoading && (
+                    <div className="text-xs text-slate-400 pt-1">
+                      Loading integrations...
+                    </div>
+                  )}
+                </div>
+              </div>
+            ),
+          },
+        ]
+      : []),
   ];
 
   if (profile?.role === "admin") {
@@ -1843,7 +2351,7 @@ const Settings = () => {
       ),
       children: (
         <div className="max-w-2xl pt-2">
-          <div className="flex items-center justify-between mb-6 pb-5 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 pb-5 border-b border-slate-100">
             <div>
               <h3 className="text-[13px] font-bold text-slate-800">
                 Workspace Settings
@@ -1857,6 +2365,7 @@ const Settings = () => {
               type="primary"
               loading={generalLoading}
               onClick={handleSaveGeneral}
+              className="w-full sm:w-auto"
               style={primaryBtn}
             >
               Save Settings
@@ -1882,12 +2391,12 @@ const Settings = () => {
                           : [...weekOffDays, day],
                       )
                     }
-                    className={`px-4 py-2 rounded-lg text-[12px] font-semibold border transition-all cursor-pointer
-                      ${
-                        selected
-                          ? "bg-[#001529] text-white border-[#001529]"
-                          : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
-                      }`}
+                    className={`px-4 py-2 rounded-lg text-[12px] font-semibold border transition-all cursor-pointer ${
+                      selected
+                        ? ""
+                        : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
+                    }`}
+                    style={selected ? selectedToggleStyle : undefined}
                   >
                     {day.slice(0, 3)}
                   </button>
@@ -1917,12 +2426,12 @@ const Settings = () => {
                   <div
                     key={val}
                     onClick={() => setWorkingModel(val)}
-                    className={`px-5 py-2 rounded-lg text-[13px] font-semibold border transition-all cursor-pointer
-                      ${
-                        selected
-                          ? "bg-[#001529] text-white border-[#001529]"
-                          : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
-                      }`}
+                    className={`px-5 py-2 rounded-lg text-[13px] font-semibold border transition-all cursor-pointer ${
+                      selected
+                        ? ""
+                        : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
+                    }`}
+                    style={selected ? selectedToggleStyle : undefined}
                   >
                     {model}
                   </div>
@@ -2010,7 +2519,11 @@ const Settings = () => {
             <Switch
               checked={overtimeEnabled}
               onChange={setOvertimeEnabled}
-              style={overtimeEnabled ? { backgroundColor: "#001529" } : {}}
+              style={
+                overtimeEnabled
+                  ? { backgroundColor: dark ? "#ffffff" : "#3453b7" }
+                  : {}
+              }
             />
           </SettingRow>
         </div>
@@ -2028,14 +2541,14 @@ const Settings = () => {
       ),
       children: (
         <div className="pt-2">
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
             <div>
               <h3 className="text-[13px] font-bold text-slate-800">
                 Administrators
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
                 {admins.length} admin{admins.length !== 1 ? "s" : ""} with
-                workspace access ---- click{" "}
+                workspace access. Click{" "}
                 <SafetyOutlined className="text-slate-400" /> to manage page
                 permissions
               </p>
@@ -2044,6 +2557,7 @@ const Settings = () => {
               type="primary"
               icon={<PlusOutlined />}
               onClick={() => setAdminModalVisible(true)}
+              className="w-full sm:w-auto"
               style={primaryBtn}
             >
               Add Admin
@@ -2056,6 +2570,7 @@ const Settings = () => {
             rowKey="id"
             loading={loadingAdmins}
             size="middle"
+            scroll={{ x: 760 }}
             pagination={{
               pageSize: 10,
               showTotal: (t) => `${t} admins`,
@@ -2179,14 +2694,14 @@ const Settings = () => {
       ),
       children: (
         <div className="pt-2">
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
             <div>
               <h3 className="text-[13px] font-bold text-slate-800">
                 Public Holidays
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
                 {holidays.filter((h) => dayjs(h.date).isAfter(dayjs())).length}{" "}
-                upcoming ----{" "}
+                upcoming |{" "}
                 {
                   holidays.filter(
                     (h) => dayjs(h.date).year() === dayjs().year(),
@@ -2199,6 +2714,7 @@ const Settings = () => {
               type="primary"
               icon={<CalendarOutlined />}
               onClick={() => setHolidayModalVisible(true)}
+              className="w-full sm:w-auto"
               style={primaryBtn}
             >
               Add Holiday
@@ -2211,6 +2727,7 @@ const Settings = () => {
             rowKey="id"
             loading={loadingHolidays}
             size="middle"
+            scroll={{ x: 680 }}
             pagination={{
               pageSize: 10,
               showTotal: (t) => `${t} holidays`,
@@ -2286,10 +2803,11 @@ const Settings = () => {
 
   return (
     <div
-      className={`p-6 min-h-screen settings-page ${dark ? "settings-dark" : ""}`}
+      className={`p-3 sm:p-6 min-h-screen settings-page ${dark ? "settings-dark" : ""}`}
       style={{ background: dark ? "#141416" : "#ffffff" }}
     >
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
         .settings-dark .bg-white { background-color: #16171b !important; }
         .settings-dark .bg-slate-50,
         .settings-dark .bg-slate-50\\/50 { background-color: #1b1c21 !important; }
@@ -2304,10 +2822,6 @@ const Settings = () => {
         .settings-dark .text-slate-400,
         .settings-dark .text-slate-300 { color: #9ca3af !important; }
         .settings-dark .ant-divider { border-color: #2b2f38 !important; }
-        .settings-dark .ant-tabs-nav::before { border-bottom-color: #2b2f38 !important; }
-        .settings-dark .ant-tabs-tab { color: #9ca3af !important; }
-        .settings-dark .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn { color: #f3f4f6 !important; }
-        .settings-dark .ant-tabs-ink-bar { background: #60a5fa !important; }
         .settings-dark .ant-input,
         .settings-dark .ant-input-affix-wrapper,
         .settings-dark .ant-input-number,
@@ -2384,6 +2898,140 @@ const Settings = () => {
           background: #1b1c21 !important;
           border-color: #2b2f38 !important;
         }
+        .settings-page {
+          font-family: "DM Sans", sans-serif;
+        }
+        .settings-profile-shell { max-width: 980px; padding-top: 6px; }
+        .settings-profile-hero {
+          border: 1px solid ${dark ? "#2b2f38" : "#e5e7eb"};
+          border-radius: 18px;
+          padding: 20px 26px;
+          margin-bottom: 18px;
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          flex-wrap: wrap;
+          background: ${dark ? "#16171b" : "#ffffff"};
+        }
+        .settings-profile-avatar {
+          border-radius: 18px !important;
+          box-shadow: ${dark ? "0 0 0 4px #202127" : "0 0 0 4px #f3f4f6"};
+        }
+        .settings-profile-avatar-upload {
+          position: absolute;
+          bottom: -2px;
+          right: -2px;
+          width: 28px;
+          height: 28px;
+          border-radius: 999px;
+          border: 2px solid ${dark ? "#16171b" : "#ffffff"};
+          background: #0a0a0a;
+          color: #fff;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: opacity .15s;
+        }
+        .settings-profile-avatar-upload:hover { opacity: .9; }
+        .settings-profile-info { flex: 1; min-width: 0; }
+        .settings-profile-name {
+          font-size: 22px;
+          line-height: 1.02;
+          font-weight: 700;
+          color: ${dark ? "#f3f4f6" : "#0f172a"};
+          letter-spacing: -0.02em;
+        }
+        .settings-profile-role {
+          margin-top: 6px;
+          font-size: 12px;
+          font-weight: 700;
+          letter-spacing: .08em;
+          color: ${dark ? "#9ca3af" : "#94a3b8"};
+        }
+        .settings-profile-chip {
+          margin-top: 10px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 5px 10px;
+          border-radius: 9px;
+          background: ${dark ? "#202127" : "#f3f4f6"};
+          color: ${dark ? "#d1d5db" : "#64748b"};
+          font-size: 11.5px;
+          font-weight: 600;
+        }
+        .settings-profile-save-btn {
+          height: 38px;
+          border-radius: 10px !important;
+          font-weight: 700 !important;
+        }
+        .settings-save-bar {
+          display: flex;
+          justify-content: flex-end;
+          margin-top: 8px;
+          margin-bottom: 2px;
+        }
+        @media (max-width: 640px) {
+          .settings-profile-name {
+            font-size: 19px;
+          }
+          .settings-save-bar {
+            justify-content: stretch;
+          }
+        }
+        .settings-profile-card {
+          border: 1px solid ${dark ? "#2b2f38" : "#e5e7eb"};
+          border-radius: 18px;
+          padding: 22px;
+          background: ${dark ? "#16171b" : "#ffffff"};
+        }
+        .settings-section-title {
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: .08em;
+          font-weight: 700;
+          color: ${dark ? "#9ca3af" : "#94a3b8"};
+          margin-bottom: 16px;
+        }
+        .settings-field-label {
+          font-size: 13px;
+          font-weight: 600;
+          color: ${dark ? "#d1d5db" : "#475569"};
+        }
+        .settings-tabs-wrap {
+          background: ${dark ? "#202127" : "#f3f4f6"};
+          border: 1px solid ${dark ? "#2b2f38" : "#e5e7eb"};
+          border-radius: 12px;
+          padding: 3px;
+          display: inline-flex;
+          flex-wrap: nowrap;
+          gap: 2px;
+          min-width: max-content;
+        }
+        .settings-tab-btn {
+          border: none;
+          background: transparent;
+          color: ${dark ? "#9ca3af" : "#6b7280"};
+          font-size: 13px;
+          font-weight: 600;
+          border-radius: 9px;
+          padding: 8px 14px;
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          transition: all .15s;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+        .settings-tab-btn.active {
+          background: ${dark ? "#141416" : "#ffffff"};
+          color: ${dark ? "#f3f4f6" : "#111827"};
+          box-shadow: ${dark ? "none" : "0 1px 4px rgba(0,0,0,.08)"};
+        }
+        .settings-tab-btn:hover:not(.active) {
+          color: ${dark ? "#e5e7eb" : "#374151"};
+        }
       `}</style>
       <div className="mb-5">
         <h1 className="text-xl font-bold text-slate-900 tracking-tight">
@@ -2394,20 +3042,85 @@ const Settings = () => {
         </p>
       </div>
 
-      <Tabs
-        items={tabItems}
-        activeKey={resolvedActiveTab}
-        onChange={handleTabChange}
-        tabBarStyle={{
-          marginBottom: 24,
-          borderBottom: `1px solid ${dark ? "#2b2f38" : "#f1f5f9"}`,
-        }}
-        tabBarGutter={32}
-      />
+      <div className="settings-profile-shell">
+        <div className="settings-profile-hero">
+          <div className="relative inline-block settings-profile-avatar-wrap">
+            <Avatar
+              size={78}
+              shape="square"
+              src={profile?.user_photo}
+              icon={<UserOutlined />}
+              className="settings-profile-avatar"
+            />
+            <Upload
+              showUploadList={false}
+              beforeUpload={handlePhotoUpload}
+              accept="image/*"
+            >
+              <button className="settings-profile-avatar-upload">
+                {uploadingPhoto ? (
+                  <LoadingOutlined style={{ fontSize: 11 }} />
+                ) : (
+                  <CameraOutlined style={{ fontSize: 11 }} />
+                )}
+              </button>
+            </Upload>
+          </div>
+          <div className="settings-profile-info">
+            <div className="settings-profile-name">
+              {profile?.full_name || "Your Name"}
+            </div>
+            <div className="settings-profile-role">
+              {String(profile?.role || "employee")
+                .replace(/_/g, " ")
+                .toUpperCase()}
+            </div>
+            <div className="settings-profile-chip">
+              <MailOutlined />
+              <span>{profile?.email}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-5">
+        <div className="px-1 sm:px-2 overflow-x-auto">
+          <div className="settings-tabs-wrap">
+            {tabItems.map((tab) => {
+              const active = resolvedActiveTab === tab.key;
+              const showUsersBadge = tab.key === "admins";
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => handleTabChange(tab.key)}
+                  className={`settings-tab-btn ${active ? "active" : ""}`}
+                >
+                  <span className="inline-flex items-center gap-2">
+                    {tab.label}
+                    {showUsersBadge && (
+                      <span
+                        className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-bold"
+                        style={{
+                          background: dark ? "#252830" : "#f1f5f9",
+                          color: dark ? "#d1d5db" : "#64748b",
+                        }}
+                      >
+                        {admins.length}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="p-0">
+          {tabItems.find((t) => t.key === resolvedActiveTab)?.children}
+        </div>
+      </div>
     </div>
   );
 };
 
 export default Settings;
-
-

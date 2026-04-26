@@ -1,150 +1,35 @@
-﻿import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BookOpen,
+  ChevronDown,
   HelpCircle,
-  LifeBuoy,
   MessageSquareText,
   PlayCircle,
-  Rocket,
   Search,
-  ChevronDown,
-  ArrowRight,
-  Mail,
-  MessageCircle,
-  Zap,
-  Users,
-  Calendar,
-  AlertCircle,
 } from "lucide-react";
+import { Modal } from "antd";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import LandingNavbar from "../../../components/Landing/LandingNavbar";
 import ProductCtaFooterSection from "../../../components/Landing/ProductCtaFooterSection";
+import { supabase } from "../../../lib/supabase";
+import RichHtmlRenderer from "../../../components/common/RichHtmlRenderer";
+import { toYouTubeEmbedUrl } from "../../../lib/youtube";
+import { extractResourceSubtype } from "../../../lib/resourceContentMeta";
 
-const docsLinks = [
-  {
-    icon: Zap,
-    title: "Getting Started Guide",
-    desc: "Set up your workspace, team, modules, and first workflows in minutes.",
-    tag: "Start here",
-  },
-  {
-    icon: Users,
-    title: "Projects & AI Employee Matching",
-    desc: "Learn how to create projects and assign work with AI-assisted matching.",
-    tag: "Core",
-  },
-  {
-    icon: Calendar,
-    title: "Attendance, Meetings & Communication",
-    desc: "Manage daily team operations with consistent workflows.",
-    tag: "Core",
-  },
-  {
-    icon: AlertCircle,
-    title: "Troubleshooting",
-    desc: "Fix common audio/video, permissions, and data sync issues.",
-    tag: "Support",
-  },
+const TABS = [
+  { key: "documentation", label: "Documentation", icon: BookOpen },
+  { key: "tutorials", label: "Tutorials", icon: PlayCircle },
+  { key: "blogs_updates", label: "Blogs", icon: MessageSquareText },
+  { key: "faqs", label: "FAQs", icon: HelpCircle },
 ];
 
-const tutorials = [
-  {
-    title: "How to run projects with AI employee matching",
-    subtitle: "Planning, assignment, and delivery visibility",
-    tag: "Projects",
-    color: "from-[#1a2f5e] to-[#2455a8]",
-  },
-  {
-    title: "How to use Leads CRM with AI reminders",
-    subtitle: "Lead analysis, prioritization, and follow-up flow",
-    tag: "CRM",
-    color: "from-[#1e3a5f] to-[#1e6b5e]",
-  },
-  {
-    title: "How to use REXA for AI agentic interviews",
-    subtitle: "Recruitment workflow from screening to shortlist",
-    tag: "Recruitment",
-    color: "from-[#2e1f5e] to-[#1e4a8f]",
-  },
-];
+const stripHtml = (value) =>
+  String(value || "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
-const blogTopics = [
-  { title: "Remote work tips", desc: "Best practices for distributed teams" },
-  { title: "Productivity hacks", desc: "Work smarter with AI-powered tools" },
-  { title: "AI in operations and recruitment", desc: "How automation changes hiring" },
-  { title: "Communication skills", desc: "Async and sync communication patterns" },
-];
-
-const changelog = [
-  {
-    date: "April 2026",
-    title: "Projects + Workforce Updates",
-    badge: "Latest",
-    updates: [
-      "AI employee matching improvements",
-      "Faster project board performance",
-      "Attendance sync reliability fixes",
-    ],
-  },
-  {
-    date: "March 2026",
-    title: "CRM + Communication Improvements",
-    badge: null,
-    updates: [
-      "Better lead scoring insights",
-      "Reminder workflow enhancements",
-      "Channel message delivery optimizations",
-    ],
-  },
-  {
-    date: "February 2026",
-    title: "Recruitment + Documents Release",
-    badge: null,
-    updates: [
-      "REXA interview flow upgrades",
-      "Document search improvements",
-      "Cross-module bug fixes",
-    ],
-  },
-];
-
-const faqs = [
-  {
-    q: "Is Ryzent free?",
-    a: "Ryzent offers a free trial and multiple paid plans depending on team size and required modules.",
-  },
-  {
-    q: "Do I need to install anything?",
-    a: "Most workflows run in-browser. Optional integrations may require setup, but core usage does not.",
-  },
-  {
-    q: "Does it work on mobile?",
-    a: "Yes. Ryzent supports responsive web usage on mobile and tablet for core tasks.",
-  },
-  {
-    q: "Is my data secure?",
-    a: "Ryzent uses role-based access controls and secure platform practices to protect account and workspace data.",
-  },
-];
-
-const TABS = ["Documentation", "Tutorials", "Blog & Updates", "FAQ & Support"];
-
-function SectionHeader({ icon: Icon, label }) {
-  return (
-    <div className="flex items-center gap-2 mb-1">
-      <div className="w-[26px] h-[26px] rounded-[7px] bg-[#e8f0fc] flex items-center justify-center flex-shrink-0">
-        <Icon size={13} className="text-[#194696]" />
-      </div>
-      <span
-        style={{ fontFamily: "'Manrope', 'Segoe UI', sans-serif" }}
-        className="text-[10.5px] font-bold uppercase tracking-[0.13em] text-[#194696]"
-      >
-        {label}
-      </span>
-    </div>
-  );
-}
-
-function FaqItem({ item }) {
+function FaqItem({ title, answerHtml, summary }) {
   const [open, setOpen] = useState(false);
   return (
     <div
@@ -156,7 +41,7 @@ function FaqItem({ item }) {
         className="w-full flex items-center justify-between px-5 py-4 text-left group"
         style={{ fontFamily: "'Manrope', 'Segoe UI', sans-serif" }}
       >
-        <span className="text-sm font-700 text-slate-900 font-bold">{item.q}</span>
+        <span className="text-sm font-700 text-slate-900 font-bold">{title}</span>
         <ChevronDown
           size={16}
           className="text-[#7aaae8] flex-shrink-0 ml-3 transition-transform duration-300"
@@ -165,17 +50,135 @@ function FaqItem({ item }) {
       </button>
       {open && (
         <div className="px-5 pb-4">
-          <p className="text-[13px] leading-[1.7] text-slate-500">{item.a}</p>
+          {answerHtml ? (
+            <RichHtmlRenderer
+              html={answerHtml}
+              className="text-[13px] leading-[1.7] text-slate-500 rs-rich-content"
+            />
+          ) : (
+            <p className="text-[13px] leading-[1.7] text-slate-500">
+              {summary || "No answer yet."}
+            </p>
+          )}
         </div>
       )}
     </div>
   );
 }
 
+function ResourceCardsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="border border-slate-200 rounded-xl p-5 bg-white">
+          <div className="rs-skeleton h-5 w-3/4 rounded mb-3" />
+          <div className="rs-skeleton h-3 w-full rounded mb-2" />
+          <div className="rs-skeleton h-3 w-11/12 rounded mb-2" />
+          <div className="rs-skeleton h-3 w-2/3 rounded mb-4" />
+          <div className="rs-skeleton h-4 w-28 rounded" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ResourceFaqSkeleton() {
+  return (
+    <div className="space-y-2">
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="border border-slate-200 rounded-xl bg-white px-5 py-4">
+          <div className="rs-skeleton h-4 w-4/5 rounded mb-2" />
+          <div className="rs-skeleton h-3 w-full rounded" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function ResourcesPage() {
-  const [activeTab, setActiveTab] = useState(0);
-  const [feedback, setFeedback] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState("documentation");
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState([]);
+  const [videoOpen, setVideoOpen] = useState(false);
+  const [videoTitle, setVideoTitle] = useState("");
+  const [videoEmbedUrl, setVideoEmbedUrl] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchResources = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("platform_resources")
+        .select(
+          "id, category, title, summary, content_html, external_url, cover_image_url, sort_order, created_at",
+        )
+        .eq("is_published", true)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: false });
+
+      if (!mounted) return;
+      if (error) {
+        console.error("Failed to load resources:", error);
+        setItems([]);
+      } else {
+        setItems(data || []);
+      }
+      setLoading(false);
+    };
+
+    fetchResources();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const visibleItems = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (items || []).filter((item) => {
+      if (item.category !== activeTab) return false;
+      if (!q) return true;
+      const haystack = `${item.title || ""} ${item.summary || ""} ${stripHtml(
+        item.content_html || "",
+      )}`.toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [items, activeTab, search]);
+
+  const activeTabMeta = TABS.find((t) => t.key === activeTab) || TABS[0];
+  const ActiveIcon = activeTabMeta.icon;
+
+  useEffect(() => {
+    const tab = new URLSearchParams(location.search).get("tab");
+    const allowed = new Set(TABS.map((t) => t.key));
+    if (tab && allowed.has(tab) && tab !== activeTab) {
+      setActiveTab(tab);
+    }
+  }, [location.search, activeTab]);
+
+  const handleTabChange = (tabKey) => {
+    setActiveTab(tabKey);
+    const params = new URLSearchParams(location.search);
+    params.set("tab", tabKey);
+    navigate({ pathname: "/resources", search: params.toString() }, { replace: true });
+  };
+
+  const openTutorialVideo = (item) => {
+    const embed = toYouTubeEmbedUrl(item.external_url);
+    if (!embed) return;
+    setVideoTitle(item.title || "Tutorial");
+    setVideoEmbedUrl(embed);
+    setVideoOpen(true);
+  };
+
+  const closeTutorialVideo = () => {
+    setVideoOpen(false);
+    setVideoTitle("");
+    setVideoEmbedUrl("");
+  };
 
   return (
     <div
@@ -185,11 +188,20 @@ export default function ResourcesPage() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
         .tab-active { color: #194696 !important; border-bottom-color: #194696 !important; }
-        .doc-card:hover { border-color: #7aaae8 !important; box-shadow: 0 4px 18px rgba(25,70,150,0.09); }
-        .blog-row:hover { background: #f4f8ff; }
-        .tut-card:hover .tut-play { transform: scale(1.1); }
-        .support-pill:hover { background: #dce7fb !important; }
-        details summary::-webkit-details-marker { display: none; }
+        .rs-card:hover { border-color: #7aaae8 !important; box-shadow: 0 4px 18px rgba(25,70,150,0.09); }
+        .rs-rich-content { padding: 0 !important; }
+        .rs-rich-content p { margin: 0 0 10px; }
+        .rs-rich-content ul, .rs-rich-content ol { margin: 0 0 10px 18px; }
+        .rs-rich-content a { color: #194696; text-decoration: underline; }
+        @keyframes rsShimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        .rs-skeleton {
+          background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 37%, #e2e8f0 63%);
+          background-size: 400% 100%;
+          animation: rsShimmer 1.3s ease-in-out infinite;
+        }
       `}</style>
 
       <div className="fixed left-0 right-0 top-0 z-50 bg-[rgba(255,255,255,.72)] backdrop-blur-[12px]">
@@ -198,7 +210,6 @@ export default function ResourcesPage() {
         </div>
       </div>
 
-      {/* -- HERO -- */}
       <section
         className="pt-[100px] pb-14"
         style={{
@@ -213,239 +224,208 @@ export default function ResourcesPage() {
             </span>
           </div>
           <h1 className="text-[clamp(28px,5vw,46px)] font-extrabold leading-[1.08] tracking-[-0.025em] text-[#0b1220] mb-4">
-            Learn faster with{" "}
-            <span className="text-[#194696]">Ryzent AI Resources</span>
+            Learn faster with <span className="text-[#194696]">Ryzent AI Resources</span>
           </h1>
-          <p className="text-[15px] text-slate-600 max-w-[480px] mx-auto leading-[1.7] mb-8">
-            Guides, tutorials, updates, and support to help your team onboard quickly and work with confidence.
+          <p className="text-[15px] text-slate-600 max-w-[540px] mx-auto leading-[1.7] mb-8">
+            Documentation, tutorials, blogs, and FAQs managed directly by your platform admins.
           </p>
-          {/* Search bar */}
-          <div className="flex items-center max-w-[440px] mx-auto bg-white border border-[#b0c4e8] rounded-xl overflow-hidden shadow-[0_2px_16px_rgba(25,70,150,0.10)]">
+          <div className="flex items-center max-w-[460px] mx-auto bg-white border border-[#b0c4e8] rounded-xl overflow-hidden shadow-[0_2px_16px_rgba(25,70,150,0.10)]">
             <Search size={14} className="ml-4 text-slate-400 flex-shrink-0" />
             <input
               type="text"
-              placeholder="Search docs, guides, updates-"
+              placeholder="Search resources..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               className="flex-1 border-none outline-none px-3 py-3 text-sm bg-transparent placeholder-slate-400"
             />
-            <button className="bg-[#194696] hover:bg-[#1a3d80] transition-colors text-white text-[13px] font-bold px-5 py-3">
-              Search
-            </button>
           </div>
         </div>
       </section>
 
-      {/* -- TABS -- */}
       <div className="sticky top-[64px] z-40 bg-white/90 backdrop-blur-[10px] border-b border-slate-200">
         <div className="mx-auto max-w-[1100px] px-6 flex gap-0 overflow-x-auto">
-          {TABS.map((tab, i) => (
+          {TABS.map((tab) => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(i)}
+              key={tab.key}
+              onClick={() => handleTabChange(tab.key)}
               className={`px-5 py-4 text-[13px] font-semibold border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === i
+                activeTab === tab.key
                   ? "tab-active border-[#194696] text-[#194696]"
                   : "border-transparent text-slate-500 hover:text-slate-800"
               }`}
             >
-              {tab}
+              {tab.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* -- MAIN CONTENT -- */}
       <main className="mx-auto max-w-[1100px] px-6 py-12 pb-24">
-
-        {/* -- TAB 0: DOCUMENTATION -- */}
-        {activeTab === 0 && (
-          <div>
-            <SectionHeader icon={BookOpen} label="Help center / Documentation" />
-            <p className="mt-2 mb-7 text-[14px] text-slate-500 max-w-[500px] leading-[1.7]">
-              Self-serve answers your team can follow without raising a support ticket.
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {docsLinks.map(({ icon: Icon, title, desc, tag }) => (
-                <div
-                  key={title}
-                  className="doc-card border border-slate-200 rounded-xl p-5 cursor-pointer transition-all duration-200 bg-white group relative"
-                >
-                  <div className="w-9 h-9 rounded-[10px] bg-[#e8f0fc] flex items-center justify-center mb-4">
-                    <Icon size={16} className="text-[#194696]" />
-                  </div>
-                  <span className="absolute top-4 right-4 text-[10px] font-bold uppercase tracking-[0.08em] text-[#194696] bg-[#e8f0fc] px-2 py-[3px] rounded-full">
-                    {tag}
-                  </span>
-                  <h3 className="text-[13px] font-bold text-slate-900 mb-2 leading-[1.4]">{title}</h3>
-                  <p className="text-[12px] text-slate-500 leading-[1.6] mb-4">{desc}</p>
-                  <div className="flex items-center gap-1 text-[#194696] text-[12px] font-semibold">
-                    Read guide <ArrowRight size={12} className="transition-transform group-hover:translate-x-1 duration-200" />
-                  </div>
-                </div>
-              ))}
-            </div>
+        <div className="flex items-center gap-2 mb-5">
+          <div className="w-[26px] h-[26px] rounded-[7px] bg-[#e8f0fc] flex items-center justify-center flex-shrink-0">
+            <ActiveIcon size={13} className="text-[#194696]" />
           </div>
-        )}
+          <span className="text-[10.5px] font-bold uppercase tracking-[0.13em] text-[#194696]">
+            {activeTabMeta.label}
+          </span>
+        </div>
 
-        {/* -- TAB 1: TUTORIALS -- */}
-        {activeTab === 1 && (
-          <div>
-            <SectionHeader icon={PlayCircle} label="Tutorials & Guides" />
-            <p className="mt-2 mb-7 text-[14px] text-slate-500 max-w-[500px] leading-[1.7]">
-              Short visual guides for projects, people ops, CRM, recruitment, and collaboration.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {tutorials.map((v) => (
-                <article
-                  key={v.title}
-                  className="tut-card border border-slate-200 rounded-xl overflow-hidden bg-white cursor-pointer transition-shadow duration-200 hover:shadow-[0_4px_20px_rgba(25,70,150,0.10)]"
-                >
-                  <div className={`h-[160px] bg-gradient-to-br ${v.color} relative flex items-center justify-center`}>
-                    <div className="tut-play w-12 h-12 rounded-full bg-white/90 flex items-center justify-center transition-transform duration-200 shadow-md">
-                      <PlayCircle size={22} className="text-[#194696] ml-0.5" />
-                    </div>
-                    <span className="absolute bottom-3 left-3 text-[10px] font-bold uppercase tracking-[0.08em] bg-[rgba(25,70,150,0.80)] text-[#c5d6f5] px-2.5 py-1 rounded-full">
-                      {v.tag}
-                    </span>
-                  </div>
-                  <div className="px-5 py-4">
-                    <p className="text-[13px] font-bold text-slate-900 leading-[1.45] mb-1.5">{v.title}</p>
-                    <p className="text-[12px] text-slate-500">{v.subtitle}</p>
-                  </div>
-                </article>
-              ))}
-            </div>
+        {loading ? (
+          activeTab === "faqs" ? <ResourceFaqSkeleton /> : <ResourceCardsSkeleton />
+        ) : visibleItems.length === 0 ? (
+          <div className="border border-slate-200 bg-slate-50 rounded-xl px-5 py-8 text-sm text-slate-500">
+            No resources found in this section yet.
           </div>
-        )}
-
-        {/* -- TAB 2: BLOG + CHANGELOG -- */}
-        {activeTab === 2 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-            {/* Blog */}
-            <div>
-              <SectionHeader icon={MessageSquareText} label="Blog / Insights" />
-              <p className="mt-2 mb-5 text-[14px] text-slate-500 leading-[1.7]">
-                Build authority and organic growth with educational content.
-              </p>
-              <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
-                {blogTopics.map((b) => (
-                  <div
-                    key={b.title}
-                    className="blog-row flex items-center justify-between px-5 py-4 cursor-pointer transition-colors duration-150 group"
+        ) : activeTab === "faqs" ? (
+          <div className="space-y-2">
+            {visibleItems.map((item) => (
+              <FaqItem
+                key={item.id}
+                title={item.title}
+                answerHtml={item.content_html}
+                summary={item.summary}
+              />
+            ))}
+          </div>
+        ) : activeTab === "blogs_updates" ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {visibleItems
+              .filter((item) => extractResourceSubtype(item.content_html) !== "update")
+              .map((item) => {
+                const excerpt = item.summary || stripHtml(item.content_html).slice(0, 180);
+                return (
+                  <article
+                    key={item.id}
+                    className="rs-card rounded-2xl overflow-hidden bg-white transition-all duration-200"
+                    style={{ border: "1px solid #e8edf5" }}
                   >
-                    <div>
-                      <p className="text-[13px] font-bold text-slate-900">{b.title}</p>
-                      <p className="text-[12px] text-slate-400 mt-0.5">{b.desc}</p>
-                    </div>
-                    <ArrowRight size={14} className="text-[#b0c4e8] group-hover:text-[#194696] flex-shrink-0 ml-3 transition-colors" />
-                  </div>
-                ))}
-              </div>
-            </div>
-            {/* Changelog */}
-            <div>
-              <SectionHeader icon={Rocket} label="Product updates / Changelog" />
-              <div className="mt-5 border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
-                {changelog.map((entry) => (
-                  <div key={entry.title} className="px-5 py-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#194696]">
-                        {entry.date}
-                      </span>
-                      {entry.badge && (
-                        <span className="text-[9px] font-bold uppercase tracking-[0.08em] bg-[#194696] text-white px-2 py-[2px] rounded-full">
-                          {entry.badge}
-                        </span>
+                    <div className="w-full h-[210px] bg-slate-100 rounded-t-2xl overflow-hidden">
+                      {item.cover_image_url ? (
+                        <img
+                          src={item.cover_image_url}
+                          alt={item.title || "Blog cover"}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-[linear-gradient(145deg,#dce7fb,#c5d6f5)]" />
                       )}
                     </div>
-                    <p className="text-[13px] font-bold text-slate-900 mb-2">{entry.title}</p>
-                    <ul className="space-y-1">
-                      {entry.updates.map((u) => (
-                        <li key={u} className="text-[12px] text-slate-500 flex items-start gap-2">
-                          <span className="mt-[5px] w-[5px] h-[5px] rounded-full bg-[#7aaae8] flex-shrink-0" />
-                          {u}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* -- TAB 3: FAQ + SUPPORT -- */}
-        {activeTab === 3 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-            {/* FAQ */}
-            <div>
-              <SectionHeader icon={HelpCircle} label="FAQ" />
-              <div className="mt-5 space-y-2">
-                {faqs.map((item) => (
-                  <FaqItem key={item.q} item={item} />
-                ))}
-              </div>
-            </div>
-            {/* Support */}
-            <div>
-              <SectionHeader icon={LifeBuoy} label="Community / Support" />
-              <div className="mt-5 border border-slate-200 rounded-xl p-6 bg-white">
-                <p className="text-[13px] text-slate-500 mb-5 leading-[1.7]">
-                  Reach our team quickly through any channel below.
-                </p>
-                <div className="flex gap-3 flex-wrap mb-6">
-                  <a
-                    href="mailto:support@ryzent.ai"
-                    className="support-pill flex items-center gap-2 bg-[#e8f0fc] text-[#194696] text-[12px] font-semibold px-4 py-2 rounded-lg transition-colors duration-150 no-underline"
-                  >
-                    <Mail size={13} />
-                    Contact support
-                  </a>
-                  <a
-                    href="mailto:feedback@ryzent.ai"
-                    className="support-pill flex items-center gap-2 bg-[#e8f0fc] text-[#194696] text-[12px] font-semibold px-4 py-2 rounded-lg transition-colors duration-150 no-underline"
-                  >
-                    <MessageCircle size={13} />
-                    Leave feedback
-                  </a>
-                </div>
-                <div className="border-t border-slate-100 pt-5">
-                  <label className="block text-[10.5px] font-bold uppercase tracking-[0.12em] text-slate-400 mb-2">
-                    Quick feedback
-                  </label>
-                  {submitted ? (
-                    <div className="flex items-center gap-2 text-[13px] text-[#194696] font-semibold py-3">
-                      <div className="w-5 h-5 rounded-full bg-[#e8f0fc] flex items-center justify-center">
-                        <span className="text-[10px]">-</span>
-                      </div>
-                      Thanks - your feedback was submitted!
-                    </div>
-                  ) : (
-                    <>
-                      <textarea
-                        rows={4}
-                        value={feedback}
-                        onChange={(e) => setFeedback(e.target.value)}
-                        placeholder="Share a suggestion, report a problem, or tell us what's working well-"
-                        className="w-full border border-slate-200 rounded-lg px-4 py-3 text-[13px] text-slate-800 placeholder-slate-300 outline-none focus:border-[#7aaae8] resize-none transition-colors"
-                        style={{ fontFamily: "'Manrope', 'Segoe UI', sans-serif" }}
-                      />
-                      <button
-                        onClick={() => { if (feedback.trim()) setSubmitted(true); }}
-                        className="mt-3 bg-[#194696] hover:bg-[#1a3d80] transition-colors text-white text-[13px] font-bold px-5 py-2.5 rounded-lg"
+                    <div className="p-5">
+                      <h3 className="text-[24px] font-bold text-slate-900 leading-[1.25] mb-2">
+                        {item.title}
+                      </h3>
+                      <p
+                        className="text-[14px] text-slate-500 leading-[1.7] mb-3"
+                        style={{
+                          display: "-webkit-box",
+                          WebkitLineClamp: 3,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                        }}
                       >
-                        Submit feedback
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
+                        {excerpt || "No summary available."}
+                      </p>
+
+                      <Link
+                        to={`/resources/${item.id}`}
+                        className="inline-flex items-center rounded-md bg-[#194696] px-3 py-2 text-[12px] font-semibold text-white no-underline hover:bg-[#163f84]"
+                      >
+                        Read more
+                      </Link>
+                    </div>
+                  </article>
+                );
+              })}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {visibleItems.map((item) => {
+              if (activeTab === "tutorials") {
+                return (
+                  <article
+                    key={item.id}
+                    className="rs-card border border-slate-200 rounded-xl overflow-hidden bg-white transition-all duration-200"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => openTutorialVideo(item)}
+                      className="block relative aspect-video bg-slate-100 no-underline border-none p-0 w-full cursor-pointer"
+                    >
+                      {item.cover_image_url ? (
+                        <img
+                          src={item.cover_image_url}
+                          alt={item.title || "Tutorial cover"}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-[linear-gradient(145deg,#dce7fb,#c5d6f5)]" />
+                      )}
+
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div
+                          className="h-16 w-16 rounded-full flex items-center justify-center shadow-lg"
+                          style={{ background: "#173a78" }}
+                        >
+                          <span style={{ color: "#ffffff", fontSize: 22, marginLeft: 2 }}>▶</span>
+                        </div>
+                      </div>
+                    </button>
+                  </article>
+                );
+              }
+
+              const excerpt = item.summary || stripHtml(item.content_html).slice(0, 180);
+              return (
+                <article
+                  key={item.id}
+                  className="rs-card border border-slate-200 rounded-xl overflow-hidden bg-white transition-all duration-200"
+                >
+                  <div className="p-5">
+                    <h3 className="text-[16px] font-bold text-slate-900 leading-[1.35] mb-2">
+                      {item.title}
+                    </h3>
+                    <p className="text-[13px] text-slate-500 leading-[1.7] mb-3">
+                      {excerpt || "No summary available."}
+                    </p>
+                    <Link
+                      to={`/resources/${item.id}`}
+                      className="inline-flex items-center rounded-md bg-[#194696] px-3 py-2 text-[12px] font-semibold text-white no-underline hover:bg-[#163f84]"
+                    >
+                      Read more
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </main>
+
+      <Modal
+        open={videoOpen}
+        title={null}
+        onCancel={closeTutorialVideo}
+        footer={null}
+        width={960}
+        destroyOnClose
+        styles={{ body: { padding: 0 } }}
+      >
+        {videoEmbedUrl ? (
+          <div className="w-full aspect-video bg-black overflow-hidden">
+            <iframe
+              src={videoEmbedUrl}
+              title={videoTitle || "Tutorial video"}
+              className="w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              referrerPolicy="strict-origin-when-cross-origin"
+              allowFullScreen
+            />
+          </div>
+        ) : null}
+      </Modal>
 
       <ProductCtaFooterSection />
     </div>
   );
 }
-

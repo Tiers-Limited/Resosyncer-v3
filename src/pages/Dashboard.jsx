@@ -1418,17 +1418,43 @@ const Dashboard = () => {
   const fetchEmployees = async () => {
     setEmpLoading(true);
     try {
-      const today = new Date().toISOString().split("T")[0];
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const localToday = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+      const localYesterdayDate = new Date(now);
+      localYesterdayDate.setDate(now.getDate() - 1);
+      const localYesterday = `${localYesterdayDate.getFullYear()}-${pad(localYesterdayDate.getMonth() + 1)}-${pad(localYesterdayDate.getDate())}`;
+      const utcToday = new Date().toISOString().split("T")[0];
+      const candidateDates = Array.from(new Set([utcToday, localToday, localYesterday]));
+
       const { data } = await supabase
         .from("time_logs")
         .select("*, profiles(full_name,email,user_photo,tenant_id)")
-        .eq("date", today)
+        .in("date", candidateDates)
         .in("status", ["active", "break", "paused"]);
-      setEmployees(
-        (data || []).filter(
-          (l) => !tenantId || l.profiles?.tenant_id === tenantId,
-        ),
-      );
+
+      const byUser = {};
+      (data || []).forEach((l) => {
+        if (tenantId && l.profiles?.tenant_id !== tenantId) return;
+        const prev = byUser[l.user_id];
+        if (!prev) {
+          byUser[l.user_id] = l;
+          return;
+        }
+        const prevLive = prev.status === "active" || prev.status === "break";
+        const currLive = l.status === "active" || l.status === "break";
+        if (currLive && !prevLive) {
+          byUser[l.user_id] = l;
+          return;
+        }
+        if (currLive === prevLive) {
+          const prevTs = new Date(prev.start_time || prev.created_at || 0).getTime();
+          const currTs = new Date(l.start_time || l.created_at || 0).getTime();
+          if (currTs > prevTs) byUser[l.user_id] = l;
+        }
+      });
+
+      setEmployees(Object.values(byUser));
     } catch (e) {
       console.error(e);
     } finally {

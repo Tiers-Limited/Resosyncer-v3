@@ -271,7 +271,7 @@ const FilePreview = ({
         <button
           onClick={onPrev}
           style={{ ...navArrowStyle, left: 16 }}
-          title="Previous (-------)"
+          title="Previous (Left Arrow)"
         >
           <ChevronLeftIcon />
         </button>
@@ -280,7 +280,7 @@ const FilePreview = ({
         <button
           onClick={onNext}
           style={{ ...navArrowStyle, right: 16 }}
-          title="Next (--------)"
+          title="Next (Right Arrow)"
         >
           <ChevronRightIcon />
         </button>
@@ -297,13 +297,22 @@ const FilePreview = ({
                 fontSize: 14,
               }}
             >
-              Loading preview-------
+              Loading preview...
             </span>
           </div>
         )}
         {!loading && loadError && (
           <div style={centeredMsg}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>------------</div>
+            <div
+              style={{
+                width: 52,
+                height: 52,
+                margin: "0 auto 12px",
+                opacity: 0.75,
+              }}
+            >
+              <FileIcon ext={file?.name?.split(".").pop() || ""} />
+            </div>
             <div
               style={{
                 color: "rgba(255,255,255,0.7)",
@@ -427,7 +436,7 @@ const FilePreview = ({
       {!loading && !loadError && (
         <div style={previewFooterStyle}>
           <span>{formatSize(file.file_size)}</span>
-          <span>-------</span>
+          <span>•</span>
           <span>{formatDate(file.created_at)}</span>
         </div>
       )}
@@ -569,7 +578,7 @@ const FOLDER_COLORS = [
 ];
 
 const formatSize = (bytes) => {
-  if (!bytes) return "--------";
+  if (!bytes) return "--";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -865,7 +874,9 @@ const Documents = () => {
           background: dark ? "#141416" : "#f8f9fa",
         }}
       >
-        <div style={{ textAlign: "center", color: dark ? "#9ca3af" : "#5f6368" }}>
+        <div
+          style={{ textAlign: "center", color: dark ? "#9ca3af" : "#5f6368" }}
+        >
           <div
             style={{
               ...spinnerStyle,
@@ -873,7 +884,7 @@ const Documents = () => {
               borderTopColor: "#1a73e8",
             }}
           />
-          <div style={{ fontSize: 14 }}>Loading workspace-------</div>
+          <div style={{ fontSize: 14 }}>Loading workspace...</div>
         </div>
       </div>
     );
@@ -890,8 +901,19 @@ const Documents = () => {
           background: dark ? "#141416" : "#f8f9fa",
         }}
       >
-        <div style={{ textAlign: "center", color: dark ? "#9ca3af" : "#5f6368" }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>------------</div>
+        <div
+          style={{ textAlign: "center", color: dark ? "#9ca3af" : "#5f6368" }}
+        >
+          <div
+            style={{
+              width: 52,
+              height: 52,
+              margin: "0 auto 12px",
+              opacity: 0.7,
+            }}
+          >
+            <FolderIcon color={dark ? "#9ca3af" : "#5f6368"} />
+          </div>
           <div
             style={{
               fontSize: 16,
@@ -915,7 +937,8 @@ const Documents = () => {
       style={{
         minHeight: "100vh",
         background: dark ? "#141416" : "#f8f9fa",
-        fontFamily: "'Google Sans', Roboto, sans-serif",
+        fontFamily:
+          'Geist, "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif',
       }}
     >
       <style>{`
@@ -937,7 +960,25 @@ const Documents = () => {
           border-color: #2a2b31 !important;
         }
       `}</style>
-      {/* Header */}
+      <div style={{ padding: "18px 24px 4px" }}>
+        <h1
+          style={{
+            margin: 0,
+            fontSize: 26,
+            fontWeight: 800,
+            letterSpacing: "-0.04em",
+            lineHeight: 1,
+            marginBottom: 4,
+          }}
+        >
+          Documents
+        </h1>
+        <p style={{ margin: 0, color: "var(--rec-text-2)", fontSize: 13 }}>
+          Store, organize, and access your files in one place
+        </p>
+      </div>
+
+      {/* Header / Search */}
       <div
         style={{
           background: dark ? "#1a1b1f" : "white",
@@ -987,16 +1028,21 @@ const Documents = () => {
             onClick={() => setFolderModal(true)}
             style={{
               ...actionBtnStyle,
-              background: dark ? "#1a1b1f" : actionBtnStyle.background,
-              color: dark ? "#e5e7eb" : actionBtnStyle.color,
-              border: dark ? "1px solid #2a2b31" : actionBtnStyle.border,
+              background: dark ? "rgba(255,255,255,0.06)" : "#eef2ff",
+              color: dark ? "#ffffff" : "#3453b7",
+              border: dark ? "1px solid #3a3b43" : "1px solid #c7d2fe",
             }}
           >
             <NewFolderIcon /> New folder
           </button>
           <button
             onClick={() => setUploadModal(true)}
-            style={{ ...actionBtnStyle, background: "#1a73e8", color: "white" }}
+            style={{
+              ...actionBtnStyle,
+              background: dark ? "#ffffff" : "#3453b7",
+              color: dark ? "#111827" : "#ffffff",
+              border: dark ? "1px solid #ffffff" : "1px solid #3453b7",
+            }}
           >
             <UploadIcon /> Upload
           </button>
@@ -1110,7 +1156,16 @@ const Documents = () => {
               color: dark ? "#9ca3af" : "#5f6368",
             }}
           >
-            <div style={{ fontSize: 64, marginBottom: 16 }}>----------</div>
+            <div
+              style={{
+                width: 64,
+                height: 64,
+                margin: "0 auto 16px",
+                opacity: 0.75,
+              }}
+            >
+              <FolderIcon color={dark ? "#9ca3af" : "#5f6368"} />
+            </div>
             <div
               style={{
                 fontSize: 18,
@@ -1676,7 +1731,16 @@ const Documents = () => {
             }}
           >
             <div style={{ padding: 24 }}>
-              <div style={{ fontSize: 36, marginBottom: 8 }}>------------</div>
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  margin: "0 auto 8px",
+                  opacity: 0.75,
+                }}
+              >
+                <UploadIcon />
+              </div>
               <p
                 style={{
                   fontSize: 14,
@@ -1727,7 +1791,6 @@ const Documents = () => {
           </div>
         </div>
       </Modal>
-
     </div>
   );
 };
@@ -1965,5 +2028,3 @@ const spinnerStyle = {
 };
 
 export default Documents;
-
-

@@ -27,7 +27,9 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
+import { getData as getCountryData } from "country-list";
 import { supabase } from "../lib/supabase";
+import { buildRyzentEmail } from "../lib/emailTemplates";
 
 const { Option } = Select;
 
@@ -35,8 +37,13 @@ const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 const EMAIL_API = import.meta.env.VITE_EMAIL_API_URL;
 const NAVY = "#123B78";
 const NAVY_DARK = "#0A2D62";
+const PRIMARY_BUTTON = "#1e3d9f";
 const NAVY_TINT = "#EAF2FF";
 const NAVY_BORDER = "#C8D9F4";
+const COUNTRY_OPTIONS = getCountryData().map((country) => ({
+  label: country.name,
+  value: country.code,
+}));
 
 // Email sender
 const sendEmail = async ({ to, subject, body, companyName }) => {
@@ -62,59 +69,48 @@ const sendEmail = async ({ to, subject, body, companyName }) => {
 // Welcome email builder
 const buildWelcomeEmail = ({ ownerName, companyName, plan, email }) => ({
   to: email,
-  subject: `Welcome to Ryzent - Your ${plan} workspace is ready`,
-  companyName,
-  body: `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Welcome to Ryzent</title>
-</head>
-<body style="margin:0;padding:0;background:#f4f4f5;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
-  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f4f4f5;padding:48px 24px;">
-    <tr>
-      <td align="center">
-        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;">
-          <tr>
-            <td style="padding:0 0 28px;text-align:center;">
-              <span style="font-size:15px;font-weight:700;letter-spacing:-0.3px;color:#18181b;">Ryzent</span>
-            </td>
-          </tr>
-          <tr>
-            <td style="background:#ffffff;border-radius:8px;border:1px solid #e4e4e7;overflow:hidden;">
-              <tr><td style="height:3px;background:#18181b;font-size:0;line-height:0;">&nbsp;</td></tr>
-              <tr>
-                <td style="padding:40px 48px 36px;">
-                  <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#18181b;letter-spacing:-0.5px;line-height:1.3;">Welcome, ${ownerName}.</h1>
-                  <p style="margin:0 0 32px;font-size:14px;color:#71717a;line-height:1.6;">Your <strong style="color:#18181b;font-weight:600;">${plan} workspace</strong> for ${companyName} is active and ready to use.</p>
-                  <div style="height:1px;background:#f4f4f5;margin:0 0 28px;"></div>
-                  <p style="margin:0 0 20px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#a1a1aa;">Get started</p>
-                  <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
-                    <tr><td style="padding:0 0 16px;"><table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr><td style="width:28px;vertical-align:top;padding-top:1px;"><span style="display:inline-block;width:20px;height:20px;background:#18181b;border-radius:50%;text-align:center;line-height:20px;font-size:11px;font-weight:700;color:#ffffff;">1</span></td><td style="padding-left:12px;"><p style="margin:0;font-size:14px;font-weight:600;color:#18181b;line-height:1.4;">Verify your email</p><p style="margin:2px 0 0;font-size:13px;color:#71717a;line-height:1.5;">Confirm your address to secure your account.</p></td></tr></table></td></tr>
-                    <tr><td style="padding:0 0 16px;"><table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr><td style="width:28px;vertical-align:top;padding-top:1px;"><span style="display:inline-block;width:20px;height:20px;background:#18181b;border-radius:50%;text-align:center;line-height:20px;font-size:11px;font-weight:700;color:#ffffff;">2</span></td><td style="padding-left:12px;"><p style="margin:0;font-size:14px;font-weight:600;color:#18181b;line-height:1.4;">Invite your team</p><p style="margin:2px 0 0;font-size:13px;color:#71717a;line-height:1.5;">Go to Settings -> Team Members to add colleagues.</p></td></tr></table></td></tr>
-                    <tr><td><table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr><td style="width:28px;vertical-align:top;padding-top:1px;"><span style="display:inline-block;width:20px;height:20px;background:#18181b;border-radius:50%;text-align:center;line-height:20px;font-size:11px;font-weight:700;color:#ffffff;">3</span></td><td style="padding-left:12px;"><p style="margin:0;font-size:14px;font-weight:600;color:#18181b;line-height:1.4;">Create your first project</p><p style="margin:2px 0 0;font-size:13px;color:#71717a;line-height:1.5;">Set up a project and start assigning tasks.</p></td></tr></table></td></tr>
-                  </table>
-                  <div style="height:1px;background:#f4f4f5;margin:28px 0;"></div>
-                  <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr><td><a href="${window.location.origin}/signin" style="display:inline-block;background:#18181b;color:#ffffff;font-size:14px;font-weight:600;padding:12px 28px;border-radius:6px;text-decoration:none;letter-spacing:-0.1px;">Open Dashboard</a></td></tr></table>
-                </td>
-              </tr>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:28px 0 0;text-align:center;">
-              <p style="margin:0 0 8px;font-size:12px;color:#a1a1aa;line-height:1.6;">Questions? Reply to this email or write to <a href="mailto:support@Ryzent.com" style="color:#71717a;text-decoration:underline;">support@Ryzent.com</a></p>
-              <p style="margin:0;font-size:12px;color:#d4d4d8;">(c) ${new Date().getFullYear()} Ryzent &nbsp;-&nbsp; <a href="${window.location.origin}/unsubscribe" style="color:#d4d4d8;text-decoration:underline;">Unsubscribe</a></p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-  `.trim(),
+  subject: `Welcome to Ryzent AI - Your ${plan} workspace is ready`,
+  companyName: "Ryzent AI",
+  body: buildRyzentEmail({
+    title: `Welcome, ${ownerName}.`,
+    intro: `Your ${plan} workspace for ${companyName} has been successfully activated and is ready for use.`,
+    contentHtml: `
+      <p style="margin:0 0 12px;font-size:14px;color:#334155;">
+        We're excited to have you on board with Ryzent AI. Your workspace has been fully set up to help you streamline project management, team collaboration, and delivery tracking — all in one centralized platform.
+      </p>
+
+      <p style="margin:0 0 12px;font-size:14px;color:#334155;">
+        To help you get started quickly, here are a few recommended next steps:
+      </p>
+
+      <ol style="margin:0 0 16px 18px;padding:0;color:#334155;font-size:14px;line-height:1.7;">
+        <li>
+          <strong>Invite your team:</strong> Add team members to your workspace and assign appropriate roles to ensure smooth collaboration.
+        </li>
+        <li>
+          <strong>Create your first project:</strong> Set up projects, define tasks, and establish workflows tailored to your business needs.
+        </li>
+        <li>
+          <strong>Manage operations efficiently:</strong> Use dashboards to run standups, schedule meetings, and monitor progress in real-time.
+        </li>
+        <li>
+          <strong>Leverage AI capabilities:</strong> Utilize Ryzent AI features to automate repetitive tasks, generate insights, and improve productivity.
+        </li>
+      </ol>
+
+      <p style="margin:0 0 12px;font-size:14px;line-height:1.7;color:#334155;">
+        Ryzent AI is designed to simplify your workflow, reduce manual effort, and give you complete visibility over your operations. As you continue using the platform, you'll discover powerful tools that help scale your team’s performance.
+      </p>
+
+      <p style="margin:0;font-size:14px;line-height:1.7;color:#334155;">
+        If you need any assistance during onboarding or have questions about features, our support team is always ready to help you get the most out of your workspace.
+      </p>
+    `,
+    ctaLabel: "Open Ryzent AI",
+    ctaHref: `${window.location.origin}/signin`,
+    footerHelpHtml:
+      'If you have any questions, simply reply to this email or contact us at <a href="mailto:support@ryzent.com" style="color:#334155;">support@ryzent.com</a>.',
+  }),
 });
 
 // Billing email builder
@@ -143,153 +139,61 @@ const buildBillingEmail = ({
   const hasDiscount = promoCode && discountLabel && discountType !== "trial";
   const hasTrialBonus = promoCode && discountType === "trial";
 
-  // What they pay after trial: discounted price if "forever" coupon, else full price
-  // Since we use duration:"once", after first invoice they pay full price
   const recurringAmount = price;
 
   return {
     to: email,
-    subject: `Order confirmed - Ryzent ${plan} Plan`,
-    companyName,
-    body: `
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Order Confirmation</title></head>
-<body style="margin:0;padding:0;background:#f4f4f5;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f4f4f5;padding:48px 24px;">
-    <tr><td align="center">
-      <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;">
-        <tr><td style="padding:0 0 28px;text-align:center;"><span style="font-size:15px;font-weight:700;letter-spacing:-0.3px;color:#18181b;">Ryzent</span></td></tr>
-        <tr><td style="background:#ffffff;border-radius:8px;border:1px solid #e4e4e7;overflow:hidden;">
-          <tr><td style="height:3px;background:#18181b;font-size:0;line-height:0;">&nbsp;</td></tr>
-          <tr><td style="padding:40px 48px 36px;">
-            <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#a1a1aa;">Order Confirmation</p>
-            <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#18181b;">Your subscription is active.</h1>
-            <p style="margin:0 0 32px;font-size:14px;color:#71717a;line-height:1.6;">
-              Hi ${ownerName}, the <strong style="color:#18181b;font-weight:600;">${plan} plan</strong> for ${companyName} is now live.
-              ${
-                trialDays > 0
-                  ? `Your free trial runs for <strong style="color:#18181b;">${trialDays} days</strong>. You won't be charged until it ends.`
-                  : `Your card has been charged <strong style="color:#18181b;">$${finalPrice ?? price}</strong>.`
-              }
-            </p>
+    subject: `Order confirmed - Ryzent AI ${plan} Plan`,
+    companyName: "Ryzent AI",
+    body: buildRyzentEmail({
+      title: "Order Confirmed",
+      intro: `Hi ${ownerName}, your ${plan} plan for ${companyName} is now active on Ryzent AI.`,
+      contentHtml: `
+        <p style="margin:0 0 10px;font-size:14px;color:#334155;">
+          ${
+            trialDays > 0
+              ? `Your free trial is active for ${trialDays} days, giving you full access to all features during this period.`
+              : "Your payment has been successfully processed and your subscription is now active."
+          }
+        </p>
 
-            <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border:1px solid #e4e4e7;border-radius:6px;overflow:hidden;margin-bottom:28px;">
-              <tr style="background:#fafafa;">
-                <td style="padding:10px 16px;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#a1a1aa;border-bottom:1px solid #e4e4e7;">Description</td>
-                <td style="padding:10px 16px;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#a1a1aa;border-bottom:1px solid #e4e4e7;text-align:right;">Amount</td>
-              </tr>
+        <p style="margin:0 0 12px;font-size:14px;color:#334155;">
+          Below is a summary of your billing details:
+        </p>
 
-              <tr>
-                <td style="padding:14px 16px;border-bottom:1px solid #f4f4f5;">
-                  <p style="margin:0;font-size:14px;font-weight:600;color:#18181b;">Ryzent ${plan} Plan</p>
-                  <p style="margin:2px 0 0;font-size:12px;color:#a1a1aa;">Monthly subscription</p>
-                </td>
-                <td style="padding:14px 16px;border-bottom:1px solid #f4f4f5;text-align:right;vertical-align:top;">
-                  <span style="font-size:14px;font-weight:600;color:#18181b;">$${price}</span>
-                  <span style="font-size:12px;color:#a1a1aa;">/mo</span>
-                </td>
-              </tr>
+        <ul style="margin:0 0 16px 18px;padding:0;color:#334155;font-size:14px;line-height:1.7;">
+          <li><strong>Plan:</strong> ${plan}</li>
+          <li><strong>Standard price:</strong> $${price}/month</li>
+          ${hasDiscount ? `<li><strong>Promotional offer (${promoCode}):</strong> ${discountLabel}</li>` : ""}
+          ${hasTrialBonus ? `<li><strong>Promotional bonus:</strong> ${discountLabel}</li>` : ""}
+          <li><strong>Amount due today:</strong> ${dueToday}</li>
+          <li><strong>First charge:</strong> ${
+            hasDiscount
+              ? `$${finalPrice} (after ${discountLabel})`
+              : `$${price}`
+          } on ${firstChargeDate}</li>
+          <li><strong>Recurring billing:</strong> $${recurringAmount}/month</li>
+          <li><strong>Billing cycle:</strong> Monthly</li>
+          ${
+            trialDays > 0
+              ? `<li><strong>Trial ends:</strong> ${trialEndDate}</li>`
+              : ""
+          }
+        </ul>
 
-              ${
-                hasDiscount
-                  ? `
-              <tr>
-                <td style="padding:14px 16px;border-bottom:1px solid #f4f4f5;">
-                  <p style="margin:0;font-size:14px;font-weight:600;color:#059669;">Promo: ${promoCode}</p>
-                  <p style="margin:2px 0 0;font-size:12px;color:#a1a1aa;">${discountLabel} - applied to first invoice after trial</p>
-                </td>
-                <td style="padding:14px 16px;border-bottom:1px solid #f4f4f5;text-align:right;vertical-align:top;">
-                  <span style="font-size:14px;font-weight:600;color:#059669;">-${discountLabel}</span>
-                </td>
-              </tr>`
-                  : ""
-              }
+        <p style="margin:0 0 12px;font-size:14px;line-height:1.7;color:#334155;">
+          You can manage your subscription, update billing details, or review invoices anytime from your dashboard.
+        </p>
 
-              ${
-                hasTrialBonus
-                  ? `
-              <tr>
-                <td style="padding:14px 16px;border-bottom:1px solid #f4f4f5;">
-                  <p style="margin:0;font-size:14px;font-weight:600;color:#059669;">Promo: ${promoCode}</p>
-                  <p style="margin:2px 0 0;font-size:12px;color:#a1a1aa;">${discountLabel}</p>
-                </td>
-                <td style="padding:14px 16px;border-bottom:1px solid #f4f4f5;text-align:right;vertical-align:top;">
-                  <span style="font-size:14px;font-weight:600;color:#059669;">Bonus: ${discountLabel}</span>
-                </td>
-              </tr>`
-                  : ""
-              }
-
-              ${
-                trialDays > 0
-                  ? `
-              <tr>
-                <td style="padding:14px 16px;border-bottom:1px solid #f4f4f5;">
-                  <p style="margin:0;font-size:14px;font-weight:600;color:#18181b;">${trialDays}-day free trial</p>
-                  <p style="margin:2px 0 0;font-size:12px;color:#a1a1aa;">No charge during trial period</p>
-                </td>
-                <td style="padding:14px 16px;border-bottom:1px solid #f4f4f5;text-align:right;vertical-align:top;">
-                  <span style="font-size:14px;font-weight:600;color:#18181b;">-$${price}</span>
-                </td>
-              </tr>`
-                  : ""
-              }
-
-              <tr style="background:#fafafa;">
-                <td style="padding:14px 16px;">
-                  <p style="margin:0;font-size:13px;font-weight:700;color:#18181b;">Due today</p>
-                </td>
-                <td style="padding:14px 16px;text-align:right;">
-                  <span style="font-size:16px;font-weight:700;color:#18181b;">${dueToday}</span>
-                </td>
-              </tr>
-            </table>
-
-            <p style="margin:0 0 12px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#a1a1aa;">Billing schedule</p>
-            <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:32px;">
-              <tr>
-                <td style="padding:6px 0;border-bottom:1px solid #f4f4f5;"><span style="font-size:13px;color:#71717a;">Trial ends</span></td>
-                <td style="padding:6px 0;border-bottom:1px solid #f4f4f5;text-align:right;"><span style="font-size:13px;font-weight:600;color:#18181b;">${trialEndDate}</span></td>
-              </tr>
-              <tr>
-                <td style="padding:6px 0;border-bottom:1px solid #f4f4f5;"><span style="font-size:13px;color:#71717a;">First charge</span></td>
-                <td style="padding:6px 0;border-bottom:1px solid #f4f4f5;text-align:right;">
-                  <span style="font-size:13px;font-weight:600;color:#18181b;">
-                    ${hasDiscount ? `$${finalPrice} (after ${discountLabel})` : `$${price}`}
-                    on ${firstChargeDate}
-                  </span>
-                </td>
-              </tr>
-              <tr>
-                <td style="padding:6px 0;border-bottom:1px solid #f4f4f5;"><span style="font-size:13px;color:#71717a;">Recurring amount</span></td>
-                <td style="padding:6px 0;border-bottom:1px solid #f4f4f5;text-align:right;"><span style="font-size:13px;font-weight:600;color:#18181b;">$${recurringAmount}/mo</span></td>
-              </tr>
-              <tr>
-                <td style="padding:6px 0;"><span style="font-size:13px;color:#71717a;">Billing cycle</span></td>
-                <td style="padding:6px 0;text-align:right;"><span style="font-size:13px;font-weight:600;color:#18181b;">Monthly</span></td>
-              </tr>
-            </table>
-
-            <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
-              <tr><td><a href="${window.location.origin}/signin" style="display:inline-block;background:#18181b;color:#ffffff;font-size:14px;font-weight:600;padding:12px 28px;border-radius:6px;text-decoration:none;">Go to Dashboard</a></td></tr>
-            </table>
-          </td></tr>
-        </td></tr>
-
-        <tr><td style="padding:28px 0 0;text-align:center;">
-          <p style="margin:0 0 8px;font-size:12px;color:#a1a1aa;line-height:1.6;">
-            To manage your subscription, go to Settings -> Billing in your dashboard.<br/>
-            Billing questions? Write to <a href="mailto:billing@Ryzent.com" style="color:#71717a;text-decoration:underline;">billing@Ryzent.com</a>
-          </p>
-          <p style="margin:0;font-size:12px;color:#d4d4d8;">(c) ${new Date().getFullYear()} Ryzent &nbsp;-&nbsp; <a href="${window.location.origin}/unsubscribe" style="color:#d4d4d8;text-decoration:underline;">Unsubscribe</a></p>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>
-    `.trim(),
+        <p style="margin:0;font-size:14px;line-height:1.7;color:#334155;">
+          Thank you for choosing Ryzent AI. We’re committed to helping you streamline operations and scale efficiently.
+        </p>
+      `,
+      ctaLabel: "Go to Dashboard",
+      ctaHref: `${window.location.origin}/signin`,
+      footerHelpHtml:
+        'For any billing-related questions, please contact us at <a href="mailto:billing@ryzent.co" style="color:#334155;">billing@ryzent.co</a>.',
+    }),
   };
 };
 
@@ -321,11 +225,20 @@ async function validatePromoCode(code, planName, planPrice) {
       error: `This code requires a plan of at least $${data.min_plan_price}/mo.`,
     };
 
-  const normalizedPlanName = String(planName || "").trim().toLowerCase();
+  const normalizedPlanName = String(planName || "")
+    .trim()
+    .toLowerCase();
   const applicablePlans = Array.isArray(data.applicable_plans)
-    ? data.applicable_plans.map((p) => String(p || "").trim().toLowerCase())
+    ? data.applicable_plans.map((p) =>
+        String(p || "")
+          .trim()
+          .toLowerCase(),
+      )
     : [];
-  if (applicablePlans.length > 0 && !applicablePlans.includes(normalizedPlanName))
+  if (
+    applicablePlans.length > 0 &&
+    !applicablePlans.includes(normalizedPlanName)
+  )
     return {
       valid: false,
       error: `This code is not valid for the ${planName} plan.`,
@@ -370,6 +283,181 @@ function applyDiscount(originalPrice, promo) {
   }
   return { finalPrice: originalPrice, discountLabel: null, extraTrialDays: 0 };
 }
+
+async function incrementPromoCodeUsage(promo) {
+  if (!promo) return;
+
+  const normalizedCode = String(promo.code || "").trim();
+  const promoId = promo.id || null;
+
+  const { data: rpcResult, error: rpcError } = await supabase.rpc(
+    "increment_promo_code_usage",
+    {
+      p_code: normalizedCode || null,
+      p_id: promoId,
+    },
+  );
+  if (!rpcError && rpcResult === true) return;
+
+  let codeRow = null;
+  if (promoId) {
+    const { data, error } = await supabase
+      .from("promo_codes")
+      .select("id, code, times_used")
+      .eq("id", promoId)
+      .maybeSingle();
+    if (error) throw error;
+    codeRow = data;
+  }
+
+  if (!codeRow && normalizedCode) {
+    const { data, error } = await supabase
+      .from("promo_codes")
+      .select("id, code, times_used")
+      .ilike("code", normalizedCode)
+      .maybeSingle();
+    if (error) throw error;
+    codeRow = data;
+  }
+
+  if (!codeRow?.id) return;
+
+  const nextUses = Number(codeRow.times_used || 0) + 1;
+  const { error: updateError } = await supabase
+    .from("promo_codes")
+    .update({
+      times_used: nextUses,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", codeRow.id);
+  if (updateError) throw updateError;
+}
+
+const normalizeBillingAddressPayload = (formData = {}) => {
+  const line1 = String(formData.billing_address_line1 || "").trim();
+  const line2 = String(formData.billing_address_line2 || "").trim();
+  const city = String(formData.billing_city || "").trim();
+  const state = String(formData.billing_state || "").trim();
+  const postalCode = String(formData.billing_postal_code || "").trim();
+  const country = String(
+    formData.billing_country_name || formData.billing_country || "",
+  ).trim();
+
+  if (!line1 || !city || !country) return null;
+
+  return {
+    line1,
+    line2: line2 || null,
+    city,
+    state: state || null,
+    postal_code: postalCode || null,
+    country,
+  };
+};
+
+const resolveTenantIdFromSubscriptionResponse = async (
+  subscriptionData,
+  userId,
+) => {
+  const directTenantId =
+    subscriptionData?.tenantId ||
+    subscriptionData?.tenant_id ||
+    subscriptionData?.tenant?.id ||
+    subscriptionData?.data?.tenantId ||
+    subscriptionData?.data?.tenant_id ||
+    null;
+  if (directTenantId) return directTenantId;
+
+  const { data: profileRow, error: profileError } = await supabase
+    .from("profiles")
+    .select("tenant_id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (profileError) throw profileError;
+  return profileRow?.tenant_id || null;
+};
+
+const saveBillingAddressForTenant = async ({
+  userId,
+  subscriptionData,
+  formData,
+}) => {
+  const billingAddress = normalizeBillingAddressPayload(formData);
+  if (!billingAddress) return;
+
+  const tenantId = await resolveTenantIdFromSubscriptionResponse(
+    subscriptionData,
+    userId,
+  );
+  if (!tenantId) return;
+
+  const { error } = await supabase.from("tenant_billing_addresses").upsert(
+    [
+      {
+        tenant_id: tenantId,
+        ...billingAddress,
+        updated_at: new Date().toISOString(),
+      },
+    ],
+    { onConflict: "tenant_id" },
+  );
+  if (error?.code === "PGRST205") {
+    // Table not migrated yet in current environment; skip silently.
+    return;
+  }
+  if (error) throw error;
+};
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const ensureRegisteredUserProfile = async ({
+  userId,
+  formData,
+  subscriptionData,
+}) => {
+  if (!userId) return null;
+
+  // Allow backend subscription bootstrap to create the profile first.
+  for (let i = 0; i < 8; i += 1) {
+    const { data: existingProfile, error } = await supabase
+      .from("profiles")
+      .select("id, tenant_id, role")
+      .eq("id", userId)
+      .maybeSingle();
+    if (error) throw error;
+    if (existingProfile?.id) return existingProfile;
+    await wait(300);
+  }
+
+  // Fallback: ensure a minimal owner profile exists for brand-new workspaces.
+  const tenantId = await resolveTenantIdFromSubscriptionResponse(
+    subscriptionData,
+    userId,
+  );
+
+  const { error: upsertError } = await supabase.from("profiles").upsert(
+    [
+      {
+        id: userId,
+        email: formData.email,
+        full_name: formData.owner_name,
+        role: "admin",
+        tenant_id: tenantId || null,
+        updated_at: new Date().toISOString(),
+      },
+    ],
+    { onConflict: "id" },
+  );
+  if (upsertError) throw upsertError;
+
+  const { data: ensuredProfile, error: ensuredProfileError } = await supabase
+    .from("profiles")
+    .select("id, tenant_id, role")
+    .eq("id", userId)
+    .maybeSingle();
+  if (ensuredProfileError) throw ensuredProfileError;
+  return ensuredProfile || null;
+};
 
 // Promo code input widget
 function PromoCodeInput({ plan, onApply, onRemove, appliedPromo }) {
@@ -593,10 +681,59 @@ const PLAN_ICON_MAP = {
 };
 
 const EUROPE_COUNTRIES = new Set([
-  "AT","BE","BG","HR","CY","CZ","DK","EE","FI","FR","DE","GR","HU","IE","IT",
-  "LV","LT","LU","MT","NL","PL","PT","RO","SK","SI","ES","SE","NO","CH","IS",
-  "LI","GB","UK","AL","AD","AM","AZ","BA","BY","GE","GI","IM","JE","XK","MD",
-  "MC","ME","MK","RS","SM","TR","UA","VA",
+  "AT",
+  "BE",
+  "BG",
+  "HR",
+  "CY",
+  "CZ",
+  "DK",
+  "EE",
+  "FI",
+  "FR",
+  "DE",
+  "GR",
+  "HU",
+  "IE",
+  "IT",
+  "LV",
+  "LT",
+  "LU",
+  "MT",
+  "NL",
+  "PL",
+  "PT",
+  "RO",
+  "SK",
+  "SI",
+  "ES",
+  "SE",
+  "NO",
+  "CH",
+  "IS",
+  "LI",
+  "GB",
+  "UK",
+  "AL",
+  "AD",
+  "AM",
+  "AZ",
+  "BA",
+  "BY",
+  "GE",
+  "GI",
+  "IM",
+  "JE",
+  "XK",
+  "MD",
+  "MC",
+  "ME",
+  "MK",
+  "RS",
+  "SM",
+  "TR",
+  "UA",
+  "VA",
 ]);
 
 const detectPricingRegion = () => {
@@ -631,7 +768,11 @@ const buildRegionalMap = (rows) =>
     const cycle = String(r.billing_cycle || "monthly").toLowerCase();
     const rawRegion = String(r.region || "GLOBAL").toUpperCase();
     const region =
-      rawRegion === "EU" ? "EUROPE" : rawRegion === "US" || rawRegion === "WORLD" ? "GLOBAL" : rawRegion;
+      rawRegion === "EU"
+        ? "EUROPE"
+        : rawRegion === "US" || rawRegion === "WORLD"
+          ? "GLOBAL"
+          : rawRegion;
     if (!acc[pid]) acc[pid] = {};
     if (!acc[pid][cycle]) acc[pid][cycle] = {};
     acc[pid][cycle][region] = r;
@@ -646,9 +787,13 @@ function adaptPlan(row, regionMap = {}, userRegion = "GLOBAL") {
   const monthlyByRegion = planRegion.monthly || {};
   const yearlyByRegion = planRegion.yearly || {};
   const selectedMonthlyRegion =
-    monthlyByRegion[userRegion] || monthlyByRegion.GLOBAL || monthlyByRegion.EUROPE;
+    monthlyByRegion[userRegion] ||
+    monthlyByRegion.GLOBAL ||
+    monthlyByRegion.EUROPE;
   const selectedYearlyRegion =
-    yearlyByRegion[userRegion] || yearlyByRegion.GLOBAL || yearlyByRegion.EUROPE;
+    yearlyByRegion[userRegion] ||
+    yearlyByRegion.GLOBAL ||
+    yearlyByRegion.EUROPE;
   const regionCurrency = selectedMonthlyRegion?.currency || "USD";
   const yearlyCurrency = selectedYearlyRegion?.currency || regionCurrency;
   const regionPrice =
@@ -668,7 +813,7 @@ function adaptPlan(row, regionMap = {}, userRegion = "GLOBAL") {
     yearlyPrice,
     priceLabel: row.priceLabel ?? formatMoney(regionPrice, regionCurrency),
     period: row.period ?? (Number(monthlyPrice) === 0 ? "forever" : "/mo"),
-    periodYearly: "/mo billed yearly",
+    periodYearly: "/yr billed yearly",
     tagline: row.tagline ?? "",
     icon: PLAN_ICON_MAP[row.icon] ?? <ThunderboltOutlined />,
     color: row.color ?? NAVY,
@@ -714,10 +859,20 @@ function planForCycle(plan, cycle = "monthly") {
     return {
       ...plan,
       billingCycle: "yearly",
-      price: Number(plan.yearlyDisplayPrice ?? plan.yearlyPrice ?? plan.price ?? 0),
-      priceLabel: plan.yearlyDisplayLabel ?? formatMoney(plan.yearlyPrice ?? plan.price, plan.currencyYearly || plan.currency),
-      period: plan.periodYearly || "/mo billed yearly",
-      stripePriceId: plan.stripeYearlyPriceId || plan.stripeMonthlyPriceId || plan.stripePriceId,
+      price: Number(
+        plan.yearlyDisplayPrice ?? plan.yearlyPrice ?? plan.price ?? 0,
+      ),
+      priceLabel:
+        plan.yearlyDisplayLabel ??
+        formatMoney(
+          plan.yearlyPrice ?? plan.price,
+          plan.currencyYearly || plan.currency,
+        ),
+      period: plan.periodYearly || "/yr billed yearly",
+      stripePriceId:
+        plan.stripeYearlyPriceId ||
+        plan.stripeMonthlyPriceId ||
+        plan.stripePriceId,
       currency: plan.currencyYearly || plan.currency,
       cta: plan.contactForPricing
         ? "Contact Us"
@@ -729,8 +884,13 @@ function planForCycle(plan, cycle = "monthly") {
   return {
     ...plan,
     billingCycle: "monthly",
-    price: Number(plan.monthlyDisplayPrice ?? plan.monthlyPrice ?? plan.price ?? 0),
-    priceLabel: formatMoney(plan.monthlyDisplayPrice ?? plan.monthlyPrice ?? plan.price, plan.currency || "USD"),
+    price: Number(
+      plan.monthlyDisplayPrice ?? plan.monthlyPrice ?? plan.price ?? 0,
+    ),
+    priceLabel: formatMoney(
+      plan.monthlyDisplayPrice ?? plan.monthlyPrice ?? plan.price,
+      plan.currency || "USD",
+    ),
     period: "/mo",
     stripePriceId: plan.stripeMonthlyPriceId || plan.stripePriceId,
     currency: plan.currency || "USD",
@@ -792,7 +952,9 @@ const StripeCardForm = ({
     plan.price,
     appliedPromo,
   );
-  const baseTrialDays = plan.freeTrialAvailable ? Number(plan.trialDays ?? 14) || 14 : 0;
+  const baseTrialDays = plan.freeTrialAvailable
+    ? Number(plan.trialDays ?? 14) || 14
+    : 0;
   const totalTrialDays = baseTrialDays + (extraTrialDays || 0);
   const showDiscountedPrice =
     appliedPromo &&
@@ -801,6 +963,13 @@ const StripeCardForm = ({
 
   const handlePay = async () => {
     if (!stripe || !elements) return;
+    const billingAddress = normalizeBillingAddressPayload(formData);
+    if (!billingAddress) {
+      message.error(
+        "Please add billing address details before continuing to payment.",
+      );
+      return;
+    }
     setLoading(true);
 
     try {
@@ -825,7 +994,18 @@ const StripeCardForm = ({
         await stripe.createPaymentMethod({
           type: "card",
           card: cardElement,
-          billing_details: { name: formData.owner_name, email: formData.email },
+          billing_details: {
+            name: formData.owner_name,
+            email: formData.email,
+            address: {
+              line1: formData.billing_address_line1 || undefined,
+              line2: formData.billing_address_line2 || undefined,
+              city: formData.billing_city || undefined,
+              state: formData.billing_state || undefined,
+              postal_code: formData.billing_postal_code || undefined,
+              country: formData.billing_country || undefined,
+            },
+          },
         });
       if (pmError) throw new Error(pmError.message);
 
@@ -855,6 +1035,7 @@ const StripeCardForm = ({
             discountType: appliedPromo?.discount_type ?? null, // "percent"|"fixed"|"trial"
             discountValue: appliedPromo?.discount_value ?? null,
             trialDays: totalTrialDays,
+            billingAddress,
           },
         },
       );
@@ -863,6 +1044,30 @@ const StripeCardForm = ({
       if (data?.error) throw new Error(data.error);
 
       console.log("Subscription created:", data);
+
+      try {
+        await saveBillingAddressForTenant({
+          userId,
+          subscriptionData: data,
+          formData,
+        });
+      } catch (billingErr) {
+        console.warn("Failed to save tenant billing address:", billingErr);
+      }
+
+      await ensureRegisteredUserProfile({
+        userId,
+        formData,
+        subscriptionData: data,
+      });
+
+      if (appliedPromo) {
+        try {
+          await incrementPromoCodeUsage(appliedPromo);
+        } catch (promoErr) {
+          console.warn("Failed to update promo code usage:", promoErr);
+        }
+      }
 
       // 4. Send emails
       await sendEmail(
@@ -924,7 +1129,7 @@ const StripeCardForm = ({
         loading={loading}
         onClick={handlePay}
         className="!h-12 !text-base !font-semibold !rounded-xl !border-0"
-        style={{ background: NAVY }}
+        style={{ background: PRIMARY_BUTTON }}
         type="primary"
       >
         {showDiscountedPrice
@@ -968,11 +1173,28 @@ const FreePlanForm = ({ formData, onSuccess, loading, setLoading }) => {
             plan: "Free",
             maxUsers: 5,
             baseMrr: 0,
+            billingAddress: normalizeBillingAddressPayload(formData),
           },
         },
       );
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
+
+      try {
+        await saveBillingAddressForTenant({
+          userId,
+          subscriptionData: data,
+          formData,
+        });
+      } catch (billingErr) {
+        console.warn("Failed to save tenant billing address:", billingErr);
+      }
+
+      await ensureRegisteredUserProfile({
+        userId,
+        formData,
+        subscriptionData: data,
+      });
 
       await sendEmail(
         buildWelcomeEmail({
@@ -998,7 +1220,7 @@ const FreePlanForm = ({ formData, onSuccess, loading, setLoading }) => {
       loading={loading}
       onClick={handleCreate}
       className="!h-12 !text-base !font-semibold !rounded-xl"
-      style={{ background: NAVY, border: "none", color: "#fff" }}
+      style={{ background: PRIMARY_BUTTON, border: "none", color: "#fff" }}
     >
       Create Free Account
     </Button>
@@ -1035,6 +1257,18 @@ const Register = () => {
   const [billingCycle, setBillingCycle] = useState("monthly");
   const [appliedPromo, setAppliedPromo] = useState(null);
   const [accountCheckLoading, setAccountCheckLoading] = useState(false);
+  const yearlySavingsPct = (() => {
+    const savings = (plans || [])
+      .filter((p) => !p.contactForPricing)
+      .map((p) => {
+        const monthly = Number(p.monthlyDisplayPrice ?? p.monthlyPrice ?? 0);
+        const yearly = Number(p.yearlyDisplayPrice ?? p.yearlyPrice ?? 0);
+        if (monthly <= 0 || yearly <= 0 || yearly >= monthly) return 0;
+        return Math.round(((monthly - yearly) / monthly) * 100);
+      })
+      .filter((v) => v > 0);
+    return savings.length ? Math.max(...savings) : 0;
+  })();
 
   useEffect(() => {
     (async () => {
@@ -1050,7 +1284,9 @@ const Register = () => {
         if (planIds.length) {
           const { data: regionRows, error: regionErr } = await supabase
             .from("plan_region_prices")
-            .select("plan_id, billing_cycle, region, currency, price, stripe_price_id")
+            .select(
+              "plan_id, billing_cycle, region, currency, price, stripe_price_id",
+            )
             .in("plan_id", planIds);
           if (!regionErr) {
             regionMap = buildRegionalMap(regionRows);
@@ -1174,818 +1410,1077 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen register-bg flex flex-col">
-      <nav className="flex items-center justify-between px-6 sm:px-10 py-5 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <span className="text-slate-900 font-bold text-lg tracking-tight">
-            Ryzent
-          </span>
-        </div>
-        <StepPill steps={STEPS} current={step} />
-        <div className="text-sm text-slate-400">
-          Have an account?{" "}
-          <Link to="/signin" className="!text-slate-700 !underline font-medium">
-            Sign in
-          </Link>
-        </div>
-      </nav>
-
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
-        {step === 0 && (
+    <div className="min-h-screen register-bg p-0">
+      <div className="register-shell">
+        <section className="register-left">
           <div
-            className="w-full max-w-lg"
-            style={{ animation: mounted ? "slideUp 0.4s ease both" : "none" }}
+            className={`register-scroll flex-1 flex flex-col items-center px-4 sm:px-6 py-4 overflow-y-auto overflow-x-hidden ${
+              step === 0 || step === 1 ? "justify-center" : "justify-start"
+            }`}
           >
-            <div className="text-center mb-8">
+            {step === 0 && (
               <div
-                className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-4"
-                style={{ background: NAVY_TINT, color: NAVY }}
+                className="w-full max-w-lg"
+                style={{
+                  animation: mounted ? "slideUp 0.4s ease both" : "none",
+                }}
               >
-                Step 1 of 4 - Company Info
-              </div>
-              <h1 className="text-4xl font-bold text-slate-900 mb-2 tracking-tight">
-                Set up your workspace
-              </h1>
-              <p className="text-slate-400 text-base">
-                Tell us about your company so we can personalise your
-                experience.
-              </p>
-            </div>
-            <div className="bg-white rounded-3xl shadow-2xl p-8 register-panel">
-              <Form
-                form={companyForm}
-                layout="vertical"
-                size="large"
-                requiredMark={false}
-              >
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-                  <Form.Item
-                    name="company_name"
-                    label={
-                      <span className="text-slate-700 font-medium text-sm">
-                        Company Name
-                      </span>
-                    }
-                    rules={[{ required: true, message: "Required" }]}
-                    className="col-span-2"
-                  >
-                    <Input
-                      prefix={<BankOutlined className="text-slate-400" />}
-                      placeholder="Acme Corp"
-                      className="!rounded-xl !h-11"
-                    />
-                  </Form.Item>
-                  <Form.Item
-                    name="owner_name"
-                    label={
-                      <span className="text-slate-700 font-medium text-sm">
-                        Your Full Name
-                      </span>
-                    }
-                    rules={[{ required: true, message: "Required" }]}
-                  >
-                    <Input
-                      prefix={<UserOutlined className="text-slate-400" />}
-                      placeholder="John Smith"
-                      className="!rounded-xl !h-11"
-                    />
-                  </Form.Item>
-                  <Form.Item
-                    name="domain"
-                    label={
-                      <span className="text-slate-700 font-medium text-sm">
-                        Company Domain
-                      </span>
-                    }
-                  >
-                    <Input
-                      prefix={<GlobalOutlined className="text-slate-400" />}
-                      placeholder="acme.com"
-                      className="!rounded-xl !h-11"
-                    />
-                  </Form.Item>
-                  <Form.Item
-                    name="industry"
-                    label={
-                      <span className="text-slate-700 font-medium text-sm">
-                        Industry
-                      </span>
-                    }
-                    rules={[{ required: true, message: "Required" }]}
-                  >
-                    <Select
-                      placeholder="Select industry"
-                      style={{ height: 44 }}
-                    >
-                      {[
-                        "Technology",
-                        "Healthcare",
-                        "Finance",
-                        "Education",
-                        "Retail",
-                        "Manufacturing",
-                        "Consulting",
-                        "Media",
-                        "Real Estate",
-                        "Other",
-                      ].map((i) => (
-                        <Option key={i} value={i}>
-                          {i}
-                        </Option>
-                      ))}
-                    </Select>
-                  </Form.Item>
-                  <Form.Item
-                    name="company_size"
-                    label={
-                      <span className="text-slate-700 font-medium text-sm">
-                        Team Size
-                      </span>
-                    }
-                    rules={[{ required: true, message: "Required" }]}
-                  >
-                    <Select placeholder="Select size" style={{ height: 44 }}>
-                      {[
-                        "1-5",
-                        "6-20",
-                        "20-50",
-                        "51-100",
-                        "101-500",
-                        "500+",
-                      ].map((s) => (
-                        <Option key={s} value={s}>
-                          {s} people
-                        </Option>
-                      ))}
-                    </Select>
-                  </Form.Item>
+                <div className="text-left mb-8 mt-6">
+                  <h1 className="text-4xl font-semibold text-slate-900 mb-2 tracking-tight">
+                    Get Started Now
+                  </h1>
+                  <p className="text-slate-400 text-base">
+                    Set up your space so we can personalise your experience.
+                  </p>
                 </div>
-              </Form>
-              <Button
-                block
-                size="large"
-                type="primary"
-                onClick={() => goNext(companyForm)}
-                icon={<ArrowRightOutlined />}
-                className="!h-12 !text-base !font-semibold !rounded-xl !border-0"
-                style={{ background: NAVY }}
-              >
-                Continue
-              </Button>
-            </div>
-            <TrustStrip />
-          </div>
-        )}
-
-        {/* STEP 1 - Account */}
-        {step === 1 && (
-          <div
-            className="w-full max-w-md"
-            style={{ animation: "slideUp 0.4s ease both" }}
-          >
-            <div className="text-center mb-8">
-              <div
-                className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-4"
-                style={{ background: NAVY_TINT, color: NAVY }}
-              >
-                Step 2 of 4 - Account Setup
-              </div>
-              <h1 className="text-4xl font-bold text-slate-900 mb-2 tracking-tight">
-                Create your login
-              </h1>
-              <p className="text-slate-400">
-                These credentials will be your admin access.
-              </p>
-            </div>
-            <div className="bg-white rounded-3xl shadow-2xl p-8 register-panel">
-              <button
-                onClick={() => setStep(0)}
-                className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-600 mb-6 transition-colors"
-              >
-                <ArrowLeftOutlined style={{ fontSize: 11 }} /> Back
-              </button>
-              <Form
-                form={accountForm}
-                layout="vertical"
-                size="large"
-                requiredMark={false}
-              >
-                <Form.Item
-                  name="email"
-                  label={
-                    <span className="text-slate-700 font-medium text-sm">
-                      Work Email
-                    </span>
-                  }
-                  rules={[
-                    { required: true, message: "Required" },
-                    { type: "email", message: "Invalid email" },
-                  ]}
-                >
-                  <Input
-                    prefix={<UserOutlined className="text-slate-400" />}
-                    placeholder="john@acme.com"
-                    className="!rounded-xl !h-11"
-                    onChange={() => {
-                      accountForm.setFields([{ name: "email", errors: [] }]);
-                    }}
-                  />
-                </Form.Item>
-                <Form.Item
-                  name="password"
-                  label={
-                    <span className="text-slate-700 font-medium text-sm">
-                      Password
-                    </span>
-                  }
-                  rules={[
-                    { required: true, message: "Required" },
-                    { min: 8, message: "Minimum 8 characters" },
-                  ]}
-                >
-                  <Input.Password
-                    prefix={<LockOutlined className="text-slate-400" />}
-                    placeholder="Minimum 8 characters"
-                    className="!rounded-xl !h-11"
-                  />
-                </Form.Item>
-                <Form.Item
-                  name="confirm_password"
-                  label={
-                    <span className="text-slate-700 font-medium text-sm">
-                      Confirm Password
-                    </span>
-                  }
-                  dependencies={["password"]}
-                  rules={[
-                    { required: true, message: "Required" },
-                    ({ getFieldValue }) => ({
-                      validator(_, value) {
-                        if (!value || getFieldValue("password") === value)
-                          return Promise.resolve();
-                        return Promise.reject("Passwords do not match");
-                      },
-                    }),
-                  ]}
-                >
-                  <Input.Password
-                    prefix={<LockOutlined className="text-slate-400" />}
-                    placeholder="Repeat password"
-                    className="!rounded-xl !h-11"
-                  />
-                </Form.Item>
-              </Form>
-              <Button
-                block
-                size="large"
-                type="primary"
-                loading={accountCheckLoading}
-                onClick={handleAccountNext}
-                className="!h-12 !text-base !font-semibold !rounded-xl !border-0"
-                style={{ background: NAVY }}
-              >
-                {accountCheckLoading ? "Checking..." : "Continue to Plans"}
-              </Button>
-            </div>
-            <TrustStrip />
-          </div>
-        )}
-
-        {step === 2 && (
-          <div
-            className="w-full max-w-6xl"
-            style={{ animation: "slideUp 0.4s ease both" }}
-          >
-            <div className="text-center mb-10">
-              <div
-                className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-4"
-                style={{ background: NAVY_TINT, color: NAVY }}
-              >
-                Step 3 of 4 - Choose Your Plan
-              </div>
-              <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 mb-3 tracking-tight">
-                Pick what fits your team
-              </h1>
-              <button
-                onClick={() => setStep(1)}
-                className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-600 mx-auto mt-4 transition-colors"
-              >
-                <ArrowLeftOutlined style={{ fontSize: 11 }} /> Back
-              </button>
-            </div>
-
-            <div className="flex items-center justify-center mb-6">
-              <div
-                style={{
-                  display: "inline-flex",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: 999,
-                  padding: 4,
-                  background: "#fff",
-                }}
-              >
-                {[
-                  { key: "monthly", label: "Monthly" },
-                  { key: "yearly", label: "Yearly" },
-                ].map((opt) => (
-                  <button
-                    key={opt.key}
-                    type="button"
-                    onClick={() => setBillingCycle(opt.key)}
-                    style={{
-                      border: "none",
-                      borderRadius: 999,
-                      padding: "8px 16px",
-                      fontSize: 13,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      background:
-                        billingCycle === opt.key
-                          ? `linear-gradient(135deg,${NAVY},${NAVY_DARK})`
-                          : "transparent",
-                      color: billingCycle === opt.key ? "#fff" : "#64748b",
-                    }}
+                <div className="bg-white rounded-3xl shadow-2xl p-8 register-panel">
+                  <Form
+                    form={companyForm}
+                    layout="vertical"
+                    size="large"
+                    requiredMark={false}
                   >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {plansLoading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                {[1, 2, 3, 4].map((i) => (
-                  <div
-                    key={i}
-                    style={{
-                      borderRadius: 16,
-                      border: "1.5px solid #e2e8f0",
-                      background: "#fff",
-                      padding: 24,
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 12,
-                    }}
-                  >
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 12 }}
-                    >
-                      <div
-                        style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: 12,
-                          background: "#f1f5f9",
-                        }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div
-                          style={{
-                            height: 14,
-                            background: "#f1f5f9",
-                            borderRadius: 6,
-                            marginBottom: 6,
-                          }}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+                      <Form.Item
+                        name="company_name"
+                        label={
+                          <span className="text-slate-700 font-medium text-sm">
+                            Company Name
+                          </span>
+                        }
+                        rules={[{ required: true, message: "Required" }]}
+                        className="col-span-2"
+                      >
+                        <Input
+                          prefix={<BankOutlined className="text-slate-400" />}
+                          placeholder="Acme Corp"
+                          className="!rounded-xl !h-11"
                         />
-                        <div
-                          style={{
-                            height: 11,
-                            background: "#f8fafc",
-                            borderRadius: 6,
-                            width: "70%",
-                          }}
+                      </Form.Item>
+                      <Form.Item
+                        name="owner_name"
+                        label={
+                          <span className="text-slate-700 font-medium text-sm">
+                            Your Full Name
+                          </span>
+                        }
+                        rules={[{ required: true, message: "Required" }]}
+                      >
+                        <Input
+                          prefix={<UserOutlined className="text-slate-400" />}
+                          placeholder="John Smith"
+                          className="!rounded-xl !h-11"
                         />
-                      </div>
+                      </Form.Item>
+                      <Form.Item
+                        name="domain"
+                        label={
+                          <span className="text-slate-700 font-medium text-sm">
+                            Company Domain
+                          </span>
+                        }
+                      >
+                        <Input
+                          prefix={<GlobalOutlined className="text-slate-400" />}
+                          placeholder="acme.com"
+                          className="!rounded-xl !h-11"
+                        />
+                      </Form.Item>
+                      <Form.Item
+                        name="industry"
+                        label={
+                          <span className="text-slate-700 font-medium text-sm">
+                            Industry
+                          </span>
+                        }
+                        rules={[{ required: true, message: "Required" }]}
+                      >
+                        <Select
+                          placeholder="Select industry"
+                          style={{ height: 44 }}
+                        >
+                          {[
+                            "Technology",
+                            "Healthcare",
+                            "Finance",
+                            "Education",
+                            "Retail",
+                            "Manufacturing",
+                            "Consulting",
+                            "Media",
+                            "Real Estate",
+                            "Other",
+                          ].map((i) => (
+                            <Option key={i} value={i}>
+                              {i}
+                            </Option>
+                          ))}
+                        </Select>
+                      </Form.Item>
+                      <Form.Item
+                        name="company_size"
+                        label={
+                          <span className="text-slate-700 font-medium text-sm">
+                            Team Size
+                          </span>
+                        }
+                        rules={[{ required: true, message: "Required" }]}
+                      >
+                        <Select
+                          placeholder="Select size"
+                          style={{ height: 44 }}
+                        >
+                          {[
+                            "1-5",
+                            "6-20",
+                            "20-50",
+                            "51-100",
+                            "101-500",
+                            "500+",
+                          ].map((s) => (
+                            <Option key={s} value={s}>
+                              {s} people
+                            </Option>
+                          ))}
+                        </Select>
+                      </Form.Item>
                     </div>
-                    <div
-                      style={{
-                        height: 36,
-                        background: "#f1f5f9",
-                        borderRadius: 8,
-                        width: "60%",
-                      }}
-                    />
-                    <div style={{ height: 1, background: "#f1f5f9" }} />
-                    {[1, 2, 3].map((j) => (
-                      <div
-                        key={j}
-                        style={{
-                          height: 12,
-                          background: "#f8fafc",
-                          borderRadius: 6,
-                        }}
-                      />
-                    ))}
-                    <div
-                      style={{
-                        height: 44,
-                        background: "#f1f5f9",
-                        borderRadius: 12,
-                        marginTop: "auto",
-                      }}
-                    />
-                  </div>
-                ))}
-              </div>
-            ) : plans.length === 0 ? (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "60px 0",
-                  color: "#94a3b8",
-                  fontSize: 14,
-                }}
-              >
-                No plans available right now. Please try again later.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                {plans.map((plan, i) => {
-                  const planView = planForCycle(plan, billingCycle);
-                  return (
-                  <div
-                    key={plan.id}
-                    onClick={() => !planView.contactForPricing && selectPlan(plan)}
-                    className={`relative flex flex-col rounded-2xl group transition-all duration-300 ${
-                      planView.contactForPricing
-                        ? "hover:shadow-xl"
-                        : "cursor-pointer hover:-translate-y-2 hover:shadow-xl"
-                    }`}
+                  </Form>
+                  <Button
+                    block
+                    size="large"
+                    type="primary"
+                    onClick={() => goNext(companyForm)}
+                    icon={<ArrowRightOutlined />}
+                    className="!h-12 !text-base !font-semibold !rounded-xl !border-0"
+                    style={{ background: PRIMARY_BUTTON }}
+                  >
+                    Continue
+                  </Button>
+                  <p
                     style={{
-                      background: planView.popular ? "#F3F8FF" : "#ffffff",
-                      border: planView.popular
-                        ? `2px solid ${NAVY}`
-                        : "1.5px solid #e2e8f0",
-                      animation: `slideUp 0.4s ease ${i * 0.07}s both`,
-                      boxShadow: planView.popular
-                        ? "0 8px 28px rgba(18,59,120,0.16)"
-                        : "0 1px 4px rgba(0,0,0,0.04)",
+                      margin: "10px 0 0",
+                      textAlign: "center",
+                      fontSize: 13,
+                      color: "#94a3b8",
                     }}
                   >
-                    {planView.popular && (
-                      <div
-                        className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-[10px] font-bold text-white flex items-center gap-1"
+                    Have an account?{" "}
+                    <Link to="/signin" style={{ color: NAVY, fontWeight: 600 }}>
+                      Sign in
+                    </Link>
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 1 - Account */}
+            {step === 1 && (
+              <div
+                className="w-full max-w-md"
+                style={{ animation: "slideUp 0.4s ease both" }}
+              >
+                <div className="text-left mb-8">
+                  <h1 className="text-4xl font-bold text-slate-900 mb-2 tracking-tight">
+                    Create your login
+                  </h1>
+                  <p className="text-slate-400">
+                    These credentials will be your admin access.
+                  </p>
+                </div>
+                <div className="bg-white rounded-3xl shadow-2xl p-8 register-panel">
+                  <button
+                    onClick={() => setStep(0)}
+                    className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-600 mb-6 transition-colors"
+                  >
+                    <ArrowLeftOutlined style={{ fontSize: 11 }} /> Back
+                  </button>
+                  <Form
+                    form={accountForm}
+                    layout="vertical"
+                    size="large"
+                    requiredMark={false}
+                  >
+                    <Form.Item
+                      name="email"
+                      label={
+                        <span className="text-slate-700 font-medium text-sm">
+                          Work Email
+                        </span>
+                      }
+                      rules={[
+                        { required: true, message: "Required" },
+                        { type: "email", message: "Invalid email" },
+                      ]}
+                    >
+                      <Input
+                        prefix={<UserOutlined className="text-slate-400" />}
+                        placeholder="john@acme.com"
+                        className="!rounded-xl !h-11"
+                        onChange={() => {
+                          accountForm.setFields([
+                            { name: "email", errors: [] },
+                          ]);
+                        }}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name="password"
+                      label={
+                        <span className="text-slate-700 font-medium text-sm">
+                          Password
+                        </span>
+                      }
+                      rules={[
+                        { required: true, message: "Required" },
+                        { min: 8, message: "Minimum 8 characters" },
+                      ]}
+                    >
+                      <Input.Password
+                        prefix={<LockOutlined className="text-slate-400" />}
+                        placeholder="Minimum 8 characters"
+                        className="!rounded-xl !h-11"
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name="confirm_password"
+                      label={
+                        <span className="text-slate-700 font-medium text-sm">
+                          Confirm Password
+                        </span>
+                      }
+                      dependencies={["password"]}
+                      rules={[
+                        { required: true, message: "Required" },
+                        ({ getFieldValue }) => ({
+                          validator(_, value) {
+                            if (!value || getFieldValue("password") === value)
+                              return Promise.resolve();
+                            return Promise.reject("Passwords do not match");
+                          },
+                        }),
+                      ]}
+                    >
+                      <Input.Password
+                        prefix={<LockOutlined className="text-slate-400" />}
+                        placeholder="Repeat password"
+                        className="!rounded-xl !h-11"
+                      />
+                    </Form.Item>
+                  </Form>
+                  <Button
+                    block
+                    size="large"
+                    type="primary"
+                    loading={accountCheckLoading}
+                    onClick={handleAccountNext}
+                    className="!h-12 !text-base !font-semibold !rounded-xl !border-0"
+                    style={{ background: PRIMARY_BUTTON }}
+                  >
+                    {accountCheckLoading ? "Checking..." : "Continue to Plans"}
+                  </Button>
+                  <p
+                    style={{
+                      margin: "10px 0 0",
+                      textAlign: "center",
+                      fontSize: 13,
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Have an account?{" "}
+                    <Link to="/signin" style={{ color: NAVY, fontWeight: 600 }}>
+                      Sign in
+                    </Link>
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {step === 2 && (
+              <div
+                className="w-full max-w-6xl px-2 sm:px-4"
+                style={{ animation: "slideUp 0.4s ease both" }}
+              >
+                <div className="text-left mt-5 mb-10">
+                  <button
+                    onClick={() => setStep(1)}
+                    className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    <ArrowLeftOutlined style={{ fontSize: 11 }} /> Back
+                  </button>
+                  <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 mt-4 mb-2 tracking-tight">
+                    Pick what fits your team
+                  </h1>
+                </div>
+
+                <div className="flex items-center justify-center mb-6">
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 999,
+                      padding: 4,
+                      background: "#fff",
+                    }}
+                  >
+                    {[
+                      { key: "monthly", label: "Monthly" },
+                      {
+                        key: "yearly",
+                        label:
+                          yearlySavingsPct > 0
+                            ? `Yearly • Save ${yearlySavingsPct}%`
+                            : "Yearly",
+                      },
+                    ].map((opt) => (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => setBillingCycle(opt.key)}
                         style={{
-                            background: `linear-gradient(90deg,${NAVY},${NAVY_DARK})`,
+                          border: "none",
+                          borderRadius: 999,
+                          padding: "8px 16px",
+                          fontSize: 13,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          background:
+                            billingCycle === opt.key
+                              ? `linear-gradient(135deg,${NAVY},${NAVY_DARK})`
+                              : "transparent",
+                          color: billingCycle === opt.key ? "#fff" : "#64748b",
                         }}
                       >
-                        <StarFilled style={{ fontSize: 8 }} /> MOST POPULAR
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {plansLoading ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div
+                        key={i}
+                        style={{
+                          borderRadius: 16,
+                          border: "1.5px solid #e2e8f0",
+                          background: "#fff",
+                          padding: 24,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 12,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 12,
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 40,
+                              height: 40,
+                              borderRadius: 12,
+                              background: "#f1f5f9",
+                            }}
+                          />
+                          <div style={{ flex: 1 }}>
+                            <div
+                              style={{
+                                height: 14,
+                                background: "#f1f5f9",
+                                borderRadius: 6,
+                                marginBottom: 6,
+                              }}
+                            />
+                            <div
+                              style={{
+                                height: 11,
+                                background: "#f8fafc",
+                                borderRadius: 6,
+                                width: "70%",
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div
+                          style={{
+                            height: 36,
+                            background: "#f1f5f9",
+                            borderRadius: 8,
+                            width: "60%",
+                          }}
+                        />
+                        <div style={{ height: 1, background: "#f1f5f9" }} />
+                        {[1, 2, 3].map((j) => (
+                          <div
+                            key={j}
+                            style={{
+                              height: 12,
+                              background: "#f8fafc",
+                              borderRadius: 6,
+                            }}
+                          />
+                        ))}
+                        <div
+                          style={{
+                            height: 44,
+                            background: "#f1f5f9",
+                            borderRadius: 12,
+                            marginTop: "auto",
+                          }}
+                        />
                       </div>
-                    )}
-                    <div className="p-6 flex flex-col flex-1">
+                    ))}
+                  </div>
+                ) : plans.length === 0 ? (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "60px 0",
+                      color: "#94a3b8",
+                      fontSize: 14,
+                    }}
+                  >
+                    No plans available right now. Please try again later.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    {plans.map((plan, i) => {
+                      const planView = planForCycle(plan, billingCycle);
+                      const hasTrial =
+                        !planView.contactForPricing &&
+                        planView.freeTrialAvailable &&
+                        Number(planView.trialDays || 0) > 0;
+                      return (
+                        <div
+                          key={plan.id}
+                          onClick={() =>
+                            !planView.contactForPricing && selectPlan(plan)
+                          }
+                          className={`relative flex flex-col rounded-2xl group transition-all duration-300 ${
+                            planView.contactForPricing
+                              ? "hover:shadow-xl"
+                              : "cursor-pointer hover:-translate-y-2 hover:shadow-xl"
+                          }`}
+                          style={{
+                            background: planView.popular
+                              ? "#F3F8FF"
+                              : "#ffffff",
+                            border: planView.popular
+                              ? `2px solid ${NAVY}`
+                              : "1.5px solid #e2e8f0",
+                            animation: `slideUp 0.4s ease ${i * 0.07}s both`,
+                            boxShadow: planView.popular
+                              ? "0 8px 28px rgba(18,59,120,0.16)"
+                              : "0 1px 4px rgba(0,0,0,0.04)",
+                          }}
+                        >
+                          {planView.popular && (
+                            <div
+                              className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-[10px] font-bold text-white flex items-center gap-1"
+                              style={{
+                                background: `linear-gradient(90deg,${NAVY},${NAVY_DARK})`,
+                              }}
+                            >
+                              <StarFilled style={{ fontSize: 8 }} /> MOST
+                              POPULAR
+                            </div>
+                          )}
+                          <div className="p-6 flex flex-col flex-1">
+                            <div className="flex items-center gap-3 mb-4">
+                              <div
+                                className="w-10 h-10 rounded-xl flex items-center justify-center text-base"
+                                style={{
+                                  background: `${planView.color}18`,
+                                  color: planView.color,
+                                }}
+                              >
+                                {planView.icon}
+                              </div>
+                              <div>
+                                <div className="font-bold text-slate-900 text-base">
+                                  {planView.name}
+                                </div>
+                                <div className="text-xs text-slate-400">
+                                  {planView.tagline}
+                                </div>
+                              </div>
+                            </div>
+                            {hasTrial && (
+                              <div
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full mb-4 w-fit"
+                                style={{
+                                  background: "#ecfdf5",
+                                  border: "1px solid #a7f3d0",
+                                  color: "#047857",
+                                }}
+                              >
+                                <GiftOutlined style={{ fontSize: 11 }} />
+                                <span style={{ fontSize: 11, fontWeight: 700 }}>
+                                  {planView.trialDays}-day free trial
+                                </span>
+                              </div>
+                            )}
+                            <div className="mb-5">
+                              {planView.contactForPricing ? (
+                                <span className="text-3xl font-black text-slate-900 tracking-tight">
+                                  Contact Us
+                                </span>
+                              ) : (
+                                <>
+                                  <span className="text-4xl font-black text-slate-900 tracking-tight">
+                                    {planView.priceLabel}
+                                  </span>
+                                  <span className="text-sm text-slate-400 ml-1">
+                                    {planView.period}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                            <div className="mb-4 h-px bg-slate-100" />
+                            <ul className="flex flex-col gap-2.5 flex-1 mb-6">
+                              {planView.features.map((f) => (
+                                <li
+                                  key={f.text}
+                                  className="flex items-center gap-2.5 text-sm text-slate-600"
+                                >
+                                  <CheckOutlined
+                                    style={{
+                                      color: planView.color,
+                                      fontSize: 11,
+                                    }}
+                                  />
+                                  {f.text}
+                                </li>
+                              ))}
+                            </ul>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (planView.contactForPricing) {
+                                  window.location.href =
+                                    "mailto:sales@resosyncer.com";
+                                  return;
+                                }
+                                selectPlan(plan);
+                              }}
+                              className="w-full py-3 rounded-xl text-sm font-bold transition-all duration-200"
+                              style={{
+                                background: PRIMARY_BUTTON,
+                                color: "#fff",
+                                border: "none",
+                              }}
+                            >
+                              {planView.cta}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* STEP 3 - Payment */}
+            {step === 3 && selectedPlan && (
+              <div
+                className="w-full max-w-4xl"
+                style={{ animation: "slideUp 0.4s ease both" }}
+              >
+                <div className="text-left mb-8">
+                  <h1 className="text-4xl font-bold text-slate-900 mb-2 tracking-tight">
+                    {selectedPlan.price === 0
+                      ? "You're almost there"
+                      : "Complete your order"}
+                  </h1>
+                  <p className="text-slate-400">
+                    {selectedPlan.price === 0
+                      ? "No credit card required. Start free today."
+                      : `${selectedPlan.name} plan - ${selectedPlan.priceLabel} ${selectedPlan.period} - ${
+                          selectedPlan.freeTrialAvailable
+                            ? `${selectedPlan.trialDays || 14}-day free trial`
+                            : "no free trial"
+                        }`}
+                  </p>
+                  <button
+                    onClick={() => setStep(2)}
+                    className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-600 mt-3 transition-colors"
+                  >
+                    <ArrowLeftOutlined style={{ fontSize: 11 }} /> Change plan
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                  {/* Order summary */}
+                  <div
+                    className="lg:col-span-2 rounded-2xl p-6 flex flex-col gap-5"
+                    style={{
+                      background: "#f8fafc",
+                      border: "1.5px solid #e2e8f0",
+                    }}
+                  >
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-widest mb-4 text-slate-400">
+                        Order Summary
+                      </div>
                       <div className="flex items-center gap-3 mb-4">
                         <div
                           className="w-10 h-10 rounded-xl flex items-center justify-center text-base"
                           style={{
-                            background: `${planView.color}18`,
-                            color: planView.color,
+                            background: `${selectedPlan.color}15`,
+                            color: selectedPlan.color,
                           }}
                         >
-                          {planView.icon}
+                          {selectedPlan.icon}
                         </div>
-                        <div>
-                          <div className="font-bold text-slate-900 text-base">
-                            {planView.name}
+                        <div className="flex-1">
+                          <div className="font-bold text-slate-900 text-sm">
+                            Ryzent AI {selectedPlan.name}
                           </div>
                           <div className="text-xs text-slate-400">
-                            {planView.tagline}
+                            {selectedPlan.tagline}
                           </div>
                         </div>
+                        <PriceDisplay
+                          plan={selectedPlan}
+                          appliedPromo={appliedPromo}
+                        />
                       </div>
-                      <div className="mb-5">
-                        {planView.contactForPricing ? (
-                          <span className="text-3xl font-black text-slate-900 tracking-tight">
-                            Contact Us
-                          </span>
-                        ) : (
-                          <>
-                            <span className="text-4xl font-black text-slate-900 tracking-tight">
-                              {planView.priceLabel}
+
+                      {appliedPromo &&
+                        (() => {
+                          const { discountLabel, extraTrialDays } =
+                            applyDiscount(selectedPlan.price, appliedPromo);
+                          return (
+                            <div
+                              style={{
+                                background: "#f0fdf4",
+                                borderRadius: 10,
+                                padding: "8px 12px",
+                                marginBottom: 12,
+                                border: "1px solid #bbf7d0",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                              }}
+                            >
+                              <span
+                                style={{
+                                  color: "#15803d",
+                                  fontWeight: 700,
+                                  fontSize: 12,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 5,
+                                }}
+                              >
+                                <GiftOutlined /> {appliedPromo.code}
+                              </span>
+                              <span
+                                style={{
+                                  color: "#15803d",
+                                  fontWeight: 700,
+                                  fontSize: 12,
+                                }}
+                              >
+                                {appliedPromo.discount_type === "trial"
+                                  ? `+${extraTrialDays}d trial`
+                                  : `-${discountLabel}`}
+                              </span>
+                            </div>
+                          );
+                        })()}
+
+                      <div className="h-px mb-4 bg-slate-200" />
+                      <div className="space-y-2.5">
+                        {[
+                          { label: "Company", value: formData.company_name },
+                          { label: "Admin", value: formData.email },
+                          ...(selectedPlan.price > 0
+                            ? [
+                                {
+                                  label: "Trial",
+                                  value:
+                                    appliedPromo?.discount_type === "trial"
+                                      ? `${
+                                          (selectedPlan.freeTrialAvailable
+                                            ? Number(
+                                                selectedPlan.trialDays || 14,
+                                              )
+                                            : 0) +
+                                          Number(
+                                            appliedPromo.discount_value || 0,
+                                          )
+                                        } days free`
+                                      : selectedPlan.freeTrialAvailable
+                                        ? `${selectedPlan.trialDays || 14} days free`
+                                        : "No trial",
+                                  green: true,
+                                },
+                              ]
+                            : []),
+                        ].map((r) => (
+                          <div
+                            key={r.label}
+                            className="flex justify-between text-sm"
+                          >
+                            <span className="text-slate-400">{r.label}</span>
+                            <span
+                              className="font-medium"
+                              style={{ color: r.green ? "#10b981" : "#1e293b" }}
+                            >
+                              {r.value}
                             </span>
-                            <span className="text-sm text-slate-400 ml-1">
-                              {planView.period}
-                            </span>
-                          </>
-                        )}
+                          </div>
+                        ))}
                       </div>
-                      <div className="mb-4 h-px bg-slate-100" />
-                      <ul className="flex flex-col gap-2.5 flex-1 mb-6">
-                        {planView.features.map((f) => (
+                    </div>
+                    <div className="h-px bg-slate-200" />
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-widest mb-3 text-slate-400">
+                        Included
+                      </div>
+                      <ul className="space-y-2">
+                        {selectedPlan.features.slice(0, 5).map((f) => (
                           <li
                             key={f.text}
-                            className="flex items-center gap-2.5 text-sm text-slate-600"
+                            className="flex items-center gap-2 text-xs text-slate-500"
                           >
                             <CheckOutlined
-                              style={{ color: planView.color, fontSize: 11 }}
+                              style={{
+                                color: selectedPlan.color,
+                                fontSize: 10,
+                              }}
                             />
                             {f.text}
                           </li>
                         ))}
                       </ul>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (planView.contactForPricing) {
-                            window.location.href = "mailto:sales@resosyncer.com";
-                            return;
-                          }
-                          selectPlan(plan);
-                        }}
-                        className="w-full py-3 rounded-xl text-sm font-bold transition-all duration-200"
-                        style={{
-                          background: `linear-gradient(135deg,${NAVY},${NAVY_DARK})`,
-                          color: "#fff",
-                          border: "none",
-                        }}
-                      >
-                        {planView.cta}
-                      </button>
                     </div>
                   </div>
-                  );
-                })}
-              </div>
-            )}
-            <p className="text-center text-slate-400 text-sm mt-8">
-              All plans include SSL security, unlimited projects, and real-time
-              collaboration. Cancel anytime.
-            </p>
-          </div>
-        )}
 
-        {/* STEP 3 - Payment */}
-        {step === 3 && selectedPlan && (
-          <div
-            className="w-full max-w-4xl"
-            style={{ animation: "slideUp 0.4s ease both" }}
-          >
-            <div className="text-center mb-8">
-              <div
-                className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-4"
-                style={{ background: NAVY_TINT, color: NAVY }}
-              >
-                Step 4 of 4{" "}
-                {selectedPlan.price === 0 ? "Create Account" : "Payment"}
-              </div>
-              <h1 className="text-4xl font-bold text-slate-900 mb-2 tracking-tight">
-                {selectedPlan.price === 0
-                  ? "You're almost there"
-                  : "Complete your order"}
-              </h1>
-              <p className="text-slate-400">
-                {selectedPlan.price === 0
-                  ? "No credit card required. Start free today."
-                  : `${selectedPlan.name} plan - ${selectedPlan.priceLabel} ${selectedPlan.period} - ${
-                      selectedPlan.freeTrialAvailable
-                        ? `${selectedPlan.trialDays || 14}-day free trial`
-                        : "no free trial"
-                    }`}
-              </p>
-              <button
-                onClick={() => setStep(2)}
-                className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-600 mx-auto mt-3 transition-colors"
-              >
-                <ArrowLeftOutlined style={{ fontSize: 11 }} /> Change plan
-              </button>
-            </div>
+                  {/* Payment form */}
+                  <div className="lg:col-span-3 bg-white rounded-2xl shadow-2xl p-8 register-panel">
+                    <h3 className="text-xl font-bold text-slate-900 mb-1">
+                      {selectedPlan.price === 0
+                        ? "Confirm your account"
+                        : "Payment details"}
+                    </h3>
+                    <p className="text-slate-400 text-sm mb-6">
+                      {selectedPlan.price === 0
+                        ? "Click below to create your free workspace instantly."
+                        : `Enter your card details to start your ${
+                            selectedPlan.freeTrialAvailable
+                              ? `${selectedPlan.trialDays || 14}-day trial`
+                              : "subscription"
+                          }.`}
+                    </p>
 
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-              {/* Order summary */}
-              <div
-                className="lg:col-span-2 rounded-2xl p-6 flex flex-col gap-5"
-                style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0" }}
-              >
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-widest mb-4 text-slate-400">
-                    Order Summary
-                  </div>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center text-base"
-                      style={{
-                        background: `${selectedPlan.color}15`,
-                        color: selectedPlan.color,
-                      }}
-                    >
-                      {selectedPlan.icon}
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-bold text-slate-900 text-sm">
-                        Ryzent {selectedPlan.name}
+                    <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 mb-4">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">
+                        Account
                       </div>
-                      <div className="text-xs text-slate-400">
-                        {selectedPlan.tagline}
-                      </div>
-                    </div>
-                    <PriceDisplay
-                      plan={selectedPlan}
-                      appliedPromo={appliedPromo}
-                    />
-                  </div>
-
-                  {appliedPromo &&
-                    (() => {
-                      const { discountLabel, extraTrialDays } = applyDiscount(
-                        selectedPlan.price,
-                        appliedPromo,
-                      );
-                      return (
-                        <div
-                          style={{
-                            background: "#f0fdf4",
-                            borderRadius: 10,
-                            padding: "8px 12px",
-                            marginBottom: 12,
-                            border: "1px solid #bbf7d0",
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                          }}
-                        >
-                          <span
-                            style={{
-                              color: "#15803d",
-                              fontWeight: 700,
-                              fontSize: 12,
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 5,
-                            }}
-                          >
-                            <GiftOutlined /> {appliedPromo.code}
-                          </span>
-                          <span
-                            style={{
-                              color: "#15803d",
-                              fontWeight: 700,
-                              fontSize: 12,
-                            }}
-                          >
-                            {appliedPromo.discount_type === "trial"
-                              ? `+${extraTrialDays}d trial`
-                              : `-${discountLabel}`}
-                          </span>
-                        </div>
-                      );
-                    })()}
-
-                  <div className="h-px mb-4 bg-slate-200" />
-                  <div className="space-y-2.5">
-                    {[
-                      { label: "Company", value: formData.company_name },
-                      { label: "Admin", value: formData.email },
-                      ...(selectedPlan.price > 0
-                        ? [
-                            {
-                              label: "Trial",
-                              value:
-                                appliedPromo?.discount_type === "trial"
-                                  ? `${
-                                      (selectedPlan.freeTrialAvailable
-                                        ? Number(selectedPlan.trialDays || 14)
-                                        : 0) +
-                                      Number(appliedPromo.discount_value || 0)
-                                    } days free`
-                                  : selectedPlan.freeTrialAvailable
-                                    ? `${selectedPlan.trialDays || 14} days free`
-                                    : "No trial",
-                              green: true,
-                            },
-                          ]
-                        : []),
-                    ].map((r) => (
-                      <div
-                        key={r.label}
-                        className="flex justify-between text-sm"
-                      >
-                        <span className="text-slate-400">{r.label}</span>
-                        <span
-                          className="font-medium"
-                          style={{ color: r.green ? "#10b981" : "#1e293b" }}
-                        >
-                          {r.value}
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-500">Name</span>
+                        <span className="font-medium text-slate-700">
+                          {formData.owner_name}
                         </span>
                       </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="h-px bg-slate-200" />
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-widest mb-3 text-slate-400">
-                    Included
-                  </div>
-                  <ul className="space-y-2">
-                    {selectedPlan.features.slice(0, 5).map((f) => (
-                      <li
-                        key={f.text}
-                        className="flex items-center gap-2 text-xs text-slate-500"
-                      >
-                        <CheckOutlined
-                          style={{ color: selectedPlan.color, fontSize: 10 }}
-                        />
-                        {f.text}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-
-              {/* Payment form */}
-              <div className="lg:col-span-3 bg-white rounded-2xl shadow-2xl p-8 register-panel">
-                <h3 className="text-xl font-bold text-slate-900 mb-1">
-                  {selectedPlan.price === 0
-                    ? "Confirm your account"
-                    : "Payment details"}
-                </h3>
-                <p className="text-slate-400 text-sm mb-6">
-                  {selectedPlan.price === 0
-                    ? "Click below to create your free workspace instantly."
-                    : `Enter your card details to start your ${
-                        selectedPlan.freeTrialAvailable
-                          ? `${selectedPlan.trialDays || 14}-day trial`
-                          : "subscription"
-                      }.`}
-                </p>
-
-                <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 mb-4">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">
-                    Account
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Name</span>
-                    <span className="font-medium text-slate-700">
-                      {formData.owner_name}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm mt-1">
-                    <span className="text-slate-500">Email</span>
-                    <span className="font-medium text-slate-700">
-                      {formData.email}
-                    </span>
-                  </div>
-                </div>
-
-                {selectedPlan.price > 0 && (
-                  <div className="mb-5">
-                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">
-                      Promo Code
+                      <div className="flex justify-between text-sm mt-1">
+                        <span className="text-slate-500">Email</span>
+                        <span className="font-medium text-slate-700">
+                          {formData.email}
+                        </span>
+                      </div>
                     </div>
-                    <PromoCodeInput
-                      plan={selectedPlan}
-                      appliedPromo={appliedPromo}
-                      onApply={(promo) => {
-                        setAppliedPromo(promo);
-                        message.success(`Code "${promo.code}" applied!`);
-                      }}
-                      onRemove={() => setAppliedPromo(null)}
-                    />
-                  </div>
-                )}
 
-                {selectedPlan.price === 0 ? (
-                  <FreePlanForm
-                    formData={formData}
-                    onSuccess={handleFreeRegistrationSuccess}
-                    loading={loading}
-                    setLoading={setLoading}
-                  />
-                ) : (
-                  <Elements stripe={stripePromise}>
-                    <StripeCardForm
-                      plan={selectedPlan}
-                      formData={formData}
-                      appliedPromo={appliedPromo}
-                      onSuccess={handlePaidRegistrationSuccess}
-                      loading={loading}
-                      setLoading={setLoading}
-                    />
-                  </Elements>
-                )}
+                    {selectedPlan.price > 0 && (
+                      <div className="mb-5">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">
+                          Billing Address
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <Input
+                            value={formData.billing_address_line1 || ""}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                billing_address_line1: e.target.value,
+                              }))
+                            }
+                            placeholder="Address line 1"
+                            className="!rounded-xl !h-11 sm:!col-span-2"
+                          />
+                          <Input
+                            value={formData.billing_address_line2 || ""}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                billing_address_line2: e.target.value,
+                              }))
+                            }
+                            placeholder="Address line 2 (optional)"
+                            className="!rounded-xl !h-11 sm:!col-span-2"
+                          />
+                          <Input
+                            value={formData.billing_city || ""}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                billing_city: e.target.value,
+                              }))
+                            }
+                            placeholder="City"
+                            className="!rounded-xl !h-11"
+                          />
+                          <Input
+                            value={formData.billing_state || ""}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                billing_state: e.target.value,
+                              }))
+                            }
+                            placeholder="State / Province"
+                            className="!rounded-xl !h-11"
+                          />
+                          <Input
+                            value={formData.billing_postal_code || ""}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                billing_postal_code: e.target.value,
+                              }))
+                            }
+                            placeholder="Postal code"
+                            className="!rounded-xl !h-11"
+                          />
+                          <Select
+                            showSearch
+                            value={formData.billing_country || undefined}
+                            onChange={(value, option) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                billing_country: value,
+                                billing_country_name: option?.label || value,
+                              }))
+                            }
+                            placeholder="Select country"
+                            options={COUNTRY_OPTIONS}
+                            filterOption={(input, option) =>
+                              String(option?.label || "")
+                                .toLowerCase()
+                                .includes(input.toLowerCase())
+                            }
+                            className="!rounded-xl"
+                            size="large"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedPlan.price > 0 && (
+                      <div className="mb-5">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">
+                          Promo Code
+                        </div>
+                        <PromoCodeInput
+                          plan={selectedPlan}
+                          appliedPromo={appliedPromo}
+                          onApply={(promo) => {
+                            setAppliedPromo(promo);
+                            message.success(`Code "${promo.code}" applied!`);
+                          }}
+                          onRemove={() => setAppliedPromo(null)}
+                        />
+                      </div>
+                    )}
+
+                    {selectedPlan.price === 0 ? (
+                      <FreePlanForm
+                        formData={formData}
+                        onSuccess={handleFreeRegistrationSuccess}
+                        loading={loading}
+                        setLoading={setLoading}
+                      />
+                    ) : (
+                      <Elements stripe={stripePromise}>
+                        <StripeCardForm
+                          plan={selectedPlan}
+                          formData={formData}
+                          appliedPromo={appliedPromo}
+                          onSuccess={handlePaidRegistrationSuccess}
+                          loading={loading}
+                          setLoading={setLoading}
+                        />
+                      </Elements>
+                    )}
+                  </div>
+                </div>
               </div>
+            )}
+          </div>
+          <div
+            style={{
+              textAlign: "center",
+              fontSize: 12,
+              color: "#94a3b8",
+              padding: "10px 0 14px",
+            }}
+          >
+            © Copyright {new Date().getFullYear()} Ryzent AI. All rights
+            reserved.
+          </div>
+        </section>
+        <aside className="register-right">
+          <p className="register-right-kicker">Ryzent AI</p>
+          <h2 className="register-right-title">
+            Run Smarter, Grow Faster with Ryzent AI
+          </h2>
+          <img
+            className="register-right-image"
+            src="/register.png"
+            alt="Ryzent AI dashboard preview"
+          />
+          <div className="register-logos-wrap" aria-label="Trusted brands">
+            <div className="register-logos-track">
+              {[
+                { src: "/logos/TIERSLimited.png", alt: "TIERS Limited" },
+                { src: "/logos/CodeDelirium.png", alt: "Code Delirium" },
+                { src: "/logos/ProppaHouse.png", alt: "Proppa House" },
+                { src: "/logos/NexenLabz.svg", alt: "NexenLabz" },
+                { src: "/logos/TIERSLimited.png", alt: "TIERS Limited" },
+                { src: "/logos/CodeDelirium.png", alt: "Code Delirium" },
+                { src: "/logos/ProppaHouse.png", alt: "Proppa House" },
+                { src: "/logos/NexenLabz.svg", alt: "NexenLabz" },
+              ].map((logo, idx) => (
+                <div key={`${logo.src}-${idx}`} className="register-logo-item">
+                  <img src={logo.src} alt={logo.alt} />
+                </div>
+              ))}
             </div>
           </div>
-        )}
+        </aside>
       </div>
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700;800&display=swap');
         * { font-family: 'Instrument Sans', system-ui, sans-serif; }
         .register-bg {
-          background:
-            radial-gradient(ellipse 70% 50% at 15% 0%, rgba(18,59,120,0.09) 0%, transparent 60%),
-            radial-gradient(ellipse 50% 40% at 85% 100%, rgba(10,45,98,0.08) 0%, transparent 55%),
-            #f5f9ff;
+          background: #ffffff;
+          height: 100vh;
+          overflow: hidden;
         }
-        .register-bg::before {
-          content: ''; position: fixed; inset: 0;
-          background-image: radial-gradient(rgba(18,59,120,0.1) 1px, transparent 1px);
-          background-size: 28px 28px; pointer-events: none; z-index: 0;
+        .register-shell {
+          display: grid;
+          grid-template-columns: 1.05fr 0.95fr;
+          gap: 0;
+          height: 100vh;
+          min-height: 0;
         }
-        .register-bg > * { position: relative; z-index: 1; }
+        .register-left {
+          background: transparent;
+          border-radius: 0;
+          border: none;
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+          overflow: hidden;
+        }
+        .register-scroll {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .register-scroll::-webkit-scrollbar {
+          width: 0;
+          height: 0;
+          display: none;
+        }
+        .register-right {
+          border-radius: 24px;
+          background: linear-gradient(145deg,#1e40af,#1e3a8a);
+          color: #ffffff;
+          padding: 76px 68px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          min-width: 0;
+          margin: 16px;
+        }
+        .register-right-kicker {
+          margin: 0 0 14px;
+          font-size: 12px;
+          font-weight: 700;
+          opacity: 0.9;
+          letter-spacing: .08em;
+          text-transform: uppercase;
+        }
+        .register-right-title {
+          margin: 0;
+          font-size: 40px;
+          line-height: 1.15;
+          max-width: 520px;
+          letter-spacing: -0.02em;
+        }
+        .register-right-subtitle {
+          margin: 12px 0 28px;
+          color: rgba(255,255,255,.82);
+          font-size: 15px;
+        }
+        .register-right-image {
+          width: 84%;
+          max-height: 430px;
+          border-radius: 16px;
+          border: none;
+          box-shadow: none;
+          object-fit: contain;
+          align-self: center;
+          margin-top: 10px;
+        }
+        .register-logos-wrap {
+          margin-top: 56px;
+          width: 100%;
+          overflow: hidden;
+          mask-image: linear-gradient(to right, transparent, black 12%, black 88%, transparent);
+          -webkit-mask-image: linear-gradient(to right, transparent, black 12%, black 88%, transparent);
+        }
+        .register-logos-track {
+          display: flex;
+          align-items: center;
+          gap: 28px;
+          width: max-content;
+          animation: logosMarquee 20s linear infinite;
+        }
+        .register-logo-item {
+          flex: 0 0 auto;
+          min-width: 120px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          opacity: .92;
+        }
+        .register-logo-item img {
+          max-height: 24px;
+          max-width: 115px;
+          width: auto;
+          height: auto;
+          object-fit: contain;
+        }
+        @keyframes logosMarquee {
+          from { transform: translateX(0); }
+          to { transform: translateX(-50%); }
+        }
         .register-panel {
-          border: 1px solid ${NAVY_BORDER};
-          box-shadow: 0 18px 45px rgba(10, 45, 98, 0.12);
+          border: none;
+          box-shadow: none;
+          background: transparent !important;
+          padding: 0 !important;
         }
         @keyframes slideUp {
           from { opacity: 0; transform: translateY(24px); }
@@ -2006,12 +2501,47 @@ const Register = () => {
           box-shadow: 0 0 0 3px rgba(18,59,120,0.15) !important;
         }
         .ant-form-item-label > label { font-size: 13px; font-weight: 500; color: #475569; }
+        @media (max-width: 1080px) {
+          .register-shell {
+            grid-template-columns: 1fr;
+            height: auto;
+            min-height: 100vh;
+          }
+          .register-right { display: none; }
+          .register-left {
+            overflow: visible;
+          }
+          .register-bg {
+            height: auto;
+            min-height: 100vh;
+            overflow: auto;
+          }
+        }
+        @media (max-width: 768px) {
+          .register-shell {
+            gap: 0;
+          }
+          .register-left {
+            padding: 0 2px;
+          }
+          .register-bg .text-4xl {
+            font-size: 2rem !important;
+            line-height: 1.2 !important;
+          }
+          .register-bg .text-5xl {
+            font-size: 2.2rem !important;
+            line-height: 1.2 !important;
+          }
+          .register-bg .register-panel {
+            width: 100%;
+          }
+          .register-bg [class*="max-w-"] {
+            max-width: 100% !important;
+          }
+        }
       `}</style>
     </div>
   );
 };
 
 export default Register;
-
-
-

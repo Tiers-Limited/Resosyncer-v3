@@ -14,7 +14,8 @@
 
   3. Security
     - All operations require authentication
-    - Files are private by default
+    - Documents are private by default
+    - Signed URLs are used for temporary sharing (valid for 7 days)
     - Proper access control through RLS-like policies
 */
 

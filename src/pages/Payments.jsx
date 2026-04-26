@@ -1,55 +1,84 @@
-﻿import { useState, useEffect, useCallback } from "react";
-import { Button, message, Select, Input, Drawer, Modal } from "antd";
-const { TextArea } = Input;
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  PlusOutlined,
-  SearchOutlined,
-  DeleteOutlined,
-  InboxOutlined,
-  ArrowUpOutlined,
+  Button,
+  DatePicker,
+  Drawer,
+  Input,
+  message,
+  Modal,
+  Select,
+  Tag,
+  Upload,
+} from "antd";
+import {
   CheckCircleFilled,
+  ClockCircleFilled,
   CloseCircleFilled,
-  DollarOutlined,
+  DeleteOutlined,
+  DownloadOutlined,
   EditOutlined,
+  InboxOutlined,
+  PlusOutlined,
   ReloadOutlined,
+  RiseOutlined,
+  UploadOutlined,
 } from "@ant-design/icons";
-import { supabase } from "../lib/supabase";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  LabelList,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import dayjs from "dayjs";
+import { supabase } from "../lib/supabase";
 
-// ---------------- Status config --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-const STATUS = {
-  paid: {
-    label: "Paid",
-    color: "#059669",
-    darkColor: "#34d399",
-    bg: "#ecfdf5",
-    darkBg: "#052e16",
-    border: "#a7f3d0",
-    darkBorder: "#065f46",
-    icon: <CheckCircleFilled style={{ fontSize: 11 }} />,
-  },
-  not_paid: {
-    label: "Not Paid",
-    color: "#e11d48",
-    darkColor: "#fb7185",
-    bg: "#fff1f2",
-    darkBg: "#4c0519",
-    border: "#fecdd3",
-    darkBorder: "#9f1239",
-    icon: <CloseCircleFilled style={{ fontSize: 11 }} />,
-  },
-};
+const { TextArea } = Input;
 
-const fmt = (n, currency = "USD") => {
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-    }).format(n);
-  } catch {
-    return `${currency} ${parseFloat(n).toFixed(2)}`;
-  }
+const INVOICE_STATUSES = ["paid", "pending", "overdue"];
+const PAYMENT_METHODS = [
+  "bank_transfer",
+  "cash",
+  "card",
+  "paypal",
+  "wise",
+  "crypto",
+  "other",
+];
+const EXPENSE_CATEGORIES = ["salaries", "tools", "marketing", "ops", "other"];
+const PAYOUT_STATUSES = ["scheduled", "paid", "cancelled"];
+const CHART_COLORS = ["#0c66e4", "#22a06b", "#f97316", "#ef4444", "#7c3aed"];
+const BRAND_COLOR = "#3453b7";
+const FX_USD = {
+  USD: 1,
+  EUR: 1.08,
+  GBP: 1.27,
+  PKR: 0.0036,
+  INR: 0.012,
+  AED: 0.272,
+  SAR: 0.267,
+  CAD: 0.74,
+  AUD: 0.66,
+  CNY: 0.138,
+  UAH: 0.025,
+  TRY: 0.031,
 };
+const SECTION_TABS = [
+  { key: "overview", label: "Overview" },
+  { key: "analytics", label: "Analytics" },
+  { key: "invoices", label: "Invoices" },
+  { key: "operations", label: "Operations" },
+  { key: "projects", label: "Project Intelligence" },
+];
 
 const getIsDarkTheme = () => {
   const mode = localStorage.getItem("themeMode") || "light";
@@ -57,150 +86,391 @@ const getIsDarkTheme = () => {
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 };
+const getIsMobileView = () =>
+  typeof window !== "undefined" ? window.innerWidth < 768 : false;
 
-// ---------------- All world currencies ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-const CURRENCIES = [
-  { code: "USD", name: "US Dollar", symbol: "$" },
-  { code: "EUR", name: "Euro", symbol: "-------" },
-  { code: "GBP", name: "British Pound", symbol: "----" },
-  { code: "JPY", name: "Japanese Yen", symbol: "----" },
-  { code: "AUD", name: "Australian Dollar", symbol: "A$" },
-  { code: "CAD", name: "Canadian Dollar", symbol: "C$" },
-  { code: "CHF", name: "Swiss Franc", symbol: "Fr" },
-  { code: "CNY", name: "Chinese Yuan", symbol: "----" },
-  { code: "SEK", name: "Swedish Krona", symbol: "kr" },
-  { code: "NZD", name: "New Zealand Dollar", symbol: "NZ$" },
-  { code: "MXN", name: "Mexican Peso", symbol: "$" },
-  { code: "SGD", name: "Singapore Dollar", symbol: "S$" },
-  { code: "HKD", name: "Hong Kong Dollar", symbol: "HK$" },
-  { code: "NOK", name: "Norwegian Krone", symbol: "kr" },
-  { code: "KRW", name: "South Korean Won", symbol: "-------" },
-  { code: "TRY", name: "Turkish Lira", symbol: "-------" },
-  { code: "INR", name: "Indian Rupee", symbol: "-------" },
-  { code: "RUB", name: "Russian Ruble", symbol: "-------" },
-  { code: "BRL", name: "Brazilian Real", symbol: "R$" },
-  { code: "ZAR", name: "South African Rand", symbol: "R" },
-  { code: "DKK", name: "Danish Krone", symbol: "kr" },
-  { code: "PLN", name: "Polish Z-----oty", symbol: "z-----" },
-  { code: "TWD", name: "Taiwan Dollar", symbol: "NT$" },
-  { code: "THB", name: "Thai Baht", symbol: "------" },
-  { code: "IDR", name: "Indonesian Rupiah", symbol: "Rp" },
-  { code: "HUF", name: "Hungarian Forint", symbol: "Ft" },
-  { code: "CZK", name: "Czech Koruna", symbol: "K----" },
-  { code: "ILS", name: "Israeli Shekel", symbol: "-------" },
-  { code: "CLP", name: "Chilean Peso", symbol: "$" },
-  { code: "PHP", name: "Philippine Peso", symbol: "-------" },
-  { code: "AED", name: "UAE Dirham", symbol: "----.----" },
-  { code: "COP", name: "Colombian Peso", symbol: "$" },
-  { code: "SAR", name: "Saudi Riyal", symbol: "------" },
-  { code: "MYR", name: "Malaysian Ringgit", symbol: "RM" },
-  { code: "RON", name: "Romanian Leu", symbol: "lei" },
-  { code: "ARS", name: "Argentine Peso", symbol: "$" },
-  { code: "VND", name: "Vietnamese Dong", symbol: "-------" },
-  { code: "EGP", name: "Egyptian Pound", symbol: "----" },
-  { code: "NGN", name: "Nigerian Naira", symbol: "-------" },
-  { code: "UAH", name: "Ukrainian Hryvnia", symbol: "-------" },
-  { code: "KWD", name: "Kuwaiti Dinar", symbol: "KD" },
-  { code: "QAR", name: "Qatari Riyal", symbol: "QR" },
-  { code: "BGN", name: "Bulgarian Lev", symbol: "--------" },
-  { code: "HRK", name: "Croatian Kuna", symbol: "kn" },
-  { code: "ISK", name: "Icelandic Kr----na", symbol: "kr" },
-  { code: "PKR", name: "Pakistani Rupee", symbol: "-------" },
-  { code: "BDT", name: "Bangladeshi Taka", symbol: "------" },
-  { code: "LKR", name: "Sri Lankan Rupee", symbol: "-------" },
-  { code: "MAD", name: "Moroccan Dirham", symbol: "MAD" },
-  { code: "KES", name: "Kenyan Shilling", symbol: "KSh" },
-  { code: "GHS", name: "Ghanaian Cedi", symbol: "-------" },
-  { code: "TZS", name: "Tanzanian Shilling", symbol: "TSh" },
-  { code: "UGX", name: "Ugandan Shilling", symbol: "USh" },
-  { code: "ETB", name: "Ethiopian Birr", symbol: "Br" },
-  { code: "DZD", name: "Algerian Dinar", symbol: "DA" },
-  { code: "TND", name: "Tunisian Dinar", symbol: "DT" },
-  { code: "LYD", name: "Libyan Dinar", symbol: "LD" },
-  { code: "SDG", name: "Sudanese Pound", symbol: "SD" },
-  { code: "MZN", name: "Mozambican Metical", symbol: "MT" },
-  { code: "ZMW", name: "Zambian Kwacha", symbol: "ZK" },
-  { code: "RWF", name: "Rwandan Franc", symbol: "RF" },
-  { code: "XOF", name: "West African CFA Franc", symbol: "CFA" },
-  { code: "XAF", name: "Central African CFA Franc", symbol: "CFA" },
-  { code: "JOD", name: "Jordanian Dinar", symbol: "JD" },
-  { code: "LBP", name: "Lebanese Pound", symbol: "L----" },
-  { code: "IQD", name: "Iraqi Dinar", symbol: "ID" },
-  { code: "IRR", name: "Iranian Rial", symbol: "------" },
-  { code: "OMR", name: "Omani Rial", symbol: "OR" },
-  { code: "BHD", name: "Bahraini Dinar", symbol: "BD" },
-  { code: "YER", name: "Yemeni Rial", symbol: "------" },
-  { code: "AFN", name: "Afghan Afghani", symbol: "-----" },
-  { code: "UZS", name: "Uzbekistani Som", symbol: "so'm" },
-  { code: "KZT", name: "Kazakhstani Tenge", symbol: "-------" },
-  { code: "GEL", name: "Georgian Lari", symbol: "-------" },
-  { code: "AMD", name: "Armenian Dram", symbol: "----" },
-  { code: "AZN", name: "Azerbaijani Manat", symbol: "-------" },
-  { code: "BYN", name: "Belarusian Ruble", symbol: "Br" },
-  { code: "MDL", name: "Moldovan Leu", symbol: "L" },
-  { code: "MKD", name: "Macedonian Denar", symbol: "den" },
-  { code: "ALL", name: "Albanian Lek", symbol: "L" },
-  { code: "BAM", name: "Bosnia Mark", symbol: "KM" },
-  { code: "RSD", name: "Serbian Dinar", symbol: "din" },
-  { code: "MNT", name: "Mongolian T----gr----g", symbol: "-------" },
-  { code: "KHR", name: "Cambodian Riel", symbol: "-------" },
-  { code: "LAK", name: "Lao Kip", symbol: "-------" },
-  { code: "MMK", name: "Myanmar Kyat", symbol: "K" },
-  { code: "NPR", name: "Nepalese Rupee", symbol: "-------" },
-  { code: "BTN", name: "Bhutanese Ngultrum", symbol: "Nu" },
-  { code: "MVR", name: "Maldivian Rufiyaa", symbol: "Rf" },
-  { code: "PGK", name: "Papua New Guinean Kina", symbol: "K" },
-  { code: "FJD", name: "Fijian Dollar", symbol: "FJ$" },
-  { code: "SBD", name: "Solomon Islands Dollar", symbol: "SI$" },
-  { code: "VUV", name: "Vanuatu Vatu", symbol: "VT" },
-  { code: "WST", name: "Samoan T----l----", symbol: "T" },
-  { code: "TOP", name: "Tongan Pa----anga", symbol: "T$" },
-  { code: "PEN", name: "Peruvian Sol", symbol: "S/." },
-  { code: "BOB", name: "Bolivian Boliviano", symbol: "Bs." },
-  { code: "PYG", name: "Paraguayan Guaran----", symbol: "-------" },
-  { code: "UYU", name: "Uruguayan Peso", symbol: "$U" },
-  { code: "VES", name: "Venezuelan Bol----var", symbol: "Bs.S" },
-  { code: "GYD", name: "Guyanese Dollar", symbol: "G$" },
-  { code: "SRD", name: "Surinamese Dollar", symbol: "Sr$" },
-  { code: "TTD", name: "Trinidad Dollar", symbol: "TT$" },
-  { code: "JMD", name: "Jamaican Dollar", symbol: "J$" },
-  { code: "BBD", name: "Barbadian Dollar", symbol: "Bds$" },
-  { code: "BSD", name: "Bahamian Dollar", symbol: "B$" },
-  { code: "HTG", name: "Haitian Gourde", symbol: "G" },
-  { code: "CUP", name: "Cuban Peso", symbol: "$MN" },
-  { code: "DOP", name: "Dominican Peso", symbol: "RD$" },
-  { code: "GTQ", name: "Guatemalan Quetzal", symbol: "Q" },
-  { code: "HNL", name: "Honduran Lempira", symbol: "L" },
-  { code: "NIO", name: "Nicaraguan C----rdoba", symbol: "C$" },
-  { code: "CRC", name: "Costa Rican Col----n", symbol: "-------" },
-  { code: "PAB", name: "Panamanian Balboa", symbol: "B/." },
-  { code: "AWG", name: "Aruban Florin", symbol: "-----" },
-  { code: "ANG", name: "Netherlands Antillean Guilder", symbol: "-----" },
-  { code: "XCD", name: "East Caribbean Dollar", symbol: "EC$" },
-  { code: "BMD", name: "Bermudian Dollar", symbol: "$" },
-  { code: "KYD", name: "Cayman Islands Dollar", symbol: "CI$" },
-];
+const toNumber = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
 
-// ---------------- Component ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-const Payments = () => {
+const fmtMoney = (value, currency = "USD") => {
+  const amount = toNumber(value);
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${currency} ${amount.toFixed(2)}`;
+  }
+};
+
+const normalizeInvoiceStatus = (status) => {
+  if (status === "not_paid") return "pending";
+  return INVOICE_STATUSES.includes(status) ? status : "pending";
+};
+
+const monthKey = (date) => dayjs(date).format("YYYY-MM");
+const monthLabel = (k) => dayjs(`${k}-01`).format("MMM YYYY");
+const isInMonth = (date, targetMonthKey) =>
+  Boolean(date) && monthKey(date) === targetMonthKey;
+const humanizeLabel = (value) =>
+  String(value || "-")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
+const safeMilestoneSum = (milestonePlan) => {
+  const list = Array.isArray(milestonePlan) ? milestonePlan : [];
+  return list.reduce((sum, item) => sum + toNumber(item?.amount), 0);
+};
+
+const deriveProjectRevenue = (project) => {
+  const total = toNumber(project?.project_total_amount);
+  if (total > 0) return total;
+
+  const fixed = toNumber(project?.fixed_price);
+  const hourly = toNumber(project?.hourly_rate) * toNumber(project?.estimated_units);
+  const milestone = safeMilestoneSum(project?.milestone_plan);
+
+  let base = fixed;
+  if (project?.budget_model === "hourly") base = hourly;
+  if (project?.budget_model === "milestone_based") base = milestone || fixed;
+
+  if (project?.billing_type === "recurring") {
+    const cycles = Math.max(1, toNumber(project?.recurring_cycles));
+    return base * cycles;
+  }
+  return base;
+};
+
+const deriveEmployeeCost = (profile) => {
+  const salaryAmount = toNumber(profile?.salary_amount);
+  const baseSalary = toNumber(profile?.base_salary);
+  if (salaryAmount > 0) return salaryAmount;
+  if (baseSalary > 0) return baseSalary;
+  return 0;
+};
+
+const deriveEmployeeMonthlyDeduction = (profile) => {
+  const items = Array.isArray(profile?.tax_deduction_items)
+    ? profile.tax_deduction_items
+    : [];
+  if (items.length > 0) {
+    return items.reduce((sum, item) => sum + toNumber(item?.amount), 0);
+  }
+  return toNumber(profile?.tax_deductions);
+};
+
+const deriveEmployeeNetMonthly = (profile) => {
+  const gross = deriveEmployeeCost(profile);
+  const deduction = deriveEmployeeMonthlyDeduction(profile);
+  return Math.max(0, gross - deduction);
+};
+
+const convertAmount = (
+  amount,
+  fromCurrency = "USD",
+  toCurrency = "USD",
+  rates = FX_USD,
+) => {
+  const from = String(fromCurrency || "USD").toUpperCase();
+  const to = String(toCurrency || "USD").toUpperCase();
+  if (from === to) return toNumber(amount);
+  const fromRate = rates[from];
+  const toRate = rates[to];
+  if (!fromRate || !toRate) return toNumber(amount);
+  const usdValue = toNumber(amount) / fromRate;
+  return usdValue * toRate;
+};
+
+const estimateProjectMonths = (project) => {
+  const start = project?.start_date ? dayjs(project.start_date) : null;
+  const end = project?.end_date ? dayjs(project.end_date) : null;
+
+  if (start && end && end.isAfter(start)) {
+    const days = end.diff(start, "day") + 1;
+    return Math.max(1, days / 30);
+  }
+
+  if (end) {
+    const daysToDeadline = Math.max(1, end.diff(dayjs(), "day"));
+    return Math.max(1, daysToDeadline / 30);
+  }
+
+  return 1;
+};
+
+const loadImageAsDataUrl = async (url) => {
+  if (!url) return null;
+  const res = await fetch(url);
+  const blob = await res.blob();
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result || ""));
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+
+const makeLastMonthKeys = (count = 6) => {
+  const now = dayjs().startOf("month");
+  return Array.from({ length: count }).map((_, index) =>
+    now.subtract(count - index - 1, "month").format("YYYY-MM"),
+  );
+};
+
+const queryMaybeTenantScoped = async ({
+  table,
+  select,
+  tenantId,
+  orderBy,
+  ascending = false,
+  extraEq = [],
+}) => {
+  let query = supabase.from(table).select(select);
+  if (tenantId) query = query.eq("tenant_id", tenantId);
+  extraEq.forEach(([k, v]) => {
+    query = query.eq(k, v);
+  });
+  if (orderBy) query = query.order(orderBy, { ascending });
+
+  let result = await query;
+
+  if (
+    result.error &&
+    tenantId &&
+    String(result.error.message || "").toLowerCase().includes("tenant_id")
+  ) {
+    let fallback = supabase.from(table).select(select);
+    extraEq.forEach(([k, v]) => {
+      fallback = fallback.eq(k, v);
+    });
+    if (orderBy) fallback = fallback.order(orderBy, { ascending });
+    result = await fallback;
+  }
+
+  return result;
+};
+
+const StatusTag = ({ status, dark }) => {
+  const map = {
+    paid: {
+      label: "Paid",
+      fg: dark ? "#86efac" : "#047857",
+      bg: dark ? "#052e16" : "#ecfdf5",
+      border: dark ? "#166534" : "#a7f3d0",
+      icon: <CheckCircleFilled />,
+    },
+    pending: {
+      label: "Pending",
+      fg: dark ? "#93c5fd" : "#1d4ed8",
+      bg: dark ? "#172554" : "#eff6ff",
+      border: dark ? "#1e40af" : "#bfdbfe",
+      icon: <ClockCircleFilled />,
+    },
+    overdue: {
+      label: "Overdue",
+      fg: dark ? "#fca5a5" : "#b91c1c",
+      bg: dark ? "#450a0a" : "#fff1f2",
+      border: dark ? "#991b1b" : "#fecdd3",
+      icon: <CloseCircleFilled />,
+    },
+  };
+  const s = map[normalizeInvoiceStatus(status)] || map.pending;
+
+  return (
+    <Tag
+      style={{
+        margin: 0,
+        borderRadius: 99,
+        border: `1px solid ${s.border}`,
+        background: s.bg,
+        color: s.fg,
+        fontSize: 11,
+        fontWeight: 700,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+      }}
+    >
+      {s.icon} {s.label}
+    </Tag>
+  );
+};
+
+const ChartTooltip = ({ active, payload, label, dark }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div
+      style={{
+        background: dark ? "rgba(20,20,24,0.95)" : "rgba(255,255,255,0.97)",
+        border: `1px solid ${dark ? "#34343d" : "#dbe3ef"}`,
+        borderRadius: 10,
+        padding: "8px 10px",
+        minWidth: 120,
+        boxShadow: dark
+          ? "0 10px 24px rgba(0,0,0,0.35)"
+          : "0 10px 24px rgba(15,23,42,0.12)",
+      }}
+    >
+      {label !== undefined && (
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: dark ? "#cbd5e1" : "#334155",
+            marginBottom: 6,
+          }}
+        >
+          {label}
+        </div>
+      )}
+      {payload.map((item) => (
+        <div
+          key={`${item.dataKey}`}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            marginBottom: 2,
+          }}
+        >
+          <span style={{ fontSize: 11, color: item.color, fontWeight: 600 }}>
+            {item.name || item.dataKey}
+          </span>
+          <span style={{ fontSize: 11, color: dark ? "#f1f5f9" : "#0f172a", fontWeight: 700 }}>
+            {typeof item.value === "number" ? fmtMoney(item.value) : item.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const StatCard = ({ title, value, sub, dark }) => (
+  <div
+    style={{
+      background: dark ? "#17181c" : "#ffffff",
+      border: `1px solid ${dark ? "#2a2a31" : "#e2e8f0"}`,
+      borderRadius: 14,
+      padding: "16px 18px",
+    }}
+  >
+    <div
+      style={{
+        fontSize: 11,
+        fontWeight: 700,
+        color: dark ? "#94a3b8" : "#64748b",
+        textTransform: "uppercase",
+        letterSpacing: "0.08em",
+      }}
+    >
+      {title}
+    </div>
+    <div
+      style={{
+        marginTop: 6,
+        fontSize: 24,
+        fontWeight: 800,
+        color: dark ? "#f1f5f9" : "#0f172a",
+      }}
+    >
+      {value}
+    </div>
+    <div style={{ marginTop: 4, fontSize: 12, color: dark ? "#94a3b8" : "#64748b" }}>
+      {sub}
+    </div>
+  </div>
+);
+
+const ChartCard = ({ title, subtitle, children, dark }) => (
+  <div
+    style={{
+      background: dark
+        ? "linear-gradient(180deg,#111318 0%, #0f1117 100%)"
+        : "linear-gradient(180deg,#ffffff 0%, #f9fbff 100%)",
+      border: `1px solid ${dark ? "#232734" : "#dde6f5"}`,
+      borderRadius: 18,
+      padding: "16px 18px",
+      minHeight: 300,
+      boxShadow: dark
+        ? "0 16px 34px rgba(0,0,0,0.34)"
+        : "0 14px 34px rgba(15,23,42,0.08)",
+    }}
+  >
+    <div style={{ fontSize: 16, fontWeight: 800, color: dark ? "#f8fafc" : "#0f172a", marginBottom: 2 }}>
+      {title}
+    </div>
+    {subtitle && (
+      <div style={{ fontSize: 12, color: dark ? "#7f8ea8" : "#64748b", marginBottom: 10 }}>{subtitle}</div>
+    )}
+    <div style={{ width: "100%", height: 250 }}>{children}</div>
+  </div>
+);
+
+export default function Payments() {
   const [dark, setDark] = useState(getIsDarkTheme);
+  const [isMobile, setIsMobile] = useState(getIsMobileView);
+  const [activeSection, setActiveSection] = useState("overview");
   const [tenantId, setTenantId] = useState(null);
-  const [payments, setPayments] = useState([]);
-  const [filtered, setFiltered] = useState([]);
+  const [fxRates, setFxRates] = useState(FX_USD);
+  const [fxMeta, setFxMeta] = useState({ source: "fallback", asOf: null });
+  const [orgBrand, setOrgBrand] = useState({
+    name: "Organization",
+    logoUrl: "",
+  });
   const [loading, setLoading] = useState(true);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editingPayment, setEditingPayment] = useState(null);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState([]);
-  const [showArchived, setShowArchived] = useState(false);
-  const [savingId, setSavingId] = useState(null);
 
-  const [form, setForm] = useState({
+  const [invoices, setInvoices] = useState([]);
+  const [expenses, setExpenses] = useState([]);
+  const [payouts, setPayouts] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [projectAssignees, setProjectAssignees] = useState([]);
+
+  const [invoiceSearch, setInvoiceSearch] = useState("");
+  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState([]);
+  const [selectedMonth, setSelectedMonth] = useState(dayjs().startOf("month"));
+
+  const [invoiceDrawerOpen, setInvoiceDrawerOpen] = useState(false);
+  const [expenseDrawerOpen, setExpenseDrawerOpen] = useState(false);
+  const [payoutDrawerOpen, setPayoutDrawerOpen] = useState(false);
+
+  const [editingInvoice, setEditingInvoice] = useState(null);
+  const [editingExpense, setEditingExpense] = useState(null);
+  const [editingPayout, setEditingPayout] = useState(null);
+
+  const [invoiceForm, setInvoiceForm] = useState({
     client_name: "",
     amount: "",
-    status: "not_paid",
-    remarks: "",
     currency: "USD",
+    status: "pending",
+    payment_method: "bank_transfer",
+    due_date: null,
+    paid_date: null,
+    project_id: null,
+    remarks: "",
+  });
+  const [invoiceProofFile, setInvoiceProofFile] = useState(null);
+
+  const [expenseForm, setExpenseForm] = useState({
+    title: "",
+    amount: "",
+    category: "tools",
+    spent_at: dayjs().format("YYYY-MM-DD"),
+    project_id: null,
+    notes: "",
+  });
+
+  const [payoutForm, setPayoutForm] = useState({
+    payee_name: "",
+    amount: "",
+    payout_date: dayjs().format("YYYY-MM-DD"),
+    status: "scheduled",
+    payment_method: "bank_transfer",
+    notes: "",
   });
 
   useEffect(() => {
@@ -215,815 +485,1430 @@ const Payments = () => {
   }, []);
 
   useEffect(() => {
+    const onResize = () => setIsMobile(getIsMobileView());
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
     const init = async () => {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) return;
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("tenant_id")
-          .eq("id", user.id)
-          .single();
-        setTenantId(profile?.tenant_id ?? null);
-      } catch (e) {
-        console.error(e);
-      }
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      setTenantId(profile?.tenant_id || null);
+      setOrgBrand({
+        name:
+          profile?.company_name ||
+          profile?.full_name ||
+          "Organization",
+        logoUrl:
+          profile?.company_logo_url ||
+          profile?.logo_url ||
+          profile?.user_photo ||
+          "",
+      });
     };
     init();
   }, []);
 
-  useEffect(() => {
-    if (tenantId) fetchPayments();
-  }, [tenantId, showArchived]);
-
-  useEffect(() => {
-    let result = [...payments];
-    if (search) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (p) =>
-          p.client_name?.toLowerCase().includes(q) ||
-          p.remarks?.toLowerCase().includes(q),
-      );
-    }
-    if (statusFilter.length) {
-      result = result.filter((p) => statusFilter.includes(p.status));
-    }
-    setFiltered(result);
-  }, [payments, search, statusFilter]);
-
-  const fetchPayments = async () => {
+  const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("payments")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .eq("is_archived", showArchived)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      setPayments(data || []);
-    } catch {
-      message.error("Failed to fetch payments");
+      const [invoiceRes, expenseRes, payoutRes, projectRes, assigneeRes] = await Promise.all([
+        queryMaybeTenantScoped({
+          table: "payments",
+          select: "*",
+          tenantId,
+          orderBy: "created_at",
+          ascending: false,
+        }),
+        queryMaybeTenantScoped({
+          table: "finance_expenses",
+          select: "*",
+          tenantId,
+          orderBy: "spent_at",
+          ascending: false,
+        }),
+        queryMaybeTenantScoped({
+          table: "finance_manual_payouts",
+          select: "*",
+          tenantId,
+          orderBy: "payout_date",
+          ascending: false,
+        }),
+        queryMaybeTenantScoped({
+          table: "projects",
+          select:
+            "id,name,client_name,start_date,end_date,currency,budget_model,billing_type,fixed_price,hourly_rate,estimated_units,recurring_cycles,milestone_plan,project_total_amount,project_manager_id,is_archived",
+          tenantId,
+          orderBy: "created_at",
+          ascending: false,
+          extraEq: [["is_archived", false]],
+        }),
+        queryMaybeTenantScoped({
+          table: "project_assignees",
+          select:
+            "project_id,employee_id,profiles:employee_id(id,full_name,salary_type,salary_amount,base_salary,currency,tax_deductions,tax_deduction_items)",
+          tenantId,
+        }),
+      ]);
+
+      if (invoiceRes.error) throw invoiceRes.error;
+      if (
+        expenseRes.error &&
+        !String(expenseRes.error.message || "").toLowerCase().includes("relation")
+      ) {
+        throw expenseRes.error;
+      }
+      if (
+        payoutRes.error &&
+        !String(payoutRes.error.message || "").toLowerCase().includes("relation")
+      ) {
+        throw payoutRes.error;
+      }
+      if (projectRes.error) throw projectRes.error;
+      if (assigneeRes.error) throw assigneeRes.error;
+
+      setInvoices(
+        (invoiceRes.data || []).map((row) => ({
+          ...row,
+          status: normalizeInvoiceStatus(row.status),
+        })),
+      );
+      setExpenses(expenseRes.data || []);
+      setPayouts(payoutRes.data || []);
+      setProjects(projectRes.data || []);
+      setProjectAssignees(assigneeRes.data || []);
+    } catch (error) {
+      console.error(error);
+      message.error("Failed to load finance data");
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantId]);
 
-  const handleSubmit = async () => {
-    if (!form.client_name || !form.amount) {
-      message.error("Client name and amount are required");
+  useEffect(() => {
+    if (tenantId !== undefined) {
+      fetchAll();
+    }
+  }, [tenantId, fetchAll]);
+
+  useEffect(() => {
+    const codes = new Set(["USD"]);
+    projects.forEach((p) => {
+      if (p?.currency) codes.add(String(p.currency).toUpperCase());
+    });
+    projectAssignees.forEach((row) => {
+      if (row?.profiles?.currency) {
+        codes.add(String(row.profiles.currency).toUpperCase());
+      }
+    });
+    invoices.forEach((inv) => {
+      if (inv?.currency) codes.add(String(inv.currency).toUpperCase());
+    });
+
+    const quotes = Array.from(codes).filter((c) => c !== "USD");
+    if (quotes.length === 0) {
+      setFxRates(FX_USD);
+      setFxMeta({ source: "fallback", asOf: null });
       return;
     }
+
+    let cancelled = false;
+    const loadFx = async () => {
+      try {
+        const url = `https://api.frankfurter.dev/v2/rates?base=USD&quotes=${quotes.join(",")}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`FX API failed with ${res.status}`);
+        const payload = await res.json();
+        const nextRates = { USD: 1 };
+
+        if (Array.isArray(payload)) {
+          payload.forEach((row) => {
+            if (row?.quote && row?.rate) {
+              nextRates[String(row.quote).toUpperCase()] = toNumber(row.rate);
+            }
+          });
+        } else if (payload?.rates && typeof payload.rates === "object") {
+          Object.entries(payload.rates).forEach(([code, rate]) => {
+            nextRates[String(code).toUpperCase()] = toNumber(rate);
+          });
+        }
+
+        Object.entries(FX_USD).forEach(([code, rate]) => {
+          if (!nextRates[code]) nextRates[code] = rate;
+        });
+
+        if (!cancelled) {
+          setFxRates(nextRates);
+          setFxMeta({
+            source: "frankfurter",
+            asOf: payload?.[0]?.date || payload?.date || dayjs().format("YYYY-MM-DD"),
+          });
+        }
+      } catch (error) {
+        console.error("FX fetch failed, using fallback rates:", error);
+        if (!cancelled) {
+          setFxRates(FX_USD);
+          setFxMeta({ source: "fallback", asOf: null });
+        }
+      }
+    };
+    loadFx();
+    return () => {
+      cancelled = true;
+    };
+  }, [projects, projectAssignees, invoices]);
+
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter((row) => {
+      const status = normalizeInvoiceStatus(row.status);
+      const q = invoiceSearch.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        String(row.client_name || "").toLowerCase().includes(q) ||
+        String(row.remarks || "").toLowerCase().includes(q) ||
+        String(row.payment_method || "").toLowerCase().includes(q);
+      const matchesStatus =
+        !invoiceStatusFilter.length || invoiceStatusFilter.includes(status);
+      return matchesSearch && matchesStatus;
+    });
+  }, [invoices, invoiceSearch, invoiceStatusFilter]);
+
+  const selectedMonthKey = useMemo(
+    () => selectedMonth.format("YYYY-MM"),
+    [selectedMonth],
+  );
+
+  const monthlySnapshot = useMemo(() => {
+    const revenue = invoices.reduce((sum, inv) => {
+      const invoiceDate = inv.created_at || inv.updated_at;
+      if (!isInMonth(invoiceDate, selectedMonthKey)) return sum;
+      const invoiceAmountUsd = convertAmount(
+        toNumber(inv.amount),
+        inv.currency || "USD",
+        "USD",
+        fxRates,
+      );
+      return sum + invoiceAmountUsd;
+    }, 0);
+
+    const totalExpensesOnly = expenses.reduce((sum, exp) => {
+      const expenseDate = exp.spent_at || exp.created_at;
+      if (!isInMonth(expenseDate, selectedMonthKey)) return sum;
+      return sum + toNumber(exp.amount);
+    }, 0);
+
+    const totalPayouts = payouts.reduce((sum, payout) => {
+      if (payout.status === "cancelled") return sum;
+      const payoutDate = payout.payout_date || payout.created_at;
+      if (!isInMonth(payoutDate, selectedMonthKey)) return sum;
+      return sum + toNumber(payout.amount);
+    }, 0);
+
+    const pendingInvoices = invoices.filter((inv) => {
+      const invoiceDate = inv.created_at || inv.updated_at;
+      return (
+        isInMonth(invoiceDate, selectedMonthKey) &&
+        normalizeInvoiceStatus(inv.status) === "pending"
+      );
+    }).length;
+
+    return {
+      revenue,
+      expensesOnly: totalExpensesOnly,
+      payouts: totalPayouts,
+      totalExpenses: totalExpensesOnly + totalPayouts,
+      pendingInvoices,
+      net: revenue - totalExpensesOnly - totalPayouts,
+    };
+  }, [invoices, expenses, payouts, selectedMonthKey, fxRates]);
+
+  const cashFlowSeries = useMemo(() => {
+    const keys = makeLastMonthKeys(8);
+    const map = new Map(
+      keys.map((k) => [
+        k,
+        { key: k, month: monthLabel(k), income: 0, expenses: 0, payouts: 0, outflow: 0, net: 0 },
+      ]),
+    );
+
+    invoices.forEach((inv) => {
+      const d = inv.created_at || inv.updated_at;
+      if (!d) return;
+      const k = monthKey(d);
+      if (!map.has(k)) return;
+      map.get(k).income += convertAmount(
+        toNumber(inv.amount),
+        inv.currency || "USD",
+        "USD",
+        fxRates,
+      );
+    });
+
+    expenses.forEach((exp) => {
+      const d = exp.spent_at || exp.created_at;
+      if (!d) return;
+      const k = monthKey(d);
+      if (!map.has(k)) return;
+      map.get(k).expenses += toNumber(exp.amount);
+    });
+
+    payouts.forEach((p) => {
+      if (p.status === "cancelled") return;
+      const d = p.payout_date || p.created_at;
+      if (!d) return;
+      const k = monthKey(d);
+      if (!map.has(k)) return;
+      map.get(k).payouts += toNumber(p.amount);
+    });
+
+    return keys.map((k) => {
+      const row = map.get(k);
+      row.outflow = row.expenses + row.payouts;
+      row.net = row.income - row.expenses - row.payouts;
+      return row;
+    });
+  }, [invoices, expenses, payouts, fxRates]);
+
+  const invoiceStatusChart = useMemo(() => {
+    const counters = { paid: 0, pending: 0, overdue: 0 };
+    invoices.forEach((inv) => {
+      counters[normalizeInvoiceStatus(inv.status)] += 1;
+    });
+    return [
+      { name: "Paid", value: counters.paid },
+      { name: "Pending", value: counters.pending },
+      { name: "Overdue", value: counters.overdue },
+    ];
+  }, [invoices]);
+
+  const expenseBreakdownChart = useMemo(() => {
+    const map = new Map();
+    expenses.forEach((exp) => {
+      const key = exp.category || "other";
+      map.set(key, (map.get(key) || 0) + toNumber(exp.amount));
+    });
+    return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
+  }, [expenses]);
+
+  const revenueByClientChart = useMemo(() => {
+    const map = new Map();
+    invoices.forEach((inv) => {
+      const invoiceDate = inv.created_at || inv.updated_at;
+      if (!isInMonth(invoiceDate, selectedMonthKey)) return;
+      const key = inv.client_name || "Unknown";
+      const amountUsd = convertAmount(
+        toNumber(inv.amount),
+        inv.currency || "USD",
+        "USD",
+        fxRates,
+      );
+      map.set(key, (map.get(key) || 0) + amountUsd);
+    });
+    return Array.from(map.entries())
+      .map(([client, revenue], idx) => ({
+        rank: idx + 1,
+        client,
+        shortClient: client.length > 18 ? `${client.slice(0, 16)}..` : client,
+        revenue,
+      }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 8)
+      .map((item, idx) => ({ ...item, rank: idx + 1 }));
+  }, [invoices, selectedMonthKey, fxRates]);
+
+  const projectBreakdown = useMemo(() => {
+    const assigneesByProject = new Map();
+    projectAssignees.forEach((row) => {
+      const list = assigneesByProject.get(row.project_id) || [];
+      list.push(row.profiles);
+      assigneesByProject.set(row.project_id, list.filter(Boolean));
+    });
+
+    return projects.map((project) => {
+      const members = assigneesByProject.get(project.id) || [];
+      const months = estimateProjectMonths(project);
+      const estimatedLabor = members.reduce((sum, p) => {
+        const monthly = deriveEmployeeNetMonthly(p);
+        const monthlyInProjectCurrency = convertAmount(
+          monthly,
+          p?.currency || "USD",
+          project.currency || "USD",
+          fxRates,
+        );
+        return sum + monthlyInProjectCurrency * months;
+      }, 0);
+      const revenue = deriveProjectRevenue(project);
+      const margin = revenue - estimatedLabor;
+      return {
+        id: project.id,
+        name: project.name,
+        currency: project.currency || "USD",
+        membersCount: members.length,
+        durationMonths: months,
+        estimatedLabor,
+        revenue,
+        margin,
+      };
+    });
+  }, [projects, projectAssignees, fxRates]);
+
+  const trackedRevenue = monthlySnapshot.revenue;
+  const totalExpenses = monthlySnapshot.totalExpenses;
+  const pendingInvoicesCount = monthlySnapshot.pendingInvoices;
+
+  const upcomingPayouts = useMemo(() => {
+    const monthStart = selectedMonth.startOf("month");
+    const monthEnd = selectedMonth.endOf("month");
+    return payouts
+      .filter(
+        (p) =>
+          p.status === "scheduled" &&
+          p.payout_date &&
+          dayjs(p.payout_date).isAfter(monthStart.subtract(1, "day")) &&
+          dayjs(p.payout_date).isBefore(monthEnd.add(1, "day")),
+      )
+      .reduce((sum, row) => sum + toNumber(row.amount), 0);
+  }, [payouts, selectedMonth]);
+
+  const netProfit = monthlySnapshot.net;
+  const payoutsInSelectedMonth = useMemo(
+    () =>
+      payouts.filter((p) => {
+        const d = p.payout_date || p.created_at;
+        return isInMonth(d, selectedMonthKey);
+      }),
+    [payouts, selectedMonthKey],
+  );
+  const selectedInvoiceProject = useMemo(
+    () => projects.find((p) => p.id === invoiceForm.project_id) || null,
+    [projects, invoiceForm.project_id],
+  );
+  const computedInvoiceAmount = useMemo(() => {
+    if (!selectedInvoiceProject) return null;
+    return deriveProjectRevenue(selectedInvoiceProject);
+  }, [selectedInvoiceProject]);
+
+  const resetInvoiceForm = () => {
+    setInvoiceForm({
+      client_name: "",
+      amount: "",
+      currency: "USD",
+      status: "pending",
+      payment_method: "bank_transfer",
+      due_date: null,
+      paid_date: null,
+      project_id: null,
+      remarks: "",
+    });
+    setInvoiceProofFile(null);
+    setEditingInvoice(null);
+  };
+
+  const resetExpenseForm = () => {
+    setExpenseForm({
+      title: "",
+      amount: "",
+      category: "tools",
+      spent_at: dayjs().format("YYYY-MM-DD"),
+      project_id: null,
+      notes: "",
+    });
+    setEditingExpense(null);
+  };
+
+  const resetPayoutForm = () => {
+    setPayoutForm({
+      payee_name: "",
+      amount: "",
+      payout_date: dayjs().format("YYYY-MM-DD"),
+      status: "scheduled",
+      payment_method: "bank_transfer",
+      notes: "",
+    });
+    setEditingPayout(null);
+  };
+
+  const openCreatePayout = () => {
+    const now = dayjs();
+    const inCurrentMonth = selectedMonth.isSame(now, "month");
+    const presetDate = inCurrentMonth
+      ? now.format("YYYY-MM-DD")
+      : selectedMonth.startOf("month").format("YYYY-MM-DD");
+    setEditingPayout(null);
+    setPayoutForm({
+      payee_name: "",
+      amount: "",
+      payout_date: presetDate,
+      status: "scheduled",
+      payment_method: "bank_transfer",
+      notes: "",
+    });
+    setPayoutDrawerOpen(true);
+  };
+
+  const uploadInvoiceProof = async (invoiceId, file) => {
+    if (!file) return null;
+
+    const ext = file.name.includes(".") ? file.name.split(".").pop() : "bin";
+    const fileName = `${invoiceId}_${Date.now()}.${ext}`;
+    const path = `finance-proofs/${tenantId || "global"}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("attachments")
+      .upload(path, file, { upsert: false });
+
+    if (uploadError) throw uploadError;
+
+    const { data: pub } = supabase.storage.from("attachments").getPublicUrl(path);
+    return { proof_url: pub?.publicUrl || null, proof_path: path };
+  };
+
+  const saveInvoice = async () => {
+    const resolvedAmount = selectedInvoiceProject
+      ? toNumber(computedInvoiceAmount)
+      : toNumber(invoiceForm.amount);
+    if (!invoiceForm.client_name.trim() || resolvedAmount <= 0) {
+      message.error("Client name and valid amount are required");
+      return;
+    }
+
     try {
-      if (editingPayment) {
+      const payload = {
+        client_name: invoiceForm.client_name.trim(),
+        amount: resolvedAmount,
+        currency:
+          (selectedInvoiceProject?.currency || invoiceForm.currency || "USD"),
+        status: normalizeInvoiceStatus(invoiceForm.status),
+        payment_method: invoiceForm.payment_method,
+        due_date: invoiceForm.due_date || null,
+        paid_date: invoiceForm.paid_date || null,
+        project_id: invoiceForm.project_id || null,
+        remarks: invoiceForm.remarks || null,
+        tenant_id: tenantId || null,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (editingInvoice) {
         const { error } = await supabase
           .from("payments")
-          .update({ ...form, updated_at: new Date().toISOString() })
-          .eq("id", editingPayment.id);
+          .update(payload)
+          .eq("id", editingInvoice.id);
         if (error) throw error;
-        message.success("Payment updated");
+
+        if (invoiceProofFile) {
+          const proof = await uploadInvoiceProof(editingInvoice.id, invoiceProofFile);
+          if (proof) {
+            const { error: proofErr } = await supabase
+              .from("payments")
+              .update(proof)
+              .eq("id", editingInvoice.id);
+            if (proofErr) throw proofErr;
+          }
+        }
+
+        message.success("Invoice updated");
+      } else {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        const { data, error } = await supabase
+          .from("payments")
+          .insert([{ ...payload, created_by: user?.id || null }])
+          .select("id")
+          .single();
+
+        if (error) throw error;
+
+        if (invoiceProofFile && data?.id) {
+          const proof = await uploadInvoiceProof(data.id, invoiceProofFile);
+          if (proof) {
+            const { error: proofErr } = await supabase
+              .from("payments")
+              .update(proof)
+              .eq("id", data.id);
+            if (proofErr) throw proofErr;
+          }
+        }
+
+        message.success("Invoice created");
+      }
+
+      setInvoiceDrawerOpen(false);
+      resetInvoiceForm();
+      fetchAll();
+    } catch (error) {
+      console.error(error);
+      message.error("Failed to save invoice");
+    }
+  };
+
+  const saveExpense = async () => {
+    if (!expenseForm.title.trim() || !expenseForm.amount) {
+      message.error("Expense title and amount are required");
+      return;
+    }
+
+    const payload = {
+      title: expenseForm.title.trim(),
+      amount: toNumber(expenseForm.amount),
+      category: expenseForm.category,
+      spent_at: expenseForm.spent_at || dayjs().format("YYYY-MM-DD"),
+      project_id: expenseForm.project_id || null,
+      notes: expenseForm.notes || null,
+      tenant_id: tenantId || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    try {
+      if (editingExpense) {
+        const { error } = await supabase
+          .from("finance_expenses")
+          .update(payload)
+          .eq("id", editingExpense.id);
+        if (error) throw error;
+        message.success("Expense updated");
       } else {
         const {
           data: { user },
         } = await supabase.auth.getUser();
         const { error } = await supabase
-          .from("payments")
-          .insert([{ ...form, tenant_id: tenantId, created_by: user.id }]);
+          .from("finance_expenses")
+          .insert([{ ...payload, created_by: user?.id || null }]);
         if (error) throw error;
-        message.success("Payment added");
+        message.success("Expense added");
       }
-      setDrawerOpen(false);
-      resetForm();
-      fetchPayments();
-    } catch {
-      message.error("Failed to save payment");
+      setExpenseDrawerOpen(false);
+      resetExpenseForm();
+      fetchAll();
+    } catch (error) {
+      console.error(error);
+      message.error("Failed to save expense");
     }
   };
 
-  const handleInlineEdit = useCallback(async (id, field, value) => {
-    setPayments((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, [field]: value } : p)),
-    );
-    setSavingId(id);
-    try {
-      const { error } = await supabase
-        .from("payments")
-        .update({ [field]: value, updated_at: new Date().toISOString() })
-        .eq("id", id);
-      if (error) throw error;
-    } catch {
-      message.error("Failed to update");
-      fetchPayments();
-    } finally {
-      setSavingId(null);
+  const savePayout = async () => {
+    if (!payoutForm.payee_name.trim() || !payoutForm.amount) {
+      message.error("Payee and amount are required");
+      return;
     }
-  }, []);
 
-  const handleArchive = async (id, archive) => {
+    const payload = {
+      payee_name: payoutForm.payee_name.trim(),
+      amount: toNumber(payoutForm.amount),
+      payout_date: payoutForm.payout_date || dayjs().format("YYYY-MM-DD"),
+      status: payoutForm.status,
+      payment_method: payoutForm.payment_method,
+      notes: payoutForm.notes || null,
+      tenant_id: tenantId || null,
+      updated_at: new Date().toISOString(),
+    };
+
     try {
-      const { error } = await supabase
-        .from("payments")
-        .update({ is_archived: archive })
-        .eq("id", id);
-      if (error) throw error;
-      message.success(archive ? "Archived" : "Restored");
-      fetchPayments();
-    } catch {
-      message.error("Failed");
+      if (editingPayout) {
+        const { error } = await supabase
+          .from("finance_manual_payouts")
+          .update(payload)
+          .eq("id", editingPayout.id);
+        if (error) throw error;
+        message.success("Payout updated");
+      } else {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        const { error } = await supabase
+          .from("finance_manual_payouts")
+          .insert([{ ...payload, created_by: user?.id || null }]);
+        if (error) throw error;
+        message.success("Payout added");
+      }
+      setPayoutDrawerOpen(false);
+      resetPayoutForm();
+      fetchAll();
+    } catch (error) {
+      console.error(error);
+      message.error("Failed to save payout");
     }
   };
 
-  const handleDelete = (id) => {
+  const markInvoicePaid = async (invoiceId) => {
+    try {
+      const { error } = await supabase
+        .from("payments")
+        .update({
+          status: "paid",
+          paid_date: dayjs().format("YYYY-MM-DD"),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", invoiceId);
+      if (error) throw error;
+      message.success("Invoice marked as paid");
+      fetchAll();
+    } catch (error) {
+      console.error(error);
+      message.error("Failed to mark invoice as paid");
+    }
+  };
+
+  const downloadInvoicePdf = async (invoice) => {
+    try {
+      const { jsPDF } = await import("jspdf");
+      const { default: autoTable } = await import("jspdf-autotable");
+      const doc = new jsPDF({ unit: "pt", format: "a4" });
+      const pageW = doc.internal.pageSize.getWidth();
+      const margin = 40;
+      const top = 40;
+
+      if (orgBrand.logoUrl) {
+        try {
+          const logoData = await loadImageAsDataUrl(orgBrand.logoUrl);
+          if (logoData) doc.addImage(logoData, "PNG", margin, top - 6, 56, 56);
+        } catch {
+          // ignore logo load errors and continue
+        }
+      }
+
+      doc.setTextColor(20, 20, 20);
+      doc.setFontSize(12);
+      doc.setFont(undefined, "bold");
+      doc.text(String(orgBrand.name || "Organization"), margin, top + 70);
+      doc.setFont(undefined, "normal");
+      doc.setTextColor(31, 41, 55);
+      const project = projects.find((p) => p.id === invoice.project_id);
+      const status = normalizeInvoiceStatus(invoice.status).toUpperCase();
+      const amountText = fmtMoney(invoice.amount, invoice.currency || "USD");
+      const invoiceNo = String(invoice.id).slice(0, 8).toUpperCase();
+
+      doc.setFont(undefined, "bold");
+      doc.setFontSize(18);
+      doc.text("INVOICE", pageW - margin, top + 2, { align: "right" });
+      doc.setFontSize(12);
+      doc.setFont(undefined, "normal");
+      doc.text(`# ${invoiceNo}`, pageW - margin, top + 22, { align: "right" });
+
+      const issueDate = dayjs(invoice.created_at).format("MMM D, YYYY");
+      const dueDate = invoice.due_date ? dayjs(invoice.due_date).format("MMM D, YYYY") : "-";
+      doc.setFontSize(10);
+      doc.text("Date:", pageW - 210, top + 54);
+      doc.text(issueDate, pageW - margin, top + 54, { align: "right" });
+      doc.text("Due Date:", pageW - 210, top + 74);
+      doc.text(dueDate, pageW - margin, top + 74, { align: "right" });
+
+      doc.setFillColor(244, 246, 248);
+      doc.roundedRect(pageW - 290, top + 88, 250, 28, 4, 4, "F");
+      doc.setFont(undefined, "bold");
+      doc.setFontSize(11);
+      doc.text("Balance Due:", pageW - 190, top + 106);
+      doc.text(amountText, pageW - 56, top + 106, { align: "right" });
+
+      doc.setFont(undefined, "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(55, 65, 81);
+      const billTo = project?.client_name || invoice.client_name || "-";
+      doc.text(`Bill To:`, margin, top + 124);
+      doc.setFont(undefined, "bold");
+      doc.text(String(billTo), margin, top + 140);
+      doc.setFont(undefined, "normal");
+      doc.text(`Project: ${project?.name || "-"}`, margin, top + 156);
+      doc.text(`Status: ${status}`, margin, top + 172);
+
+      autoTable(doc, {
+        startY: top + 196,
+        margin: { left: margin, right: margin },
+        head: [["Item", "Quantity", "Rate", "Amount"]],
+        body: [[project?.name || "Service", "1", amountText, amountText]],
+        theme: "grid",
+        headStyles: {
+          fillColor: [52, 52, 52],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          fontSize: 10,
+        },
+        bodyStyles: { fontSize: 10, textColor: [15, 23, 42] },
+        columnStyles: {
+          0: { cellWidth: 300 },
+          1: { halign: "right" },
+          2: { halign: "right" },
+          3: { halign: "right" },
+        },
+      });
+
+      const tableEndY = doc.lastAutoTable?.finalY || top + 250;
+      doc.setFontSize(10);
+      doc.setTextColor(55, 65, 81);
+      doc.text("Subtotal:", pageW - 180, tableEndY + 26);
+      doc.text(amountText, pageW - margin, tableEndY + 26, { align: "right" });
+      doc.text("Tax (0%):", pageW - 180, tableEndY + 44);
+      doc.text(fmtMoney(0, invoice.currency || "USD"), pageW - margin, tableEndY + 44, {
+        align: "right",
+      });
+      doc.setFont(undefined, "bold");
+      doc.text("Total:", pageW - 180, tableEndY + 64);
+      doc.text(amountText, pageW - margin, tableEndY + 64, { align: "right" });
+      doc.setFont(undefined, "normal");
+
+      let notesY = tableEndY + 98;
+      if (invoice.remarks) {
+        doc.setFontSize(10);
+        doc.setTextColor(107, 114, 128);
+        doc.text("Notes:", margin, notesY);
+        doc.setTextColor(31, 41, 55);
+        const wrapped = doc.splitTextToSize(String(invoice.remarks), pageW - margin * 2);
+        doc.text(wrapped, margin, notesY + 16);
+        notesY += 34 + wrapped.length * 11;
+      }
+
+      doc.setTextColor(107, 114, 128);
+      doc.text("Payment Method:", margin, notesY);
+      doc.setTextColor(31, 41, 55);
+      doc.text(
+        humanizeLabel(invoice.payment_method || "-"),
+        margin + 80,
+        notesY,
+      );
+
+      doc.setTextColor(107, 114, 128);
+      doc.text("Terms:", margin, notesY + 24);
+      doc.setTextColor(31, 41, 55);
+      doc.text(
+        "- Additional requests outside agreed scope are billed separately.",
+        margin,
+        notesY + 40,
+      );
+
+      doc.save(`invoice-${String(invoice.id).slice(0, 8)}.pdf`);
+    } catch (error) {
+      console.error(error);
+      message.error("Failed to generate invoice PDF");
+    }
+  };
+
+  const deleteRow = (table, id, label) => {
     Modal.confirm({
-      title: "Delete Payment",
-      content: "This action is permanent and cannot be undone.",
+      title: `Delete ${label}`,
+      content: "This action cannot be undone.",
       okText: "Delete",
       okType: "danger",
-      icon: <DeleteOutlined style={{ color: "#e11d48" }} />,
       onOk: async () => {
-        const { error } = await supabase.from("payments").delete().eq("id", id);
+        const { error } = await supabase.from(table).delete().eq("id", id);
         if (error) {
-          message.error("Failed to delete");
+          message.error(`Failed to delete ${label.toLowerCase()}`);
           return;
         }
-        message.success("Deleted");
-        fetchPayments();
+        message.success(`${label} deleted`);
+        fetchAll();
       },
     });
   };
 
-  const resetForm = () => {
-    setForm({
-      client_name: "",
-      amount: "",
-      status: "not_paid",
-      remarks: "",
-      currency: "USD",
-    });
-    setEditingPayment(null);
+  const textColor = dark ? "#f1f5f9" : "#0f172a";
+  const mutedText = dark ? "#94a3b8" : "#64748b";
+  const borderColor = dark ? "#2a2a31" : "#e2e8f0";
+  const cardBg = dark ? "#17181c" : "#ffffff";
+  const topActionBtnStyle = {
+    height: isMobile ? 36 : 40,
+    borderRadius: 12,
+    fontSize: isMobile ? 13 : 14,
+    fontWeight: 700,
+    padding: "0 14px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
   };
+  const twoColGrid = isMobile ? "1fr" : "1fr 1fr";
 
-  // ---------------- Stats ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  const total = filtered.reduce((s, p) => s + parseFloat(p.amount || 0), 0);
-  const paid = filtered
-    .filter((p) => p.status === "paid")
-    .reduce((s, p) => s + parseFloat(p.amount || 0), 0);
-  const unpaid = filtered
-    .filter((p) => p.status === "not_paid")
-    .reduce((s, p) => s + parseFloat(p.amount || 0), 0);
-  const paidPct = total > 0 ? Math.round((paid / total) * 100) : 0;
-
-  // ---------------- Theme-aware values --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  const t = {
-    bgPage: dark ? "#141416" : "#f8fafc",
-    bgCard: dark ? "#141416" : "#ffffff",
-    bgSubtle: dark ? "#18181c" : "#f8fafc",
-    bgMuted: dark ? "#1c1c22" : "#f1f5f9",
-    bgHover: dark ? "#18181c" : "#f8fafc",
-    border: dark ? "#2a2a31" : "#f1f5f9",
-    borderStrong: dark ? "#34343d" : "#e2e8f0",
-    textPrimary: dark ? "#f1f5f9" : "#0f172a",
-    textSecondary: dark ? "#cbd5e1" : "#475569",
-    textMuted: dark ? "#94a3b8" : "#94a3b8",
-    textFaint: dark ? "#64748b" : "#cbd5e1",
-    accent: dark ? "#f1f5f9" : "#0f172a",
-    accentContrast: dark ? "#141416" : "#ffffff",
-    dangerBg: dark ? "#4c0519" : "#fff1f2",
-    dangerBorder: dark ? "#9f1239" : "#fecdd3",
-    dangerText: dark ? "#fb7185" : "#e11d48",
-    tableBg: dark ? "#141416" : "#ffffff",
-    tableHeadBg: dark ? "#18181c" : "#f9fafb",
-    tableRowBorder: dark ? "#2a2a31" : "#f9fafb",
-    inputBg: dark ? "#1c1c22" : "#f8fafc",
-    dotColor: dark ? "#94a3b8" : "#0f172a",
-  };
-
-  // ---------------- Render --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   return (
     <div
-      className={`payments-page${dark ? " dark" : ""}`}
       style={{
         minHeight: "100vh",
-        background: t.bgPage,
-        padding: "28px 32px",
-        fontFamily: "'DM Sans', sans-serif",
-        transition: "background 0.2s, color 0.2s",
+        background: dark ? "#141416" : "#f8fafc",
+        padding: isMobile ? "14px 12px" : "24px 28px",
       }}
     >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
-        * { font-family: 'DM Sans', sans-serif !important; box-sizing: border-box; }
-        .mono { font-family: 'DM Mono', monospace !important; }
-
-        /* ---------------- Ant Design dark overrides scoped to our wrapper ---------------- */
-        .payments-page.dark .ant-select-selector,
-        .payments-page.dark .ant-input,
-        .payments-page.dark textarea.ant-input {
+        .finance-root .ant-input,
+        .finance-root .ant-select-selector,
+        .finance-root .ant-picker { border-radius: 9px !important; }
+        .finance-root.dark .ant-input,
+        .finance-root.dark .ant-input-affix-wrapper,
+        .finance-root.dark .ant-select-selector,
+        .finance-root.dark .ant-picker,
+        .finance-root.dark textarea.ant-input {
           background: #1c1c22 !important;
           border-color: #34343d !important;
           color: #f1f5f9 !important;
         }
-        .payments-page.dark .ant-select-arrow,
-        .payments-page.dark .ant-input-prefix,
-        .payments-page.dark .ant-input-suffix {
-          color: #94a3b8 !important;
+        .finance-root.dark .ant-input::placeholder,
+        .finance-root.dark textarea.ant-input::placeholder,
+        .finance-root.dark .ant-select-selection-placeholder { color: #64748b !important; }
+        .finance-root.dark .ant-select-arrow,
+        .finance-root.dark .ant-picker-suffix,
+        .finance-root.dark .ant-picker-clear { color: #94a3b8 !important; }
+        .finance-root .ant-btn-primary {
+          background: ${BRAND_COLOR} !important;
+          border-color: ${BRAND_COLOR} !important;
+          box-shadow: none !important;
         }
-        .payments-page.dark .ant-input::placeholder,
-        .payments-page.dark textarea.ant-input::placeholder { color: #64748b !important; }
-        .payments-page.dark .ant-input:focus,
-        .payments-page.dark textarea.ant-input:focus {
-          border-color: #94a3b8 !important;
-          box-shadow: 0 0 0 2px rgba(148,163,184,0.15) !important;
+        .finance-root .ant-btn-primary:hover,
+        .finance-root .ant-btn-primary:focus {
+          background: ${BRAND_COLOR} !important;
+          border-color: ${BRAND_COLOR} !important;
+          filter: brightness(1.06);
         }
-        .payments-page.dark .ant-select-focused .ant-select-selector {
-          border-color: #94a3b8 !important;
-          box-shadow: 0 0 0 2px rgba(148,163,184,0.15) !important;
+        .finance-root.dark .ant-btn.invoice-cta {
+          background: #ffffff !important;
+          border-color: #ffffff !important;
+          color: #0f172a !important;
         }
-        .payments-page.dark .ant-select-selection-item { color: #f1f5f9 !important; }
-        .payments-page.dark .ant-select-selection-placeholder { color: #64748b !important; }
-        .payments-page.dark .ant-input-affix-wrapper {
-          background: #1c1c22 !important;
-          border-color: #34343d !important;
+        .finance-root.dark .ant-btn.invoice-cta:hover,
+        .finance-root.dark .ant-btn.invoice-cta:focus {
+          background: #f8fafc !important;
+          border-color: #f8fafc !important;
+          color: #0f172a !important;
+          filter: none !important;
         }
-        .payments-page.dark .ant-input-affix-wrapper input { background: transparent !important; color: #f1f5f9 !important; }
-        .payments-page.dark .ant-input-affix-wrapper:focus-within {
-          border-color: #94a3b8 !important;
-          box-shadow: 0 0 0 2px rgba(148,163,184,0.15) !important;
+        .section-rail {
+          display: inline-flex;
+          gap: 8px;
+          padding: 6px;
+          border-radius: 14px;
+          background: ${dark ? "rgba(17,19,24,0.9)" : "rgba(241,245,249,0.85)"};
+          border: 1px solid ${dark ? "#262b37" : "#dbe4f0"};
+          box-shadow: ${dark ? "0 8px 22px rgba(0,0,0,0.26)" : "0 8px 22px rgba(15,23,42,0.08)"};
         }
-        .payments-page.dark .ant-select-clear { background: #1c1c22 !important; color: #94a3b8 !important; }
-        .payments-page.dark .ant-tag { background: #1c1c22 !important; border-color: #34343d !important; color: #f1f5f9 !important; }
-
-        /* Dropdown portal -------- must be global since it's outside DOM tree */
-        .pay-dropdown-dark {
-          background: #141416 !important;
-          border: 1px solid #34343d !important;
-          border-radius: 12px !important;
-          box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
-        }
-        .pay-dropdown-dark .ant-select-item {
-          color: #cbd5e1 !important;
-          background: transparent !important;
-        }
-        .pay-dropdown-dark .ant-select-item:hover,
-        .pay-dropdown-dark .ant-select-item-option-active { background: #22222a !important; }
-        .pay-dropdown-dark .ant-select-item-option-selected { background: #1e3a5f !important; color: #93c5fd !important; }
-        .pay-dropdown-dark .ant-select-item-empty { color: #64748b !important; }
-
-        /* Drawer dark */
-        .pay-drawer-dark .ant-drawer-content {
-          background: #141416 !important;
-          border-left: 1px solid #2a2a31 !important;
-        }
-        .pay-drawer-dark .ant-drawer-header {
-          background: #141416 !important;
-          border-bottom: 1px solid #2a2a31 !important;
-        }
-        .pay-drawer-dark .ant-drawer-body { background: #141416 !important; }
-        .pay-drawer-dark .ant-drawer-footer {
-          background: #141416 !important;
-          border-top: 1px solid #2a2a31 !important;
-        }
-        .pay-drawer-dark .ant-drawer-title { color: #f1f5f9 !important; }
-        .pay-drawer-dark .ant-drawer-close { color: #94a3b8 !important; }
-        .pay-drawer-dark .ant-drawer-close:hover { color: #f1f5f9 !important; }
-        .pay-drawer-dark .ant-select-selector { background: #1c1c22 !important; border-color: #34343d !important; color: #f1f5f9 !important; }
-        .pay-drawer-dark .ant-input { background: #1c1c22 !important; border-color: #34343d !important; color: #f1f5f9 !important; }
-        .pay-drawer-dark textarea.ant-input { background: #1c1c22 !important; border-color: #34343d !important; color: #f1f5f9 !important; }
-        .pay-drawer-dark .ant-input::placeholder,
-        .pay-drawer-dark textarea.ant-input::placeholder { color: #64748b !important; }
-        .pay-drawer-dark .ant-select-selection-item { color: #f1f5f9 !important; }
-        .pay-drawer-dark .ant-select-selection-placeholder { color: #64748b !important; }
-        .pay-drawer-dark .ant-select-arrow { color: #94a3b8 !important; }
-        .pay-drawer-dark .ant-input-prefix { color: #94a3b8 !important; }
-
-        /* Inline table inputs */
-        .pay-row:hover { background: var(--pay-row-hover) !important; }
-        .pay-row td { vertical-align: middle; }
-
-        .inline-input { border: none !important; outline: none !important; padding: 0 !important; box-shadow: none !important; font-size: 13px !important; width: 100%; cursor: text; }
-        .inline-input.dark-inp { background: transparent !important; color: #f1f5f9 !important; }
-        .inline-input.light-inp { background: transparent !important; color: #0f172a !important; }
-        .inline-input.dark-inp:focus { background: #1c1c22 !important; border-radius: 6px !important; padding: 3px 7px !important; }
-        .inline-input.light-inp:focus { background: #f1f5f9 !important; border-radius: 6px !important; padding: 3px 7px !important; }
-        .inline-input .ant-input-prefix { margin-right: 2px; }
-
-        .inline-textarea { border: none !important; outline: none !important; padding: 0 !important; box-shadow: none !important; font-size: 12px !important; width: 100%; resize: none !important; cursor: text; }
-        .inline-textarea.dark-inp { background: transparent !important; color: #cbd5e1 !important; }
-        .inline-textarea.light-inp { background: transparent !important; color: #475569 !important; }
-        .inline-textarea.dark-inp:focus { background: #1c1c22 !important; border-radius: 6px !important; padding: 4px 7px !important; }
-        .inline-textarea.light-inp:focus { background: #f1f5f9 !important; border-radius: 6px !important; padding: 4px 7px !important; }
-
-        /* Borderless selects in table */
-        .dark .ant-select-borderless .ant-select-selector { background: transparent !important; color: #f1f5f9 !important; }
-        .dark .ant-select-borderless .ant-select-selection-item { color: #f1f5f9 !important; }
-
-        .stat-card { transition: transform 0.15s ease, box-shadow 0.15s ease; cursor: default; }
-        .stat-card:hover { transform: translateY(-2px); }
-
-        .progress-bar { height: 4px; border-radius: 99px; overflow: hidden; margin-top: 8px; }
-        .progress-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #059669, #34d399); transition: width 0.6s ease; }
-
-        @keyframes fadeInUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-        .fade-in { animation: fadeInUp 0.25s ease forwards; }
-        .saving-pulse { animation: pulse 1s infinite; }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-
-        /* Scrollbar dark */
-        .payments-page.dark ::-webkit-scrollbar { width: 6px; height: 6px; }
-        .payments-page.dark ::-webkit-scrollbar-track { background: #141416; }
-        .payments-page.dark ::-webkit-scrollbar-thumb { background: #34343d; border-radius: 3px; }
-        .payments-page.dark ::-webkit-scrollbar-thumb:hover { background: #4a4a56; }
       `}</style>
 
-      {/* ---------------- Header ---------------- */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          marginBottom: 28,
-          flexWrap: "wrap",
-          gap: 16,
-        }}
-      >
-        <div>
+      <div className={`finance-root${dark ? " dark" : ""}`}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 12,
+            flexWrap: "wrap",
+            marginBottom: 18,
+          }}
+        >
+          <div>
+            <h1 style={{ margin: "4px 0 0", color: textColor, fontSize: isMobile ? 22 : 28, fontWeight: 800 }}>
+              Finance Overview
+            </h1>
+            <p style={{ margin: "4px 0 0", color: mutedText, fontSize: 13 }}>
+              Manual tracking only. Records are tracked, not auto-paid.
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <DatePicker
+              picker="month"
+              allowClear={false}
+              value={selectedMonth}
+              onChange={(d) => setSelectedMonth(d || dayjs().startOf("month"))}
+            />
+            <Button
+              icon={<ReloadOutlined spin={loading} />}
+              onClick={fetchAll}
+              style={topActionBtnStyle}
+            >
+              Refresh
+            </Button>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 16, overflowX: "auto", paddingBottom: 2 }}>
+          <div className="section-rail">
+            {SECTION_TABS.map((tab) => {
+              const active = activeSection === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveSection(tab.key)}
+                  style={{
+                    border: `1px solid ${active ? BRAND_COLOR : dark ? "#2a2f3a" : "#d8e2f0"}`,
+                    background: active
+                      ? dark
+                        ? "linear-gradient(135deg,rgba(52,83,183,0.32),rgba(124,58,237,0.24))"
+                        : "linear-gradient(135deg,#e9edff,#ede9ff)"
+                      : dark
+                        ? "rgba(21,24,31,0.92)"
+                        : "#ffffff",
+                    color: active ? BRAND_COLOR : dark ? "#cbd5e1" : "#334155",
+                    borderRadius: 10,
+                    padding: "8px 12px",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    letterSpacing: "0.03em",
+                    cursor: "pointer",
+                    transition: "all 0.18s ease",
+                  }}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {["operations", "invoices"].includes(activeSection) && (
           <div
             style={{
+              marginBottom: 14,
               display: "flex",
+              justifyContent: "flex-end",
               alignItems: "center",
               gap: 8,
-              marginBottom: 4,
+              flexWrap: "wrap",
             }}
           >
-            <div
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: "50%",
-                background: t.dotColor,
-              }}
-            />
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: t.textMuted,
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-              }}
-            >
-              Finance
-            </span>
+            {activeSection === "operations" && (
+              <>
+                <Button icon={<RiseOutlined />} onClick={openCreatePayout} style={topActionBtnStyle}>
+                  Add Payout
+                </Button>
+                <Button
+                  icon={<PlusOutlined />}
+                  type="default"
+                  style={topActionBtnStyle}
+                  onClick={() => {
+                    resetExpenseForm();
+                    setExpenseDrawerOpen(true);
+                  }}
+                >
+                  Add Expense
+                </Button>
+              </>
+            )}
+            {activeSection === "invoices" && (
+              <Button
+                icon={<PlusOutlined />}
+                type="primary"
+                className="invoice-cta"
+                style={topActionBtnStyle}
+                onClick={() => {
+                  resetInvoiceForm();
+                  setInvoiceDrawerOpen(true);
+                }}
+              >
+                Create Invoice
+              </Button>
+            )}
           </div>
-          <h1
-            style={{
-              margin: 0,
-              fontSize: 26,
-              fontWeight: 800,
-              color: t.textPrimary,
-              letterSpacing: -0.5,
-            }}
-          >
-            Payments Tracker
-          </h1>
-          <p style={{ margin: "4px 0 0", fontSize: 13, color: t.textMuted }}>
-            Track client invoices and payment status
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <Button
-            icon={<InboxOutlined />}
-            onClick={() => setShowArchived(!showArchived)}
-            style={{
-              height: 38,
-              borderRadius: 10,
-              fontWeight: 600,
-              fontSize: 13,
-              border: `1px solid ${t.borderStrong}`,
-              background: showArchived ? t.accent : t.bgCard,
-              color: showArchived ? t.accentContrast : t.textSecondary,
-              transition: "all 0.15s",
-            }}
-          >
-            {showArchived ? "Active" : "Archived"}
-          </Button>
-          <Button
-            icon={<PlusOutlined />}
-            onClick={() => {
-              resetForm();
-              setDrawerOpen(true);
-            }}
-            style={{
-              height: 38,
-              paddingInline: 20,
-              borderRadius: 10,
-              background: t.accent,
-              border: "none",
-              color: t.accentContrast,
-              fontWeight: 700,
-              fontSize: 13,
-              boxShadow: dark
-                ? "0 4px 12px rgba(0,0,0,0.4)"
-                : "0 4px 12px rgba(15,23,42,0.22)",
-              transition: "all 0.15s",
-            }}
-          >
-            Add Payment
-          </Button>
-        </div>
-      </div>
+        )}
 
-      {/* ---------------- Stat Cards ---------------- */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: 14,
-          marginBottom: 24,
-        }}
-      >
-        {/* Total */}
+        {activeSection === "overview" && (
         <div
-          className="stat-card fade-in"
           style={{
-            background: t.bgCard,
-            borderRadius: 16,
-            border: `1px solid ${t.border}`,
-            padding: "20px 22px",
-            boxShadow: dark
-              ? "0 1px 8px rgba(0,0,0,0.3)"
-              : "0 1px 4px rgba(15,23,42,0.04)",
-            transition: "background 0.2s, border-color 0.2s",
+            display: "grid",
+            gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? 160 : 220}px, 1fr))`,
+            gap: 12,
+            marginBottom: 16,
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 10,
-            }}
-          >
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                color: t.textMuted,
-                textTransform: "uppercase",
-                letterSpacing: "0.07em",
-              }}
-            >
-              Total Volume
-            </span>
-            <div
-              style={{
-                width: 30,
-                height: 30,
-                borderRadius: 8,
-                background: t.bgMuted,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <DollarOutlined
-                style={{ fontSize: 13, color: t.textSecondary }}
-              />
-            </div>
-          </div>
-          <div
-            className="mono"
-            style={{
-              fontSize: 24,
-              fontWeight: 700,
-              color: t.textPrimary,
-              letterSpacing: -0.5,
-            }}
-          >
-            {fmt(total)}
-          </div>
-          <div style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>
-            {filtered.length} entries ---- mixed currencies
-          </div>
+          <StatCard
+            title="Total Revenue (Tracked)"
+            value={fmtMoney(trackedRevenue)}
+            sub={`Invoices generated in ${selectedMonth.format("MMM YYYY")}`}
+            dark={dark}
+          />
+          <StatCard
+            title="Total Expenses"
+            value={fmtMoney(totalExpenses)}
+            sub={`${fmtMoney(monthlySnapshot.expensesOnly)} expenses + ${fmtMoney(monthlySnapshot.payouts)} payouts`}
+            dark={dark}
+          />
+          <StatCard
+            title="Net Profit"
+            value={fmtMoney(netProfit)}
+            sub={`${selectedMonth.format("MMM YYYY")} formula: invoices - expenses - payouts`}
+            dark={dark}
+          />
+          <StatCard
+            title="Pending Invoices"
+            value={String(pendingInvoicesCount)}
+            sub={`Pending invoices generated in ${selectedMonth.format("MMM YYYY")}`}
+            dark={dark}
+          />
+          <StatCard
+            title="Upcoming Payouts (Manual)"
+            value={fmtMoney(upcomingPayouts)}
+            sub={`Scheduled in ${selectedMonth.format("MMM YYYY")}`}
+            dark={dark}
+          />
         </div>
+        )}
 
-        {/* Paid */}
+        {(activeSection === "overview" || activeSection === "analytics") && (
         <div
-          className="stat-card fade-in"
           style={{
-            background: dark ? "#052e16" : "#ecfdf5",
-            borderRadius: 16,
-            border: `1px solid ${dark ? "#065f46" : "#a7f3d0"}`,
-            padding: "20px 22px",
-            boxShadow: dark
-              ? "0 1px 8px rgba(0,0,0,0.3)"
-              : "0 1px 4px rgba(5,150,105,0.06)",
-            animationDelay: "0.05s",
-            transition: "background 0.2s",
+            display: "grid",
+            gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? 280 : 420}px, 1fr))`,
+            gap: 14,
+            marginBottom: 16,
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 10,
-            }}
+          <ChartCard
+            title="Cash Flow"
+            subtitle="Monthly generated invoices vs expenses vs payouts"
+            dark={dark}
           >
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                color: dark ? "#34d399" : "#059669",
-                textTransform: "uppercase",
-                letterSpacing: "0.07em",
-              }}
-            >
-              Collected
-            </span>
-            <div
-              style={{
-                width: 30,
-                height: 30,
-                borderRadius: 8,
-                background: dark ? "#064e3b" : "#d1fae5",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <CheckCircleFilled
-                style={{ fontSize: 13, color: dark ? "#34d399" : "#059669" }}
-              />
-            </div>
-          </div>
-          <div
-            className="mono"
-            style={{
-              fontSize: 24,
-              fontWeight: 700,
-              color: dark ? "#34d399" : "#059669",
-              letterSpacing: -0.5,
-            }}
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={cashFlowSeries}>
+                <defs>
+                  <linearGradient id="incomeLine" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#22a06b" />
+                    <stop offset="100%" stopColor="#0c66e4" />
+                  </linearGradient>
+                  <linearGradient id="expenseLine" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#ef4444" />
+                    <stop offset="100%" stopColor="#f97316" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="4 4" stroke={dark ? "#273043" : "#e2e8f0"} />
+                <XAxis
+                  dataKey="month"
+                  stroke={mutedText}
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 11, fontWeight: 600 }}
+                />
+                <YAxis
+                  stroke={mutedText}
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 11, fontWeight: 600 }}
+                />
+                <Tooltip content={<ChartTooltip dark={dark} />} cursor={false} />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="income"
+                  stroke="url(#incomeLine)"
+                  strokeWidth={2.6}
+                  dot={{ r: 3.8, fill: "#0c66e4", strokeWidth: 2, stroke: dark ? "#111318" : "#fff" }}
+                  activeDot={{ r: 6.2, fill: "#0c66e4", strokeWidth: 2, stroke: dark ? "#111318" : "#fff" }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="expenses"
+                  stroke="url(#expenseLine)"
+                  strokeWidth={2.6}
+                  dot={{ r: 3.8, fill: "#ef4444", strokeWidth: 2, stroke: dark ? "#111318" : "#fff" }}
+                  activeDot={{ r: 6.2, fill: "#ef4444", strokeWidth: 2, stroke: dark ? "#111318" : "#fff" }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="payouts"
+                  stroke="#fbbf24"
+                  strokeWidth={2.4}
+                  dot={{ r: 3.6, fill: "#fbbf24", strokeWidth: 2, stroke: dark ? "#111318" : "#fff" }}
+                  activeDot={{ r: 6, fill: "#fbbf24", strokeWidth: 2, stroke: dark ? "#111318" : "#fff" }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          <ChartCard
+            title="Monthly Trend"
+            subtitle="Net outcome per month (Revenue - Expenses - Payouts)"
+            dark={dark}
           >
-            {fmt(paid)}
-          </div>
-          <div style={{ marginTop: 8 }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginBottom: 3,
-              }}
-            >
-              <span
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={cashFlowSeries}>
+                <defs>
+                  <linearGradient id="incomeBar" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#0c66e4" stopOpacity="1" />
+                    <stop offset="100%" stopColor="#5b8dff" stopOpacity="0.8" />
+                  </linearGradient>
+                  <linearGradient id="expenseBar" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#ef4444" stopOpacity="1" />
+                    <stop offset="100%" stopColor="#f97316" stopOpacity="0.85" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="4 4" stroke={dark ? "#273043" : "#e2e8f0"} />
+                <XAxis
+                  dataKey="month"
+                  stroke={mutedText}
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 11, fontWeight: 600 }}
+                />
+                <YAxis
+                  stroke={mutedText}
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 11, fontWeight: 600 }}
+                />
+                <Tooltip content={<ChartTooltip dark={dark} />} cursor={false} />
+                <Legend />
+                <Bar dataKey="income" name="Revenue" fill="url(#incomeBar)" radius={[7, 7, 0, 0]} />
+                <Bar dataKey="expenses" name="Expenses" fill="url(#expenseBar)" radius={[7, 7, 0, 0]} />
+                <Bar dataKey="payouts" name="Payouts" fill="#fbbf24" radius={[7, 7, 0, 0]} />
+                <Line
+                  type="monotone"
+                  dataKey="net"
+                  name="Net"
+                  stroke={BRAND_COLOR}
+                  strokeWidth={2.3}
+                  dot={{ r: 3.4, fill: BRAND_COLOR, stroke: dark ? "#111318" : "#fff", strokeWidth: 2 }}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          <ChartCard
+            title="Invoice Status"
+            subtitle="Paid / pending / overdue distribution"
+            dark={dark}
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={invoiceStatusChart}
+                  dataKey="value"
+                  nameKey="name"
+                  outerRadius={88}
+                  innerRadius={48}
+                  paddingAngle={5}
+                  label
+                >
+                  {invoiceStatusChart.map((entry, idx) => (
+                    <Cell key={entry.name} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip content={<ChartTooltip dark={dark} />} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          <ChartCard
+            title="Expense Breakdown"
+            subtitle="Salaries, tools, marketing and operations"
+            dark={dark}
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={expenseBreakdownChart}
+                  dataKey="value"
+                  nameKey="name"
+                  outerRadius={88}
+                  innerRadius={48}
+                  paddingAngle={4}
+                  label
+                >
+                  {expenseBreakdownChart.map((entry, idx) => (
+                    <Cell key={entry.name} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip content={<ChartTooltip dark={dark} />} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          <ChartCard
+            title="Revenue by Client"
+            subtitle={`Top clients for ${selectedMonth.format("MMM YYYY")} (USD normalized)`}
+            dark={dark}
+          >
+            {revenueByClientChart.length ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={revenueByClientChart}
+                  layout="vertical"
+                  margin={{ top: 8, right: 54, left: 0, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="clientBar" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#7c3aed" />
+                      <stop offset="100%" stopColor="#0c66e4" />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    strokeDasharray="3 5"
+                    horizontal={false}
+                    stroke={dark ? "#273043" : "#e2e8f0"}
+                  />
+                  <XAxis
+                    type="number"
+                    stroke={mutedText}
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 11, fontWeight: 600 }}
+                    tickFormatter={(v) => `$${Math.round(v)}`}
+                  />
+                  <YAxis
+                    dataKey="shortClient"
+                    type="category"
+                    width={104}
+                    stroke={mutedText}
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 11, fontWeight: 700 }}
+                  />
+                  <Tooltip content={<ChartTooltip dark={dark} />} cursor={false} />
+                  <Bar dataKey="revenue" fill="url(#clientBar)" radius={[0, 10, 10, 0]} barSize={20}>
+                    <LabelList
+                      dataKey="revenue"
+                      position="right"
+                      formatter={(v) => fmtMoney(v, "USD")}
+                      style={{ fill: dark ? "#cbd5e1" : "#334155", fontSize: 11, fontWeight: 700 }}
+                    />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div
                 style={{
-                  fontSize: 11,
-                  color: dark ? "#34d399" : "#059669",
+                  height: 250,
+                  borderRadius: 12,
+                  border: `1px dashed ${dark ? "#2a3242" : "#d1d9e6"}`,
+                  display: "grid",
+                  placeItems: "center",
+                  color: mutedText,
+                  fontSize: 13,
                   fontWeight: 600,
                 }}
               >
-                {paidPct}% of total
-              </span>
-            </div>
-            <div
-              className="progress-bar"
-              style={{ background: dark ? "#064e3b" : "#d1fae5" }}
-            >
-              <div className="progress-fill" style={{ width: `${paidPct}%` }} />
-            </div>
+                No client revenue for {selectedMonth.format("MMM YYYY")}
+              </div>
+            )}
+          </ChartCard>
+        </div>
+        )}
+
+        {activeSection === "projects" && (
+        <div
+          style={{
+            background: cardBg,
+            border: `1px solid ${borderColor}`,
+            borderRadius: 14,
+            padding: "14px 16px",
+            marginBottom: 16,
+          }}
+        >
+          <div style={{ fontSize: 14, fontWeight: 700, color: textColor, marginBottom: 10 }}>
+            Project Financial Summary
+          </div>
+          <div style={{ fontSize: 12, color: mutedText, marginBottom: 8 }}>
+            Revenue, team size, and timeline by project.
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  {["Project", "Revenue", "Duration (Months)", "Employees"].map((h) => (
+                    <th
+                      key={h}
+                      style={{
+                        textAlign: "left",
+                        padding: "10px 8px",
+                        fontSize: 11,
+                        color: mutedText,
+                        borderBottom: `1px solid ${borderColor}`,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.07em",
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {projectBreakdown.map((row) => (
+                  <tr key={row.id}>
+                    <td style={{ padding: "10px 8px", color: textColor, fontWeight: 600 }}>{row.name}</td>
+                    <td style={{ padding: "10px 8px", color: textColor }}>
+                      {fmtMoney(row.revenue, row.currency)}
+                    </td>
+                    <td style={{ padding: "10px 8px", color: mutedText }}>
+                      {row.durationMonths.toFixed(1)}
+                    </td>
+                    <td style={{ padding: "10px 8px", color: mutedText }}>{row.membersCount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
+        )}
 
-        {/* Unpaid */}
+        {activeSection === "invoices" && (
         <div
-          className="stat-card fade-in"
           style={{
-            background: dark ? "#4c0519" : "#fff1f2",
-            borderRadius: 16,
-            border: `1px solid ${dark ? "#9f1239" : "#fecdd3"}`,
-            padding: "20px 22px",
-            boxShadow: dark
-              ? "0 1px 8px rgba(0,0,0,0.3)"
-              : "0 1px 4px rgba(225,29,72,0.06)",
-            animationDelay: "0.1s",
-            transition: "background 0.2s",
+            background: cardBg,
+            border: `1px solid ${borderColor}`,
+            borderRadius: 14,
+            padding: "14px 16px",
+            marginBottom: 16,
           }}
         >
           <div
             style={{
               display: "flex",
-              alignItems: "center",
               justifyContent: "space-between",
+              gap: 10,
+              alignItems: "center",
+              flexWrap: "wrap",
               marginBottom: 10,
             }}
           >
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                color: dark ? "#fb7185" : "#e11d48",
-                textTransform: "uppercase",
-                letterSpacing: "0.07em",
-              }}
-            >
-              Outstanding
-            </span>
-            <div
-              style={{
-                width: 30,
-                height: 30,
-                borderRadius: 8,
-                background: dark ? "#881337" : "#ffe4e6",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <CloseCircleFilled
-                style={{ fontSize: 13, color: dark ? "#fb7185" : "#e11d48" }}
+            <div style={{ fontSize: 14, fontWeight: 700, color: textColor }}>
+              Invoices (Manual Payment Tracking)
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <Input
+                placeholder="Search invoices"
+                value={invoiceSearch}
+                onChange={(e) => setInvoiceSearch(e.target.value)}
+                style={{ width: 220 }}
+              />
+              <Select
+                mode="multiple"
+                placeholder="Status"
+                value={invoiceStatusFilter}
+                onChange={setInvoiceStatusFilter}
+                style={{ minWidth: 180 }}
+                options={INVOICE_STATUSES.map((s) => ({ value: s, label: s.toUpperCase() }))}
               />
             </div>
           </div>
-          <div
-            className="mono"
-            style={{
-              fontSize: 24,
-              fontWeight: 700,
-              color: dark ? "#fb7185" : "#e11d48",
-              letterSpacing: -0.5,
-            }}
-          >
-            {fmt(unpaid)}
-          </div>
-          <div
-            style={{
-              fontSize: 11,
-              color: dark ? "#fb7185" : "#e11d48",
-              marginTop: 4,
-              fontWeight: 600,
-            }}
-          >
-            {filtered.filter((p) => p.status === "not_paid").length} unpaid
-            invoices
-          </div>
-        </div>
-      </div>
 
-      {/* ---------------- Search + Filter ---------------- */}
-      <div
-        style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}
-      >
-        <div style={{ flex: 1, minWidth: 220 }}>
-          <Input
-            prefix={<SearchOutlined style={{ color: t.textMuted }} />}
-            placeholder="Search client name or remarks-------"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            allowClear
-            style={{
-              borderRadius: 10,
-              height: 38,
-              background: t.bgCard,
-              borderColor: t.borderStrong,
-              color: t.textPrimary,
-            }}
-          />
-        </div>
-        <Select
-          mode="multiple"
-          placeholder="Filter by status"
-          value={statusFilter}
-          onChange={setStatusFilter}
-          style={{ minWidth: 180 }}
-          dropdownClassName={dark ? "pay-dropdown-dark" : ""}
-          options={[
-            { label: "------- Paid", value: "paid" },
-            { label: "------- Not Paid", value: "not_paid" },
-          ]}
-        />
-        <Button
-          icon={<ReloadOutlined spin={loading} />}
-          onClick={fetchPayments}
-          style={{
-            height: 38,
-            borderRadius: 10,
-            border: `1px solid ${t.borderStrong}`,
-            background: t.bgCard,
-            color: t.textSecondary,
-            fontWeight: 600,
-          }}
-        >
-          Refresh
-        </Button>
-      </div>
-
-      {/* ---------------- Table ---------------- */}
-      <div
-        style={{
-          background: t.tableBg,
-          borderRadius: 16,
-          border: `1px solid ${t.border}`,
-          boxShadow: dark
-            ? "0 1px 8px rgba(0,0,0,0.3)"
-            : "0 1px 4px rgba(15,23,42,0.04)",
-          overflow: "hidden",
-          transition: "background 0.2s",
-        }}
-      >
-        {/* Table header bar */}
-        <div
-          style={{
-            padding: "14px 20px",
-            borderBottom: `1px solid ${t.border}`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <DollarOutlined style={{ color: t.textMuted }} />
-            <span
-              style={{ fontWeight: 700, fontSize: 14, color: t.textPrimary }}
-            >
-              {showArchived ? "Archived" : "Active"} Payments
-            </span>
-            <span
-              style={{
-                fontSize: 12,
-                fontWeight: 700,
-                color: t.textSecondary,
-                background: t.bgMuted,
-                borderRadius: 20,
-                padding: "1px 10px",
-              }}
-            >
-              {filtered.length}
-            </span>
-          </div>
-          <span style={{ fontSize: 12, color: t.textMuted }}>
-            Click cells to edit inline
-          </span>
-        </div>
-
-        {loading ? (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "60px 0",
-              color: t.textMuted,
-            }}
-          >
-            <ReloadOutlined
-              spin
-              style={{ fontSize: 24, marginBottom: 10, display: "block" }}
-            />
-            Loading payments-------
-          </div>
-        ) : filtered.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "64px 0" }}>
-            <DollarOutlined
-              style={{
-                fontSize: 32,
-                color: t.borderStrong,
-                display: "block",
-                margin: "0 auto 10px",
-              }}
-            />
-            <span style={{ color: t.textMuted, fontSize: 14 }}>
-              No payments found
-            </span>
-          </div>
-        ) : (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
-                <tr
-                  style={{
-                    background: t.tableHeadBg,
-                    borderBottom: `1px solid ${t.border}`,
-                  }}
-                >
+                <tr>
                   {[
                     "Client",
+                    "Project",
                     "Amount",
-                    "Currency",
                     "Status",
-                    "Remarks",
-                    "Created",
-                    "",
+                    "Payment Method",
+                    "Due",
+                    "Paid",
+                    "Proof",
+                    "Actions",
                   ].map((h) => (
                     <th
                       key={h}
                       style={{
-                        padding: "10px 18px",
                         textAlign: "left",
-                        fontSize: 10,
-                        fontWeight: 700,
-                        color: t.textMuted,
+                        padding: "10px 8px",
+                        fontSize: 11,
+                        color: mutedText,
+                        borderBottom: `1px solid ${borderColor}`,
                         textTransform: "uppercase",
                         letterSpacing: "0.07em",
                         whiteSpace: "nowrap",
@@ -1035,289 +1920,84 @@ const Payments = () => {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((payment, idx) => {
-                  const sc = STATUS[payment.status] || STATUS.not_paid;
+                {filteredInvoices.map((row) => {
+                  const project = projects.find((p) => p.id === row.project_id);
+                  const status = normalizeInvoiceStatus(row.status);
+
                   return (
-                    <tr
-                      key={payment.id}
-                      className="pay-row fade-in"
-                      style={{
-                        "--pay-row-hover": t.bgHover,
-                        borderBottom:
-                          idx < filtered.length - 1
-                            ? `1px solid ${t.tableRowBorder}`
-                            : "none",
-                        background: t.tableBg,
-                        animationDelay: `${idx * 0.03}s`,
-                        transition: "background 0.1s",
-                      }}
-                    >
-                      {/* Client */}
-                      <td style={{ padding: "12px 18px", minWidth: 160 }}>
-                        <Input
-                          className={`inline-input ${dark ? "dark-inp" : "light-inp"}`}
-                          value={payment.client_name}
-                          onChange={(e) =>
-                            handleInlineEdit(
-                              payment.id,
-                              "client_name",
-                              e.target.value,
-                            )
-                          }
-                          bordered={false}
-                        />
-                        {savingId === payment.id && (
-                          <span
-                            className="saving-pulse"
-                            style={{ fontSize: 10, color: t.textMuted }}
+                    <tr key={row.id}>
+                      <td style={{ padding: "10px 8px", color: textColor, minWidth: 160 }}>
+                        {row.client_name}
+                      </td>
+                      <td style={{ padding: "10px 8px", color: mutedText, minWidth: 150 }}>
+                        {project?.name || "-"}
+                      </td>
+                      <td style={{ padding: "10px 8px", color: textColor, fontWeight: 700 }}>
+                        {fmtMoney(row.amount, row.currency || "USD")}
+                      </td>
+                      <td style={{ padding: "10px 8px" }}>
+                        <StatusTag status={status} dark={dark} />
+                      </td>
+                      <td style={{ padding: "10px 8px", color: mutedText }}>
+                        {humanizeLabel(row.payment_method)}
+                      </td>
+                      <td style={{ padding: "10px 8px", color: mutedText }}>
+                        {row.due_date ? dayjs(row.due_date).format("MMM D, YYYY") : "-"}
+                      </td>
+                      <td style={{ padding: "10px 8px", color: mutedText }}>
+                        {row.paid_date ? dayjs(row.paid_date).format("MMM D, YYYY") : "-"}
+                      </td>
+                      <td style={{ padding: "10px 8px" }}>
+                        {row.proof_url ? (
+                          <a
+                            href={row.proof_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ color: "#0c66e4", fontWeight: 600, fontSize: 12 }}
                           >
-                            saving-------
-                          </span>
+                            View
+                          </a>
+                        ) : (
+                          <span style={{ color: mutedText, fontSize: 12 }}>-</span>
                         )}
                       </td>
-
-                      {/* Amount */}
-                      <td style={{ padding: "12px 18px", minWidth: 140 }}>
-                        <Input
-                          className={`inline-input mono ${dark ? "dark-inp" : "light-inp"}`}
-                          prefix={
-                            <span
-                              style={{
-                                color: t.textMuted,
-                                fontSize: 11,
-                                fontWeight: 600,
-                                minWidth: 20,
-                              }}
-                            >
-                              {CURRENCIES.find(
-                                (c) => c.code === (payment.currency || "USD"),
-                              )?.symbol || "$"}
-                            </span>
-                          }
-                          type="number"
-                          value={payment.amount}
-                          onChange={(e) =>
-                            handleInlineEdit(
-                              payment.id,
-                              "amount",
-                              e.target.value,
-                            )
-                          }
-                          bordered={false}
-                          style={{ fontWeight: 700 }}
-                        />
-                      </td>
-
-                      {/* Currency */}
-                      <td style={{ padding: "12px 18px", minWidth: 130 }}>
-                        <Select
-                          value={payment.currency || "USD"}
-                          onChange={(v) =>
-                            handleInlineEdit(payment.id, "currency", v)
-                          }
-                          bordered={false}
-                          style={{ marginLeft: -10, width: 110 }}
-                          suffixIcon={null}
-                          showSearch
-                          optionFilterProp="label"
-                          dropdownStyle={{ borderRadius: 10, minWidth: 260 }}
-                          popupClassName={dark ? "pay-dropdown-dark" : ""}
-                          options={CURRENCIES.map((c) => ({
-                            value: c.code,
-                            label: `${c.code} -------- ${c.name}`,
-                            code: c.code,
-                            symbol: c.symbol,
-                          }))}
-                          optionRender={(opt) => (
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 8,
-                              }}
-                            >
-                              <span
-                                style={{
-                                  width: 28,
-                                  fontWeight: 700,
-                                  fontSize: 12,
-                                  fontFamily: "DM Mono, monospace",
-                                  color: dark ? "#f1f5f9" : "#0f172a",
-                                }}
-                              >
-                                {opt.data.symbol}
-                              </span>
-                              <span
-                                style={{
-                                  fontSize: 12,
-                                  color: dark ? "#94a3b8" : "#475569",
-                                }}
-                              >
-                                <strong>{opt.data.code}</strong> --------{" "}
-                                {
-                                  CURRENCIES.find(
-                                    (c) => c.code === opt.data.code,
-                                  )?.name
-                                }
-                              </span>
-                            </div>
+                      <td style={{ padding: "10px 8px", whiteSpace: "nowrap" }}>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          {status !== "paid" && (
+                            <Button size="small" type="primary" onClick={() => markInvoicePaid(row.id)}>
+                              Mark as Paid
+                            </Button>
                           )}
-                        />
-                      </td>
-
-                      {/* Status */}
-                      <td style={{ padding: "12px 18px", minWidth: 140 }}>
-                        <Select
-                          value={payment.status}
-                          onChange={(v) =>
-                            handleInlineEdit(payment.id, "status", v)
-                          }
-                          bordered={false}
-                          style={{ marginLeft: -10 }}
-                          suffixIcon={null}
-                          dropdownStyle={{ borderRadius: 10 }}
-                          popupClassName={dark ? "pay-dropdown-dark" : ""}
-                        >
-                          {Object.entries(STATUS).map(([val, cfg]) => (
-                            <Select.Option key={val} value={val}>
-                              <span
-                                style={{
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: 5,
-                                  padding: "3px 10px",
-                                  borderRadius: 20,
-                                  border: `1px solid ${dark ? cfg.darkBorder : cfg.border}`,
-                                  background: dark ? cfg.darkBg : cfg.bg,
-                                  fontSize: 11,
-                                  fontWeight: 700,
-                                  color: dark ? cfg.darkColor : cfg.color,
-                                }}
-                              >
-                                {cfg.icon} {cfg.label}
-                              </span>
-                            </Select.Option>
-                          ))}
-                        </Select>
-                      </td>
-
-                      {/* Remarks */}
-                      <td
-                        style={{
-                          padding: "12px 18px",
-                          minWidth: 200,
-                          maxWidth: 280,
-                        }}
-                      >
-                        <TextArea
-                          className={`inline-textarea ${dark ? "dark-inp" : "light-inp"}`}
-                          value={payment.remarks || ""}
-                          onChange={(e) =>
-                            handleInlineEdit(
-                              payment.id,
-                              "remarks",
-                              e.target.value,
-                            )
-                          }
-                          placeholder="Add note-------"
-                          bordered={false}
-                          autoSize={{ minRows: 1, maxRows: 3 }}
-                        />
-                      </td>
-
-                      {/* Date */}
-                      <td
-                        style={{ padding: "12px 18px", whiteSpace: "nowrap" }}
-                      >
-                        <span style={{ fontSize: 12, color: t.textSecondary }}>
-                          {dayjs(payment.created_at).format("MMM D, YYYY")}
-                        </span>
-                      </td>
-
-                      {/* Actions */}
-                      <td
-                        style={{ padding: "12px 18px", whiteSpace: "nowrap" }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: 4,
-                            alignItems: "center",
-                          }}
-                        >
+                          <Button
+                            size="small"
+                            icon={<DownloadOutlined />}
+                            onClick={() => downloadInvoicePdf(row)}
+                          />
                           <Button
                             size="small"
                             icon={<EditOutlined />}
                             onClick={() => {
-                              setEditingPayment(payment);
-                              setForm({
-                                client_name: payment.client_name,
-                                amount: payment.amount,
-                                status: payment.status,
-                                remarks: payment.remarks || "",
-                                currency: payment.currency || "USD",
+                              setEditingInvoice(row);
+                              setInvoiceForm({
+                                client_name: row.client_name || "",
+                                amount: String(row.amount || ""),
+                                currency: row.currency || "USD",
+                                status: normalizeInvoiceStatus(row.status),
+                                payment_method: row.payment_method || "bank_transfer",
+                                due_date: row.due_date || null,
+                                paid_date: row.paid_date || null,
+                                project_id: row.project_id || null,
+                                remarks: row.remarks || "",
                               });
-                              setDrawerOpen(true);
-                            }}
-                            style={{
-                              borderRadius: 7,
-                              border: `1px solid ${t.borderStrong}`,
-                              background: t.bgCard,
-                              color: t.textSecondary,
-                              fontWeight: 600,
-                              fontSize: 12,
-                              height: 30,
-                              paddingInline: 10,
+                              setInvoiceProofFile(null);
+                              setInvoiceDrawerOpen(true);
                             }}
                           />
-                          {showArchived ? (
-                            <Button
-                              size="small"
-                              icon={<ArrowUpOutlined />}
-                              onClick={() => handleArchive(payment.id, false)}
-                              style={{
-                                borderRadius: 7,
-                                border: `1px solid ${dark ? "#1e3a5f" : "#bae6fd"}`,
-                                background: dark ? "#0c1a2e" : "#f0f9ff",
-                                color: dark ? "#60a5fa" : "#0369a1",
-                                fontWeight: 600,
-                                fontSize: 12,
-                                height: 30,
-                                paddingInline: 10,
-                              }}
-                            >
-                              Restore
-                            </Button>
-                          ) : (
-                            <Button
-                              size="small"
-                              icon={<InboxOutlined />}
-                              onClick={() => handleArchive(payment.id, true)}
-                              style={{
-                                borderRadius: 7,
-                                border: `1px solid ${t.borderStrong}`,
-                                background: t.bgCard,
-                                color: t.textMuted,
-                                fontWeight: 600,
-                                fontSize: 12,
-                                height: 30,
-                                paddingInline: 10,
-                              }}
-                            />
-                          )}
                           <Button
                             size="small"
                             danger
                             icon={<DeleteOutlined />}
-                            onClick={() => handleDelete(payment.id)}
-                            style={{
-                              borderRadius: 7,
-                              border: `1px solid ${t.dangerBorder}`,
-                              background: t.dangerBg,
-                              color: t.dangerText,
-                              height: 30,
-                              paddingInline: 10,
-                            }}
+                            onClick={() => deleteRow("payments", row.id, "Invoice")}
                           />
                         </div>
                       </td>
@@ -1327,329 +2007,468 @@ const Payments = () => {
               </tbody>
             </table>
           </div>
+        </div>
+        )}
+
+        {activeSection === "operations" && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? 280 : 560}px, 1fr))`,
+            gap: 12,
+          }}
+        >
+          <div
+            style={{
+              background: cardBg,
+              border: `1px solid ${borderColor}`,
+              borderRadius: 14,
+              padding: "14px 16px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-start",
+                alignItems: "center",
+                marginBottom: 8,
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 700, color: textColor }}>
+                Expenses
+              </div>
+            </div>
+            <div style={{ fontSize: 12, color: mutedText, marginBottom: 10 }}>
+              {payoutsInSelectedMonth.length} payout record(s) in {selectedMonth.format("MMMM YYYY")}
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    {["Title", "Category", "Amount", "Date", "Actions"].map((h) => (
+                      <th
+                        key={h}
+                        style={{
+                          textAlign: "left",
+                          padding: "8px 6px",
+                          fontSize: 11,
+                          color: mutedText,
+                          borderBottom: `1px solid ${borderColor}`,
+                        }}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {expenses.map((row) => (
+                    <tr key={row.id}>
+                      <td style={{ padding: "9px 6px", color: textColor }}>{row.title}</td>
+                      <td style={{ padding: "9px 6px", color: mutedText }}>{row.category}</td>
+                      <td style={{ padding: "9px 6px", color: textColor, fontWeight: 700 }}>
+                        {fmtMoney(row.amount)}
+                      </td>
+                      <td style={{ padding: "9px 6px", color: mutedText }}>
+                        {row.spent_at ? dayjs(row.spent_at).format("MMM D, YYYY") : "-"}
+                      </td>
+                      <td style={{ padding: "9px 6px" }}>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <Button
+                            size="small"
+                            icon={<EditOutlined />}
+                            onClick={() => {
+                              setEditingExpense(row);
+                              setExpenseForm({
+                                title: row.title || "",
+                                amount: String(row.amount || ""),
+                                category: row.category || "tools",
+                                spent_at: row.spent_at || dayjs().format("YYYY-MM-DD"),
+                                project_id: row.project_id || null,
+                                notes: row.notes || "",
+                              });
+                              setExpenseDrawerOpen(true);
+                            }}
+                          />
+                          <Button
+                            size="small"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={() => deleteRow("finance_expenses", row.id, "Expense")}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div
+            style={{
+              background: cardBg,
+              border: `1px solid ${borderColor}`,
+              borderRadius: 14,
+              padding: "14px 16px",
+            }}
+          >
+            <div style={{ fontSize: 14, fontWeight: 700, color: textColor, marginBottom: 8 }}>
+              Payouts
+            </div>
+            <div style={{ fontSize: 12, color: mutedText, marginBottom: 10 }}>
+              Showing payouts for {selectedMonth.format("MMMM YYYY")}
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    {["Payee", "Status", "Amount", "Payout Date", "Method", "Actions"].map((h) => (
+                      <th
+                        key={h}
+                        style={{
+                          textAlign: "left",
+                          padding: "8px 6px",
+                          fontSize: 11,
+                          color: mutedText,
+                          borderBottom: `1px solid ${borderColor}`,
+                        }}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {payoutsInSelectedMonth.map((row) => (
+                    <tr key={row.id}>
+                      <td style={{ padding: "9px 6px", color: textColor }}>{row.payee_name}</td>
+                      <td style={{ padding: "9px 6px", color: mutedText }}>
+                        {String(row.status || "").toUpperCase()}
+                      </td>
+                      <td style={{ padding: "9px 6px", color: textColor, fontWeight: 700 }}>
+                        {fmtMoney(row.amount)}
+                      </td>
+                      <td style={{ padding: "9px 6px", color: mutedText }}>
+                        {row.payout_date ? dayjs(row.payout_date).format("MMM D, YYYY") : "-"}
+                      </td>
+                      <td style={{ padding: "9px 6px", color: mutedText }}>
+                        {humanizeLabel(row.payment_method)}
+                      </td>
+                      <td style={{ padding: "9px 6px" }}>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <Button
+                            size="small"
+                            icon={<EditOutlined />}
+                            onClick={() => {
+                              setEditingPayout(row);
+                              setPayoutForm({
+                                payee_name: row.payee_name || "",
+                                amount: String(row.amount || ""),
+                                payout_date: row.payout_date || dayjs().format("YYYY-MM-DD"),
+                                status: row.status || "scheduled",
+                                payment_method: row.payment_method || "bank_transfer",
+                                notes: row.notes || "",
+                              });
+                              setPayoutDrawerOpen(true);
+                            }}
+                          />
+                          <Button
+                            size="small"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={() => deleteRow("finance_manual_payouts", row.id, "Payout")}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {!payoutsInSelectedMonth.length && (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        style={{ padding: "12px 6px", color: mutedText, textAlign: "center" }}
+                      >
+                        No payouts recorded in this month.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
         )}
       </div>
 
-      {/* ---------------- Drawer ---------------- */}
       <Drawer
-        rootClassName={dark ? "pay-drawer-dark" : "pay-drawer-light"}
-        title={
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                background: t.bgMuted,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <DollarOutlined
-                style={{ color: t.textSecondary, fontSize: 16 }}
-              />
-            </div>
-            <div>
-              <div
-                style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  color: t.textMuted,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                }}
-              >
-                {editingPayment ? "Edit" : "New"}
-              </div>
-              <div
-                style={{ fontSize: 15, fontWeight: 700, color: t.textPrimary }}
-              >
-                {editingPayment ? "Update Payment" : "Add Payment"}
-              </div>
-            </div>
-          </div>
-        }
-        open={drawerOpen}
+        title={editingInvoice ? "Edit Invoice" : "Create Invoice"}
+        open={invoiceDrawerOpen}
         onClose={() => {
-          setDrawerOpen(false);
-          resetForm();
+          setInvoiceDrawerOpen(false);
+          resetInvoiceForm();
         }}
-        width={460}
-        footer={
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-            <Button
-              onClick={() => {
-                setDrawerOpen(false);
-                resetForm();
-              }}
-              style={{
-                borderRadius: 9,
-                height: 38,
-                fontWeight: 600,
-                border: `1px solid ${t.borderStrong}`,
-                background: t.bgCard,
-                color: t.textPrimary,
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="primary"
-              onClick={handleSubmit}
-              style={{
-                borderRadius: 9,
-                height: 38,
-                paddingInline: 22,
-                background: t.accent,
-                border: "none",
-                color: t.accentContrast,
-                fontWeight: 700,
-                boxShadow: dark
-                  ? "0 4px 12px rgba(0,0,0,0.4)"
-                  : "0 4px 12px rgba(15,23,42,0.2)",
-              }}
-            >
-              {editingPayment ? "Update" : "Add"} Payment
-            </Button>
-          </div>
+        width={isMobile ? "92vw" : 440}
+        extra={
+          <Button icon={<InboxOutlined />} onClick={fetchAll}>
+            Reload
+          </Button>
         }
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {/* Field label helper */}
-          {[
-            {
-              label: "Client Name",
-              required: true,
-              content: (
-                <Input
-                  value={form.client_name}
-                  onChange={(e) =>
-                    setForm({ ...form, client_name: e.target.value })
-                  }
-                  placeholder="e.g. Acme Corporation"
+        <div style={{ display: "grid", gap: 12 }}>
+          <Input
+            placeholder="Client Name"
+            value={invoiceForm.client_name}
+            onChange={(e) =>
+              setInvoiceForm((prev) => ({ ...prev, client_name: e.target.value }))
+            }
+          />
+          <Select
+            allowClear
+            placeholder="Linked Project (optional)"
+            value={invoiceForm.project_id}
+            onChange={(v) => {
+              const project = projects.find((p) => p.id === v);
+              setInvoiceForm((prev) => ({
+                ...prev,
+                project_id: v || null,
+                currency: project?.currency || prev.currency,
+                client_name: prev.client_name || project?.client_name || prev.client_name,
+              }));
+            }}
+            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+          />
+          <div style={{ display: "grid", gridTemplateColumns: twoColGrid, gap: 8, alignItems: "center" }}>
+            <div>
+              {selectedInvoiceProject ? (
+                <div
                   style={{
+                    height: 38,
                     borderRadius: 9,
-                    height: 40,
-                    background: t.inputBg,
-                    borderColor: t.borderStrong,
-                    color: t.textPrimary,
+                    border: `1px solid ${dark ? "#34343d" : "#dbe4f0"}`,
+                    background: dark ? "#1c1c22" : "#f8fafc",
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "0 10px",
+                    fontSize: 12,
+                    color: dark ? "#cbd5e1" : "#334155",
+                    fontWeight: 700,
                   }}
+                >
+                  Auto Amount: {fmtMoney(computedInvoiceAmount || 0, selectedInvoiceProject.currency || invoiceForm.currency || "USD")}
+                </div>
+              ) : (
+                <Input
+                  type="number"
+                  placeholder="Amount"
+                  value={invoiceForm.amount}
+                  onChange={(e) =>
+                    setInvoiceForm((prev) => ({ ...prev, amount: e.target.value }))
+                  }
                 />
-              ),
-            },
-          ].map(({ label, required, content }) => (
-            <div key={label}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: t.textMuted,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                  marginBottom: 7,
-                }}
-              >
-                {label}{" "}
-                {required && <span style={{ color: t.dangerText }}>*</span>}
-              </label>
-              {content}
+              )}
             </div>
-          ))}
-
-          <div style={{ display: "flex", gap: 12 }}>
-            <div style={{ flex: 1 }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: t.textMuted,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                  marginBottom: 7,
-                }}
-              >
-                Amount <span style={{ color: t.dangerText }}>*</span>
-              </label>
-              <Input
-                type="number"
-                prefix={
-                  <span
-                    style={{
-                      color: t.textMuted,
-                      fontWeight: 700,
-                      fontFamily: "DM Mono, monospace",
-                      minWidth: 20,
-                    }}
-                  >
-                    {CURRENCIES.find((c) => c.code === form.currency)?.symbol ||
-                      "$"}
-                  </span>
-                }
-                value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                placeholder="0.00"
-                style={{
-                  borderRadius: 9,
-                  height: 40,
-                  fontFamily: "'DM Mono', monospace",
-                  background: t.inputBg,
-                  borderColor: t.borderStrong,
-                  color: t.textPrimary,
-                }}
-              />
-            </div>
-            <div style={{ width: 160 }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: t.textMuted,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                  marginBottom: 7,
-                }}
-              >
-                Currency <span style={{ color: t.dangerText }}>*</span>
-              </label>
-              <Select
-                value={form.currency}
-                onChange={(v) => setForm({ ...form, currency: v })}
-                style={{ width: "100%" }}
-                showSearch
-                optionFilterProp="label"
-                dropdownStyle={{ borderRadius: 10, minWidth: 280 }}
-                popupClassName={dark ? "pay-dropdown-dark" : ""}
-                options={CURRENCIES.map((c) => ({
-                  value: c.code,
-                  label: `${c.code} -------- ${c.name}`,
-                  symbol: c.symbol,
-                }))}
-                optionRender={(opt) => (
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      padding: "2px 0",
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 26,
-                        fontWeight: 700,
-                        color: dark ? "#f1f5f9" : "#0f172a",
-                        fontSize: 12,
-                        fontFamily: "DM Mono, monospace",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {opt.data.symbol}
-                    </span>
-                    <div>
-                      <span
-                        style={{
-                          fontWeight: 700,
-                          fontSize: 12,
-                          color: dark ? "#f1f5f9" : "#0f172a",
-                        }}
-                      >
-                        {opt.data.value}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          color: dark ? "#94a3b8" : "#94a3b8",
-                          marginLeft: 6,
-                        }}
-                      >
-                        {
-                          CURRENCIES.find((c) => c.code === opt.data.value)
-                            ?.name
-                        }
-                      </span>
-                    </div>
-                  </div>
-                )}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label
-              style={{
-                display: "block",
-                fontSize: 11,
-                fontWeight: 700,
-                color: t.textMuted,
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-                marginBottom: 7,
-              }}
-            >
-              Status <span style={{ color: t.dangerText }}>*</span>
-            </label>
-            <Select
-              value={form.status}
-              onChange={(v) => setForm({ ...form, status: v })}
-              style={{ width: "100%" }}
-              popupClassName={dark ? "pay-dropdown-dark" : ""}
-            >
-              {Object.entries(STATUS).map(([val, cfg]) => (
-                <Select.Option key={val} value={val}>
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 5,
-                      color: dark ? cfg.darkColor : cfg.color,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {cfg.icon} {cfg.label}
-                  </span>
-                </Select.Option>
-              ))}
-            </Select>
-          </div>
-
-          <div>
-            <label
-              style={{
-                display: "block",
-                fontSize: 11,
-                fontWeight: 700,
-                color: t.textMuted,
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-                marginBottom: 7,
-              }}
-            >
-              Remarks
-            </label>
-            <TextArea
-              value={form.remarks}
-              onChange={(e) => setForm({ ...form, remarks: e.target.value })}
-              rows={4}
-              placeholder="Invoice number, notes, payment terms-------"
-              style={{
-                resize: "none",
-                borderRadius: 9,
-                background: t.inputBg,
-                borderColor: t.borderStrong,
-                color: t.textPrimary,
-              }}
+            <Input
+              placeholder="Currency"
+              value={invoiceForm.currency}
+              onChange={(e) =>
+                setInvoiceForm((prev) => ({
+                  ...prev,
+                  currency: e.target.value.toUpperCase() || "USD",
+                }))
+              }
+              disabled={!!selectedInvoiceProject}
             />
           </div>
+          <div style={{ display: "grid", gridTemplateColumns: twoColGrid, gap: 8 }}>
+            <Select
+              value={invoiceForm.status}
+              onChange={(v) => setInvoiceForm((prev) => ({ ...prev, status: v }))}
+              options={INVOICE_STATUSES.map((s) => ({ value: s, label: s.toUpperCase() }))}
+            />
+            <Select
+              value={invoiceForm.payment_method}
+              onChange={(v) => setInvoiceForm((prev) => ({ ...prev, payment_method: v }))}
+              options={PAYMENT_METHODS.map((m) => ({ value: m, label: humanizeLabel(m) }))}
+            />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: twoColGrid, gap: 8 }}>
+            <DatePicker
+              placeholder="Due Date"
+              value={invoiceForm.due_date ? dayjs(invoiceForm.due_date) : null}
+              style={{ width: "100%" }}
+              onChange={(d) =>
+                setInvoiceForm((prev) => ({
+                  ...prev,
+                  due_date: d ? d.format("YYYY-MM-DD") : null,
+                }))
+              }
+            />
+            <DatePicker
+              placeholder="Paid Date"
+              value={invoiceForm.paid_date ? dayjs(invoiceForm.paid_date) : null}
+              style={{ width: "100%" }}
+              onChange={(d) =>
+                setInvoiceForm((prev) => ({
+                  ...prev,
+                  paid_date: d ? d.format("YYYY-MM-DD") : null,
+                }))
+              }
+            />
+          </div>
+          <Upload
+            beforeUpload={(file) => {
+              setInvoiceProofFile(file);
+              return false;
+            }}
+            maxCount={1}
+            accept="image/*,.pdf"
+          >
+            <Button icon={<UploadOutlined />}>
+              Upload Payment Proof (Screenshot/Receipt)
+            </Button>
+          </Upload>
+          <TextArea
+            rows={4}
+            placeholder="Remarks"
+            value={invoiceForm.remarks}
+            onChange={(e) =>
+              setInvoiceForm((prev) => ({ ...prev, remarks: e.target.value }))
+            }
+          />
+          <Button type="primary" onClick={saveInvoice} icon={<RiseOutlined />}>
+            {editingInvoice ? "Update Invoice" : "Create Invoice"}
+          </Button>
+        </div>
+      </Drawer>
+
+      <Drawer
+        title={editingExpense ? "Edit Expense" : "Add Expense"}
+        open={expenseDrawerOpen}
+        onClose={() => {
+          setExpenseDrawerOpen(false);
+          resetExpenseForm();
+        }}
+        width={isMobile ? "92vw" : 420}
+      >
+        <div style={{ display: "grid", gap: 12 }}>
+          <Input
+            placeholder="Expense Title"
+            value={expenseForm.title}
+            onChange={(e) =>
+              setExpenseForm((prev) => ({ ...prev, title: e.target.value }))
+            }
+          />
+          <div style={{ display: "grid", gridTemplateColumns: twoColGrid, gap: 8 }}>
+            <Input
+              type="number"
+              placeholder="Amount"
+              value={expenseForm.amount}
+              onChange={(e) =>
+                setExpenseForm((prev) => ({ ...prev, amount: e.target.value }))
+              }
+            />
+            <Select
+              value={expenseForm.category}
+              onChange={(v) => setExpenseForm((prev) => ({ ...prev, category: v }))}
+              options={EXPENSE_CATEGORIES.map((c) => ({ value: c, label: c }))}
+            />
+          </div>
+          <DatePicker
+            value={expenseForm.spent_at ? dayjs(expenseForm.spent_at) : null}
+            style={{ width: "100%" }}
+            onChange={(d) =>
+              setExpenseForm((prev) => ({
+                ...prev,
+                spent_at: d ? d.format("YYYY-MM-DD") : null,
+              }))
+            }
+          />
+          <Select
+            allowClear
+            placeholder="Linked Project (optional)"
+            value={expenseForm.project_id}
+            onChange={(v) => setExpenseForm((prev) => ({ ...prev, project_id: v || null }))}
+            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+          />
+          <TextArea
+            rows={4}
+            placeholder="Notes"
+            value={expenseForm.notes}
+            onChange={(e) =>
+              setExpenseForm((prev) => ({ ...prev, notes: e.target.value }))
+            }
+          />
+          <Button type="primary" onClick={saveExpense}>
+            {editingExpense ? "Update Expense" : "Save Expense"}
+          </Button>
+        </div>
+      </Drawer>
+
+      <Drawer
+        title={editingPayout ? "Edit Manual Payout" : "Add Manual Payout"}
+        open={payoutDrawerOpen}
+        onClose={() => {
+          setPayoutDrawerOpen(false);
+          resetPayoutForm();
+        }}
+        width={isMobile ? "92vw" : 420}
+      >
+        <div style={{ display: "grid", gap: 12 }}>
+          <Input
+            placeholder="Payee Name"
+            value={payoutForm.payee_name}
+            onChange={(e) =>
+              setPayoutForm((prev) => ({ ...prev, payee_name: e.target.value }))
+            }
+          />
+          <div style={{ display: "grid", gridTemplateColumns: twoColGrid, gap: 8 }}>
+            <Input
+              type="number"
+              placeholder="Amount"
+              value={payoutForm.amount}
+              onChange={(e) =>
+                setPayoutForm((prev) => ({ ...prev, amount: e.target.value }))
+              }
+            />
+            <DatePicker
+              value={payoutForm.payout_date ? dayjs(payoutForm.payout_date) : null}
+              style={{ width: "100%" }}
+              onChange={(d) =>
+                setPayoutForm((prev) => ({
+                  ...prev,
+                  payout_date: d ? d.format("YYYY-MM-DD") : null,
+                }))
+              }
+            />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: twoColGrid, gap: 8 }}>
+            <Select
+              value={payoutForm.status}
+              onChange={(v) => setPayoutForm((prev) => ({ ...prev, status: v }))}
+              options={PAYOUT_STATUSES.map((s) => ({ value: s, label: s }))}
+            />
+            <Select
+              value={payoutForm.payment_method}
+              onChange={(v) =>
+                setPayoutForm((prev) => ({ ...prev, payment_method: v }))
+              }
+              options={PAYMENT_METHODS.map((m) => ({ value: m, label: humanizeLabel(m) }))}
+            />
+          </div>
+          <TextArea
+            rows={4}
+            placeholder="Notes"
+            value={payoutForm.notes}
+            onChange={(e) =>
+              setPayoutForm((prev) => ({ ...prev, notes: e.target.value }))
+            }
+          />
+          <Button type="primary" onClick={savePayout}>
+            {editingPayout ? "Update Payout" : "Save Payout"}
+          </Button>
         </div>
       </Drawer>
     </div>
   );
-};
-
-export default Payments;
-
-
+}

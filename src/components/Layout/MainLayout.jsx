@@ -22,8 +22,9 @@ import {
   SettingOutlined,
   LogoutOutlined,
   BellOutlined,
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
+  MenuOutlined,
+  SearchOutlined,
+  QuestionCircleOutlined,
   FileDoneOutlined,
   DollarOutlined,
   SunOutlined,
@@ -675,7 +676,7 @@ const MainLayout = ({ children }) => {
     "/standups": { icon: <BarChartOutlined />, label: "Standup Stats" },
     "/requests": { icon: <FileTextOutlined />, label: "Requests" },
     "/leads": { icon: <CustomerServiceOutlined />, label: "Leads" },
-    "/payments": { icon: <DollarOutlined />, label: "Payments" },
+    "/payments": { icon: <DollarOutlined />, label: "Finance" },
     "/recruitment": { icon: <UserAddOutlined />, label: "Recruitment" },
     "/contract-maker": { icon: <FileProtectOutlined />, label: "Contracts" },
     "/training-material": { icon: <ReadOutlined />, label: "Training" },
@@ -686,7 +687,7 @@ const MainLayout = ({ children }) => {
       label: "Customer Support",
     },
     "/report-problem": { icon: <AlertOutlined />, label: "Report a Problem" },
-    "/subscription": { icon: <CreditCardOutlined />, label: "Subscription" },
+    "/subscription": { icon: <CreditCardOutlined />, label: "Billing" },
     "/settings": { icon: <SettingOutlined />, label: "Settings" },
   };
   const ALWAYS_VISIBLE_ADMIN_ROUTES = new Set([
@@ -749,6 +750,11 @@ const MainLayout = ({ children }) => {
             label: "Subscription Plans",
           },
           { key: "/discounts", icon: <BankOutlined />, label: "Discounts" },
+          {
+            key: "/platform-resources",
+            icon: <ReadOutlined />,
+            label: "Resources",
+          },
           {
             key: "/support",
             icon: <CustomerServiceOutlined />,
@@ -890,10 +896,10 @@ const MainLayout = ({ children }) => {
             disabled: isRouteLocked("/communication"),
           },
           {
-            key: "/settings",
-            icon: <SettingOutlined />,
+            key: "/profile",
+            icon: <IdcardOutlined />,
             label: "Profile",
-            disabled: isRouteLocked("/settings"),
+            disabled: isRouteLocked("/profile"),
           },
         ],
       },
@@ -1146,6 +1152,7 @@ const MainLayout = ({ children }) => {
     "/tenants": "Tenants",
     "/users": "Users",
     "/subscription-plans": "Subscription Plans",
+    "/platform-resources": "Resources",
     "/billing": "Billing",
     "/analytics": "Analytics",
     "/usage": "Usage",
@@ -1170,7 +1177,12 @@ const MainLayout = ({ children }) => {
       key: "profile",
       icon: <UserOutlined />,
       label: "My Profile",
-      onClick: () => navigate("/settings"),
+      onClick: () =>
+        navigate(
+          profile?.role === "project_manager" || profile?.role === "employee"
+            ? "/profile"
+            : "/settings",
+        ),
     },
     { type: "divider" },
     {
@@ -1269,8 +1281,9 @@ const MainLayout = ({ children }) => {
     ),
   }));
 
-  const SIDER_WIDTH = 232;
+  const SIDER_WIDTH = 248;
   const SIDER_COLLAPSED = 64;
+  const currentPageTitle = pageTitles[location.pathname] || "Overview";
   const formatActivityTime = (timestamp) => {
     if (!timestamp) return "";
     const diffMs = Date.now() - new Date(timestamp).getTime();
@@ -1800,16 +1813,15 @@ const MainLayout = ({ children }) => {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    overflow: "hidden",
                   }}
                 >
                   <img
                     src={isDarkMode ? "/Ryzent1.png" : "/Ryzent.png"}
-                    alt="Ryzent"
+                    alt="Ryzent AI"
                     style={{
-                      width: "18px",
+                      width: "25px",
                       height: "18px",
-                      objectFit: "cover",
+                      marginTop:"-4px",
                       display: "block",
                     }}
                   />
@@ -1825,7 +1837,7 @@ const MainLayout = ({ children }) => {
                       whiteSpace: "nowrap",
                     }}
                   >
-                    Ryzent
+                    Ryzent AI
                   </span>
                 )}
               </div>
@@ -1906,34 +1918,38 @@ const MainLayout = ({ children }) => {
                 zIndex: 999,
               }}
             >
-              {/* Left: toggle + page title */}
+              {/* Left: page title */}
               <div
                 style={{ display: "flex", alignItems: "center", gap: "16px" }}
               >
-                <button
-                  onClick={() => setCollapsed(!collapsed)}
-                  className="rs-icon-btn"
-                  style={{
-                    width: "32px",
-                    height: "32px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderRadius: "7px",
-                    border: "none",
-                    background: "transparent",
-                    cursor: "pointer",
-                    color: t.textSub,
-                    flexShrink: 0,
-                    transition: "background 0.15s",
-                  }}
-                >
-                  {collapsed ? (
-                    <MenuUnfoldOutlined style={{ fontSize: "16px" }} />
-                  ) : (
-                    <MenuFoldOutlined style={{ fontSize: "16px" }} />
-                  )}
-                </button>
+                {isMobile && (
+                  <button
+                    type="button"
+                    onClick={() => setCollapsed((prev) => !prev)}
+                    aria-label={collapsed ? "Open sidebar" : "Close sidebar"}
+                    className="rs-icon-btn"
+                    style={{
+                      width: "32px",
+                      height: "32px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderRadius: "7px",
+                      border: "none",
+                      background: "transparent",
+                      cursor: "pointer",
+                      color: t.textSub,
+                      flexShrink: 0,
+                      transition: "background 0.15s",
+                    }}
+                  >
+                    {collapsed ? (
+                      <MenuOutlined style={{ fontSize: "15px" }} />
+                    ) : (
+                      <CloseOutlined style={{ fontSize: "15px" }} />
+                    )}
+                  </button>
+                )}
 
                 {!isMobile && (
                   <span

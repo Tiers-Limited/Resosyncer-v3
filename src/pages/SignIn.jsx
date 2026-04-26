@@ -17,6 +17,7 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { buildOtpEmail } from "../lib/emailTemplates";
 
 /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
    Email helper
@@ -32,13 +33,13 @@ const sendEmail = async ({ to, subject, body, companyName }) => {
     });
     const data = await res.json();
     if (!res.ok) {
-      console.error("--- Email send failed:", data);
+      console.error("Email send failed:", data);
       return { success: false, error: data };
     }
-    console.log("--- Email sent:", data.messageId);
+    console.log("Email sent:", data.messageId);
     return { success: true, data };
   } catch (err) {
-    console.error("--- Email send error:", err);
+    console.error("Email send error:", err);
     return { success: false, error: err.message };
   }
 };
@@ -46,27 +47,17 @@ const sendEmail = async ({ to, subject, body, companyName }) => {
 const generateOtp = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
-const otpEmailHtml = (otp, name) => `
-  <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 480px; margin: 0 auto; background: #ffffff;">
-    <div style="background: linear-gradient(135deg, #0a0f1e 0%, #0f172a 100%); padding: 40px 48px 32px; border-radius: 16px 16px 0 0;">
-      <div style="width: 44px; height: 44px; background: linear-gradient(135deg,#6366f1,#8b5cf6); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
-        <span style="color:#fff; font-weight:800; font-size:20px;">R</span>
-      </div>
-      <h1 style="color:#fff; margin:0; font-size:22px; font-weight:700; letter-spacing:-0.5px;">Your login code</h1>
-      <p style="color:rgba(255,255,255,0.5); margin: 8px 0 0; font-size:14px;">Hi ${name}, use the code below to verify your identity.</p>
-    </div>
-    <div style="padding: 40px 48px; background: #f8fafc; border-radius: 0 0 16px 16px; border: 1px solid #e2e8f0; border-top: none;">
-      <div style="background:#fff; border: 2px dashed #e2e8f0; border-radius: 14px; padding: 28px; text-align: center; margin-bottom: 28px;">
-        <div style="font-size: 42px; font-weight: 800; letter-spacing: 12px; color: #0f172a; font-family: monospace;">${otp}</div>
-        <p style="color:#94a3b8; font-size:12px; margin: 12px 0 0;">Expires in <strong>10 minutes</strong></p>
-      </div>
-      <p style="color:#64748b; font-size:13px; line-height:1.6; margin:0;">If you didn't attempt to sign in, you can safely ignore this email. Someone may have entered your email by mistake.</p>
-    </div>
-  </div>
-`;
+const otpEmailHtml = (otp, name) =>
+  buildOtpEmail({
+    otp,
+    name,
+    title: "Your login code",
+    intro: `Hi ${name}, use the code below to verify your identity.`,
+    variant: "ryzent",
+  });
 
 /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-   OTP Input --- single hidden input, visual boxes overlay
+   OTP Input: single hidden input, visual boxes overlay
    No blink, no setTimeout focus fighting, works on mobile
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const OtpBoxes = ({ value, onChange, disabled }) => {
@@ -126,7 +117,7 @@ const OtpBoxes = ({ value, onChange, disabled }) => {
         }}
       />
 
-      {/* Visual boxes --- purely decorative */}
+      {/* Visual boxes: purely decorative */}
       {digits.map((d, i) => {
         const isActive = focused && i === activeIdx;
         return (
@@ -464,7 +455,7 @@ const SignIn = () => {
               <div className="text-xs text-slate-400 mt-0.5">
                 Send a 6-digit code to{" "}
                 <span className="font-medium text-slate-500">
-                  {pendingProfile?.email?.replace(/(.{2}).+(@.+)/, "$1---------$2")}
+                  {pendingProfile?.email?.replace(/(.{2}).+(@.+)/, "$1***$2")}
                 </span>
               </div>
             </div>
@@ -531,7 +522,7 @@ const SignIn = () => {
         <p className="text-slate-400 text-sm leading-relaxed">
           We sent a 6-digit code to{" "}
           <span className="font-semibold text-slate-600">
-            {pendingProfile?.email?.replace(/(.{2}).+(@.+)/, "$1---------$2")}
+            {pendingProfile?.email?.replace(/(.{2}).+(@.+)/, "$1***$2")}
           </span>
           . It expires in 10 minutes.
         </p>
@@ -553,13 +544,13 @@ const SignIn = () => {
           fontWeight: 600,
           background:
             otpCode.length === 6
-              ? "linear-gradient(135deg, #4f46e5, #7c3aed)"
+              ? "#1e3d9f"
               : undefined,
           border: "none",
           borderRadius: 12,
           boxShadow:
             otpCode.length === 6
-              ? "0 4px 14px rgba(99,102,241,0.35)"
+              ? "0 4px 14px rgba(30,61,159,0.35)"
               : undefined,
         }}
       >
@@ -637,13 +628,13 @@ const SignIn = () => {
           fontWeight: 600,
           background:
             totpCode.length === 6
-              ? "linear-gradient(135deg, #7c3aed, #8b5cf6)"
+              ? "#1e3d9f"
               : undefined,
           border: "none",
           borderRadius: 12,
           boxShadow:
             totpCode.length === 6
-              ? "0 4px 14px rgba(139,92,246,0.35)"
+              ? "0 4px 14px rgba(30,61,159,0.35)"
               : undefined,
         }}
       >
@@ -660,409 +651,398 @@ const SignIn = () => {
      Full render
   --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
   return (
-    <div className="min-h-screen flex signin-root">
-      {/* ------ LEFT --- Brand panel ------ */}
-      <div
-        className="hidden lg:flex flex-col relative overflow-hidden"
-        style={{
-          width: "52%",
-          background:
-            "linear-gradient(145deg, #0a0f1e 0%, #0f172a 45%, #111827 100%)",
-          flexShrink: 0,
-        }}
-      >
-        <div className="signin-grid" />
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              "radial-gradient(ellipse 70% 55% at 30% 20%, rgba(99,102,241,0.18) 0%, transparent 65%)",
-          }}
-        />
+    <div className="min-h-screen signin-bg p-0">
+      <div className="signin-shell">
+        <section className="signin-left">
+          <div className="signin-form-wrap">
+            {twoFaStep === "choose" && renderChoose()}
+            {twoFaStep === "email" && renderEmailOtp()}
+            {twoFaStep === "totp" && renderTotp()}
 
-        <div className="relative z-10 flex flex-col h-full p-12">
-          <div className="flex items-center gap-3">
-            <span className="text-white font-bold text-xl tracking-tight">
-              Ryzent
-            </span>
-          </div>
-
-          <div className="flex-1 flex flex-col justify-center relative py-12">
-            <div
-              className="transition-all duration-700"
-              style={{
-                opacity: mounted ? 1 : 0,
-                transform: mounted ? "translateY(0)" : "translateY(20px)",
-              }}
-            >
+            {!twoFaStep && (
               <div
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold mb-6"
-                style={{ background: "rgba(99,102,241,0.2)", color: "#a5b4fc" }}
-              >
-                <span
-                  className="w-1.5 h-1.5 rounded-full animate-pulse"
-                  style={{ background: "#a5b4fc" }}
-                />
-                Trusted by 500+ companies
-              </div>
-              <h1
-                className="font-black leading-none mb-5"
+                className="w-full max-w-sm transition-all duration-500"
                 style={{
-                  fontSize: "clamp(2.2rem, 3.5vw, 3.2rem)",
-                  color: "#fff",
-                  letterSpacing: "-0.03em",
+                  opacity: mounted ? 1 : 0,
+                  transform: mounted ? "translateY(0)" : "translateY(16px)",
                 }}
               >
-                Run your whole
-                <br />
-                <span
-                  style={{
-                    background: "linear-gradient(90deg, #818cf8, #c084fc)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                  }}
-                >
-                  company
-                </span>
-                <br />
-                from one place.
-              </h1>
-              <p
-                className="text-base leading-relaxed max-w-sm"
-                style={{ color: "rgba(255,255,255,0.5)" }}
-              >
-                Projects, HR, attendance, payroll, leads --- all connected. Built
-                for teams that move fast.
-              </p>
-            </div>
-
-            <FeatureCard
-              icon={<TeamOutlined />}
-              title="Team Management"
-              desc="Roles, attendance & standups"
-              delay={0}
-              x="58%"
-              y="5%"
-            />
-            <FeatureCard
-              icon={<BarChartOutlined />}
-              title="Live Analytics"
-              desc="Real-time performance data"
-              delay={1.5}
-              x="52%"
-              y="44%"
-            />
-            <FeatureCard
-              icon={<FileProtectOutlined />}
-              title="Contract Builder"
-              desc="Generate & sign in minutes"
-              delay={0.8}
-              x="55%"
-              y="80%"
-            />
-          </div>
-
-          <div className="relative h-16 mb-2" />
-        </div>
-      </div>
-
-      {/* ------ RIGHT --- Form panel ------ */}
-      <div className="flex-1 flex flex-col bg-white">
-        {/* Mobile logo */}
-        <div className="lg:hidden flex items-center gap-2 p-6 border-b border-slate-100">
-          <span className="text-slate-900 font-bold text-lg tracking-tight">
-            Ryzent AI
-          </span>
-        </div>
-
-        {/* Form area */}
-        <div className="flex-1 flex items-center justify-center px-8 py-12">
-          {/* ------ 2FA flows ------ */}
-          {twoFaStep === "choose" && renderChoose()}
-          {twoFaStep === "email" && renderEmailOtp()}
-          {twoFaStep === "totp" && renderTotp()}
-
-          {/* ------ Normal sign-in / forgot ------ */}
-          {!twoFaStep && (
-            <div
-              className="w-full max-w-sm transition-all duration-500"
-              style={{
-                opacity: mounted ? 1 : 0,
-                transform: mounted ? "translateY(0)" : "translateY(16px)",
-              }}
-            >
-              {!showForgot ? (
-                <>
-                  <div className="mb-8">
-                    <h2
-                      className="font-black mb-1.5 tracking-tight"
-                      style={{ fontSize: 28, color: "#0f172a" }}
-                    >
-                      Welcome back
-                    </h2>
-                    <p className="text-slate-400 text-sm">
-                      Sign in to your workspace
-                    </p>
-                  </div>
-
-                  <Form
-                    name="signin"
-                    onFinish={handleSignIn}
-                    layout="vertical"
-                    size="large"
-                    requiredMark={false}
-                  >
-                    <Form.Item
-                      name="email"
-                      label={
-                        <span className="text-slate-700 text-sm font-medium">
-                          Email address
-                        </span>
-                      }
-                      rules={[
-                        { required: true, message: "Please enter your email" },
-                        { type: "email", message: "Invalid email address" },
-                      ]}
-                    >
-                      <Input
-                        prefix={<UserOutlined className="text-slate-300" />}
-                        placeholder="you@company.com"
-                        className="signin-input"
-                      />
-                    </Form.Item>
-
-                    <Form.Item
-                      name="password"
-                      label={
-                        <div className="flex items-center justify-between w-full">
-                          <span className="text-slate-700 text-sm font-medium">
-                            Password
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setShowForgot(true)}
-                            className="text-xs font-medium transition-colors"
-                            style={{
-                              color: "#6366f1",
-                              background: "none",
-                              border: "none",
-                              cursor: "pointer",
-                              padding: 0,
-                            }}
-                          >
-                            Forgot password?
-                          </button>
-                        </div>
-                      }
-                      rules={[
-                        {
-                          required: true,
-                          message: "Please enter your password",
-                        },
-                      ]}
-                    >
-                      <Input.Password
-                        prefix={<LockOutlined className="text-slate-300" />}
-                        placeholder="------------------------"
-                        className="signin-input"
-                      />
-                    </Form.Item>
-
-                    <Form.Item
-                      name="remember"
-                      valuePropName="checked"
-                      className="!mb-6"
-                    >
-                      <Checkbox>
-                        <span className="text-slate-500 text-sm">
-                          Keep me signed in for 30 days
-                        </span>
-                      </Checkbox>
-                    </Form.Item>
-
-                    <Form.Item className="!mb-4">
-                      <Button
-                        type="primary"
-                        htmlType="submit"
-                        loading={loading}
-                        block
-                        icon={<ArrowRightOutlined />}
-                        className="signin-btn !flex !items-center !justify-center !gap-2 !flex-row-reverse"
+                {!showForgot ? (
+                  <>
+                    <div className="mb-8">
+                      <h2
+                        className="mb-1.5 tracking-tight"
                         style={{
-                          height: 48,
-                          fontSize: 15,
-                          fontWeight: 600,
-                          background:
-                            "linear-gradient(135deg, #4f46e5, #7c3aed)",
-                          border: "none",
-                          borderRadius: 12,
-                          boxShadow: "0 4px 14px rgba(99,102,241,0.35)",
-                        }}
-                      >
-                        Sign in
-                      </Button>
-                    </Form.Item>
-                  </Form>
-
-                  <div className="flex items-center gap-3 my-5">
-                    <div className="flex-1 h-px bg-slate-100" />
-                    <span className="text-xs text-slate-300 font-medium">
-                      OR
-                    </span>
-                    <div className="flex-1 h-px bg-slate-100" />
-                  </div>
-
-                  <div
-                    className="rounded-2xl p-5 text-center"
-                    style={{
-                      background: "#f8fafc",
-                      border: "1.5px solid #e2e8f0",
-                    }}
-                  >
-                    <p className="text-slate-500 text-sm mb-3">
-                      Don't have a workspace yet?
-                    </p>
-                    <Link to="/register">
-                      <Button
-                        block
-                        className="!rounded-xl !font-semibold !text-sm"
-                        style={{
-                          height: 42,
-                          borderColor: "#e2e8f0",
+                          fontSize: 36,
+                          lineHeight: 1.05,
+                          letterSpacing: "-0.02em",
                           color: "#0f172a",
-                          background: "#fff",
+                          fontWeight: 700,
                         }}
                       >
-                        Create your free account ---
-                      </Button>
-                    </Link>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={() => setShowForgot(false)}
-                    className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-600 mb-8 transition-colors"
-                    style={{
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      padding: 0,
-                    }}
-                  >
-                    --- Back to sign in
-                  </button>
-
-                  <div className="mb-8">
-                    <div
-                      className="w-12 h-12 rounded-2xl flex items-center justify-center mb-5"
-                      style={{ background: "#eef2ff" }}
-                    >
-                      <LockOutlined
-                        style={{ color: "#6366f1", fontSize: 20 }}
-                      />
+                        Welcome back
+                      </h2>
+                      <p className="text-slate-400 text-sm">
+                        Sign in to your workspace
+                      </p>
                     </div>
-                    <h2
-                      className="font-black mb-1.5 tracking-tight"
-                      style={{ fontSize: 28, color: "#0f172a" }}
-                    >
-                      Reset your password
-                    </h2>
-                    <p className="text-slate-400 text-sm">
-                      Enter your work email and we'll send a reset link right
-                      away.
-                    </p>
-                  </div>
 
-                  <Form
-                    name="forgot"
-                    onFinish={handleForgotPassword}
-                    layout="vertical"
-                    size="large"
-                    requiredMark={false}
-                  >
-                    <Form.Item
-                      name="email"
-                      label={
-                        <span className="text-slate-700 text-sm font-medium">
-                          Work email
-                        </span>
-                      }
-                      rules={[
-                        { required: true, message: "Please enter your email" },
-                        { type: "email", message: "Invalid email address" },
-                      ]}
+                    <Form
+                      name="signin"
+                      onFinish={handleSignIn}
+                      layout="vertical"
+                      size="large"
+                      requiredMark={false}
                     >
-                      <Input
-                        prefix={<UserOutlined className="text-slate-300" />}
-                        placeholder="you@company.com"
-                        className="signin-input"
-                      />
-                    </Form.Item>
-                    <Form.Item>
-                      <Button
-                        type="primary"
-                        htmlType="submit"
-                        loading={loading}
-                        block
-                        style={{
-                          height: 48,
-                          fontSize: 15,
-                          fontWeight: 600,
-                          background:
-                            "linear-gradient(135deg, #4f46e5, #7c3aed)",
-                          border: "none",
-                          borderRadius: 12,
-                          boxShadow: "0 4px 14px rgba(99,102,241,0.35)",
-                        }}
+                      <Form.Item
+                        name="email"
+                        label={
+                          <span className="text-slate-700 text-sm font-medium">
+                            Email address
+                          </span>
+                        }
+                        rules={[
+                          { required: true, message: "Please enter your email" },
+                          { type: "email", message: "Invalid email address" },
+                        ]}
                       >
-                        Send reset link
-                      </Button>
-                    </Form.Item>
-                  </Form>
-                </>
-              )}
-            </div>
-          )}
-        </div>
+                        <Input
+                          prefix={<UserOutlined className="text-slate-300" />}
+                          placeholder="you@company.com"
+                          className="signin-input"
+                        />
+                      </Form.Item>
 
-        {/* Footer */}
-        <div className="px-8 py-5 border-t border-slate-50 flex items-center justify-between">
-          <span className="text-xs text-slate-300">-- 2025 Ryzent AI</span>
-          <div className="flex items-center gap-4">
-            {["Privacy", "Terms", "Help"].map((l) => (
-              <a
-                key={l}
-                href="#"
-                className="text-xs text-slate-300 hover:text-slate-500 transition-colors"
-              >
-                {l}
-              </a>
-            ))}
+                      <Form.Item
+                        name="password"
+                        label={
+                          <div className="flex items-center justify-between w-full">
+                            <span className="text-slate-700 text-sm font-medium">
+                              Password
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setShowForgot(true)}
+                              className="text-xs font-medium transition-colors"
+                              style={{
+                                color: "#6366f1",
+                                background: "none",
+                                border: "none",
+                                cursor: "pointer",
+                                padding: 0,
+                              }}
+                            >
+                              Forgot password?
+                            </button>
+                          </div>
+                        }
+                        rules={[
+                          {
+                            required: true,
+                            message: "Please enter your password",
+                          },
+                        ]}
+                      >
+                        <Input.Password
+                          prefix={<LockOutlined className="text-slate-300" />}
+                          placeholder="Enter your password"
+                          className="signin-input"
+                        />
+                      </Form.Item>
+
+                      <Form.Item
+                        name="remember"
+                        valuePropName="checked"
+                        className="!mb-6"
+                      >
+                        <Checkbox>
+                          <span className="text-slate-500 text-sm">
+                            Keep me signed in for 30 days
+                          </span>
+                        </Checkbox>
+                      </Form.Item>
+
+                      <Form.Item className="!mb-4">
+                        <Button
+                          type="primary"
+                          htmlType="submit"
+                          loading={loading}
+                          block
+                          icon={<ArrowRightOutlined />}
+                          className="signin-btn !flex !items-center !justify-center !gap-2 !flex-row-reverse"
+                          style={{
+                            height: 48,
+                            fontSize: 15,
+                            fontWeight: 600,
+                            background: "#1e3d9f",
+                            border: "none",
+                            borderRadius: 12,
+                            boxShadow: "0 4px 14px rgba(30,61,159,0.35)",
+                          }}
+                        >
+                          Sign in
+                        </Button>
+                      </Form.Item>
+                    </Form>
+
+                    <div className="flex items-center gap-3 my-5">
+                      <div className="flex-1 h-px bg-slate-100" />
+                      <span className="text-xs text-slate-300 font-medium">
+                        OR
+                      </span>
+                      <div className="flex-1 h-px bg-slate-100" />
+                    </div>
+
+                    <div
+                      className="rounded-2xl p-5 text-center"
+                      style={{
+                        background: "#f8fafc",
+                        border: "1.5px solid #e2e8f0",
+                      }}
+                    >
+                      <p className="text-slate-500 text-sm mb-3">
+                        Don't have a workspace yet?
+                      </p>
+                      <Link to="/register">
+                        <Button
+                          block
+                          className="!rounded-xl !font-semibold !text-sm"
+                          style={{
+                            height: 42,
+                            borderColor: "#e2e8f0",
+                            color: "#0f172a",
+                            background: "#fff",
+                          }}
+                        >
+                          Create your free account
+                        </Button>
+                      </Link>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setShowForgot(false)}
+                      className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-600 mb-8 transition-colors"
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        padding: 0,
+                      }}
+                    >
+                      <ArrowLeftOutlined style={{ fontSize: 11 }} />
+                      Back to sign in
+                    </button>
+
+                    <div className="mb-8">
+                      <div
+                        className="w-12 h-12 rounded-2xl flex items-center justify-center mb-5"
+                        style={{ background: "#eef2ff" }}
+                      >
+                        <LockOutlined
+                          style={{ color: "#6366f1", fontSize: 20 }}
+                        />
+                      </div>
+                      <h2
+                        className="font-black mb-1.5 tracking-tight"
+                        style={{ fontSize: 28, color: "#0f172a" }}
+                      >
+                        Reset your password
+                      </h2>
+                      <p className="text-slate-400 text-sm">
+                        Enter your work email and we'll send a reset link right
+                        away.
+                      </p>
+                    </div>
+
+                    <Form
+                      name="forgot"
+                      onFinish={handleForgotPassword}
+                      layout="vertical"
+                      size="large"
+                      requiredMark={false}
+                    >
+                      <Form.Item
+                        name="email"
+                        label={
+                          <span className="text-slate-700 text-sm font-medium">
+                            Work email
+                          </span>
+                        }
+                        rules={[
+                          { required: true, message: "Please enter your email" },
+                          { type: "email", message: "Invalid email address" },
+                        ]}
+                      >
+                        <Input
+                          prefix={<UserOutlined className="text-slate-300" />}
+                          placeholder="you@company.com"
+                          className="signin-input"
+                        />
+                      </Form.Item>
+                      <Form.Item>
+                        <Button
+                          type="primary"
+                          htmlType="submit"
+                          loading={loading}
+                          block
+                          style={{
+                            height: 48,
+                            fontSize: 15,
+                            fontWeight: 600,
+                            background: "#1e3d9f",
+                            border: "none",
+                            borderRadius: 12,
+                            boxShadow: "0 4px 14px rgba(30,61,159,0.35)",
+                          }}
+                        >
+                          Send reset link
+                        </Button>
+                      </Form.Item>
+                    </Form>
+                  </>
+                )}
+              </div>
+            )}
           </div>
-        </div>
+          <div
+            style={{
+              textAlign: "center",
+              fontSize: 12,
+              color: "#94a3b8",
+              padding: "8px 0 14px",
+            }}
+          >
+            © Copyright {new Date().getFullYear()} Ryzent AI. All rights reserved.
+          </div>
+        </section>
+
+        <aside className="signin-right">
+          <p className="signin-right-kicker">Ryzent AI</p>
+          <h2 className="signin-right-title">Run Smarter, Grow Faster with Ryzent AI</h2>
+          <img
+            className="signin-right-image"
+            src="/register.png"
+            alt="Ryzent AI dashboard preview"
+          />
+          <div className="signin-logos-wrap" aria-label="Trusted brands">
+            <div className="signin-logos-track">
+              {[
+                { src: "/logos/TIERSLimited.png", alt: "TIERS Limited" },
+                { src: "/logos/CodeDelirium.png", alt: "Code Delirium" },
+                { src: "/logos/ProppaHouse.png", alt: "Proppa House" },
+                { src: "/logos/NexenLabz.svg", alt: "NexenLabz" },
+                { src: "/logos/TIERSLimited.png", alt: "TIERS Limited" },
+                { src: "/logos/CodeDelirium.png", alt: "Code Delirium" },
+                { src: "/logos/ProppaHouse.png", alt: "Proppa House" },
+                { src: "/logos/NexenLabz.svg", alt: "NexenLabz" },
+              ].map((logo, idx) => (
+                <div key={`${logo.src}-${idx}`} className="signin-logo-item">
+                  <img src={logo.src} alt={logo.alt} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
       </div>
 
-      {/* ------ Global styles ------ */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+        .signin-bg, .signin-bg * { font-family: 'Instrument Sans', system-ui, sans-serif; }
 
-        .signin-root * { font-family: 'Instrument Sans', system-ui, sans-serif; }
-
-        .signin-grid {
-          position: absolute; inset: 0;
-          background-image:
-            linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-          background-size: 48px 48px;
-          mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%);
+        .signin-bg {
+          background: #ffffff;
+          min-height: 100vh;
+          height: 100vh;
+          overflow: hidden;
+        }
+        .signin-shell {
+          display: grid;
+          grid-template-columns: 1.05fr 0.95fr;
+          height: 100vh;
+        }
+        .signin-left {
+          background: #ffffff;
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+          overflow: hidden;
+        }
+        .signin-form-wrap {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 32px 40px;
+        }
+        .signin-right {
+          border-radius: 24px;
+          background: linear-gradient(145deg,#1e40af,#1e3a8a);
+          color: #ffffff;
+          padding: 72px 64px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          min-width: 0;
+          margin: 16px;
+        }
+        .signin-right-kicker {
+          margin: 0 0 14px;
+          font-size: 12px;
+          font-weight: 700;
+          opacity: 0.9;
+          letter-spacing: .08em;
+          text-transform: uppercase;
+        }
+        .signin-right-title {
+          margin: 0;
+          font-size: 40px;
+          line-height: 1.15;
+          max-width: 520px;
+          letter-spacing: -0.02em;
+        }
+        .signin-right-image {
+          width: 84%;
+          max-height: 430px;
+          object-fit: contain;
+          align-self: center;
+          margin-top: 16px;
+        }
+        .signin-logos-wrap {
+          margin-top: 52px;
+          width: 100%;
+          overflow: hidden;
+          mask-image: linear-gradient(to right, transparent, black 12%, black 88%, transparent);
+          -webkit-mask-image: linear-gradient(to right, transparent, black 12%, black 88%, transparent);
+        }
+        .signin-logos-track {
+          display: flex;
+          align-items: center;
+          gap: 28px;
+          width: max-content;
+          animation: logosMarquee 20s linear infinite;
+        }
+        .signin-logo-item {
+          flex: 0 0 auto;
+          min-width: 120px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          opacity: .92;
+        }
+        .signin-logo-item img {
+          max-height: 24px;
+          max-width: 115px;
+          width: auto;
+          height: auto;
+          object-fit: contain;
         }
 
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50%       { transform: translateY(-10px); }
+        @keyframes logosMarquee {
+          from { transform: translateX(0); }
+          to { transform: translateX(-50%); }
         }
-
         .signin-input.ant-input-affix-wrapper,
         .signin-input {
           border-radius: 10px !important;
@@ -1072,30 +1052,41 @@ const SignIn = () => {
           transition: all 0.2s ease !important;
         }
         .signin-input.ant-input-affix-wrapper:hover,
-        .signin-input:hover { border-color: #cbd5e1 !important; background: #fff !important; }
+        .signin-input:hover {
+          border-color: #cbd5e1 !important;
+          background: #fff !important;
+        }
         .signin-input.ant-input-affix-wrapper-focused,
         .signin-input:focus {
-          border-color: #6366f1 !important; background: #fff !important;
+          border-color: #6366f1 !important;
+          background: #fff !important;
           box-shadow: 0 0 0 3px rgba(99,102,241,0.1) !important;
         }
-        .signin-input .ant-input { background: transparent !important; font-size: 14px !important; }
-
+        .signin-input .ant-input {
+          background: transparent !important;
+          font-size: 14px !important;
+        }
         .signin-btn:hover {
           transform: translateY(-1px) !important;
           box-shadow: 0 6px 20px rgba(99,102,241,0.4) !important;
         }
         .signin-btn { transition: all 0.2s ease !important; }
-
         .ant-form-item-label > label {
-          font-size: 13px !important; font-weight: 500 !important;
-          color: #374151 !important; width: 100% !important;
+          font-size: 13px !important;
+          font-weight: 500 !important;
+          color: #374151 !important;
+          width: 100% !important;
         }
-        .ant-checkbox-checked .ant-checkbox-inner { background-color: #6366f1 !important; border-color: #6366f1 !important; }
-        .ant-checkbox-wrapper:hover .ant-checkbox-inner { border-color: #6366f1 !important; }
-
-        /* OTP boxes */
+        .ant-checkbox-checked .ant-checkbox-inner {
+          background-color: #6366f1 !important;
+          border-color: #6366f1 !important;
+        }
+        .ant-checkbox-wrapper:hover .ant-checkbox-inner {
+          border-color: #6366f1 !important;
+        }
         .otp-box {
-          width: 46px; height: 54px;
+          width: 46px;
+          height: 54px;
           border: 2px solid #e2e8f0;
           border-radius: 12px;
           background: #f8fafc;
@@ -1121,7 +1112,24 @@ const SignIn = () => {
         }
         @keyframes otp-blink {
           0%, 100% { opacity: 1; }
-          50%       { opacity: 0; }
+          50% { opacity: 0; }
+        }
+        @media (max-width: 1080px) {
+          .signin-shell {
+            grid-template-columns: 1fr;
+            height: auto;
+            min-height: 100vh;
+          }
+          .signin-right { display: none; }
+          .signin-left { overflow: visible; }
+          .signin-bg {
+            height: auto;
+            min-height: 100vh;
+            overflow: auto;
+          }
+          .signin-form-wrap {
+            padding: 28px 18px;
+          }
         }
       `}</style>
     </div>

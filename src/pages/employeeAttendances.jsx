@@ -3,7 +3,7 @@ import {
   Card,
   Avatar,
   Progress,
-  Spin,
+  Skeleton,
   Empty,
   Select,
   Tag,
@@ -223,6 +223,68 @@ const StatBox = ({ icon, label, value, color, bg, tip, borderColor }) => (
   </Tooltip>
 );
 
+const AttendanceSkeleton = ({ dark = false }) => {
+  const bg = dark ? "#171a21" : "#ffffff";
+  const border = dark ? "#2a2f3a" : "#e5e7eb";
+  return (
+    <div className="space-y-5">
+      <Card
+        className="rounded-2xl border-0 shadow-sm"
+        style={{ background: bg, border: `1px solid ${border}` }}
+        bodyStyle={{ padding: "24px 28px" }}
+      >
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-4">
+            <Skeleton.Avatar active size={64} shape="circle" />
+            <div className="space-y-2">
+              <Skeleton.Input active style={{ width: 180, height: 18 }} />
+              <Skeleton.Input active style={{ width: 260, height: 14 }} />
+            </div>
+          </div>
+          <Skeleton.Input active style={{ width: 160, height: 32 }} />
+        </div>
+        <div className="mt-5 space-y-2">
+          <Skeleton.Input active style={{ width: "100%", height: 12 }} />
+          <Skeleton.Input active style={{ width: "100%", height: 8 }} />
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Card
+            key={`stat-sk-${i}`}
+            className="rounded-2xl border-0"
+            style={{ background: bg, border: `1px solid ${border}` }}
+            bodyStyle={{ padding: "14px 16px" }}
+          >
+            <Skeleton.Input active style={{ width: 84, height: 12, marginBottom: 10 }} />
+            <Skeleton.Input active style={{ width: 52, height: 28 }} />
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <Card
+          className="rounded-2xl border-0 shadow-sm lg:col-span-2"
+          style={{ background: bg, border: `1px solid ${border}` }}
+          bodyStyle={{ padding: "24px" }}
+        >
+          <Skeleton.Input active style={{ width: 180, height: 16, marginBottom: 14 }} />
+          <Skeleton active paragraph={{ rows: 8 }} title={false} />
+        </Card>
+        <Card
+          className="rounded-2xl border-0 shadow-sm"
+          style={{ background: bg, border: `1px solid ${border}` }}
+          bodyStyle={{ padding: "24px" }}
+        >
+          <Skeleton.Input active style={{ width: 120, height: 16, marginBottom: 14 }} />
+          <Skeleton active paragraph={{ rows: 6 }} title={false} />
+        </Card>
+      </div>
+    </div>
+  );
+};
+
 // ---------------- Main Page ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 export default function EmployeeAttendanceProfile() {
   const { profile } = useAuth();
@@ -438,9 +500,7 @@ export default function EmployeeAttendanceProfile() {
       `}</style>
 
       {loading && !stats ? (
-        <div className="flex justify-center items-center h-64">
-          <Spin size="large" />
-        </div>
+        <AttendanceSkeleton dark={dark} />
       ) : (
         <>
           {/* ---------------- Low Attendance Warning ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */}
@@ -493,7 +553,7 @@ export default function EmployeeAttendanceProfile() {
                     </span>
                     {employee?.department && (
                       <>
-                        <span style={{ color: ui.textSoft }}>----</span>
+                        <span style={{ color: ui.textSoft }}>•</span>
                         <span className="text-sm" style={{ color: ui.textMuted }}>
                           {employee.department}
                         </span>
@@ -501,7 +561,7 @@ export default function EmployeeAttendanceProfile() {
                     )}
                     {employee?.email && (
                       <>
-                        <span style={{ color: ui.textSoft }}>----</span>
+                        <span style={{ color: ui.textSoft }}>•</span>
                         <span className="text-sm" style={{ color: ui.textMuted }}>
                           {employee.email}
                         </span>
@@ -536,7 +596,8 @@ export default function EmployeeAttendanceProfile() {
                           alignItems: "center",
                         }}
                       >
-                        --------- {stats.streak} day streak
+                        <FireOutlined style={{ marginRight: 6 }} />
+                        {stats.streak} day streak
                       </Tag>
                     )}
                     {isCritical && (
@@ -572,7 +633,7 @@ export default function EmployeeAttendanceProfile() {
             <div className="mt-5">
               <div className="flex justify-between text-xs mb-1.5" style={{ color: ui.textMuted }}>
                 <span>
-                  {monthLabel} ---- {workingDays.length} working days
+                  {monthLabel} • {workingDays.length} working days
                 </span>
                 <span style={{ color: rateColor, fontWeight: 600 }}>
                   {attendanceRate}%
@@ -608,7 +669,7 @@ export default function EmployeeAttendanceProfile() {
             <StatBox
               icon={<CheckCircleOutlined />}
               label="Present"
-              value={stats?.present ?? "--------"}
+              value={stats?.present ?? "N/A"}
               color="#10b981"
               bg={dark ? "rgba(16,185,129,0.14)" : "#d1fae5"}
               borderColor={dark ? "rgba(16,185,129,0.3)" : "transparent"}
@@ -617,7 +678,7 @@ export default function EmployeeAttendanceProfile() {
             <StatBox
               icon={<CloseCircleOutlined />}
               label="Absent"
-              value={stats?.absent ?? "--------"}
+              value={stats?.absent ?? "N/A"}
               color="#ef4444"
               bg={dark ? "rgba(239,68,68,0.16)" : "#fee2e2"}
               borderColor={dark ? "rgba(239,68,68,0.3)" : "transparent"}
@@ -626,7 +687,7 @@ export default function EmployeeAttendanceProfile() {
             <StatBox
               icon={<CalendarOutlined />}
               label="Leave"
-              value={stats?.leave ?? "--------"}
+              value={stats?.leave ?? "N/A"}
               color="#f59e0b"
               bg={dark ? "rgba(245,158,11,0.16)" : "#fef3c7"}
               borderColor={dark ? "rgba(245,158,11,0.3)" : "transparent"}
@@ -635,7 +696,7 @@ export default function EmployeeAttendanceProfile() {
             <StatBox
               icon={<QuestionCircleOutlined />}
               label="Not Logged"
-              value={stats?.notLogged ?? "--------"}
+              value={stats?.notLogged ?? "N/A"}
               color="#94a3b8"
               bg={dark ? "rgba(148,163,184,0.16)" : "#f1f5f9"}
               borderColor={dark ? "rgba(148,163,184,0.3)" : "transparent"}
@@ -644,7 +705,7 @@ export default function EmployeeAttendanceProfile() {
             <StatBox
               icon={<ClockCircleOutlined />}
               label="Hours Worked"
-              value={stats ? fmtHours(stats.totalHoursWorked) : "--------"}
+              value={stats ? fmtHours(stats.totalHoursWorked) : "N/A"}
               color="#3b82f6"
               bg={dark ? "rgba(59,130,246,0.16)" : "#eff6ff"}
               borderColor={dark ? "rgba(59,130,246,0.3)" : "transparent"}
@@ -719,13 +780,13 @@ export default function EmployeeAttendanceProfile() {
                             <div className="text-xs" style={{ color: ui.textMuted }}>
                               {l.start_time
                                 ? dayjs(l.start_time).format("hh:mm A")
-                                : "--------"}
-                              {" -------- "}
+                                : "N/A"}
+                              {" - "}
                               {l.end_time
                                 ? dayjs(l.end_time).format("hh:mm A")
                                 : l.status === "active"
                                   ? "ongoing"
-                                  : "--------"}
+                                  : "N/A"}
                             </div>
                           </div>
                           <div className="text-right">

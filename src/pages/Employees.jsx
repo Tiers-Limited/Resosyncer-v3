@@ -37,7 +37,6 @@ import {
   DollarSign,
   Calendar,
   UserCheck,
-  AlertCircle,
   ChevronRight,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -528,6 +527,7 @@ const CSS = `
   background:#1d4ed8 !important;
   color:#f8fafc !important;
 }
+
 `;
 
 /* ------------------------ Skeleton components ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
@@ -624,6 +624,8 @@ const Employees = () => {
   const [viewMode, setViewMode] = useState("card");
   const [maxUsers, setMaxUsers] = useState(null);
   const [isUserLimitReached, setIsUserLimitReached] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [form] = Form.useForm();
   const navigate = useNavigate();
 
@@ -853,6 +855,7 @@ const Employees = () => {
         if (error) throw error;
         message.success("Employee updated");
       } else {
+        const returnPath = "/employees";
         const {
           data: { session: adminSessionBeforeCreate },
         } = await supabase.auth.getSession();
@@ -871,12 +874,21 @@ const Employees = () => {
           adminSessionBeforeCreate?.access_token &&
           adminSessionBeforeCreate?.refresh_token
         ) {
-          const { error: restoreSessionError } = await supabase.auth.setSession({
+          const restorePayload = {
             access_token: adminSessionBeforeCreate.access_token,
             refresh_token: adminSessionBeforeCreate.refresh_token,
-          });
-          if (restoreSessionError) {
-            console.error("Failed to restore admin session:", restoreSessionError);
+          };
+          const { error: restoreSessionError } =
+            await supabase.auth.setSession(restorePayload);
+          if (restoreSessionError) throw restoreSessionError;
+
+          const {
+            data: { session: restoredSession },
+          } = await supabase.auth.getSession();
+          if (restoredSession?.user?.id !== adminSessionBeforeCreate.user.id) {
+            const { error: secondRestoreError } =
+              await supabase.auth.setSession(restorePayload);
+            if (secondRestoreError) throw secondRestoreError;
           }
         }
         const { error: profileError } = await supabase.from("profiles").insert([
@@ -925,6 +937,8 @@ const Employees = () => {
           body: credentialsHtml,
           companyName: appName,
         }).catch(console.error);
+
+        navigate(returnPath, { replace: true });
       }
       closeDrawer();
       fetchEmployees(currentTenantId);
@@ -1047,44 +1061,13 @@ const Employees = () => {
     }
   };
 
-  const showDeleteConfirm = (employee) =>
-    Modal.confirm({
-      title: "Delete Employee",
-      icon: <AlertCircle size={16} color={dark ? "#fca5a5" : "#cf1322"} />,
-      content: `Permanently remove ${employee.full_name}?`,
-      okType: "danger",
-      centered: true,
-      okButtonProps: {
-        style: dark
-          ? {
-              background: "#ef4444",
-              borderColor: "#ef4444",
-              color: "#ffffff",
-            }
-          : undefined,
-      },
-      cancelButtonProps: {
-        style: dark
-          ? {
-              background: "#202127",
-              borderColor: "#2a2b31",
-              color: "#f3f4f6",
-            }
-          : undefined,
-      },
-      styles: dark
-        ? {
-            content: {
-              background: "#1a1b1f",
-              border: "1px solid #2a2b31",
-            },
-            header: { background: "#1a1b1f" },
-            body: { color: "#f3f4f6" },
-            footer: { background: "#1a1b1f" },
-          }
-        : undefined,
-      onOk: () => handleDelete(employee.id),
-    });
+  const confirmDeleteEmployee = async () => {
+    if (!deleteTarget?.id) return;
+    setDeleteSubmitting(true);
+    await handleDelete(deleteTarget.id);
+    setDeleteSubmitting(false);
+    setDeleteTarget(null);
+  };
 
   const closeDrawer = () => {
     setDrawerVisible(false);
@@ -1258,7 +1241,7 @@ const Employees = () => {
           </button>
           <button
             className="ep-btn del"
-            onClick={() => showDeleteConfirm(emp)}
+            onClick={() => setDeleteTarget(emp)}
           >
             <Trash2 size={12} />
           </button>
@@ -1708,7 +1691,7 @@ const Employees = () => {
                           </button>
                           <button
                             className="ep-btn del"
-                            onClick={() => showDeleteConfirm(emp)}
+                            onClick={() => setDeleteTarget(emp)}
                           >
                             <Trash2 size={12} />
                           </button>
@@ -1722,6 +1705,22 @@ const Employees = () => {
           </div>
         </div>
       )}
+
+      <Modal
+        open={!!deleteTarget}
+        centered
+        title={<span className="text-base font-semibold">Delete Employee</span>}
+        okText="Delete"
+        okButtonProps={{ danger: true, loading: deleteSubmitting }}
+        cancelButtonProps={{ disabled: deleteSubmitting }}
+        onCancel={() => setDeleteTarget(null)}
+        onOk={confirmDeleteEmployee}
+        destroyOnClose
+      >
+        <p className="text-sm">
+          Permanently remove {deleteTarget?.full_name || "this employee"}?
+        </p>
+      </Modal>
 
       {/* ------------------------ Drawer -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */}
       <Drawer
@@ -2220,5 +2219,3 @@ const Employees = () => {
 };
 
 export default Employees;
-
-

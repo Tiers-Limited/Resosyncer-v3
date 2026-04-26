@@ -1,9 +1,12 @@
 ﻿import { useState, useEffect } from "react";
-import { Card, Table, Button, Tag, Modal, Form, Input, Select, message, Spin } from "antd";
+import { Card, Table, Button, Modal, Form, Input, Select, DatePicker, message, Spin } from "antd";
 import {
   PlusOutlined,
   FileTextOutlined,
   CheckCircleOutlined,
+  CloseCircleOutlined,
+  ClockCircleOutlined,
+  InfoCircleOutlined,
   BellOutlined,
   BarChartOutlined,
   SyncOutlined,
@@ -17,6 +20,51 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
 const { TextArea } = Input;
+
+const formatDate = (value) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
+const tableTypeChipStyle = (dark) => ({
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "3px 10px",
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 700,
+  border: `1px solid ${dark ? "rgba(147,197,253,.4)" : "#93c5fd"}`,
+  color: dark ? "#bfdbfe" : "#0369a1",
+  background: dark ? "rgba(59,130,246,.15)" : "#e0f2fe",
+});
+
+const tableStatusChipStyle = (status, dark) => {
+  if (status === "approved") {
+    return {
+      color: dark ? "#86efac" : "#059669",
+      background: dark ? "rgba(34,197,94,.16)" : "#ecfdf5",
+      border: `1px solid ${dark ? "rgba(34,197,94,.38)" : "#6ee7b7"}`,
+    };
+  }
+  if (status === "rejected") {
+    return {
+      color: dark ? "#fda4af" : "#e11d48",
+      background: dark ? "rgba(244,63,94,.14)" : "#fff1f2",
+      border: `1px solid ${dark ? "rgba(244,63,94,.38)" : "#fecdd3"}`,
+    };
+  }
+  return {
+    color: dark ? "#fcd34d" : "#b45309",
+    background: dark ? "rgba(245,158,11,.15)" : "#fffbeb",
+    border: `1px solid ${dark ? "rgba(245,158,11,.35)" : "#fde68a"}`,
+  };
+};
 
 const getIsDarkTheme = () => {
   const mode = localStorage.getItem("themeMode") || "light";
@@ -375,14 +423,23 @@ const EmployeeRequests = () => {
   };
 
   const handleCreateRequest = async (values) => {
+    if (!profile?.tenant_id) {
+      message.error("Tenant not found. Please relogin and try again.");
+      return;
+    }
     setLoading(true);
     try {
       const { error } = await supabase.from("requests").insert([
         {
           user_id: profile.id,
+          tenant_id: profile.tenant_id,
           request_type: values.request_type,
           subject: values.subject,
           description: values.description,
+          leave_date:
+            values.request_type === "leave" && values.leave_date
+              ? values.leave_date.format("YYYY-MM-DD")
+              : null,
           status: "pending",
         },
       ]);
@@ -411,36 +468,101 @@ const EmployeeRequests = () => {
           leave: "Leave Request",
           other: "Other",
         };
-        return <Tag color="blue">{labels[type] || type.toUpperCase()}</Tag>;
+        return <span style={tableTypeChipStyle(dark)}>{labels[type] || type.toUpperCase()}</span>;
       },
     },
     {
       title: "Subject",
       dataIndex: "subject",
       key: "subject",
+      render: (subject) => (
+        <span style={{ fontWeight: 600, color: dark ? "#f8fafc" : "#0f172a" }}>{subject || "Untitled request"}</span>
+      ),
     },
     {
       title: "Status",
       dataIndex: "status",
       key: "status",
       render: (status) => {
-        const colors = {
-          pending: "orange",
-          approved: "green",
-          rejected: "red",
-        };
-        return <Tag color={colors[status]}>{status.toUpperCase()}</Tag>;
+        const chip = tableStatusChipStyle(status, dark);
+        return (
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "3px 10px",
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 700,
+              ...chip,
+            }}
+          >
+            {status === "approved" ? (
+              <CheckCircleOutlined />
+            ) : status === "rejected" ? (
+              <CloseCircleOutlined />
+            ) : (
+              <ClockCircleOutlined />
+            )}
+            {status ? `${status.charAt(0).toUpperCase()}${status.slice(1)}` : "Pending"}
+          </span>
+        );
       },
+    },
+    {
+      title: "Leave Date",
+      dataIndex: "leave_date",
+      key: "leave_date",
+      render: (leaveDate, record) =>
+        record.request_type === "leave" && leaveDate
+          ? formatDate(leaveDate)
+          : "-",
     },
     {
       title: "Date",
       dataIndex: "created_at",
       key: "created_at",
-      render: (date) => new Date(date).toLocaleDateString(),
+      render: (date) => formatDate(date),
+    },
+    {
+      title: "",
+      key: "state",
+      width: 120,
+      render: (_, record) => {
+        const isDone = record.status === "approved";
+        return (
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 13,
+              fontWeight: 600,
+              color: isDone
+                ? dark
+                  ? "#86efac"
+                  : "#10b981"
+                : dark
+                ? "#94a3b8"
+                : "#64748b",
+            }}
+          >
+            {isDone ? <CheckCircleOutlined /> : <InfoCircleOutlined />}
+            {isDone ? "Done" : "Open"}
+          </span>
+        );
+      },
     },
   ];
 
   const isRequestsLocked = normalizePlanTier(orgPlan) === "starter";
+  const stats = {
+    total: requests.length,
+    pending: requests.filter((r) => r.status === "pending").length,
+    approved: requests.filter((r) => r.status === "approved").length,
+    rejected: requests.filter((r) => r.status === "rejected").length,
+  };
 
   if (planLoading) {
     return (
@@ -468,43 +590,255 @@ const EmployeeRequests = () => {
   }
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">My Requests</h1>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => setModalVisible(true)}
-          style={{ backgroundColor: "#001529" }}
-        >
-          New Request
-        </Button>
+    <div
+      style={{
+        background: dark ? "#141416" : "#f8fafc",
+        minHeight: "100vh",
+        padding: "22px 20px 28px",
+      }}
+    >
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+          <div>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: 24,
+                lineHeight: 1.08,
+                fontWeight: 800,
+                color: dark ? "#f8fafc" : "#0f172a",
+              }}
+            >
+              Requests
+            </h1>
+            <p
+              style={{
+                margin: "6px 0 0",
+                fontSize: 13,
+                color: dark ? "#94a3b8" : "#64748b",
+              }}
+            >
+              Track your requests, approvals, and response history
+            </p>
+          </div>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setModalVisible(true)}
+            style={{ backgroundColor: "#001529" }}
+          >
+            New Request
+          </Button>
+        </div>
       </div>
 
-      <Card>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
+          gap: 12,
+          marginBottom: 18,
+        }}
+      >
+        {[
+          {
+            key: "total",
+            label: "Total",
+            value: stats.total,
+            color: dark ? "#93c5fd" : "#1d4ed8",
+            bg: dark ? "rgba(59,130,246,.14)" : "#eff6ff",
+            border: dark ? "rgba(59,130,246,.35)" : "#bfdbfe",
+            icon: <InboxOutlined />,
+          },
+          {
+            key: "pending",
+            label: "Pending",
+            value: stats.pending,
+            color: dark ? "#fcd34d" : "#d97706",
+            bg: dark ? "rgba(245,158,11,.14)" : "#fffbeb",
+            border: dark ? "rgba(245,158,11,.35)" : "#fde68a",
+            icon: <SyncOutlined />,
+          },
+          {
+            key: "approved",
+            label: "Approved",
+            value: stats.approved,
+            color: dark ? "#86efac" : "#059669",
+            bg: dark ? "rgba(34,197,94,.14)" : "#ecfdf5",
+            border: dark ? "rgba(34,197,94,.35)" : "#86efac",
+            icon: <CheckCircleOutlined />,
+          },
+          {
+            key: "rejected",
+            label: "Rejected",
+            value: stats.rejected,
+            color: dark ? "#fda4af" : "#e11d48",
+            bg: dark ? "rgba(244,63,94,.14)" : "#fff1f2",
+            border: dark ? "rgba(244,63,94,.35)" : "#fecdd3",
+            icon: <BellOutlined />,
+          },
+        ].map((item) => (
+          <div
+            key={item.key}
+            style={{
+              border: `1px solid ${item.border}`,
+              background: item.bg,
+              borderRadius: 12,
+              padding: "12px 14px",
+            }}
+          >
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 10,
+                textTransform: "uppercase",
+                fontWeight: 700,
+                color: dark ? "#94a3b8" : "#64748b",
+                letterSpacing: 0.6,
+              }}
+            >
+              {item.icon}
+              {item.label}
+            </div>
+            <div
+              style={{
+                marginTop: 6,
+                fontSize: 30,
+                lineHeight: 1,
+                fontWeight: 800,
+                color: item.color,
+              }}
+            >
+              {item.value}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <Card
+        style={{
+          borderRadius: 12,
+          borderColor: dark ? "#2a2a31" : "#e2e8f0",
+          background: dark ? "#1a1b1f" : "#ffffff",
+        }}
+        bodyStyle={{ padding: 14 }}
+      >
+        <style>{`
+          .employee-requests-table-wrap {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 6px;
+          }
+          .employee-requests-table-hint {
+            font-size: 12px;
+            color: ${dark ? "#94a3b8" : "#64748b"};
+          }
+          .employee-requests-table .ant-table {
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid ${dark ? "#2a2a31" : "#e2e8f0"};
+          }
+          .employee-requests-table .ant-table-thead > tr > th {
+            font-size: 11px !important;
+            text-transform: uppercase;
+            letter-spacing: .07em;
+            font-weight: 700;
+            color: ${dark ? "#94a3b8" : "#64748b"} !important;
+            background: ${dark ? "#16171b" : "#f8fafc"} !important;
+            border-bottom: 1px solid ${dark ? "#2a2a31" : "#e2e8f0"} !important;
+          }
+          .employee-requests-table .ant-table-tbody > tr > td {
+            padding-top: 16px !important;
+            padding-bottom: 16px !important;
+            border-bottom: 1px solid ${dark ? "#2a2a31" : "#e2e8f0"} !important;
+            font-size: 13px;
+          }
+          .employee-requests-table .ant-table-tbody > tr.ant-table-row:hover > td {
+            background: ${dark ? "rgba(148,163,184,.08)" : "#f8fafc"} !important;
+          }
+          .employee-requests-table .ant-table-expanded-row > td {
+            background: ${dark ? "#15161a" : "#f8fafc"} !important;
+          }
+          .employee-requests-table .ant-pagination {
+            margin-top: 14px !important;
+          }
+          .employee-requests-table .ant-pagination .ant-pagination-item,
+          .employee-requests-table .ant-pagination .ant-pagination-prev,
+          .employee-requests-table .ant-pagination .ant-pagination-next {
+            border-radius: 10px;
+          }
+          .employee-requests-table .ant-pagination .ant-pagination-total-text {
+            font-size: 12px;
+            color: ${dark ? "#94a3b8" : "#64748b"};
+          }
+          .employee-requests-table .ant-empty-description {
+            font-size: 13px;
+            color: ${dark ? "#94a3b8" : "#64748b"};
+          }
+        `}</style>
+        <div className="employee-requests-table-wrap">
+          <span className="employee-requests-table-hint">Click a row to expand details</span>
+        </div>
         <Table
+          className="employee-requests-table"
           columns={columns}
           dataSource={requests}
           rowKey="id"
           loading={loading}
+          size="middle"
           expandable={{
             expandedRowRender: (record) => (
-              <div className="p-4 bg-gray-50 rounded">
-                <div className="mb-4">
-                  <p className="mb-2">
-                    <strong>Description:</strong>
+              <div
+                style={{
+                  border: `1px solid ${dark ? "#2a2a31" : "#e2e8f0"}`,
+                  borderRadius: 10,
+                  padding: "12px 14px",
+                  background: dark ? "#1a1b1f" : "#ffffff",
+                }}
+              >
+                <div style={{ marginBottom: record.response ? 12 : 0 }}>
+                  <p
+                    style={{
+                      margin: "0 0 6px",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      letterSpacing: ".03em",
+                      textTransform: "uppercase",
+                      color: dark ? "#94a3b8" : "#64748b",
+                    }}
+                  >
+                    Description
                   </p>
-                  <p>{record.description || "No description provided"}</p>
+                  <p style={{ margin: 0, color: dark ? "#e2e8f0" : "#334155" }}>
+                    {record.description || "No description provided"}
+                  </p>
                 </div>
                 {record.response && (
                   <div>
-                    <p className="mb-2">
-                      <strong>Admin Response:</strong>
+                    <p
+                      style={{
+                        margin: "0 0 6px",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        letterSpacing: ".03em",
+                        textTransform: "uppercase",
+                        color: dark ? "#94a3b8" : "#64748b",
+                      }}
+                    >
+                      Admin Response
                     </p>
-                    <p className="text-gray-700">{record.response}</p>
+                    <p style={{ margin: 0, color: dark ? "#e2e8f0" : "#334155" }}>{record.response}</p>
                     {record.responded_at && (
-                      <p className="text-sm text-gray-500 mt-2">
-                        Responded on: {new Date(record.responded_at).toLocaleString()}
+                      <p
+                        style={{
+                          margin: "8px 0 0",
+                          fontSize: 12,
+                          color: dark ? "#94a3b8" : "#64748b",
+                        }}
+                      >
+                        Responded on {new Date(record.responded_at).toLocaleString()}
                       </p>
                     )}
                   </div>
@@ -514,7 +848,8 @@ const EmployeeRequests = () => {
           }}
           pagination={{
             pageSize: 10,
-            showTotal: (total) => `Total ${total} requests`,
+            showTotal: (total) => `${total} requests`,
+            size: "small",
           }}
         />
       </Card>
@@ -550,6 +885,24 @@ const EmployeeRequests = () => {
             <Input placeholder="Enter subject" />
           </Form.Item>
 
+          <Form.Item noStyle shouldUpdate={(prev, curr) => prev.request_type !== curr.request_type}>
+            {({ getFieldValue }) =>
+              getFieldValue("request_type") === "leave" ? (
+                <Form.Item
+                  name="leave_date"
+                  label="Leave Date"
+                  rules={[{ required: true, message: "Please select leave date" }]}
+                >
+                  <DatePicker
+                    style={{ width: "100%" }}
+                    format="YYYY-MM-DD"
+                    placeholder="Select leave date"
+                  />
+                </Form.Item>
+              ) : null
+            }
+          </Form.Item>
+
           <Form.Item
             name="description"
             label="Description"
@@ -564,5 +917,3 @@ const EmployeeRequests = () => {
 };
 
 export default EmployeeRequests;
-
-

@@ -143,6 +143,12 @@ const getAssigneeIds = (ticket) => {
 
 const prettyStatus = (s) => (s ? s.replaceAll("_", " ").toUpperCase() : "—");
 const prettyPriority = (p) => (p ? p[0].toUpperCase() + p.slice(1) : "—");
+const getIsDarkTheme = () => {
+  const mode = localStorage.getItem("themeMode") || "light";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
 
 export default function TicketDetailsModal({
   open,
@@ -155,10 +161,24 @@ export default function TicketDetailsModal({
 }) {
   const { profile } = useAuth();
   const fileInputRef = useRef(null);
+  const [isDark, setIsDark] = useState(getIsDarkTheme);
 
   const isPM = profile?.role === "project_manager";
   const isEmployee = profile?.role === "employee";
   const fieldLocked = isEmployee;
+  const t = {
+    modalBg: isDark ? "#141416" : "#ffffff",
+    panelBg: isDark ? "#17181c" : "#fbfbfc",
+    cardBg: isDark ? "#1a1b1f" : "#ffffff",
+    softBg: isDark ? "#1c1c22" : "#f8fafc",
+    softBg2: isDark ? "#202127" : "#f1f5f9",
+    border: isDark ? "#2a2a31" : "#e5e7eb",
+    text: isDark ? "#f1f5f9" : "#0f172a",
+    sub: isDark ? "#cbd5e1" : "#334155",
+    muted: isDark ? "#94a3b8" : "#94a3b8",
+    faint: isDark ? "#64748b" : "#9ca3af",
+    accent: "#0c66e4",
+  };
 
   const [activeTab, setActiveTab] = useState("comments");
   const [comments, setComments] = useState([]);
@@ -273,6 +293,17 @@ export default function TicketDetailsModal({
     setCurrentDueDate(ticket.due_date || null);
     setReviewNotes("");
   }, [open, ticket?.id]);
+
+  useEffect(() => {
+    const syncTheme = () => setIsDark(getIsDarkTheme());
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    window.addEventListener("themeModeChanged", syncTheme);
+    mq.addEventListener("change", syncTheme);
+    return () => {
+      window.removeEventListener("themeModeChanged", syncTheme);
+      mq.removeEventListener("change", syncTheme);
+    };
+  }, []);
 
   useEffect(() => {
     if (!open || !ticket?.id) return;
@@ -649,6 +680,31 @@ export default function TicketDetailsModal({
     }
     return `updated ${item.field_name}`;
   };
+  const tdmIsDark = isDark;
+  const tdm = {
+    bg: tdmIsDark ? "#141416" : "#fff",
+    panel: tdmIsDark ? "#17181c" : "#fbfbfc",
+    border: tdmIsDark ? "#2a2a31" : "#e5e7eb",
+    text: tdmIsDark ? "#f1f5f9" : "#0f172a",
+    sub: tdmIsDark ? "#cbd5e1" : "#334155",
+    muted: tdmIsDark ? "#94a3b8" : "#94a3b8",
+    faint: tdmIsDark ? "#64748b" : "#9ca3af",
+    soft2: tdmIsDark ? "#202127" : "#f1f5f9",
+  };
+  const tdmTone = {
+    subtleBg: tdmIsDark ? "#1b1d23" : "#f8fafc",
+    softBg: tdmIsDark ? "#202127" : "#f1f5f9",
+    cardBg: tdmIsDark ? "#1a1b1f" : "#ffffff",
+    tabBadgeActiveBg: tdmIsDark ? "rgba(12,102,228,0.2)" : "#e9f2ff",
+    tabBadgeIdleBg: tdmIsDark ? "#262831" : "#f1f5f9",
+    emptyText: tdmIsDark ? "#64748b" : "#9ca3af",
+    mutedText: tdmIsDark ? "#94a3b8" : "#64748b",
+    actionIdleBg: tdmIsDark ? "#2a2a31" : "#e5e7eb",
+    actionIdleText: tdmIsDark ? "#64748b" : "#9ca3af",
+    uploadIdleBg: tdmIsDark ? "#1b1d23" : "#fafafa",
+    uploadDragBg: tdmIsDark ? "rgba(12,102,228,0.16)" : "#eff6ff",
+    uploadIdleBorder: tdmIsDark ? "#34343d" : "#d1d5db",
+  };
 
   return (
     <Modal
@@ -656,16 +712,45 @@ export default function TicketDetailsModal({
       onCancel={onClose}
       footer={null}
       width={1040}
+      className={tdmIsDark ? "tdm-dark-modal" : ""}
       styles={{
-        content: { padding: 0, borderRadius: 12, overflow: "hidden" },
+        content: {
+          padding: 0,
+          borderRadius: 12,
+          overflow: "hidden",
+          background: tdm.bg,
+          border: `1px solid ${tdm.border}`,
+        },
       }}
-      closeIcon={<X size={16} />}
+      closeIcon={<X size={16} color={tdm.muted} />}
     >
-      <div style={{ display: "flex", minHeight: 620, background: "#fff" }}>
+      <style>{`
+        .tdm-dark-modal .ant-select-selector,
+        .tdm-dark-modal .ant-picker,
+        .tdm-dark-modal .ant-input,
+        .tdm-dark-modal .ant-input-affix-wrapper,
+        .tdm-dark-modal .ant-input-textarea textarea {
+          background: #111318 !important;
+          border-color: #34343d !important;
+          color: #f1f5f9 !important;
+        }
+        .tdm-dark-modal .ant-select-arrow,
+        .tdm-dark-modal .ant-picker-suffix,
+        .tdm-dark-modal .ant-picker-clear { color: #94a3b8 !important; }
+        .tdm-dark-popup.ant-select-dropdown,
+        .tdm-dark-popup.ant-picker-dropdown .ant-picker-panel-container {
+          background: #141416 !important;
+          border: 1px solid #34343d !important;
+        }
+        .tdm-dark-popup.ant-select-dropdown .ant-select-item { color: #cbd5e1 !important; }
+        .tdm-dark-popup.ant-select-dropdown .ant-select-item-option-active,
+        .tdm-dark-popup.ant-select-dropdown .ant-select-item-option-selected { background: #202127 !important; }
+      `}</style>
+      <div style={{ display: "flex", minHeight: 620, background: tdm.bg }}>
         {/* Left */}
-        <div style={{ flex: 1, padding: "20px 22px", overflow: "auto" }}>
+        <div style={{ flex: 1, padding: "20px 22px", overflow: "auto", background: tdm.bg }}>
           <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 12, color: "#94a3b8", fontWeight: 700 }}>
+            <div style={{ fontSize: 12, color: tdm.muted, fontWeight: 700 }}>
               {ticket?.ticket_type ? ticket.ticket_type.toUpperCase() : "TASK"}{" "}
               {ticket?.id ? `• #${String(ticket.id).slice(0, 6)}` : ""}
             </div>
@@ -673,7 +758,7 @@ export default function TicketDetailsModal({
               style={{
                 fontSize: 22,
                 fontWeight: 850,
-                color: "#0f172a",
+                color: tdm.text,
                 marginTop: 2,
                 lineHeight: 1.2,
               }}
@@ -687,7 +772,7 @@ export default function TicketDetailsModal({
               style={{
                 fontSize: 12,
                 fontWeight: 800,
-                color: "#111827",
+                color: tdm.text,
                 letterSpacing: 0.2,
                 marginBottom: 6,
               }}
@@ -697,10 +782,10 @@ export default function TicketDetailsModal({
             <div
               style={{
                 fontSize: 13,
-                color: "#334155",
+                color: tdm.sub,
                 lineHeight: 1.65,
                 whiteSpace: "pre-wrap",
-                background: "#fff",
+                background: tdmTone.cardBg,
               }}
             >
               {ticket?.description || "—"}
@@ -712,9 +797,9 @@ export default function TicketDetailsModal({
             canReviewCompletion) && (
             <div
               style={{
-                border: "1px solid #e5e7eb",
+                border: `1px solid ${tdm.border}`,
                 borderRadius: 10,
-                background: "#f8fafc",
+                background: tdmTone.subtleBg,
                 padding: "12px 12px",
                 marginBottom: 14,
               }}
@@ -723,7 +808,7 @@ export default function TicketDetailsModal({
                 style={{
                   fontSize: 12,
                   fontWeight: 800,
-                  color: "#334155",
+                  color: tdm.sub,
                   marginBottom: 6,
                 }}
               >
@@ -732,7 +817,7 @@ export default function TicketDetailsModal({
 
               {completionRequest ? (
                 <div
-                  style={{ fontSize: 12, color: "#475569", marginBottom: 8 }}
+                  style={{ fontSize: 12, color: tdm.sub, marginBottom: 8 }}
                 >
                   <strong>Status:</strong>{" "}
                   {completionRequest.status?.toUpperCase() || "—"}
@@ -751,7 +836,7 @@ export default function TicketDetailsModal({
                 </div>
               ) : (
                 <div
-                  style={{ fontSize: 12, color: "#64748b", marginBottom: 8 }}
+                  style={{ fontSize: 12, color: tdmTone.mutedText, marginBottom: 8 }}
                 >
                   No completion request yet.
                 </div>
@@ -836,7 +921,7 @@ export default function TicketDetailsModal({
           {/* Tabs */}
           <div
             style={{
-              borderBottom: "1px solid #e5e7eb",
+              borderBottom: `1px solid ${tdm.border}`,
               display: "flex",
               gap: 0,
               marginBottom: 16,
@@ -879,7 +964,7 @@ export default function TicketDetailsModal({
                   cursor: "pointer",
                   fontSize: 13,
                   fontWeight: 650,
-                  color: activeTab === tab.key ? "#0c66e4" : "#64748b",
+                  color: activeTab === tab.key ? "#0c66e4" : tdmTone.mutedText,
                   marginBottom: -1,
                 }}
               >
@@ -889,8 +974,11 @@ export default function TicketDetailsModal({
                     style={{
                       fontSize: 10,
                       fontWeight: 800,
-                      background: activeTab === tab.key ? "#e9f2ff" : "#f1f5f9",
-                      color: activeTab === tab.key ? "#0c66e4" : "#64748b",
+                      background:
+                        activeTab === tab.key
+                          ? tdmTone.tabBadgeActiveBg
+                          : tdmTone.tabBadgeIdleBg,
+                      color: activeTab === tab.key ? "#0c66e4" : tdmTone.mutedText,
                       padding: "1px 6px",
                       borderRadius: 99,
                     }}
@@ -912,7 +1000,7 @@ export default function TicketDetailsModal({
                   style={{
                     textAlign: "center",
                     padding: "18px 0",
-                    color: "#9ca3af",
+                    color: tdmTone.emptyText,
                     fontSize: 12,
                   }}
                 >
@@ -951,21 +1039,21 @@ export default function TicketDetailsModal({
                             style={{
                               fontSize: 12,
                               fontWeight: 800,
-                              color: "#0f172a",
+                              color: tdm.text,
                             }}
                           >
                             {c.profiles?.full_name || "Unknown"}
                           </span>
-                          <span style={{ fontSize: 11, color: "#9ca3af" }}>
+                          <span style={{ fontSize: 11, color: tdmTone.emptyText }}>
                             {fmtTime(c.created_at)}
                           </span>
                         </div>
                         <div
                           style={{
                             fontSize: 13,
-                            color: "#334155",
-                            background: "#f8fafc",
-                            border: "1px solid #e5e7eb",
+                            color: tdm.sub,
+                            background: tdmTone.subtleBg,
+                            border: `1px solid ${tdm.border}`,
                             borderRadius: 8,
                             padding: "10px 12px",
                             whiteSpace: "pre-wrap",
@@ -997,7 +1085,7 @@ export default function TicketDetailsModal({
                     style={{
                       fontSize: 13,
                       borderRadius: 8,
-                      borderColor: "#e5e7eb",
+                      borderColor: tdm.border,
                       resize: "none",
                     }}
                     onKeyDown={(e) => {
@@ -1019,9 +1107,11 @@ export default function TicketDetailsModal({
                         display: "flex",
                         alignItems: "center",
                         gap: 6,
-                        background: newComment.trim() ? "#0c66e4" : "#e5e7eb",
+                        background: newComment.trim()
+                          ? "#0c66e4"
+                          : tdmTone.actionIdleBg,
                         border: "none",
-                        color: newComment.trim() ? "#fff" : "#9ca3af",
+                        color: newComment.trim() ? "#fff" : tdmTone.actionIdleText,
                         fontSize: 12,
                         fontWeight: 700,
                         padding: "7px 14px",
@@ -1050,9 +1140,11 @@ export default function TicketDetailsModal({
                 onDrop={handleDrop}
                 onClick={() => !uploadingFile && fileInputRef.current?.click()}
                 style={{
-                  border: `2px dashed ${dragOver ? "#0c66e4" : "#d1d5db"}`,
+                  border: `2px dashed ${dragOver ? "#0c66e4" : tdmTone.uploadIdleBorder}`,
                   borderRadius: 10,
-                  background: dragOver ? "#eff6ff" : "#fafafa",
+                  background: dragOver
+                    ? tdmTone.uploadDragBg
+                    : tdmTone.uploadIdleBg,
                   padding: "20px 16px",
                   textAlign: "center",
                   cursor: uploadingFile ? "not-allowed" : "pointer",
@@ -1066,7 +1158,7 @@ export default function TicketDetailsModal({
                     <div
                       style={{
                         fontSize: 12,
-                        color: "#64748b",
+                        color: tdmTone.mutedText,
                         marginBottom: 8,
                       }}
                     >
@@ -1090,13 +1182,13 @@ export default function TicketDetailsModal({
                       style={{
                         fontSize: 13,
                         fontWeight: 700,
-                        color: dragOver ? "#0c66e4" : "#334155",
+                        color: dragOver ? "#0c66e4" : tdm.sub,
                       }}
                     >
                       Drop a file here or click to upload
                     </div>
                     <div
-                      style={{ fontSize: 11, color: "#9ca3af", marginTop: 3 }}
+                      style={{ fontSize: 11, color: tdmTone.emptyText, marginTop: 3 }}
                     >
                       Max {MAX_FILE_SIZE_MB}MB · Images, PDF, Word, Excel, CSV,
                       ZIP
@@ -1123,7 +1215,7 @@ export default function TicketDetailsModal({
                   style={{
                     textAlign: "center",
                     padding: "12px 0",
-                    color: "#9ca3af",
+                    color: tdmTone.emptyText,
                     fontSize: 12,
                   }}
                 >
@@ -1145,9 +1237,9 @@ export default function TicketDetailsModal({
                         flexDirection: "column",
                         gap: 8,
                         padding: 10,
-                        border: "1px solid #e5e7eb",
+                        border: `1px solid ${tdm.border}`,
                         borderRadius: 10,
-                        background: "#fff",
+                        background: tdmTone.cardBg,
                         minHeight: 170,
                       }}
                     >
@@ -1158,11 +1250,11 @@ export default function TicketDetailsModal({
                           height: 92,
                           borderRadius: 8,
                           overflow: "hidden",
-                          background: "#f1f5f9",
+                          background: tdmTone.softBg,
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          border: "1px solid #e5e7eb",
+                          border: `1px solid ${tdm.border}`,
                         }}
                       >
                         {isImageFile(att.file_name) && att.file_url ? (
@@ -1186,7 +1278,7 @@ export default function TicketDetailsModal({
                           style={{
                             fontSize: 12,
                             fontWeight: 700,
-                            color: "#0f172a",
+                            color: tdm.text,
                             whiteSpace: "nowrap",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
@@ -1197,7 +1289,7 @@ export default function TicketDetailsModal({
                         <div
                           style={{
                             fontSize: 10,
-                            color: "#94a3b8",
+                            color: tdm.muted,
                             marginTop: 3,
                           }}
                         >
@@ -1251,9 +1343,9 @@ export default function TicketDetailsModal({
                                 width: 30,
                                 height: 30,
                                 borderRadius: 6,
-                                background: "#f1f5f9",
-                                border: "1px solid #e5e7eb",
-                                color: "#334155",
+                                background: tdmTone.softBg,
+                                border: `1px solid ${tdm.border}`,
+                                color: tdm.sub,
                                 textDecoration: "none",
                                 transition: "background 0.15s",
                               }}
@@ -1309,7 +1401,7 @@ export default function TicketDetailsModal({
                   style={{
                     textAlign: "center",
                     padding: "24px 0",
-                    color: "#9ca3af",
+                    color: tdmTone.emptyText,
                     fontSize: 12,
                   }}
                 >
@@ -1324,7 +1416,7 @@ export default function TicketDetailsModal({
                       top: 0,
                       bottom: 0,
                       width: 1.5,
-                      background: "#e5e7eb",
+                      background: tdm.border,
                     }}
                   />
                   {history.map((item) => (
@@ -1343,13 +1435,13 @@ export default function TicketDetailsModal({
                           width: 28,
                           height: 28,
                           borderRadius: "50%",
-                          background: "#f1f5f9",
-                          border: "2px solid #e5e7eb",
+                          background: tdmTone.softBg,
+                          border: `2px solid ${tdm.border}`,
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
                           flexShrink: 0,
-                          color: "#64748b",
+                          color: tdmTone.mutedText,
                         }}
                       >
                         {historyIcon(item.field_name)}
@@ -1359,18 +1451,18 @@ export default function TicketDetailsModal({
                           style={{
                             fontSize: 12,
                             fontWeight: 600,
-                            color: "#1e293b",
+                            color: tdm.text,
                           }}
                         >
                           {item.profiles?.full_name || "Someone"}
                         </span>{" "}
-                        <span style={{ fontSize: 12, color: "#64748b" }}>
+                        <span style={{ fontSize: 12, color: tdmTone.mutedText }}>
                           {historyLabel(item)}
                         </span>
                         <div
                           style={{
                             fontSize: 10,
-                            color: "#9ca3af",
+                            color: tdmTone.emptyText,
                             marginTop: 2,
                           }}
                         >
@@ -1389,8 +1481,8 @@ export default function TicketDetailsModal({
         <div
           style={{
             width: 320,
-            borderLeft: "1px solid #e5e7eb",
-            background: "#fbfbfc",
+            borderLeft: `1px solid ${tdm.border}`,
+            background: tdm.panel,
             padding: "18px 16px",
           }}
         >
@@ -1416,7 +1508,7 @@ export default function TicketDetailsModal({
                       <span
                         style={{
                           fontSize: 13,
-                          color: "#0f172a",
+                          color: tdm.text,
                           fontWeight: 600,
                         }}
                       >
@@ -1430,7 +1522,7 @@ export default function TicketDetailsModal({
                   style={{
                     marginTop: 6,
                     fontSize: 13,
-                    color: "#0f172a",
+                    color: tdm.text,
                     fontWeight: 600,
                   }}
                 >
@@ -1467,6 +1559,7 @@ export default function TicketDetailsModal({
               }))}
               placeholder="Select assignees"
               style={{ width: "100%", marginTop: 6 }}
+              popupClassName={tdmIsDark ? "tdm-dark-popup" : undefined}
               disabled={fieldLocked}
               tagRender={({ value, closable, onClose }) => {
                 const p = (projectAssignees || []).find(
@@ -1478,8 +1571,8 @@ export default function TicketDetailsModal({
                       display: "inline-flex",
                       alignItems: "center",
                       gap: 6,
-                      background: "#f1f5f9",
-                      border: "1px solid #e2e8f0",
+                      background: tdm.soft2,
+                      border: `1px solid ${tdm.border}`,
                       borderRadius: 999,
                       padding: "2px 6px",
                       marginRight: 4,
@@ -1494,7 +1587,7 @@ export default function TicketDetailsModal({
                       style={{
                         fontSize: 11,
                         fontWeight: 600,
-                        color: "#334155",
+                        color: tdm.sub,
                       }}
                     >
                       {p?.full_name || value}
@@ -1506,7 +1599,7 @@ export default function TicketDetailsModal({
                         style={{
                           border: "none",
                           background: "transparent",
-                          color: "#94a3b8",
+                          color: tdm.muted,
                           cursor: "pointer",
                           padding: 0,
                           lineHeight: 1,
@@ -1551,6 +1644,7 @@ export default function TicketDetailsModal({
                 label: p[0].toUpperCase() + p.slice(1),
               }))}
               style={{ width: "100%", marginTop: 6 }}
+              popupClassName={tdmIsDark ? "tdm-dark-popup" : undefined}
               disabled={fieldLocked}
             />
           )}
@@ -1565,7 +1659,7 @@ export default function TicketDetailsModal({
               style={{
                 marginTop: 6,
                 fontSize: 13,
-                color: "#0f172a",
+                color: tdm.text,
                 fontWeight: 600,
               }}
             >
@@ -1579,11 +1673,45 @@ export default function TicketDetailsModal({
                 if (fieldLocked) return;
                 updateTicketField("status", val, ticket?.status);
               }}
-              options={STATUS_OPTIONS.map((s) => ({
-                value: s,
-                label: s.replace("_", " ").toUpperCase(),
-              }))}
+              options={STATUS_OPTIONS.map((s) => {
+                const map = {
+                  open: tdmIsDark
+                    ? { bg: "rgba(37,99,235,0.18)", border: "rgba(147,197,253,0.35)", text: "#93c5fd" }
+                    : { bg: "#eff6ff", border: "#bfdbfe", text: "#1d4ed8" },
+                  in_progress: tdmIsDark
+                    ? { bg: "rgba(124,58,237,0.18)", border: "rgba(196,181,253,0.35)", text: "#c4b5fd" }
+                    : { bg: "#f5f3ff", border: "#ddd6fe", text: "#6d28d9" },
+                  completed: tdmIsDark
+                    ? { bg: "rgba(5,150,105,0.2)", border: "rgba(52,211,153,0.35)", text: "#34d399" }
+                    : { bg: "#ecfdf5", border: "#a7f3d0", text: "#047857" },
+                  closed: tdmIsDark
+                    ? { bg: "rgba(225,29,72,0.2)", border: "rgba(251,113,133,0.35)", text: "#fb7185" }
+                    : { bg: "#fff1f2", border: "#fecdd3", text: "#be123c" },
+                };
+                const c = map[s] || map.open;
+                return {
+                  value: s,
+                  label: (
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        padding: "3px 10px",
+                        borderRadius: 999,
+                        border: `1px solid ${c.border}`,
+                        background: c.bg,
+                        color: c.text,
+                        fontSize: 11,
+                        fontWeight: 800,
+                      }}
+                    >
+                      {s.replace("_", " ").toUpperCase()}
+                    </span>
+                  ),
+                };
+              })}
               style={{ width: "100%", marginTop: 6 }}
+              popupClassName={tdmIsDark ? "tdm-dark-popup" : undefined}
               disabled={fieldLocked}
             />
           )}
@@ -1614,6 +1742,7 @@ export default function TicketDetailsModal({
               }}
               options={[{ value: null, label: "—" }, ...sprintOptions]}
               style={{ width: "100%", marginTop: 6 }}
+              popupClassName={tdmIsDark ? "tdm-dark-popup" : undefined}
               disabled={fieldLocked}
             />
           )}
@@ -1651,6 +1780,7 @@ export default function TicketDetailsModal({
                 label: `${p} pts`,
               }))}
               style={{ width: "100%", marginTop: 6 }}
+              popupClassName={tdmIsDark ? "tdm-dark-popup" : undefined}
               disabled={fieldLocked}
             />
           )}
@@ -1683,6 +1813,7 @@ export default function TicketDetailsModal({
                 updateTicketField("due_date", iso, ticket?.due_date);
               }}
               style={{ width: "100%", marginTop: 6 }}
+              popupClassName={tdmIsDark ? "tdm-dark-popup" : undefined}
               disabled={fieldLocked}
             />
           )}

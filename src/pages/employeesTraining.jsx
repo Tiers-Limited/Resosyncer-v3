@@ -128,6 +128,20 @@ function getIsDarkTheme() {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth <= breakpoint : false,
+  );
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const onResize = () => setIsMobile(window.innerWidth <= breakpoint);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 async function loadQuizResult(userId, quizId, courseId) {
   const { data } = await supabase
     .from("quiz_results")
@@ -325,7 +339,7 @@ function CertificateModal({ userName, courseName, TENANT_NAME, onClose }) {
     ctx.font = "600 10px Arial,sans-serif";
     ctx.textAlign = "center";
     ctx.fillText(
-      TENANT_NAME.toUpperCase() + " ---- LEARNING & DEVELOPMENT",
+      TENANT_NAME.toUpperCase() + " - LEARNING & DEVELOPMENT",
       W / 2,
       H - 50,
     );
@@ -511,8 +525,8 @@ function SavedResultBanner({ result, quiz, onRetake, onContinue, dark = false })
           }}
         >
           {passed
-            ? "Previously Passed -------"
-            : "Previously Attempted -------- Below Pass Mark"}
+            ? "Previously Passed"
+            : "Previously Attempted - Below Pass Mark"}
         </p>
         <p style={{ fontSize: 13, color: "#64748b" }}>
           {passed
@@ -577,7 +591,7 @@ function SavedResultBanner({ result, quiz, onRetake, onContinue, dark = false })
                       }}
                     >
                       Your answer:{" "}
-                      <strong>{q.options?.[answers?.[i]] ?? "--------"}</strong>
+                      <strong>{q.options?.[answers?.[i]] ?? "N/A"}</strong>
                     </p>
                     {!correct && (
                       <p
@@ -812,7 +826,7 @@ function QuizView({
               marginBottom: 4,
             }}
           >
-            {pass ? "Passed!" : "Not quite-------"}
+            {pass ? "Passed!" : "Not quite"}
           </p>
           <p style={{ fontSize: 13, color: "#64748b" }}>
             {pass
@@ -821,7 +835,7 @@ function QuizView({
           </p>
           {saving && (
             <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 8 }}>
-              Saving result-------
+              Saving result...
             </p>
           )}
         </div>
@@ -880,7 +894,7 @@ function QuizView({
                       }}
                     >
                       Your answer:{" "}
-                      <strong>{q.options?.[answers[i]] ?? "--------"}</strong>
+                      <strong>{q.options?.[answers[i]] ?? "N/A"}</strong>
                     </p>
                     {!correct && (
                       <p
@@ -982,7 +996,7 @@ function QuizView({
           style={{
             flex: 1,
             height: 4,
-            background: "#f1f5f9",
+            background: dark ? "#2a3342" : "#f1f5f9",
             borderRadius: 99,
           }}
         >
@@ -1013,11 +1027,11 @@ function QuizView({
           style={{
             display: "inline-block",
             padding: "4px 12px",
-            background: "#f1f5f9",
+            background: dark ? "#1f2a3d" : "#f1f5f9",
             borderRadius: 99,
             fontSize: 11,
             fontWeight: 700,
-            color: "#64748b",
+            color: dark ? "#9fb0c8" : "#64748b",
             marginBottom: 12,
             textTransform: "uppercase",
             letterSpacing: "0.05em",
@@ -1029,7 +1043,7 @@ function QuizView({
           style={{
             fontSize: 17,
             fontWeight: 700,
-            color: "#0f172a",
+            color: dark ? "#e5e7eb" : "#0f172a",
             lineHeight: 1.5,
           }}
         >
@@ -1049,18 +1063,23 @@ function QuizView({
           const sel = answers[current] === oi;
           return (
             <button
+              className="quiz-option-btn"
               key={oi}
               onClick={() => handleSelect(oi)}
               style={{
                 padding: "14px 18px",
                 borderRadius: 12,
                 textAlign: "left",
-                background: sel ? NAVY_LIGHT : "#f8fafc",
-                border: sel ? `2px solid ${NAVY}` : "1.5px solid #e2e8f0",
+                background: sel
+                  ? (dark ? "rgba(30,58,95,0.32)" : NAVY_LIGHT)
+                  : (dark ? "#1a2230" : "#f8fafc"),
+                border: sel
+                  ? `2px solid ${NAVY}`
+                  : `1.5px solid ${dark ? "#2a3446" : "#e2e8f0"}`,
                 cursor: "pointer",
                 fontSize: 14,
                 fontWeight: sel ? 600 : 500,
-                color: sel ? NAVY : "#374151",
+                color: sel ? (dark ? "#dbeafe" : NAVY) : (dark ? "#cbd5e1" : "#374151"),
                 fontFamily: "inherit",
                 transition: "all 0.15s",
                 display: "flex",
@@ -1076,8 +1095,8 @@ function QuizView({
                   height: 26,
                   borderRadius: 8,
                   flexShrink: 0,
-                  background: sel ? NAVY : "white",
-                  border: sel ? "none" : "1.5px solid #e2e8f0",
+                  background: sel ? NAVY : (dark ? "#111827" : "white"),
+                  border: sel ? "none" : `1.5px solid ${dark ? "#334155" : "#e2e8f0"}`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -1367,7 +1386,7 @@ function MaterialViewer({ item, onClose }) {
                 </p>
                 <p style={{ fontSize: 12, color: "#94a3b8", marginBottom: 24 }}>
                   {label}
-                  {item.file_size ? ` ---- ${formatSize(item.file_size)}` : ""}
+                                {item.file_size ? ` - ${formatSize(item.file_size)}` : ""}
                 </p>
                 <a
                   href={url}
@@ -1411,6 +1430,7 @@ function CourseDetailView({
   userId,
   dark = false,
 }) {
+  const isMobile = useIsMobile(992);
   const modules = course.modules || [];
   const [activeModIdx, setActiveModIdx] = useState(0);
   const [phase, setPhase] = useState("content");
@@ -1537,13 +1557,13 @@ function CourseDetailView({
         className={`training-portal${dark ? " dark" : ""}`}
         style={{
           minHeight: "100vh",
-          background: dark ? "#111318" : "#f8fafc",
+          background: dark ? "#141416" : "#f8fafc",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <p style={{ color: "#94a3b8", fontSize: 14 }}>Loading your progress-------</p>
+        <p style={{ color: "#94a3b8", fontSize: 14 }}>Loading your progress...</p>
       </div>
     );
   }
@@ -1553,7 +1573,7 @@ function CourseDetailView({
       className={`training-portal${dark ? " dark" : ""}`}
       style={{
         minHeight: "100vh",
-        background: dark ? "#111318" : "#f8fafc",
+        background: dark ? "#141416" : "#f8fafc",
         fontFamily: "'Plus Jakarta Sans','DM Sans',sans-serif",
       }}
     >
@@ -1563,7 +1583,7 @@ function CourseDetailView({
         .training-portal.dark [style*="background: #f8fafc"],
         .training-portal.dark [style*="background:#f8fafc"],
         .training-portal.dark [style*="background: #fafbfc"],
-        .training-portal.dark [style*="background: #f1f5f9"] { background: #111318 !important; }
+        .training-portal.dark [style*="background: #f1f5f9"] { background: #141416 !important; }
         .training-portal.dark [style*="border: 1px solid #f1f5f9"],
         .training-portal.dark [style*="border-bottom: 1px solid #f1f5f9"],
         .training-portal.dark [style*="borderTop: \"1px solid #f8fafc\""],
@@ -1581,6 +1601,12 @@ function CourseDetailView({
           background: #141821 !important;
           border-color: #2a2f3a !important;
         }
+        .training-portal.dark button:not([style*="width: 100%"]):not(.quiz-option-btn) {
+          background: #ffffff !important;
+          color: #0f172a !important;
+          border-color: #ffffff !important;
+          width: auto !important;
+        }
       `}</style>
 
       {previewMat && (
@@ -1595,11 +1621,13 @@ function CourseDetailView({
           position: "sticky",
           top: 0,
           zIndex: 40,
-          padding: "0 32px",
+          padding: isMobile ? "10px 14px" : "0 32px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          height: 60,
+          height: isMobile ? "auto" : 60,
+          flexWrap: isMobile ? "wrap" : "nowrap",
+          gap: isMobile ? 8 : 0,
           boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
         }}
       >
@@ -1650,7 +1678,7 @@ function CourseDetailView({
                 {course.title}
               </p>
               <p style={{ margin: 0, fontSize: 10, color: "#94a3b8" }}>
-                {course.category} ---- {course.difficulty}
+                  {course.category} - {course.difficulty}
               </p>
             </div>
           </div>
@@ -1686,15 +1714,15 @@ function CourseDetailView({
 
       <div
         style={{
-          display: "flex",
-          maxWidth: 1200,
-          margin: "0 auto",
-          padding: "28px 32px",
+          display: isMobile ? "block" : "flex",
+          width: "100%",
+          margin: 0,
+          padding: isMobile ? "16px 14px" : "28px 24px",
           gap: 28,
         }}
       >
         {/* Sidebar */}
-        <aside style={{ width: 260, flexShrink: 0 }}>
+        <aside style={{ width: isMobile ? "100%" : 260, flexShrink: 0 }}>
           <div
             style={{
               background: "white",
@@ -1704,8 +1732,8 @@ function CourseDetailView({
               boxShadow: dark
                 ? "0 12px 28px rgba(0,0,0,0.35)"
                 : "0 1px 6px rgba(0,0,0,0.04)",
-              position: "sticky",
-              top: 88,
+              position: isMobile ? "static" : "sticky",
+              top: isMobile ? "auto" : 88,
             }}
           >
             <div
@@ -1952,7 +1980,7 @@ function CourseDetailView({
         </aside>
 
         {/* Main */}
-        <main style={{ flex: 1, minWidth: 0 }}>
+        <main style={{ flex: 1, minWidth: 0, marginTop: isMobile ? 14 : 0 }}>
           {isFinalStep ? (
             <div
               style={{
@@ -2381,7 +2409,7 @@ function CourseDetailView({
                               >
                                 {label}
                                 {mat.file_size
-                                  ? ` ---- ${formatSize(mat.file_size)}`
+                                  ? ` - ${formatSize(mat.file_size)}`
                                   : ""}
                               </p>
                             </div>
@@ -2482,7 +2510,7 @@ function CourseDetailView({
                             margin: "4px 0 0",
                             fontSize: 15,
                             fontWeight: 800,
-                            color: "#0f172a",
+                            color: dark ? "#cbd5e1" : "#0f172a",
                           }}
                         >
                           {activeMod.title}
@@ -2694,6 +2722,7 @@ function CourseCard({ course, onClick, index, dark = false }) {
 // COURSES LIST
 // ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function CoursesListView({ onOpenCourse, dark = false }) {
+  const isMobile = useIsMobile(768);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -2731,7 +2760,7 @@ function CoursesListView({ onOpenCourse, dark = false }) {
       className={`training-portal${dark ? " dark" : ""}`}
       style={{
         minHeight: "100vh",
-        background: dark ? "#111318" : "#f8fafc",
+        background: dark ? "#141416" : "#f8fafc",
         fontFamily: "'Plus Jakarta Sans','DM Sans',sans-serif",
       }}
     >
@@ -2748,7 +2777,7 @@ function CoursesListView({ onOpenCourse, dark = false }) {
         .training-portal.dark [style*="background:white"] { background: #171a21 !important; }
         .training-portal.dark [style*="background: #f8fafc"],
         .training-portal.dark [style*="background:#f8fafc"],
-        .training-portal.dark [style*="background: #fafbfc"] { background: #111318 !important; }
+        .training-portal.dark [style*="background: #fafbfc"] { background: #141416 !important; }
         .training-portal.dark [style*="border: 1px solid #f1f5f9"],
         .training-portal.dark [style*="border:1px solid #f1f5f9"],
         .training-portal.dark [style*="borderBottom: \"1px solid #f1f5f9\""] { border-color: transparent !important; }
@@ -2764,6 +2793,12 @@ function CoursesListView({ onOpenCourse, dark = false }) {
           background: #141821 !important;
           border-color: #2a2f3a !important;
           color: #e5e7eb !important;
+        }
+        .training-portal.dark button:not([style*="width: 100%"]):not(.quiz-option-btn) {
+          background: #ffffff !important;
+          color: #0f172a !important;
+          border-color: #ffffff !important;
+          width: auto !important;
         }
       `}</style>
 
@@ -2782,12 +2817,13 @@ function CoursesListView({ onOpenCourse, dark = false }) {
         </p>
       </div>
 
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 48px" }}>
+      <div style={{ width: "100%", margin: 0, padding: isMobile ? "16px 14px" : "28px 24px" }}>
         <div
           style={{
             display: "flex",
+            flexDirection: isMobile ? "column" : "row",
             gap: 12,
-            alignItems: "center",
+            alignItems: isMobile ? "stretch" : "center",
             flexWrap: "wrap",
             background: dark ? "#171a21" : "white",
             borderRadius: 16,
@@ -2814,7 +2850,7 @@ function CoursesListView({ onOpenCourse, dark = false }) {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search courses-------"
+              placeholder="Search courses..."
               style={{
                 paddingLeft: 36,
                 paddingRight: 12,
@@ -2833,7 +2869,15 @@ function CoursesListView({ onOpenCourse, dark = false }) {
               onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
             />
           </div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 6,
+              flexWrap: isMobile ? "nowrap" : "wrap",
+              overflowX: isMobile ? "auto" : "visible",
+              paddingBottom: isMobile ? 2 : 0,
+            }}
+          >
             {["All", ...CATEGORIES.filter((c) => catCounts[c] > 0)].map(
               (cat) => (
                 <button
@@ -2851,6 +2895,7 @@ function CoursesListView({ onOpenCourse, dark = false }) {
                     cursor: "pointer",
                     fontFamily: "inherit",
                     transition: "all 0.15s",
+                    flexShrink: 0,
                   }}
                 >
                   {cat}
@@ -2872,6 +2917,7 @@ function CoursesListView({ onOpenCourse, dark = false }) {
               cursor: "pointer",
               fontFamily: "inherit",
               outline: "none",
+              width: isMobile ? "100%" : "auto",
             }}
           >
             <option value="All">All Levels</option>
@@ -2901,7 +2947,9 @@ function CoursesListView({ onOpenCourse, dark = false }) {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))",
+              gridTemplateColumns: isMobile
+                ? "1fr"
+                : "repeat(auto-fill,minmax(280px,1fr))",
               gap: 18,
             }}
           >
@@ -2909,15 +2957,19 @@ function CoursesListView({ onOpenCourse, dark = false }) {
               <div
                 key={i}
                 style={{
-                  background: "white",
+                  background: dark ? "#171a21" : "white",
                   borderRadius: 20,
                   overflow: "hidden",
-                  border: "1px solid #f1f5f9",
+                  border: dark ? "1px solid #2a2f3a" : "1px solid #f1f5f9",
                   padding: "20px 22px",
                 }}
               >
                 <div
-                  style={{ height: 4, background: "#f1f5f9", marginBottom: 20 }}
+                  style={{
+                    height: 4,
+                    background: dark ? "#2a2f3a" : "#f1f5f9",
+                    marginBottom: 20,
+                  }}
                 />
                 <div
                   className="skeleton-line"
@@ -2976,7 +3028,9 @@ function CoursesListView({ onOpenCourse, dark = false }) {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))",
+              gridTemplateColumns: isMobile
+                ? "1fr"
+                : "repeat(auto-fill,minmax(280px,1fr))",
               gap: 18,
             }}
           >

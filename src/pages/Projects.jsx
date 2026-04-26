@@ -3135,26 +3135,46 @@ const Projects = () => {
             <div
               style={{
                 display: "flex",
-                alignItems: "center",
+                flexDirection: isMobile ? "column" : "row",
+                alignItems: isMobile ? "stretch" : "center",
                 justifyContent: "space-between",
+                gap: isMobile ? 10 : 0,
                 fontFamily: "'DM Sans',sans-serif",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  minWidth: 0,
+                }}
+              >
                 <FlagIcon value={editingProject?.country_flag} size={20} />
                 <span
                   style={{
-                    fontSize: 16,
+                    fontSize: isMobile ? 15 : 16,
                     fontWeight: 800,
                     color: "var(--p-text)",
                     letterSpacing: "-0.02em",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
                   }}
                 >
                   {editingProject ? editingProject.name : "New Project"}
                 </span>
               </div>
               {editingProject && (
-                <div style={{ display: "flex", gap: 6 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 6,
+                    flexWrap: "nowrap",
+                    overflowX: isMobile ? "auto" : "visible",
+                    paddingBottom: isMobile ? 2 : 0,
+                  }}
+                >
                   <button
                     onClick={() => {
                       setBoardProjectId(editingProject.id);
@@ -3165,19 +3185,21 @@ const Projects = () => {
                       display: "flex",
                       alignItems: "center",
                       gap: 5,
-                      padding: "5px 10px",
+                      padding: isMobile ? "5px 9px" : "5px 10px",
                       borderRadius: 7,
                       border: "1px solid var(--p-border)",
                       background: "transparent",
                       color: "var(--p-sub)",
-                      fontSize: 12,
+                      fontSize: isMobile ? 11 : 12,
                       fontWeight: 600,
                       cursor: "pointer",
                       fontFamily: "'DM Sans',sans-serif",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
                     }}
                     title="Open tickets board"
                   >
-                    <LayoutGrid size={12} /> Tickets Board
+                    <LayoutGrid size={12} /> {isMobile ? "Board" : "Tickets Board"}
                   </button>
                   {showArchived ? (
                     <button
@@ -3186,15 +3208,17 @@ const Projects = () => {
                         display: "flex",
                         alignItems: "center",
                         gap: 5,
-                        padding: "5px 10px",
+                        padding: isMobile ? "5px 9px" : "5px 10px",
                         borderRadius: 7,
                         border: "1px solid var(--p-border)",
                         background: "transparent",
                         color: "var(--p-accent)",
-                        fontSize: 12,
+                        fontSize: isMobile ? 11 : 12,
                         fontWeight: 600,
                         cursor: "pointer",
                         fontFamily: "'DM Sans',sans-serif",
+                        whiteSpace: "nowrap",
+                        flexShrink: 0,
                       }}
                     >
                       <Archive size={12} /> Restore
@@ -3206,15 +3230,17 @@ const Projects = () => {
                         display: "flex",
                         alignItems: "center",
                         gap: 5,
-                        padding: "5px 10px",
+                        padding: isMobile ? "5px 9px" : "5px 10px",
                         borderRadius: 7,
                         border: "1px solid var(--p-border)",
                         background: "transparent",
                         color: "var(--p-sub)",
-                        fontSize: 12,
+                        fontSize: isMobile ? 11 : 12,
                         fontWeight: 600,
                         cursor: "pointer",
                         fontFamily: "'DM Sans',sans-serif",
+                        whiteSpace: "nowrap",
+                        flexShrink: 0,
                       }}
                     >
                       <Archive size={12} /> Archive
@@ -3226,15 +3252,17 @@ const Projects = () => {
                       display: "flex",
                       alignItems: "center",
                       gap: 5,
-                      padding: "5px 10px",
+                      padding: isMobile ? "5px 9px" : "5px 10px",
                       borderRadius: 7,
                       border: "1px solid #fca5a5",
                       background: dark ? "#3b0a0a" : "#fef2f2",
                       color: "#dc2626",
-                      fontSize: 12,
+                      fontSize: isMobile ? 11 : 12,
                       fontWeight: 600,
                       cursor: "pointer",
                       fontFamily: "'DM Sans',sans-serif",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
                     }}
                   >
                     <Trash2 size={12} /> Delete
@@ -3338,6 +3366,28 @@ const ProjectForm = ({
     end_date: project?.end_date || null,
     remarks: project?.remarks || "",
     requirements: project?.requirements || "",
+    budget_model: project?.budget_model || "fixed",
+    billing_type: project?.billing_type || "one_time",
+    currency: project?.currency || "USD",
+    fixed_price: project?.fixed_price ?? "",
+    hourly_rate: project?.hourly_rate ?? project?.rate_value ?? "",
+    estimated_units: project?.estimated_units ?? "",
+    recurring_cycles: project?.recurring_cycles ?? 1,
+    recurring_interval: project?.recurring_interval || "monthly",
+    milestone_plan: Array.isArray(project?.milestone_plan)
+      ? project.milestone_plan
+      : (() => {
+          if (typeof project?.milestone_plan === "string") {
+            try {
+              const parsed = JSON.parse(project.milestone_plan);
+              return Array.isArray(parsed) ? parsed : [{ title: "", amount: "" }];
+            } catch {
+              return [{ title: "", amount: "" }];
+            }
+          }
+          return [{ title: "", amount: "" }];
+        })(),
+    project_total_amount: project?.project_total_amount ?? 0,
   });
   const [assignees, setAssignees] = useState(
     project?.assignees?.map((a) => a.id) || [],
@@ -3834,8 +3884,33 @@ const ProjectForm = ({
     }
     setSaving(true);
     try {
+      if (form.budget_model === "milestone_based") {
+        const validMilestones = (form.milestone_plan || []).filter(
+          (m) => m.title?.trim() && toNum(m.amount) > 0,
+        );
+        if (!validMilestones.length) {
+          message.error("Add at least one milestone with title and amount");
+          setSaving(false);
+          return;
+        }
+      }
+
       const payload = {
         ...form,
+        fixed_price: toNum(form.fixed_price),
+        hourly_rate: toNum(form.hourly_rate),
+        estimated_units: toNum(form.estimated_units),
+        recurring_cycles: Math.max(1, parseInt(form.recurring_cycles, 10) || 1),
+        milestone_plan:
+          form.budget_model === "milestone_based"
+            ? (form.milestone_plan || [])
+                .filter((m) => m.title?.trim() || toNum(m.amount) > 0)
+                .map((m) => ({
+                  title: (m.title || "").trim(),
+                  amount: toNum(m.amount),
+                }))
+            : [],
+        project_total_amount: toNum(projectTotalPrice),
         client_country: form.client_country || "",
         country_flag:
           form.country_flag || getCountryFlagValue(form.client_country) || null,
@@ -3907,6 +3982,59 @@ const ProjectForm = ({
   );
 
   const FIELD = { marginBottom: 18 };
+  const toNum = (v) => {
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const getBaseProjectPrice = (f) => {
+    if (f.budget_model === "milestone_based") {
+      return (f.milestone_plan || []).reduce((sum, m) => sum + toNum(m.amount), 0);
+    }
+    if (f.budget_model === "hourly") {
+      return toNum(f.hourly_rate) * toNum(f.estimated_units);
+    }
+    return toNum(f.fixed_price);
+  };
+  const getProjectTotalPrice = (f) => {
+    const base = getBaseProjectPrice(f);
+    if (f.billing_type === "recurring") {
+      const cycles = Math.max(1, parseInt(f.recurring_cycles, 10) || 1);
+      return base * cycles;
+    }
+    return base;
+  };
+  const projectTotalPrice = getProjectTotalPrice(form);
+  const PAYMENT_BUDGET_OPTIONS = [
+    { label: "Fixed", value: "fixed" },
+    { label: "Hourly", value: "hourly" },
+    { label: "Milestone-Based", value: "milestone_based" },
+  ];
+  const PAYMENT_BILLING_OPTIONS = [
+    { label: "One-Time", value: "one_time" },
+    { label: "Recurring", value: "recurring" },
+  ];
+  const PAYMENT_INTERVAL_OPTIONS = [
+    { label: "Weekly", value: "weekly" },
+    { label: "Monthly", value: "monthly" },
+    { label: "Quarterly", value: "quarterly" },
+    { label: "Yearly", value: "yearly" },
+  ];
+  const PAYMENT_CURRENCY_OPTIONS = (() => {
+    if (typeof Intl !== "undefined" && typeof Intl.supportedValuesOf === "function") {
+      return Intl.supportedValuesOf("currency").map((code) => ({
+        label: code,
+        value: code,
+      }));
+    }
+    return [
+      { label: "USD", value: "USD" },
+      { label: "EUR", value: "EUR" },
+      { label: "GBP", value: "GBP" },
+      { label: "AED", value: "AED" },
+      { label: "PKR", value: "PKR" },
+      { label: "INR", value: "INR" },
+    ];
+  })();
   const inputStyle = {
     borderRadius: 8,
     fontSize: 13,
@@ -4981,6 +5109,286 @@ const ProjectForm = ({
         {/* - Details - */}
         {section === "details" && (
           <div>
+            <div style={{ marginBottom: 16 }}>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: "var(--p-muted)",
+                  marginBottom: 10,
+                }}
+              >
+                Payment Details
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 16,
+                  marginBottom: 16,
+                }}
+              >
+                <div>
+                  <LBL>Budget</LBL>
+                  <Select
+                    value={form.budget_model}
+                    onChange={(v) => set("budget_model", v)}
+                    popupClassName={isDark ? "p-popup-dark" : undefined}
+                    size="large"
+                    style={{ width: "100%" }}
+                    options={PAYMENT_BUDGET_OPTIONS}
+                  />
+                </div>
+                <div>
+                  <LBL>Billing Type</LBL>
+                  <Select
+                    value={form.billing_type}
+                    onChange={(v) => set("billing_type", v)}
+                    popupClassName={isDark ? "p-popup-dark" : undefined}
+                    size="large"
+                    style={{ width: "100%" }}
+                    options={PAYMENT_BILLING_OPTIONS}
+                  />
+                </div>
+                <div>
+                  <LBL>Currency</LBL>
+                  <Select
+                    value={form.currency}
+                    onChange={(v) => set("currency", v)}
+                    popupClassName={isDark ? "p-popup-dark" : undefined}
+                    size="large"
+                    style={{ width: "100%" }}
+                    options={PAYMENT_CURRENCY_OPTIONS}
+                  />
+                </div>
+              </div>
+
+              {form.budget_model === "fixed" && (
+                <div style={{ marginBottom: 16 }}>
+                  <LBL>Fixed Price</LBL>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={form.fixed_price}
+                    onChange={(e) => set("fixed_price", e.target.value)}
+                    placeholder="0.00"
+                    size="large"
+                    style={inputStyle}
+                  />
+                </div>
+              )}
+
+              {form.budget_model === "hourly" && (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 16,
+                    marginBottom: 16,
+                  }}
+                >
+                  <div>
+                    <LBL>Hourly Rate</LBL>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={form.hourly_rate}
+                      onChange={(e) => set("hourly_rate", e.target.value)}
+                      placeholder="0.00"
+                      size="large"
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <LBL>Estimated Hours</LBL>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={form.estimated_units}
+                      onChange={(e) => set("estimated_units", e.target.value)}
+                      placeholder="0"
+                      size="large"
+                      style={inputStyle}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {form.budget_model === "milestone_based" && (
+                <div style={{ marginBottom: 16 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 8,
+                    }}
+                  >
+                    <LBL>Milestones & Payments</LBL>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm((prev) => ({
+                          ...prev,
+                          milestone_plan: [
+                            ...(prev.milestone_plan || []),
+                            { title: "", amount: "" },
+                          ],
+                        }))
+                      }
+                      style={{
+                        border: "1px solid var(--p-border)",
+                        borderRadius: 7,
+                        background: "transparent",
+                        color: "var(--p-sub)",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        padding: "6px 10px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      + Add Milestone
+                    </button>
+                  </div>
+
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {(form.milestone_plan || []).map((m, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 130px auto",
+                          gap: 10,
+                        }}
+                      >
+                        <Input
+                          value={m.title}
+                          onChange={(e) =>
+                            setForm((prev) => {
+                              const arr = [...(prev.milestone_plan || [])];
+                              arr[idx] = { ...arr[idx], title: e.target.value };
+                              return { ...prev, milestone_plan: arr };
+                            })
+                          }
+                          placeholder={`Milestone ${idx + 1} title`}
+                          size="large"
+                          style={inputStyle}
+                        />
+                        <Input
+                          type="number"
+                          min={0}
+                          value={m.amount}
+                          onChange={(e) =>
+                            setForm((prev) => {
+                              const arr = [...(prev.milestone_plan || [])];
+                              arr[idx] = { ...arr[idx], amount: e.target.value };
+                              return { ...prev, milestone_plan: arr };
+                            })
+                          }
+                          placeholder="Amount"
+                          size="large"
+                          style={inputStyle}
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setForm((prev) => {
+                              const arr = [...(prev.milestone_plan || [])];
+                              arr.splice(idx, 1);
+                              return {
+                                ...prev,
+                                milestone_plan:
+                                  arr.length > 0 ? arr : [{ title: "", amount: "" }],
+                              };
+                            })
+                          }
+                          style={{
+                            border: "1px solid var(--p-border)",
+                            borderRadius: 8,
+                            background: "transparent",
+                            color: "var(--p-sub)",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            paddingInline: 10,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {form.billing_type === "recurring" && (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 16,
+                    marginBottom: 16,
+                  }}
+                >
+                  <div>
+                    <LBL>Recurring Interval</LBL>
+                    <Select
+                      value={form.recurring_interval}
+                      onChange={(v) => set("recurring_interval", v)}
+                      popupClassName={isDark ? "p-popup-dark" : undefined}
+                      size="large"
+                      style={{ width: "100%" }}
+                      options={PAYMENT_INTERVAL_OPTIONS}
+                    />
+                  </div>
+                  <div>
+                    <LBL>Number Of Cycles</LBL>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={form.recurring_cycles}
+                      onChange={(e) => set("recurring_cycles", e.target.value)}
+                      placeholder="1"
+                      size="large"
+                      style={inputStyle}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div
+                style={{
+                  border: "1px solid var(--p-border)",
+                  borderRadius: 10,
+                  padding: "12px 14px",
+                  marginBottom: 8,
+                  background: "var(--p-card2)",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--p-muted)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    fontWeight: 700,
+                    marginBottom: 4,
+                  }}
+                >
+                  Total Project Price
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "var(--p-text)" }}>
+                  {form.currency}{" "}
+                  {projectTotalPrice.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </div>
+              </div>
+            </div>
+
             <div style={FIELD}>
               <LBL>Figma Link</LBL>
               <Input

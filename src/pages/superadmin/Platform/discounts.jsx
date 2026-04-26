@@ -32,22 +32,16 @@ import {
   Popconfirm,
   Tooltip,
 } from "antd";
-import { createClient } from "@supabase/supabase-js";
 import { motion, AnimatePresence } from "framer-motion";
 import dayjs from "dayjs";
+import { supabase } from "../../../lib/supabase";
 
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY,
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-      storageKey: "sb-platform-discounts-readonly",
-    },
-  },
-);
+const FALLBACK_PLAN_OPTIONS = [
+  { value: "Free", label: "Free" },
+  { value: "Starter", label: "Starter" },
+  { value: "Pro", label: "Pro" },
+  { value: "Enterprise", label: "Enterprise" },
+];
 
 // --------- Helpers ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const generateCode = () => {
@@ -185,6 +179,7 @@ export default function AdminPromoCodes() {
   const [deletingId, setDeletingId] = useState(null);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [planOptions, setPlanOptions] = useState(FALLBACK_PLAN_OPTIONS);
   const [form] = Form.useForm();
   const discountType = Form.useWatch("discount_type", form);
 
@@ -204,8 +199,33 @@ export default function AdminPromoCodes() {
     }
   };
 
+  const loadPlans = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("plans")
+        .select("name, is_active")
+        .order("name", { ascending: true });
+      if (error) throw error;
+
+      const rows = (data || []).filter((p) => String(p?.name || "").trim());
+      const activeRows = rows.filter((p) => p.is_active !== false);
+      const source = activeRows.length > 0 ? activeRows : rows;
+      const uniqueNames = [...new Set(source.map((p) => p.name.trim()))];
+
+      if (uniqueNames.length > 0) {
+        setPlanOptions(uniqueNames.map((name) => ({ value: name, label: name })));
+      } else {
+        setPlanOptions(FALLBACK_PLAN_OPTIONS);
+      }
+    } catch {
+      setPlanOptions(FALLBACK_PLAN_OPTIONS);
+      message.warning("Could not load plans. Showing default package names.");
+    }
+  };
+
   useEffect(() => {
     load();
+    loadPlans();
   }, []);
 
   const openCreate = () => {
@@ -237,9 +257,17 @@ export default function AdminPromoCodes() {
   const handleSubmit = async (values) => {
     setSubmitLoading(true);
     try {
+      const normalizedCode = String(values.code || "").toUpperCase().trim();
+      if (!normalizedCode) throw new Error("Promo code is required.");
+
       const payload = {
         ...values,
-        code: values.code.toUpperCase().trim(),
+        code: normalizedCode,
+        applicable_plans:
+          Array.isArray(values.applicable_plans) &&
+          values.applicable_plans.length > 0
+            ? values.applicable_plans
+            : null,
         expires_at: values.expires_at ? values.expires_at.toISOString() : null,
         updated_at: new Date().toISOString(),
       };
@@ -1147,12 +1175,7 @@ export default function AdminPromoCodes() {
                 size="large"
                 placeholder="Select plans or leave blank for all"
                 style={{ borderRadius: 10 }}
-                options={[
-                  { value: "Free", label: "Free" },
-                  { value: "Starter", label: "Starter" },
-                  { value: "Pro", label: "Pro" },
-                  { value: "Enterprise", label: "Enterprise" },
-                ]}
+                options={planOptions}
               />
             </Form.Item>
           </div>

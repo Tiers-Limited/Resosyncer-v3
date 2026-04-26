@@ -58,6 +58,8 @@ import LandingPage from "./pages/Landing Pages/Home/LandingPage";
 import PricingPage from "./pages/Landing Pages/Pricing/Pricing";
 import SolutionsPage from "./pages/Landing Pages/Solutions/Solutions";
 import ResourcesPage from "./pages/Landing Pages/Resources/Resources";
+import ResourceDetailsPage from "./pages/Landing Pages/Resources/ResourceDetails";
+import CommunityPage from "./pages/Landing Pages/Community/Community";
 import CompanyPage from "./pages/Landing Pages/Company/Company";
 import CareersPage from "./pages/Landing Pages/Careers/Careers";
 import AIPage from "./pages/Landing Pages/AI/AI";
@@ -75,6 +77,8 @@ import JiraIntegrationConnect from "./pages/integrations/Jira/Connect";
 import JiraIntegrationCallback from "./pages/integrations/Jira/Callback";
 import ProviderCallback from "./pages/integrations/ProviderCallback";
 import GoogleCalanderCallback from "./pages/integrations/GoogleCalander/Callback";
+import LinkedInCallback from "./pages/integrations/LinkedIn/Callback";
+import DocuSignCallback from "./pages/integrations/DocuSign/Callback";
 
 // Super-Admin
 import SuperadminDashboard from "./pages/superadmin/Platform/overview";
@@ -82,6 +86,7 @@ import TenantsPage from "./pages/superadmin/Platform/tenants";
 import TenantDetailPage from "./pages/superadmin/Platform/tenantDetails";
 import AdminPlans from "./pages/superadmin/Platform/plans";
 import DiscountsPage from "./pages/superadmin/Platform/discounts";
+import SuperadminResourcesPage from "./pages/superadmin/Platform/resources";
 import { supabase } from "./lib/supabase";
 
 const getIsDarkTheme = () => {
@@ -485,6 +490,14 @@ function App() {
           <Route path="/oauth/jira-callback" element={<JiraOAuthCallback />} />
           <Route path="/integrations/jira" element={<JiraIntegrationConnect />} />
           <Route
+            path="/integrations/linkedin/callback"
+            element={<LinkedInCallback />}
+          />
+          <Route
+            path="/integrations/docusign/callback"
+            element={<DocuSignCallback />}
+          />
+          <Route
             path="/integrations/asana/callback"
             element={<ProviderCallback provider="asana" />}
           />
@@ -541,6 +554,11 @@ function App() {
           <Route
             path="/discounts"
             element={<ProtectedRoute saComponent={<DiscountsPage />} />}
+          />
+
+          <Route
+            path="/platform-resources"
+            element={<ProtectedRoute saComponent={<SuperadminResourcesPage />} />}
           />
 
           <Route
@@ -729,7 +747,10 @@ function App() {
           <Route
             path="/profile"
             element={
-              <ProtectedRoute employeeComponent={<EmployeeProfile />}>
+              <ProtectedRoute
+                employeeComponent={<EmployeeProfile />}
+                pmComponent={<EmployeeProfile />}
+              >
                 <Settings />
               </ProtectedRoute>
             }
@@ -751,6 +772,10 @@ function App() {
                 <Payments />
               </ProtectedRoute>
             }
+          />
+          <Route
+            path="/integrations/linkedin"
+            element={<Navigate to="/recruitment" replace />}
           />
 
           <Route
@@ -798,7 +823,11 @@ function App() {
           <Route
             path="/settings"
             element={
-              <ProtectedRoute routePath="/settings">
+              <ProtectedRoute
+                routePath="/settings"
+                pmComponent={<Navigate to="/profile" replace />}
+                employeeComponent={<Navigate to="/profile" replace />}
+              >
                 <Settings />
               </ProtectedRoute>
             }
@@ -835,7 +864,9 @@ function App() {
           <Route path="/pricing" element={<PricingPage />} />
           <Route path="/solutions" element={<SolutionsPage />} />
           <Route path="/resources" element={<ResourcesPage />} />
-          <Route path="/resources/*" element={<ResourcesPage />} />
+          <Route path="/resources/:id" element={<ResourceDetailsPage />} />
+          <Route path="/resources/*" element={<Navigate to="/resources" replace />} />
+          <Route path="/community" element={<CommunityPage />} />
           <Route path="/company" element={<CompanyPage />} />
           <Route path="/careers" element={<CareersPage />} />
           <Route path="/trust-center" element={<TrustCenterPage />} />

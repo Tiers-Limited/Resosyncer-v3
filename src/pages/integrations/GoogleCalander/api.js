@@ -1,4 +1,5 @@
 import { INTEGRATIONS_BACKEND_BASE } from "../providers/api";
+import { getIntegrationAuthHeaders, getIntegrationUserIdSync } from "../authHeaders";
 export { INTEGRATIONS_BACKEND_BASE };
 
 export const GOOGLE_CALANDER_BACKEND_BASE = `${INTEGRATIONS_BACKEND_BASE}/api/googleCalander`;
@@ -42,7 +43,7 @@ const googleCalanderRequest = async (
   const res = await fetch(url.toString(), {
     method,
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(await getIntegrationAuthHeaders()) },
     body: body ? JSON.stringify(body) : undefined,
   });
 
@@ -83,6 +84,8 @@ const googleCalanderRequest = async (
 export const getGoogleCalanderAuthUrl = (returnTo) => {
   const url = new URL(`${GOOGLE_CALANDER_BACKEND_BASE}/auth`);
   if (returnTo) url.searchParams.set("returnTo", returnTo);
+  const userId = getIntegrationUserIdSync();
+  if (userId) url.searchParams.set("userId", userId);
   return url.toString();
 };
 

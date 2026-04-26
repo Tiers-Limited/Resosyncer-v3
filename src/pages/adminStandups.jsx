@@ -4,7 +4,6 @@ import {
   Avatar,
   Space,
   Typography,
-  Spin,
   Input,
   Empty,
   Tooltip,
@@ -22,7 +21,6 @@ import {
   MinusOutlined,
   CalendarOutlined,
   ArrowLeftOutlined,
-  TrophyOutlined,
   BarChartOutlined,
   TeamOutlined,
   SearchOutlined,
@@ -57,7 +55,7 @@ const { Option } = Select;
 // All colours are defined here and consumed via var(--token) everywhere below.
 // Switching dark/light = toggling one class on the root wrapper.
 const THEME_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
 
   .sp-root {
     /* ---------------- Background layers ---------------- */
@@ -84,6 +82,7 @@ const THEME_STYLES = `
     --present-color: #059669; --present-bg: #ecfdf5; --present-border: #a7f3d0;
     --absent-color:  #e11d48; --absent-bg:  #fff1f2; --absent-border:  #fecdd3;
     --late-color:    #d97706; --late-bg:    #fffbeb; --late-border:    #fde68a;
+    --leave-color:   #7c3aed; --leave-bg:   #f5f3ff; --leave-border:   #ddd6fe;
     --none-color:    #cbd5e1; --none-bg:    #f8fafc; --none-border:    #e2e8f0;
 
     /* ---------------- Project status colours (light) ---------------- */
@@ -125,6 +124,7 @@ const THEME_STYLES = `
     --present-color: #4ade80; --present-bg: rgba(34,197,94,0.14);  --present-border: rgba(74,222,128,0.3);
     --absent-color:  #fb7185; --absent-bg:  rgba(225,29,72,0.14);  --absent-border:  rgba(251,113,133,0.3);
     --late-color:    #fbbf24; --late-bg:    rgba(217,119,6,0.14);  --late-border:    rgba(251,191,36,0.3);
+    --leave-color:   #c4b5fd; --leave-bg:   rgba(124,58,237,0.14); --leave-border:   rgba(196,181,253,0.3);
     --none-color:    #475569; --none-bg:    rgba(71,85,105,0.2);   --none-border:    rgba(71,85,105,0.35);
 
     --status-active-color:    #4ade80; --status-active-bg:    rgba(34,197,94,0.14);  --status-active-border:    rgba(74,222,128,0.3);
@@ -142,7 +142,7 @@ const THEME_STYLES = `
   }
 
   /* ---------------- Font reset ---------------- */
-  .sp-root * { font-family: 'Outfit', sans-serif !important; box-sizing: border-box; }
+  .sp-root * { font-family: 'DM Sans', sans-serif !important; box-sizing: border-box; }
 
   /* ---------------- Ant Design table overrides ---------------- */
   .sp-root .ant-table { background: transparent !important; }
@@ -224,7 +224,7 @@ const THEME_STYLES = `
   .sp-select-dropdown .ant-select-item-option-selected { background: var(--accent-bg) !important; color: var(--accent) !important; }
 
   /* ---------------- Tooltip ---------------- */
-  .sp-root .ant-tooltip-inner { font-family: 'Outfit', sans-serif !important; }
+  .sp-root .ant-tooltip-inner { font-family: 'DM Sans', sans-serif !important; }
 `;
 
 // ------------------------ Token-aware STATUS config (reads CSS vars at runtime via getComputedStyle) --------
@@ -253,6 +253,13 @@ const getTokens = (el) => {
       bg: g("--late-bg"),
       border: g("--late-border"),
       icon: <ClockCircleOutlined style={{ fontSize: 9 }} />,
+    },
+    leave: {
+      label: "Leave",
+      color: g("--leave-color"),
+      bg: g("--leave-bg"),
+      border: g("--leave-border"),
+      icon: <CalendarOutlined style={{ fontSize: 9 }} />,
     },
     none: {
       label: "No Standup",
@@ -314,7 +321,14 @@ const getInitials = (name = "") =>
     .join("")
     .toUpperCase()
     .slice(0, 2);
-const capitalize = (s = "") => s.charAt(0).toUpperCase() + s.slice(1);
+const capitalize = (s = "") =>
+  String(s || "")
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+const normalizeStatusKey = (s = "") =>
+  String(s || "").toLowerCase().replace(/_/g, " ").trim();
 
 const getIsDarkTheme = () => {
   const mode = localStorage.getItem("themeMode") || "light";
@@ -520,7 +534,7 @@ function StarterStandupPaywall({ dark = false }) {
           Standups
         </h1>
         <p style={{ margin: 0, color: "var(--text-tertiary)", fontSize: 13 }}>
-          Async check-ins ---- AI summaries ---- Zero extra meetings
+          Async check-ins | AI summaries | Zero extra meetings
         </p>
       </div>
 
@@ -724,9 +738,9 @@ function StarterStandupPaywall({ dark = false }) {
                       }}
                     >
                       <span>Today, Mar 29</span>
-                      <span>----</span>
+                      <span>|</span>
                       <span style={{ color: "#22c55e", fontWeight: 700 }}>
-                        ------- 6/8 responded
+                        6/8 responded
                       </span>
                     </div>
                   </div>
@@ -938,7 +952,7 @@ function StarterStandupPaywall({ dark = false }) {
                 lineHeight: 1.6,
               }}
             >
-              A complete async check-in system -------- from team prompts and smart
+              A complete async check-in system - from team prompts and smart
               reminders to AI-generated summaries, participation tracking, and
               full org visibility.
             </p>
@@ -1171,7 +1185,7 @@ function StarterStandupPaywall({ dark = false }) {
                     border: "1px solid var(--present-border)",
                   }}
                 >
-                  ------- 3/3 responded
+                  3/3 responded
                 </span>
               </div>
               {mockStandups.map((m, i) => (
@@ -1384,6 +1398,11 @@ export default function AdminStandupStats() {
   }, []);
 
   const [selectedMonth, setMonth] = useState(dayjs());
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth : 1440,
+  );
+  const isMobile = viewportWidth < 768;
+  const isTablet = viewportWidth < 1100;
   const [view, setView] = useState(VIEW.PROJECTS);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState(null);
@@ -1406,6 +1425,14 @@ export default function AdminStandupStats() {
       window.removeEventListener("themeModeChanged", update);
       mq.removeEventListener("change", update);
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const onResize = () => setViewportWidth(window.innerWidth);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   // Re-read CSS variables once rootEl and dark are both settled
@@ -1468,17 +1495,18 @@ export default function AdminStandupStats() {
       const summaries = {};
       (sessData ?? []).forEach((s) => {
         if (!summaries[s.project_id])
-          summaries[s.project_id] = { sessions: 0, p: 0, a: 0, l: 0 };
+          summaries[s.project_id] = { sessions: 0, p: 0, a: 0, l: 0, lv: 0 };
         summaries[s.project_id].sessions++;
         Object.values(s.attendance ?? {}).forEach((v) => {
           if (v === "present") summaries[s.project_id].p++;
           else if (v === "absent") summaries[s.project_id].a++;
           else if (v === "late") summaries[s.project_id].l++;
+          else if (v === "leave") summaries[s.project_id].lv++;
         });
       });
       projects.forEach((p) => {
         if (!summaries[p.id])
-          summaries[p.id] = { sessions: 0, p: 0, a: 0, l: 0 };
+          summaries[p.id] = { sessions: 0, p: 0, a: 0, l: 0, lv: 0 };
         summaries[p.id].teamSize = teamSizes[p.id] || 0;
       });
       setProjectSummaries(summaries);
@@ -1549,6 +1577,7 @@ export default function AdminStandupStats() {
         let present = 0,
           absent = 0,
           late = 0,
+          leave = 0,
           noStandup = 0;
         weekdays.forEach((d) => {
           if (d > today) return;
@@ -1561,6 +1590,7 @@ export default function AdminStandupStats() {
           if (s === "present") present++;
           else if (s === "absent") absent++;
           else if (s === "late") late++;
+          else if (s === "leave") leave++;
           else noStandup++;
         });
         const marked = present + absent + late;
@@ -1569,6 +1599,7 @@ export default function AdminStandupStats() {
           present,
           absent,
           late,
+          leave,
           noStandup,
           rate: marked > 0 ? Math.round(((present + late) / marked) * 100) : 0,
         };
@@ -1584,12 +1615,14 @@ export default function AdminStandupStats() {
   const overall = useMemo(() => {
     let p = 0,
       a = 0,
-      l = 0;
+      l = 0,
+      lv = 0;
     sessions.forEach((s) => {
       Object.values(s.attendance ?? {}).forEach((v) => {
         if (v === "present") p++;
         else if (v === "absent") a++;
         else if (v === "late") l++;
+        else if (v === "leave") lv++;
       });
     });
     return {
@@ -1598,6 +1631,7 @@ export default function AdminStandupStats() {
       p,
       a,
       l,
+      lv,
     };
   }, [sessions, weekdays, today]);
 
@@ -1634,12 +1668,17 @@ export default function AdminStandupStats() {
     const totalP = Object.values(projectSummaries).reduce((s, c) => s + c.p, 0);
     const totalA = Object.values(projectSummaries).reduce((s, c) => s + c.a, 0);
     const totalL = Object.values(projectSummaries).reduce((s, c) => s + c.l, 0);
+    const totalLeave = Object.values(projectSummaries).reduce(
+      (s, c) => s + (c.lv || 0),
+      0,
+    );
     const marked = totalP + totalA + totalL;
     return {
       totalSessions,
       totalP,
       totalA,
       totalL,
+      totalLeave,
       overallRate:
         marked > 0 ? Math.round(((totalP + totalL) / marked) * 100) : 0,
       projectsWithStandups: Object.values(projectSummaries).filter(
@@ -1700,8 +1739,8 @@ export default function AdminStandupStats() {
           </Text>
         ),
         key: "member",
-        fixed: "left",
-        width: 230,
+        fixed: isMobile ? undefined : "left",
+        width: isMobile ? 190 : 230,
         render: (_, rec, i) => (
           <Space size={10} style={{ padding: "2px 0" }}>
             <Avatar
@@ -1730,7 +1769,7 @@ export default function AdminStandupStats() {
                 {rec.full_name}
               </Text>
               <Text style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                {rec.job_title || rec.department || "--------"}
+                {rec.job_title || rec.department || "N/A"}
               </Text>
             </div>
           </Space>
@@ -1828,7 +1867,7 @@ export default function AdminStandupStats() {
             </Tooltip>
           ),
           key: date,
-          width: 34,
+          width: isMobile ? 30 : 34,
           align: "center",
           render: (_, rec) => {
             if (isFuture)
@@ -1866,7 +1905,7 @@ export default function AdminStandupStats() {
                         fontWeight: 700,
                       }}
                     >
-                      --------
+                      <MinusOutlined />
                     </Text>
                   </div>
                 </Tooltip>
@@ -1883,7 +1922,7 @@ export default function AdminStandupStats() {
                         marginBottom: hasSummary ? 6 : 0,
                       }}
                     >
-                      {d.format("MMM DD")} ---- {cfg.label}
+                      {d.format("MMM DD")} - {cfg.label}
                     </div>
                     {hasSummary && (
                       <div
@@ -1948,8 +1987,8 @@ export default function AdminStandupStats() {
           </Text>
         ),
         key: "rate",
-        width: 100,
-        fixed: "right",
+        width: isMobile ? 88 : 100,
+        fixed: isMobile ? undefined : "right",
         align: "center",
         sorter: (a, b) => a.rate - b.rate,
         defaultSortOrder: "descend",
@@ -1994,12 +2033,12 @@ export default function AdminStandupStats() {
               letterSpacing: "0.05em",
             }}
           >
-            P ---- A ---- L
+            P / A / L
           </Text>
         ),
         key: "pal",
-        width: 90,
-        fixed: "right",
+        width: isMobile ? 84 : 90,
+        fixed: isMobile ? undefined : "right",
         align: "center",
         render: (_, rec) => (
           <Space size={3}>
@@ -2012,7 +2051,7 @@ export default function AdminStandupStats() {
             >
               {rec.present}
             </Text>
-            <Text style={{ color: "var(--border)", fontSize: 10 }}>----</Text>
+            <Text style={{ color: "var(--border)", fontSize: 10 }}>|</Text>
             <Text
               style={{
                 fontSize: 12,
@@ -2022,7 +2061,7 @@ export default function AdminStandupStats() {
             >
               {rec.absent}
             </Text>
-            <Text style={{ color: "var(--border)", fontSize: 10 }}>----</Text>
+            <Text style={{ color: "var(--border)", fontSize: 10 }}>|</Text>
             <Text
               style={{
                 fontSize: 12,
@@ -2036,7 +2075,7 @@ export default function AdminStandupStats() {
         ),
       },
     ],
-    [weekdays, sessionMap, today, standupStatusCfg],
+    [weekdays, sessionMap, today, standupStatusCfg, isMobile],
   );
 
   // ---------------- Projects table columns --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -2071,7 +2110,7 @@ export default function AdminStandupStats() {
       key: "status",
       width: 130,
       render: (status) => {
-        const k = (status || "").toLowerCase();
+        const k = normalizeStatusKey(status);
         const cfg = projectStatusCfg[k] || {
           color: "var(--text-tertiary)",
           bg: "var(--bg-card-alt)",
@@ -2101,7 +2140,7 @@ export default function AdminStandupStats() {
                 display: "inline-block",
               }}
             />
-            {capitalize(status || "--------")}
+            {capitalize(status || "unknown")}
           </span>
         );
       },
@@ -2224,7 +2263,7 @@ export default function AdminStandupStats() {
               >
                 {s.p}P
               </Text>
-              <Text style={{ color: "var(--border)" }}>----</Text>
+              <Text style={{ color: "var(--border)" }}>|</Text>
               <Text
                 style={{
                   fontSize: 12,
@@ -2234,7 +2273,7 @@ export default function AdminStandupStats() {
               >
                 {s.a}A
               </Text>
-              <Text style={{ color: "var(--border)" }}>----</Text>
+              <Text style={{ color: "var(--border)" }}>|</Text>
               <Text
                 style={{
                   fontSize: 12,
@@ -2243,6 +2282,16 @@ export default function AdminStandupStats() {
                 }}
               >
                 {s.l}L
+              </Text>
+              <Text style={{ color: "var(--border)" }}>|</Text>
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "var(--leave-color)",
+                }}
+              >
+                {(s.lv || 0)}Lv
               </Text>
             </Space>
             <span
@@ -2313,20 +2362,72 @@ export default function AdminStandupStats() {
         className={`sp-root${dark ? " dark" : ""}`}
         style={{
           minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
           background: "var(--bg-page)",
         }}
       >
         <style>{THEME_STYLES}</style>
-        <div style={{ textAlign: "center" }}>
-          <Spin size="large" />
-          <p
-            style={{ marginTop: 16, color: "var(--text-muted)", fontSize: 13 }}
+        <div
+          style={{
+            borderBottom: "1px solid var(--border)",
+            padding: "20px 40px",
+            background: "var(--bg-card)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 16,
+              flexWrap: "wrap",
+            }}
           >
-            Loading your workspace-------
-          </p>
+            <Skeleton.Input active style={{ width: 280, height: 34 }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Skeleton.Input active style={{ width: 180, height: 34 }} />
+              <Skeleton.Button active style={{ width: 120, height: 34 }} />
+            </div>
+          </div>
+        </div>
+
+        <div style={{ padding: "24px 40px 32px" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+              gap: 12,
+              marginBottom: 20,
+            }}
+          >
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 12,
+                  padding: "14px 16px",
+                }}
+              >
+                <Skeleton
+                  active
+                  title={{ width: "65%" }}
+                  paragraph={{ rows: 1, width: ["45%"] }}
+                />
+              </div>
+            ))}
+          </div>
+
+          <div
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--border)",
+              borderRadius: 14,
+              overflow: "hidden",
+            }}
+          >
+            <ProjectListSkeleton />
+          </div>
         </div>
       </div>
     );
@@ -2362,21 +2463,29 @@ export default function AdminStandupStats() {
       <div
         style={{
           borderBottom: "1px solid var(--border)",
-          padding: "0 40px",
+          padding: isMobile ? "0 14px" : "0 40px",
           background: "var(--bg-card)",
         }}
       >
         <div
           style={{
             display: "flex",
-            alignItems: "center",
+            alignItems: isMobile ? "flex-start" : "center",
             justifyContent: "space-between",
             padding: "20px 0",
             flexWrap: "wrap",
             gap: 16,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: isMobile ? "flex-start" : "center",
+              flexDirection: isMobile ? "column" : "row",
+              gap: 12,
+              width: isMobile ? "100%" : "auto",
+            }}
+          >
             {view === VIEW.PROJECT_DETAIL && (
               <button
                 onClick={goBack}
@@ -2406,27 +2515,31 @@ export default function AdminStandupStats() {
                   marginBottom: 2,
                 }}
               >
-                <div
-                  style={{
-                    width: 7,
-                    height: 7,
-                    borderRadius: "50%",
-                    background: "var(--text-primary)",
-                  }}
-                />
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                    color: "var(--text-tertiary)",
-                  }}
-                >
-                  {view === VIEW.PROJECT_DETAIL
-                    ? `${activeProject?.name} ---- Detail`
-                    : "Admin ---- Standup Stats"}
-                </Text>
+                {!isMobile && (
+                  <>
+                    <div
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: "50%",
+                        background: "var(--text-primary)",
+                      }}
+                    />
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                        color: "var(--text-tertiary)",
+                      }}
+                    >
+                      {view === VIEW.PROJECT_DETAIL
+                        ? `${activeProject?.name} - Detail`
+                        : "Admin - Standup Stats"}
+                    </Text>
+                  </>
+                )}
               </div>
               <Title
                 level={4}
@@ -2438,27 +2551,38 @@ export default function AdminStandupStats() {
                 }}
               >
                 {view === VIEW.PROJECT_DETAIL
-                  ? `Attendance ---- ${selectedMonth.format("MMMM YYYY")}`
+                  ? `Attendance - ${selectedMonth.format("MMMM YYYY")}`
                   : "Standup Overview"}
               </Title>
             </div>
           </div>
           <Space wrap>
             {view === VIEW.PROJECTS && (
-              <>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  flexWrap: "wrap",
+                  width: isMobile ? "100%" : "auto",
+                }}
+              >
                 <Input
-                  placeholder="Search projects-------"
+                  placeholder="Search projects..."
                   prefix={
                     <SearchOutlined style={{ color: "var(--text-muted)" }} />
                   }
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  style={{ width: 200, borderRadius: 8 }}
+                  style={{
+                    width: isMobile ? "100%" : 200,
+                    borderRadius: 8,
+                  }}
                   allowClear
                 />
                 <Select
                   placeholder="All statuses"
-                  style={{ width: 150 }}
+                  style={{ width: isMobile ? "100%" : 150 }}
                   value={statusFilter}
                   onChange={setStatusFilter}
                   allowClear
@@ -2476,7 +2600,7 @@ export default function AdminStandupStats() {
                     </Option>
                   ))}
                 </Select>
-              </>
+              </div>
             )}
             <DatePicker
               picker="month"
@@ -2490,7 +2614,7 @@ export default function AdminStandupStats() {
               }}
               disabledDate={(d) => d && d > dayjs().endOf("month")}
               format="MMMM YYYY"
-              style={{ width: 155 }}
+              style={{ width: isMobile ? "100%" : 155 }}
               allowClear={false}
               suffixIcon={
                 <CalendarOutlined style={{ color: "var(--text-muted)" }} />
@@ -2501,17 +2625,21 @@ export default function AdminStandupStats() {
       </div>
 
       {/* ---------------- Body ---------------- */}
-      <div style={{ padding: "28px 40px" }}>
+      <div style={{ padding: isMobile ? "14px" : "28px 40px" }}>
         {/* ------------------------------------------------------------------------------------ PROJECTS VIEW ------------------------------------------------------------------------------------ */}
         {view === VIEW.PROJECTS && (
           <>
             {/* Stat cards */}
             <div
               style={{
-                display: "flex",
+                display: "grid",
+                gridTemplateColumns: isMobile
+                  ? "1fr"
+                  : isTablet
+                    ? "repeat(2,minmax(0,1fr))"
+                    : "repeat(5,minmax(0,1fr))",
                 gap: 12,
                 marginBottom: 24,
-                flexWrap: "wrap",
               }}
             >
               {[
@@ -2564,6 +2692,21 @@ export default function AdminStandupStats() {
                   border: "var(--absent-border)",
                 },
                 {
+                  icon: <CalendarOutlined />,
+                  label: "Total Leave",
+                  value: globalStats.totalLeave,
+                  sub:
+                    globalStats.totalP +
+                      globalStats.totalA +
+                      globalStats.totalL >
+                    0
+                      ? `${Math.round((globalStats.totalLeave / (globalStats.totalP + globalStats.totalA + globalStats.totalL)) * 100)}% of marked`
+                      : "No data",
+                  color: "var(--leave-color)",
+                  bg: "var(--leave-bg)",
+                  border: "var(--leave-border)",
+                },
+                {
                   icon: <RiseOutlined />,
                   label: "Overall Attend. Rate",
                   value: `${globalStats.overallRate}%`,
@@ -2576,8 +2719,6 @@ export default function AdminStandupStats() {
                 <div
                   key={label}
                   style={{
-                    flex: "1 1 150px",
-                    minWidth: 140,
                     padding: "14px 16px",
                     borderRadius: 12,
                     border: `1px solid ${border}`,
@@ -2630,7 +2771,7 @@ export default function AdminStandupStats() {
                 background: "var(--bg-card)",
                 borderRadius: 14,
                 border: "1px solid var(--border)",
-                overflow: "hidden",
+                overflowX: isMobile ? "auto" : "hidden",
                 boxShadow: "var(--shadow-card)",
               }}
             >
@@ -2640,7 +2781,9 @@ export default function AdminStandupStats() {
                   borderBottom: "1px solid var(--border-faint)",
                   display: "flex",
                   justifyContent: "space-between",
-                  alignItems: "center",
+                  alignItems: isMobile ? "flex-start" : "center",
+                  flexDirection: isMobile ? "column" : "row",
+                  gap: isMobile ? 8 : 0,
                 }}
               >
                 <Space>
@@ -2665,7 +2808,9 @@ export default function AdminStandupStats() {
                   </span>
                 </Space>
                 <Text style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  Click "View Stats" to drill into any project
+                  {isMobile
+                    ? 'Tap "View Stats" for details'
+                    : 'Click "View Stats" to drill into any project'}
                 </Text>
               </div>
               {loadingProjects ? (
@@ -2675,11 +2820,201 @@ export default function AdminStandupStats() {
                   description={<Text type="secondary">No projects found</Text>}
                   style={{ padding: 64 }}
                 />
+              ) : isMobile ? (
+                <div
+                  style={{
+                    display: "grid",
+                    gap: 10,
+                    padding: 12,
+                  }}
+                >
+                  {filteredProjects.map((rec) => {
+                    const s = projectSummaries[rec.id];
+                    const pastDays = weekdays.filter((d) => d <= today).length;
+                    const sessions = s?.sessions || 0;
+                    const marked = (s?.p || 0) + (s?.a || 0) + (s?.l || 0);
+                    const rate =
+                      marked > 0
+                        ? Math.round((((s?.p || 0) + (s?.l || 0)) / marked) * 100)
+                        : 0;
+                    const statusKey = normalizeStatusKey(rec.status);
+                    const statusCfg = projectStatusCfg[statusKey] || {
+                      color: "var(--text-tertiary)",
+                      bg: "var(--bg-card-alt)",
+                      border: "var(--border)",
+                    };
+
+                    return (
+                      <div
+                        key={rec.id}
+                        style={{
+                          border: "1px solid var(--border)",
+                          borderRadius: 10,
+                          background: "var(--bg-card)",
+                          padding: 12,
+                          display: "grid",
+                          gap: 10,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "flex-start",
+                            justifyContent: "space-between",
+                            gap: 10,
+                          }}
+                        >
+                          <div style={{ minWidth: 0 }}>
+                            <Text
+                              strong
+                              style={{
+                                fontSize: 14,
+                                color: "var(--text-primary)",
+                                display: "block",
+                                lineHeight: 1.25,
+                              }}
+                            >
+                              {rec.name}
+                            </Text>
+                            {rec.client_name && (
+                              <Text
+                                style={{ fontSize: 11, color: "var(--text-muted)" }}
+                              >
+                                {rec.client_name}
+                              </Text>
+                            )}
+                          </div>
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 5,
+                              padding: "3px 8px",
+                              borderRadius: 999,
+                              border: `1px solid ${statusCfg.border}`,
+                              background: statusCfg.bg,
+                              color: statusCfg.color,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            <span
+                              style={{
+                                width: 6,
+                                height: 6,
+                                borderRadius: "50%",
+                                background: statusCfg.color,
+                                display: "inline-block",
+                              }}
+                            />
+                            {capitalize(rec.status || "unknown")}
+                          </span>
+                        </div>
+
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr",
+                            gap: 8,
+                          }}
+                        >
+                          <div
+                            style={{
+                              background: "var(--bg-subtle)",
+                              borderRadius: 8,
+                              padding: "7px 8px",
+                            }}
+                          >
+                            <Text style={{ fontSize: 10, color: "var(--text-muted)" }}>
+                              Team
+                            </Text>
+                            <Text
+                              style={{
+                                display: "block",
+                                fontSize: 13,
+                                fontWeight: 700,
+                                color: "var(--text-primary)",
+                                lineHeight: 1.2,
+                                marginTop: 2,
+                              }}
+                            >
+                              {s?.teamSize ?? 0}
+                            </Text>
+                          </div>
+                          <div
+                            style={{
+                              background: "var(--bg-subtle)",
+                              borderRadius: 8,
+                              padding: "7px 8px",
+                            }}
+                          >
+                            <Text style={{ fontSize: 10, color: "var(--text-muted)" }}>
+                              Standups
+                            </Text>
+                            <Text
+                              style={{
+                                display: "block",
+                                fontSize: 13,
+                                fontWeight: 700,
+                                color: "var(--text-primary)",
+                                lineHeight: 1.2,
+                                marginTop: 2,
+                              }}
+                            >
+                              {sessions} / {pastDays}
+                            </Text>
+                          </div>
+                        </div>
+
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 10,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 800,
+                              color: rateColor(rate),
+                              background: rateBg(rate),
+                              borderRadius: 999,
+                              padding: "3px 10px",
+                            }}
+                          >
+                            {rate}% attendance
+                          </span>
+                          <Button
+                            icon={<BarChartOutlined />}
+                            onClick={() => openDetail(rec)}
+                            style={{
+                              borderRadius: 8,
+                              height: 32,
+                              paddingInline: 12,
+                              fontWeight: 600,
+                              fontSize: 12,
+                              background: "var(--text-primary)",
+                              border: "none",
+                              color: "var(--bg-page)",
+                              boxShadow: "var(--shadow-btn)",
+                            }}
+                          >
+                            View Stats
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               ) : (
                 <Table
                   dataSource={filteredProjects}
                   columns={projectColumns}
                   rowKey="id"
+                  scroll={isMobile ? { x: 880 } : undefined}
                   pagination={{
                     pageSize: 15,
                     showSizeChanger: false,
@@ -2711,7 +3046,8 @@ export default function AdminStandupStats() {
                     padding: "16px 20px",
                     marginBottom: 20,
                     display: "flex",
-                    alignItems: "center",
+                    alignItems: isMobile ? "flex-start" : "center",
+                    flexDirection: isMobile ? "column" : "row",
                     flexWrap: "wrap",
                     gap: 20,
                   }}
@@ -2758,18 +3094,18 @@ export default function AdminStandupStats() {
                   </div>
                   <div
                     style={{
-                      height: 32,
-                      width: 1,
+                      height: isMobile ? 1 : 32,
+                      width: isMobile ? "100%" : 1,
                       background: "var(--border)",
                     }}
                   />
                   {[
                     {
                       label: "Status",
-                      value: capitalize(activeProject?.status || "--------"),
+                      value: capitalize(activeProject?.status || "unknown"),
                       color:
                         projectStatusCfg[
-                          (activeProject?.status || "").toLowerCase()
+                          normalizeStatusKey(activeProject?.status)
                         ]?.color || "var(--text-tertiary)",
                     },
                     {
@@ -2811,10 +3147,12 @@ export default function AdminStandupStats() {
                 {/* Summary stat cards */}
                 <div
                   style={{
-                    display: "flex",
+                    display: "grid",
+                    gridTemplateColumns: isMobile
+                      ? "1fr"
+                      : "repeat(auto-fit,minmax(130px,1fr))",
                     gap: 12,
                     marginBottom: 22,
-                    flexWrap: "wrap",
                   }}
                 >
                   {(() => {
@@ -2865,6 +3203,15 @@ export default function AdminStandupStats() {
                         border: "var(--late-border)",
                       },
                       {
+                        icon: <CalendarOutlined />,
+                        label: "Leave",
+                        value: overall.lv,
+                        sub: pct(overall.lv),
+                        color: "var(--leave-color)",
+                        bg: "var(--leave-bg)",
+                        border: "var(--leave-border)",
+                      },
+                      {
                         icon: <RiseOutlined />,
                         label: "Attend. Rate",
                         value: `${attRate}%`,
@@ -2878,8 +3225,6 @@ export default function AdminStandupStats() {
                     <div
                       key={label}
                       style={{
-                        flex: "1 1 130px",
-                        minWidth: 120,
                         padding: "14px 16px",
                         borderRadius: 12,
                         border: `1px solid ${border}`,
@@ -2947,12 +3292,12 @@ export default function AdminStandupStats() {
                       letterSpacing: "0.06em",
                     }}
                   >
-                    {activeProject?.name} ---- {selectedMonth.format("MMMM YYYY")}
+                    {activeProject?.name} - {selectedMonth.format("MMMM YYYY")}
                   </Text>
                   <div
                     style={{
-                      height: 12,
-                      width: 1,
+                      height: isMobile ? 1 : 12,
+                      width: isMobile ? "100%" : 1,
                       background: "var(--border)",
                     }}
                   />
@@ -3013,8 +3358,8 @@ export default function AdminStandupStats() {
                     <>
                       <div
                         style={{
-                          height: 12,
-                          width: 1,
+                          height: isMobile ? 1 : 12,
+                          width: isMobile ? "100%" : 1,
                           background: "var(--border)",
                         }}
                       />
@@ -3040,7 +3385,7 @@ export default function AdminStandupStats() {
                             fontWeight: 500,
                           }}
                         >
-                          Has summary -------- click to read
+                          Has summary - click to read
                         </Text>
                       </div>
                     </>
@@ -3064,7 +3409,7 @@ export default function AdminStandupStats() {
                       background: "var(--bg-card)",
                       borderRadius: 14,
                       border: "1px solid var(--border)",
-                      overflow: "hidden",
+                      overflowX: "auto",
                       boxShadow: "var(--shadow-card)",
                     }}
                   >
@@ -3076,7 +3421,7 @@ export default function AdminStandupStats() {
                         alignItems: "center",
                       }}
                     >
-                      <div style={{ width: 230, flexShrink: 0 }} />
+                      <div style={{ width: isMobile ? 190 : 230, flexShrink: 0 }} />
                       <div
                         style={{
                           display: "flex",
@@ -3112,7 +3457,7 @@ export default function AdminStandupStats() {
                           </div>
                         ))}
                       </div>
-                      <div style={{ width: 190, flexShrink: 0 }} />
+                      <div style={{ width: isMobile ? 172 : 190, flexShrink: 0 }} />
                     </div>
                     <Table
                       className="heatmap-table"
@@ -3169,7 +3514,7 @@ export default function AdminStandupStats() {
                       </span>
                     </div>
                     <Text style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                      {selectedMonth.format("MMMM YYYY")} ---- most recent first
+                      {selectedMonth.format("MMMM YYYY")} - most recent first
                     </Text>
                   </div>
 
@@ -3218,6 +3563,9 @@ export default function AdminStandupStats() {
                         ).length;
                         const lCount = Object.values(att).filter(
                           (v) => v === "late",
+                        ).length;
+                        const lvCount = Object.values(att).filter(
+                          (v) => v === "leave",
                         ).length;
                         const total = pCount + aCount + lCount;
                         const rate =
@@ -3447,6 +3795,20 @@ export default function AdminStandupStats() {
                                         {lCount}L
                                       </span>
                                     )}
+                                    {lvCount > 0 && (
+                                      <span
+                                        style={{
+                                          fontSize: 11,
+                                          fontWeight: 700,
+                                          color: "var(--leave-color)",
+                                          background: "var(--leave-bg)",
+                                          borderRadius: 6,
+                                          padding: "2px 7px",
+                                        }}
+                                      >
+                                        {lvCount}Lv
+                                      </span>
+                                    )}
                                   </div>
                                   {rate !== null && (
                                     <Text
@@ -3477,7 +3839,7 @@ export default function AdminStandupStats() {
                                     color: "var(--border)",
                                   }}
                                 >
-                                  --------
+                                  N/A
                                 </Text>
                               )}
                             </div>
@@ -3563,7 +3925,7 @@ export default function AdminStandupStats() {
                                     color: "var(--text-muted)",
                                   }}
                                 >
-                                  {emp.job_title || emp.department || "--------"}
+                                  {emp.job_title || emp.department || "N/A"}
                                 </Text>
                               </div>
                             </Space>
@@ -3621,6 +3983,12 @@ export default function AdminStandupStats() {
                                 color: "var(--late-color)",
                                 bg: "var(--late-bg)",
                               },
+                              {
+                                label: "Leave",
+                                value: emp.leave,
+                                color: "var(--leave-color)",
+                                bg: "var(--leave-bg)",
+                              },
                             ].map(({ label, value, color, bg }) => (
                               <div
                                 key={label}
@@ -3656,34 +4024,6 @@ export default function AdminStandupStats() {
                               </div>
                             ))}
                           </div>
-                          {i === 0 && (
-                            <div
-                              style={{
-                                marginTop: 10,
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 5,
-                                paddingTop: 10,
-                                borderTop: "1px solid var(--border-faint)",
-                              }}
-                            >
-                              <TrophyOutlined
-                                style={{
-                                  color: "var(--late-color)",
-                                  fontSize: 12,
-                                }}
-                              />
-                              <Text
-                                style={{
-                                  fontSize: 11,
-                                  color: "var(--late-color)",
-                                  fontWeight: 700,
-                                }}
-                              >
-                                Top Attendee this month
-                              </Text>
-                            </div>
-                          )}
                         </div>
                       ))}
                     </div>
@@ -3805,6 +4145,13 @@ export default function AdminStandupStats() {
                         color: "var(--late-color)",
                         bg: "var(--late-bg)",
                         border: "var(--late-border)",
+                      },
+                      {
+                        key: "leave",
+                        label: "Leave",
+                        color: "var(--leave-color)",
+                        bg: "var(--leave-bg)",
+                        border: "var(--leave-border)",
                       },
                     ].map(({ key, label, color, bg, border }) => {
                       const count = Object.values(

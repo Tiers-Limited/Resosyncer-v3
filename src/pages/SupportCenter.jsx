@@ -53,32 +53,39 @@ const GROQ_API_KEY =
   import.meta.env.VITE_GROQ_API_KEY || import.meta.env.VITE_GROK_API_KEY;
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const EMAIL_API = import.meta.env.VITE_EMAIL_API_URL;
+const getIsDarkTheme = () => {
+  if (typeof window === "undefined") return false;
+  const mode = localStorage.getItem("themeMode") || "light";
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
 
 /* --------- design tokens --------------------------------------------------------------------------------------------------------------------- */
 const C = {
-  bg: "#ffffff",
-  surface: "#f8f9fb",
-  surfaceHover: "#f1f3f7",
-  border: "#e8eaed",
-  borderLight: "#f0f2f5",
-  text: "#0d0f12",
-  textSec: "#6b7280",
-  textTer: "#9ca3af",
-  accent: "#102a43",
-  accentLight: "#e9eff7",
-  accentHover: "#163a5f",
-  green: "#059669",
-  greenLight: "#ecfdf5",
-  amber: "#d97706",
-  amberLight: "#fffbeb",
-  red: "#dc2626",
-  redLight: "#fef2f2",
-  purple: "#7c3aed",
-  purpleLight: "#f5f3ff",
-  shadow: "0 1px 3px 0 rgba(0,0,0,.06), 0 1px 2px -1px rgba(0,0,0,.04)",
-  shadowMd: "0 4px 12px rgba(0,0,0,.08)",
-  shadowLg: "0 12px 32px rgba(0,0,0,.1)",
-  shadowXl: "0 20px 60px rgba(0,0,0,.15)",
+  bg: "var(--sc-bg, #ffffff)",
+  surface: "var(--sc-surface, #f8f9fb)",
+  surfaceHover: "var(--sc-surface-hover, #f1f3f7)",
+  border: "var(--sc-border, #e8eaed)",
+  borderLight: "var(--sc-border-light, #f0f2f5)",
+  text: "var(--sc-text, #0d0f12)",
+  textSec: "var(--sc-text-sec, #6b7280)",
+  textTer: "var(--sc-text-ter, #9ca3af)",
+  accent: "var(--sc-accent, #102a43)",
+  accentLight: "var(--sc-accent-light, #e9eff7)",
+  accentHover: "var(--sc-accent-hover, #163a5f)",
+  green: "var(--sc-green, #059669)",
+  greenLight: "var(--sc-green-light, #ecfdf5)",
+  amber: "var(--sc-amber, #d97706)",
+  amberLight: "var(--sc-amber-light, #fffbeb)",
+  red: "var(--sc-red, #dc2626)",
+  redLight: "var(--sc-red-light, #fef2f2)",
+  purple: "var(--sc-purple, #7c3aed)",
+  purpleLight: "var(--sc-purple-light, #f5f3ff)",
+  shadow: "var(--sc-shadow, 0 1px 3px 0 rgba(0,0,0,.06), 0 1px 2px -1px rgba(0,0,0,.04))",
+  shadowMd: "var(--sc-shadow-md, 0 4px 12px rgba(0,0,0,.08))",
+  shadowLg: "var(--sc-shadow-lg, 0 12px 32px rgba(0,0,0,.1))",
+  shadowXl: "var(--sc-shadow-xl, 0 20px 60px rgba(0,0,0,.15))",
   radius: 10,
   radiusSm: 6,
   radiusLg: 16,
@@ -102,10 +109,25 @@ const statusConfig = {
 };
 
 const priorityConfig = {
-  low: { color: C.textSec, bg: C.surface, icon: "---", label: "Low" },
-  medium: { color: C.accent, bg: C.accentLight, icon: "---", label: "Medium" },
-  high: { color: C.amber, bg: C.amberLight, icon: "---", label: "High" },
-  urgent: { color: C.red, bg: C.redLight, icon: "---", label: "Urgent" },
+  low: { color: C.textSec, bg: C.surface, icon: <MinusOutlined />, label: "Low" },
+  medium: {
+    color: C.accent,
+    bg: C.accentLight,
+    icon: <ClockCircleOutlined />,
+    label: "Medium",
+  },
+  high: {
+    color: C.amber,
+    bg: C.amberLight,
+    icon: <ExclamationCircleOutlined />,
+    label: "High",
+  },
+  urgent: {
+    color: C.red,
+    bg: C.redLight,
+    icon: <ThunderboltOutlined />,
+    label: "Urgent",
+  },
 };
 
 const fileNameFromUrl = (url) => {
@@ -144,6 +166,15 @@ const LIVE_AGENT_REGEX =
   /\b(live agent|human|real person|support agent|representative|talk to (someone|human)|connect me)\b/i;
 const OFFENSIVE_REGEX =
   /\b(stupid|idiot|dumb|shit|fuck|bitch|asshole|moron|useless)\b/i;
+const AI_MESSAGES_STORAGE_KEY = "support_center_ai_messages_v1";
+const SUPPORT_ISSUE_OPTIONS = [
+  "Login & Access",
+  "Attendance / Timesheet",
+  "Integrations",
+  "Billing & Subscription",
+  "Employee Management",
+  "Other",
+];
 
 /* --------- small components --------------------------------------------------------------------------------------------------------------- */
 const StatusPill = ({ status }) => {
@@ -315,7 +346,7 @@ const AttachmentChip = ({ url, name, size }) => (
       {name || fileNameFromUrl(url)}
     </span>
     {size ? (
-      <span style={{ color: C.textTer }}>-- {formatBytes(size)}</span>
+      <span style={{ color: C.textTer }}>| {formatBytes(size)}</span>
     ) : null}
   </a>
 );
@@ -323,6 +354,81 @@ const AttachmentChip = ({ url, name, size }) => (
 /* --------- global styles ------------------------------------------------------------------------------------------------------------------------ */
 const GlobalStyles = () => (
   <style>{`
+    .support-center-root,
+    body[data-sc-theme="light"] {
+      --sc-bg: #ffffff;
+      --sc-surface: #f8f9fb;
+      --sc-surface-hover: #f1f3f7;
+      --sc-border: #e8eaed;
+      --sc-border-light: #f0f2f5;
+      --sc-text: #0d0f12;
+      --sc-text-sec: #6b7280;
+      --sc-text-ter: #9ca3af;
+      --sc-accent: #102a43;
+      --sc-accent-light: #e9eff7;
+      --sc-accent-hover: #163a5f;
+      --sc-green: #059669;
+      --sc-green-light: #ecfdf5;
+      --sc-amber: #d97706;
+      --sc-amber-light: #fffbeb;
+      --sc-red: #dc2626;
+      --sc-red-light: #fef2f2;
+      --sc-purple: #7c3aed;
+      --sc-purple-light: #f5f3ff;
+      --sc-shadow: 0 1px 3px 0 rgba(0,0,0,.06), 0 1px 2px -1px rgba(0,0,0,.04);
+      --sc-shadow-md: 0 4px 12px rgba(0,0,0,.08);
+      --sc-shadow-lg: 0 12px 32px rgba(0,0,0,.1);
+      --sc-shadow-xl: 0 20px 60px rgba(0,0,0,.15);
+      --sc-scroll-track: transparent;
+      --sc-scroll-thumb: #cbd5e1;
+      --sc-scroll-thumb-hover: #94a3b8;
+    }
+    .support-center-root[data-theme="dark"],
+    body[data-sc-theme="dark"] {
+      --sc-bg: #141416;
+      --sc-surface: #1a1c21;
+      --sc-surface-hover: #22252d;
+      --sc-border: transparent;
+      --sc-border-light: transparent;
+      --sc-text: #e6edf7;
+      --sc-text-sec: #a4b0c3;
+      --sc-text-ter: #7f8ba1;
+      --sc-accent: #8fb5ff;
+      --sc-accent-light: #152136;
+      --sc-accent-hover: #acc9ff;
+      --sc-green: #4ade80;
+      --sc-green-light: #103426;
+      --sc-amber: #fbbf24;
+      --sc-amber-light: #3a2d12;
+      --sc-red: #f87171;
+      --sc-red-light: #3b1c23;
+      --sc-purple: #a78bfa;
+      --sc-purple-light: #2a2042;
+      --sc-shadow: 0 1px 4px rgba(0,0,0,.35);
+      --sc-shadow-md: 0 8px 18px rgba(0,0,0,.38);
+      --sc-shadow-lg: 0 14px 30px rgba(0,0,0,.45);
+      --sc-shadow-xl: 0 22px 56px rgba(0,0,0,.5);
+      --sc-scroll-track: #111318;
+      --sc-scroll-thumb: #3b4352;
+      --sc-scroll-thumb-hover: #525d70;
+    }
+    .support-center-root[data-theme="dark"] .sc-primary-btn:not(:disabled) {
+      background: #ffffff !important;
+      color: #141416 !important;
+      border-color: #ffffff !important;
+      box-shadow: none !important;
+    }
+    .support-center-root[data-theme="dark"] .sc-primary-btn:not(:disabled) .anticon {
+      color: #141416 !important;
+    }
+    .support-center-root[data-theme="dark"] .sc-input .ant-input,
+    .support-center-root[data-theme="dark"] .sc-input .ant-input-affix-wrapper,
+    .support-center-root[data-theme="dark"] .sc-textarea textarea,
+    .support-center-root[data-theme="dark"] .sc-status-seg .ant-segmented,
+    .support-center-root[data-theme="dark"] .sc-tab-seg .ant-segmented,
+    .support-center-root[data-theme="dark"] .sc-modal .ant-modal-content {
+      border: none !important;
+    }
     .sc-sidebar-item:hover { background: ${C.surfaceHover} !important; }
     .sc-sidebar-item.active { background: ${C.accentLight} !important; }
     .sc-msg-input .ant-input { border: none !important; box-shadow: none !important; background: transparent !important; }
@@ -340,12 +446,18 @@ const GlobalStyles = () => (
     .sc-input .ant-input:focus, .sc-input .ant-input-affix-wrapper:focus-within { border-color: ${C.accent} !important; box-shadow: 0 0 0 3px ${C.accentLight} !important; background: ${C.bg} !important; }
     .sc-textarea textarea { background: ${C.surface} !important; border-color: ${C.border} !important; border-radius: 8px !important; }
     .sc-textarea textarea:focus { border-color: ${C.accent} !important; box-shadow: 0 0 0 3px ${C.accentLight} !important; background: ${C.bg} !important; }
-    .sc-modal .ant-modal-content { border-radius: 20px !important; overflow: hidden !important; padding: 0 !important; box-shadow: ${C.shadowXl} !important; }
+    .sc-modal .ant-modal-content { border-radius: 20px !important; overflow: hidden !important; padding: 0 !important; box-shadow: ${C.shadowXl} !important; background: ${C.bg} !important; border: none !important; }
     .sc-modal .ant-modal-body { padding: 0 !important; }
     .sc-modal .ant-modal-close { top: 20px !important; right: 22px !important; }
+    .sc-modal .sc-input .ant-input,
+    .sc-modal .sc-input .ant-input-affix-wrapper,
+    .sc-modal .sc-textarea textarea {
+      border: none !important;
+      box-shadow: none !important;
+    }
     .sc-chat-scroll {
       scrollbar-width: thin;
-      scrollbar-color: #526987 rgba(16,42,67,.08);
+      scrollbar-color: var(--sc-scroll-thumb) var(--sc-scroll-track);
       scrollbar-gutter: stable both-edges;
     }
     .sc-chat-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -368,11 +480,6 @@ const GlobalStyles = () => (
       background: linear-gradient(180deg, #3f5675 0%, #2d4668 100%);
       background-clip: padding-box;
     }
-    ::-webkit-scrollbar { width: 4px; height: 4px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 99px; }
-    ::-webkit-scrollbar-thumb:hover { background: #d1d5db; }
-
     /* Chat widget animations */
     @keyframes chatSlideUp {
       from { opacity: 0; transform: translateY(20px) scale(0.95); }
@@ -427,7 +534,9 @@ const FloatingChatWidget = ({
   sendingChat,
   sendMessage,
   createOrGetConversation,
+  startConversationByIssue,
   loadConversations,
+  isAiMessage,
 }) => {
   const [open, setOpen] = useState(false);
   const [unread, setUnread] = useState(0);
@@ -648,7 +757,7 @@ const FloatingChatWidget = ({
               display: "flex",
               flexDirection: "column",
               gap: 10,
-              background: "#fafbfc",
+              background: C.surface,
             }}
           >
             {/* Welcome message */}
@@ -667,7 +776,7 @@ const FloatingChatWidget = ({
                     fontSize: 24,
                   }}
                 >
-                  ----
+                  <MessageOutlined style={{ color: C.accent, fontSize: 24 }} />
                 </div>
                 <div
                   style={{
@@ -682,7 +791,7 @@ const FloatingChatWidget = ({
                 <div
                   style={{ fontSize: 12, color: C.textSec, lineHeight: 1.6 }}
                 >
-                  Ask me anything --- I'm Ryzent's AI assistant.
+                  Ask me anything. I'm Ryzent's AI assistant.
                   <br />
                   For a live agent, just type "live agent".
                 </div>
@@ -694,45 +803,65 @@ const FloatingChatWidget = ({
                     gap: 7,
                   }}
                 >
-                  {[
-                    "How do I get started?",
-                    "I found a bug",
-                    "Talk to a human",
-                  ].map((q) => (
-                    <button
-                      key={q}
-                      onClick={() => {
-                        setChatText(q);
-                      }}
-                      style={{
-                        padding: "8px 14px",
-                        borderRadius: 20,
-                        border: `1px solid ${C.border}`,
-                        background: C.bg,
-                        cursor: "pointer",
-                        fontSize: 12,
-                        color: C.text,
-                        transition: "all .15s",
-                        fontWeight: 500,
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = C.accent;
-                        e.currentTarget.style.color = C.accent;
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = C.border;
-                        e.currentTarget.style.color = C.text;
-                      }}
-                    >
-                      {q}
-                    </button>
-                  ))}
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: C.textSec,
+                      marginBottom: 2,
+                      fontWeight: 600,
+                    }}
+                  >
+                    Select issue type first:
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(2, minmax(0,1fr))",
+                      gap: 7,
+                    }}
+                  >
+                    {SUPPORT_ISSUE_OPTIONS.map((issue) => (
+                      <button
+                        key={issue}
+                        onClick={async () => {
+                          const conversationId =
+                            await startConversationByIssue(issue);
+                          if (conversationId) {
+                            setSelectedConversationId(conversationId);
+                            await loadConversations();
+                          }
+                        }}
+                        style={{
+                          padding: "8px 10px",
+                          borderRadius: 10,
+                          border: `1px solid ${C.border}`,
+                          background: C.bg,
+                          cursor: "pointer",
+                          fontSize: 11,
+                          color: C.text,
+                          transition: "all .15s",
+                          fontWeight: 600,
+                          textAlign: "left",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = C.accent;
+                          e.currentTarget.style.color = C.accent;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = C.border;
+                          e.currentTarget.style.color = C.text;
+                        }}
+                      >
+                        {issue}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
 
             {combinedThreadMessages.map((m) => {
-              const isAi = !!m.is_ai;
+              const isAi = isAiMessage(m);
               const mine = !isAi && m.sender_id === profile?.id;
               return (
                 <div
@@ -775,7 +904,7 @@ const FloatingChatWidget = ({
                         borderRadius: mine
                           ? "16px 16px 4px 16px"
                           : "16px 16px 16px 4px",
-                        background: mine ? C.accent : isAi ? "#fff" : "#fff",
+                        background: mine ? C.accent : C.bg,
                         color: mine ? "#fff" : C.text,
                         fontSize: 13,
                         lineHeight: 1.55,
@@ -804,7 +933,7 @@ const FloatingChatWidget = ({
                         paddingRight: 2,
                       }}
                     >
-                      {isAi ? "AI -- " : ""}
+                      {isAi ? "AI | " : ""}
                       {timeAgo(m.created_at)}
                     </div>
                   </div>
@@ -868,7 +997,7 @@ const FloatingChatWidget = ({
                     fontSize: 14,
                   }}
                 >
-                  --
+                  x
                 </button>
               </div>
             )}
@@ -919,7 +1048,7 @@ const FloatingChatWidget = ({
                   value={chatText}
                   onChange={(e) => setChatText(e.target.value)}
                   placeholder={
-                    isLiveChatDisabled ? "Live chat is disabled" : "Message---"
+                    isLiveChatDisabled ? "Live chat is disabled" : "Message..."
                   }
                   disabled={isLiveChatDisabled}
                   autoSize={{ minRows: 1, maxRows: 3 }}
@@ -940,6 +1069,7 @@ const FloatingChatWidget = ({
                 />
               </div>
               <button
+                className="sc-primary-btn"
                 onClick={sendMessage}
                 disabled={
                   isLiveChatDisabled ||
@@ -974,7 +1104,7 @@ const FloatingChatWidget = ({
                 textAlign: "center",
               }}
             >
-              Enter to send -- Shift+Enter for new line
+              Enter to send | Shift+Enter for new line
             </div>
           </div>
         </div>
@@ -1042,13 +1172,14 @@ const FloatingChatWidget = ({
    --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const SupportCenter = () => {
   const { profile } = useAuth();
+  const [isDark, setIsDark] = useState(() => getIsDarkTheme());
   const isSuperadmin =
     profile?.role === "superadmin" || profile?.role === "super_admin";
   const isAdmin = profile?.role === "admin";
   const canAccessSupport = isSuperadmin || isAdmin;
   const tenantId = profile?.tenant_id || null;
 
-  const [view, setView] = useState("chats");
+  const [view, setView] = useState("tickets");
   const [conversations, setConversations] = useState([]);
   const [selectedConversationId, setSelectedConversationId] = useState(null);
   const [messagesState, setMessagesState] = useState([]);
@@ -1082,23 +1213,24 @@ const SupportCenter = () => {
   const [savingLiveChatSetting, setSavingLiveChatSetting] = useState(false);
   const [showNewTicket, setShowNewTicket] = useState(false);
   const [superadmins, setSuperadmins] = useState([]);
+  const [supportRecipients, setSupportRecipients] = useState([]);
   const [aiMessagesByConversation, setAiMessagesByConversation] = useState({});
 
   const isLiveChatDisabled = !isSuperadmin && !liveChatEnabled;
+  const isAiMessage = useCallback(
+    (m) =>
+      Boolean(m?.is_ai) ||
+      m?.sender?.role === "assistant" ||
+      (m?.sender_id == null && !m?.sender),
+    [],
+  );
 
   const selectedConversation = useMemo(
     () => conversations.find((c) => c.id === selectedConversationId) || null,
     [conversations, selectedConversationId],
   );
 
-  const openChatCount = conversations.filter((c) => c.status === "open").length;
   const openTicketsCount = tickets.filter((t) => t.status === "open").length;
-  const inProgressCount = tickets.filter(
-    (t) => t.status === "in_progress",
-  ).length;
-  const resolvedTicketsCount = tickets.filter(
-    (t) => t.status === "resolved" || t.status === "closed",
-  ).length;
 
   const filteredTickets = useMemo(() => {
     let result = tickets;
@@ -1123,12 +1255,17 @@ const SupportCenter = () => {
 
   const combinedThreadMessages = useMemo(() => {
     const merged = [...(messagesState || []), ...aiThreadMessages];
-    merged.sort(
-      (a, b) =>
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-    );
+    merged.sort((a, b) => {
+      const at = new Date(a?.created_at || 0).getTime() || 0;
+      const bt = new Date(b?.created_at || 0).getTime() || 0;
+      if (at !== bt) return at - bt;
+      const aIsAi = isAiMessage(a) ? 1 : 0;
+      const bIsAi = isAiMessage(b) ? 1 : 0;
+      if (aIsAi !== bIsAi) return aIsAi - bIsAi;
+      return String(a?.id || "").localeCompare(String(b?.id || ""));
+    });
     return merged;
-  }, [aiThreadMessages, messagesState]);
+  }, [aiThreadMessages, isAiMessage, messagesState]);
 
   /* --------- helpers --------------------------------------------------------------------------------------------------------------------------------- */
   const uploadSupportFile = useCallback(
@@ -1190,25 +1327,57 @@ const SupportCenter = () => {
     }
   }, []);
 
-  const addAiMessage = useCallback((conversationId, content) => {
-    if (!conversationId || !content) return;
-    const aiMsg = {
-      id: `ai-${conversationId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      conversation_id: conversationId,
-      sender_id: null,
-      content,
-      created_at: new Date().toISOString(),
-      is_ai: true,
-      sender: { full_name: "Ryzent AI Assistant", role: "assistant" },
-      attachment_url: null,
-      attachment_name: null,
-      attachment_size: null,
-    };
-    setAiMessagesByConversation((prev) => ({
-      ...prev,
-      [conversationId]: [...(prev[conversationId] || []), aiMsg],
-    }));
+  const readStoredAiMessages = useCallback(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = localStorage.getItem(AI_MESSAGES_STORAGE_KEY);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return {};
+      return Object.entries(parsed).reduce((acc, [key, value]) => {
+        if (Array.isArray(value)) acc[key] = value;
+        return acc;
+      }, {});
+    } catch {
+      return {};
+    }
   }, []);
+
+  const writeStoredAiMessages = useCallback((nextState) => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(AI_MESSAGES_STORAGE_KEY, JSON.stringify(nextState));
+    } catch {
+      // Ignore local storage write failures.
+    }
+  }, []);
+
+  const addAiMessage = useCallback(
+    (conversationId, content, options = {}) => {
+      if (!conversationId || !content) return;
+      const aiMsg = {
+        id: `ai-${conversationId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        conversation_id: conversationId,
+        sender_id: null,
+        content,
+        created_at: options.createdAt || new Date().toISOString(),
+        is_ai: true,
+        sender: { full_name: "Ryzent AI Assistant", role: "assistant" },
+        attachment_url: null,
+        attachment_name: null,
+        attachment_size: null,
+      };
+      setAiMessagesByConversation((prev) => {
+        const next = {
+          ...prev,
+          [conversationId]: [...(prev[conversationId] || []), aiMsg],
+        };
+        writeStoredAiMessages(next);
+        return next;
+      });
+    },
+    [writeStoredAiMessages],
+  );
 
   const isEscalationTrigger = useCallback(
     (text) =>
@@ -1224,8 +1393,37 @@ const SupportCenter = () => {
     if (!error) setSuperadmins(data || []);
   }, []);
 
+  const loadSupportRecipients = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, email, role, tenant_id")
+      .in("role", ["superadmin", "super_admin", "admin"]);
+    if (error) return;
+    const rows = (data || []).filter(
+      (r) =>
+        !!r.email &&
+        r.id !== profile?.id &&
+        (r.role === "superadmin" ||
+          r.role === "super_admin" ||
+          r.tenant_id === tenantId),
+    );
+    setSupportRecipients(rows);
+  }, [profile?.id, tenantId]);
+
+  const isConversationLiveAgent = useCallback(
+    (conversationId) => {
+      const current = conversations.find((c) => c.id === conversationId);
+      if (!current) return false;
+      return (
+        !!current.assigned_superadmin_id ||
+        (current.subject || "").startsWith("[LIVE AGENT]")
+      );
+    },
+    [conversations],
+  );
+
   const escalateConversation = useCallback(
-    async (conversationId, userMessage) => {
+    async (conversationId, userMessage, userMessageCreatedAt = null) => {
       const current = conversations.find((c) => c.id === conversationId);
       const alreadyEscalated =
         !!current?.assigned_superadmin_id ||
@@ -1245,9 +1443,12 @@ const SupportCenter = () => {
         .from("support_conversations")
         .update(updates)
         .eq("id", conversationId);
-      const recipients = (superadmins || [])
-        .map((sa) => sa.email)
-        .filter(Boolean);
+      const recipients = Array.from(
+        new Set([
+          ...(supportRecipients || []).map((sa) => sa.email).filter(Boolean),
+          ...(superadmins || []).map((sa) => sa.email).filter(Boolean),
+        ]),
+      );
       if (recipients.length > 0) {
         const html = `<div style="font-family:Arial,sans-serif;line-height:1.6"><h3>Live Agent Escalation</h3><p><strong>Tenant:</strong> ${tenantId || "N/A"}</p><p><strong>Conversation:</strong> ${conversationId}</p><p><strong>User:</strong> ${profile?.full_name || profile?.id || "Unknown"}</p><p><strong>Message:</strong> ${userMessage || "(no text provided)"}</p></div>`;
         await Promise.allSettled(
@@ -1264,6 +1465,13 @@ const SupportCenter = () => {
       addAiMessage(
         conversationId,
         "I am connecting you with a live support agent now. A superadmin has been notified and will continue this thread.",
+        {
+          createdAt: userMessageCreatedAt
+            ? new Date(
+                new Date(userMessageCreatedAt).getTime() + 1000,
+              ).toISOString()
+            : new Date(Date.now() + 400).toISOString(),
+        },
       );
       setConversations((prev) =>
         prev.map((c) =>
@@ -1285,6 +1493,7 @@ const SupportCenter = () => {
       profile?.full_name,
       profile?.id,
       sendEmail,
+      supportRecipients,
       superadmins,
       tenantId,
     ],
@@ -1462,6 +1671,22 @@ const SupportCenter = () => {
     return data.id;
   };
 
+  const startConversationByIssue = useCallback(
+    async (issue) => {
+      const conversationId = await createOrGetConversation();
+      if (!conversationId) return null;
+      const intro =
+        issue === "Other"
+          ? "I am here to help. Share the issue details and I will guide you. You can ask for a live agent anytime."
+          : `I can help with "${issue}". Share quick details and I will guide you step by step. If needed, ask for a live agent anytime.`;
+      addAiMessage(conversationId, intro, {
+        createdAt: new Date(Date.now() + 250).toISOString(),
+      });
+      return conversationId;
+    },
+    [addAiMessage, createOrGetConversation],
+  );
+
   const sendMessage = async () => {
     const body = chatText.trim();
     if (!body && !chatAttachment) return;
@@ -1481,7 +1706,7 @@ const SupportCenter = () => {
       };
       if (chatAttachment)
         attachment = await uploadSupportFile(chatAttachment, "support-chat");
-      const { error } = await supabase
+      const { data: insertedMessage, error } = await supabase
         .from("support_messages")
         .insert([
           {
@@ -1490,8 +1715,11 @@ const SupportCenter = () => {
             content: body || null,
             ...attachment,
           },
-        ]);
+        ])
+        .select("id, created_at")
+        .single();
       if (error) throw error;
+      const userMessageCreatedAt = insertedMessage?.created_at || null;
       await supabase
         .from("support_conversations")
         .update({ last_message_at: new Date().toISOString() })
@@ -1500,22 +1728,46 @@ const SupportCenter = () => {
       setChatAttachment(null);
       await Promise.all([loadConversations(), loadMessages(conversationId)]);
       if (!isSuperadmin && body) {
+        const liveAgentConnected = isConversationLiveAgent(conversationId);
         if (isEscalationTrigger(body)) {
-          await escalateConversation(conversationId, body);
-        } else {
-          try {
-            const aiReply = await groq(AI_SYSTEM_PROMPT, body);
-            addAiMessage(
+          if (!liveAgentConnected) {
+            await escalateConversation(
               conversationId,
-              aiReply ||
-                "Thanks for your message. I can help troubleshoot this. If you want a live agent at any time, just ask for one.",
-            );
-          } catch {
-            addAiMessage(
-              conversationId,
-              "I am here to help. If you want a live support agent right now, type 'live agent' and I will escalate this conversation.",
+              body,
+              userMessageCreatedAt,
             );
           }
+          return;
+        }
+        if (liveAgentConnected) {
+          return;
+        }
+        try {
+          const aiReply = await groq(AI_SYSTEM_PROMPT, body);
+          addAiMessage(
+            conversationId,
+            aiReply ||
+              "Thanks for your message. I can help troubleshoot this. If you want a live agent at any time, just ask for one.",
+            {
+              createdAt: userMessageCreatedAt
+                ? new Date(
+                    new Date(userMessageCreatedAt).getTime() + 800,
+                  ).toISOString()
+                : new Date(Date.now() + 300).toISOString(),
+            },
+          );
+        } catch {
+          addAiMessage(
+            conversationId,
+            "I am here to help. If you want a live support agent right now, type 'live agent' and I will escalate this conversation.",
+            {
+              createdAt: userMessageCreatedAt
+                ? new Date(
+                    new Date(userMessageCreatedAt).getTime() + 800,
+                  ).toISOString()
+                : new Date(Date.now() + 300).toISOString(),
+            },
+          );
         }
       }
     } catch (e) {
@@ -1661,12 +1913,16 @@ const SupportCenter = () => {
     loadTickets();
     loadLiveChatSetting().catch(() => {});
     loadSuperadmins().catch(() => {});
+    loadSupportRecipients().catch(() => {});
+    setAiMessagesByConversation(readStoredAiMessages());
   }, [
     canAccessSupport,
     loadConversations,
     loadLiveChatSetting,
+    loadSupportRecipients,
     loadSuperadmins,
     loadTickets,
+    readStoredAiMessages,
   ]);
 
   useEffect(() => {
@@ -1739,6 +1995,26 @@ const SupportCenter = () => {
   ]);
 
   useEffect(() => {
+    const syncTheme = () => setIsDark(getIsDarkTheme());
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    window.addEventListener("storage", syncTheme);
+    window.addEventListener("themeModeChanged", syncTheme);
+    media.addEventListener("change", syncTheme);
+    return () => {
+      window.removeEventListener("storage", syncTheme);
+      window.removeEventListener("themeModeChanged", syncTheme);
+      media.removeEventListener("change", syncTheme);
+    };
+  }, []);
+
+  useEffect(() => {
+    document.body.setAttribute("data-sc-theme", isDark ? "dark" : "light");
+    return () => {
+      document.body.removeAttribute("data-sc-theme");
+    };
+  }, [isDark]);
+
+  useEffect(() => {
     if (chatBoxRef.current)
       chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
   }, [combinedThreadMessages]);
@@ -1767,7 +2043,7 @@ const SupportCenter = () => {
               fontSize: 24,
             }}
           >
-            ------
+            <ExclamationCircleOutlined style={{ color: C.amber, fontSize: 24 }} />
           </div>
           <Title level={4} style={{ marginBottom: 8 }}>
             Access Restricted
@@ -1799,7 +2075,7 @@ const SupportCenter = () => {
           </div>
           <div style={{ fontSize: 11, color: C.textTer }}>
             {String(r.source || "ticket").replaceAll("_", " ")}
-            {r.attachment_url ? " -- has attachment" : ""}
+            {r.attachment_url ? " | has attachment" : ""}
           </div>
         </div>
       ),
@@ -1916,6 +2192,8 @@ const SupportCenter = () => {
   /* --------- render --------------------------------------------------------------------------------------------------------------------------------- */
   return (
     <div
+      className="support-center-root"
+      data-theme={isDark ? "dark" : "light"}
       style={{
         minHeight: "100vh",
         background: C.surface,
@@ -1924,105 +2202,75 @@ const SupportCenter = () => {
     >
       <GlobalStyles />
 
-      {/* ------ Header ------ */}
+      {/* ------ Page Heading ------ */}
       <div
         style={{
-          borderBottom: `1px solid ${C.border}`,
           background: C.bg,
-          padding: "0 32px",
-          position: "sticky",
-          top: 0,
-          zIndex: 100,
-          boxShadow: "0 1px 0 rgba(0,0,0,.05)",
+          padding: "24px 32px 0",
         }}
       >
         <div
           style={{
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-start",
             justifyContent: "space-between",
-            height: 62,
+            gap: 16,
+            flexWrap: "wrap",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div
+          <div>
+            <h1
               style={{
-                width: 34,
-                height: 34,
-                borderRadius: 10,
-                background: `linear-gradient(135deg, ${C.accent} 0%, ${C.accentHover} 100%)`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 2px 8px rgba(16,42,67,.3)",
+                margin: 0,
+                fontSize: 26,
+                fontWeight: 800,
+                letterSpacing: "-0.04em",
+                lineHeight: 1,
+                marginBottom: 6,
+                color: C.text,
               }}
             >
-              <CustomerServiceOutlined
-                style={{ color: "#fff", fontSize: 16 }}
-              />
-            </div>
-            <div>
-              <div
-                style={{
-                  fontWeight: 800,
-                  fontSize: 15,
-                  color: C.text,
-                  lineHeight: 1.2,
-                  letterSpacing: "-.01em",
-                }}
-              >
-                Support Center
-              </div>
-              <div style={{ fontSize: 11, color: C.textSec }}>
-                {isSuperadmin
-                  ? "Superadmin view -- all tenants"
-                  : "Admin workspace"}
-              </div>
-            </div>
+              Support Center
+            </h1>
+            <p style={{ margin: "4px 0 0", color: C.textSec, fontSize: 13 }}>
+              Track support tickets and handle live chat requests
+            </p>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {!isSuperadmin && view === "tickets" && (
-              <button
-                onClick={() => setShowNewTicket(!showNewTicket)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "7px 16px",
-                  borderRadius: 9,
-                  border: "none",
-                  background: C.accent,
-                  color: "#fff",
-                  cursor: "pointer",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  boxShadow: "0 2px 8px rgba(16,42,67,.25)",
-                  transition: "all .15s",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = C.accentHover;
-                  e.currentTarget.style.transform = "translateY(-1px)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = C.accent;
-                  e.currentTarget.style.transform = "translateY(0)";
-                }}
-              >
-                <PlusOutlined style={{ fontSize: 12 }} /> New Ticket
-              </button>
-            )}
-          </div>
+          {!isSuperadmin && view === "tickets" && (
+            <button
+              className="sc-primary-btn"
+              onClick={() => setShowNewTicket(true)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "9px 16px",
+                borderRadius: 10,
+                border: "none",
+                background: C.accent,
+                color: "#fff",
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: 700,
+                boxShadow: "0 2px 8px rgba(16,42,67,.2)",
+              }}
+            >
+              <PlusOutlined style={{ fontSize: 12 }} />
+              Create Ticket
+            </button>
+          )}
         </div>
 
         {/* ------ Nav tabs ------ */}
-        <div style={{ display: "flex", gap: 0 }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 0,
+            marginTop: 16,
+            borderBottom: `1px solid ${C.border}`,
+          }}
+        >
           {[
-            {
-              key: "chats",
-              icon: <MessageOutlined />,
-              label: "Chats",
-              count: openChatCount,
-            },
             {
               key: "tickets",
               icon: <FileTextOutlined />,
@@ -2078,46 +2326,6 @@ const SupportCenter = () => {
         </div>
       </div>
 
-      {/* ------ Metrics strip ------ */}
-      <div style={{ padding: "24px 32px 0" }}>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
-            gap: 14,
-          }}
-        >
-          <MetricCard
-            icon={<MessageOutlined />}
-            label="Active Chats"
-            value={openChatCount}
-            sub="Live conversations"
-            accent={C.accentLight}
-          />
-          <MetricCard
-            icon={<ClockCircleOutlined />}
-            label="Open Tickets"
-            value={openTicketsCount}
-            sub="Awaiting response"
-            accent={C.amberLight}
-          />
-          <MetricCard
-            icon={<ThunderboltOutlined />}
-            label="In Progress"
-            value={inProgressCount}
-            sub="Being handled"
-            accent={C.purpleLight}
-          />
-          <MetricCard
-            icon={<CheckCircleOutlined />}
-            label="Resolved"
-            value={resolvedTicketsCount}
-            sub="Closed tickets"
-            accent={C.greenLight}
-          />
-        </div>
-      </div>
-
       {/* ------ Disabled banner ------ */}
       {isLiveChatDisabled && (
         <div
@@ -2141,7 +2349,7 @@ const SupportCenter = () => {
       )}
 
       {/* ------------ TICKETS VIEW ------------------------------------------------------------------------------------------------ */}
-      {view === "chats" && (
+      {false && (
         <div style={{ padding: "20px 32px 100px" }}>
           <div
             style={{
@@ -2331,7 +2539,7 @@ const SupportCenter = () => {
                   flex: 1,
                   minHeight: 0,
                   overflowY: "auto",
-                  background: "#fafbfc",
+                  background: C.surface,
                   padding: "14px 16px",
                 }}
               >
@@ -2346,7 +2554,7 @@ const SupportCenter = () => {
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     {combinedThreadMessages.map((m) => {
-                      const isAi = !!m.is_ai;
+                      const isAi = isAiMessage(m);
                       const mine = !isAi && m.sender_id === profile?.id;
                       return (
                         <div
@@ -2363,7 +2571,7 @@ const SupportCenter = () => {
                                 ? "14px 14px 6px 14px"
                                 : "14px 14px 14px 6px",
                               padding: "10px 12px",
-                              background: mine ? C.accent : "#fff",
+                              background: mine ? C.accent : C.bg,
                               color: mine ? "#fff" : C.text,
                               border: mine ? "none" : `1px solid ${C.border}`,
                               fontSize: 12,
@@ -2411,7 +2619,7 @@ const SupportCenter = () => {
                         color: C.textSec,
                       }}
                     >
-                      --
+                      <CloseOutlined />
                     </button>
                   </div>
                 )}
@@ -2453,7 +2661,7 @@ const SupportCenter = () => {
                       onChange={(e) => setChatText(e.target.value)}
                       placeholder={
                         selectedConversationId
-                          ? "Write a message---"
+                          ? "Write a message..."
                           : "Select or start a conversation"
                       }
                       autoSize={{ minRows: 1, maxRows: 4 }}
@@ -2475,6 +2683,7 @@ const SupportCenter = () => {
                     />
                   </div>
                   <button
+                    className="sc-primary-btn"
                     onClick={sendMessage}
                     disabled={
                       !selectedConversationId ||
@@ -2546,7 +2755,7 @@ const SupportCenter = () => {
                     lineHeight: 1,
                   }}
                 >
-                  --
+                  <CloseOutlined />
                 </button>
               </div>
 
@@ -2595,7 +2804,7 @@ const SupportCenter = () => {
                         rows={4}
                         value={ticketDescription}
                         onChange={(e) => setTicketDescription(e.target.value)}
-                        placeholder="Provide as much detail as possible---"
+                        placeholder="Provide as much detail as possible..."
                         required
                       />
                     </div>
@@ -2698,11 +2907,12 @@ const SupportCenter = () => {
                             color: C.textSec,
                           }}
                         >
-                          --
+                          <CloseOutlined />
                         </button>
                       </div>
                     )}
                     <button
+                      className="sc-primary-btn"
                       type="submit"
                       disabled={creatingTicket}
                       style={{
@@ -2721,7 +2931,7 @@ const SupportCenter = () => {
                       }}
                     >
                       {creatingTicket ? (
-                        "Submitting---"
+                        "Submitting..."
                       ) : (
                         <>
                           <CheckOutlined /> Submit Ticket
@@ -2790,7 +3000,7 @@ const SupportCenter = () => {
               <div className="sc-input" style={{ width: 220 }}>
                 <Input
                   prefix={<SearchOutlined style={{ color: C.textTer }} />}
-                  placeholder="Search tickets---"
+                  placeholder="Search tickets..."
                   value={ticketSearch}
                   onChange={(e) => setTicketSearch(e.target.value)}
                 />
@@ -2989,6 +3199,7 @@ const SupportCenter = () => {
           footer={null}
           title={null}
           width={760}
+          className="sc-modal"
           destroyOnClose={false}
         >
           <div style={{ padding: 6 }}>
@@ -3079,24 +3290,32 @@ const SupportCenter = () => {
                   <div style={{ display: "flex", gap: 8 }}>
                     {["low", "medium", "high", "urgent"].map((p) => {
                       const cfg = priorityConfig[p];
+                      const active = ticketPriority === p;
                       return (
                         <button
                           key={p}
                           type="button"
                           onClick={() => setTicketPriority(p)}
                           style={{
-                            padding: "6px 14px",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "7px 14px",
                             borderRadius: 8,
-                            border: `1.5px solid ${ticketPriority === p ? cfg.color : C.border}`,
-                            background: ticketPriority === p ? cfg.bg : C.bg,
-                            color: ticketPriority === p ? cfg.color : C.textSec,
+                            border: "none",
+                            background: active ? C.accent : C.surface,
+                            color: active ? "#fff" : C.textSec,
                             cursor: "pointer",
                             fontSize: 12,
-                            fontWeight: 600,
+                            fontWeight: active ? 700 : 600,
+                            boxShadow: active
+                              ? "0 4px 12px rgba(16,42,67,.24)"
+                              : "none",
                             transition: "all .15s",
                           }}
                         >
-                          {cfg.icon} {cfg.label}
+                          {cfg.icon}
+                          {cfg.label}
                         </button>
                       );
                     })}
@@ -3160,7 +3379,7 @@ const SupportCenter = () => {
                           color: C.textSec,
                         }}
                       >
-                        --
+                        <CloseOutlined />
                       </button>
                     </div>
                   )}
@@ -3191,6 +3410,7 @@ const SupportCenter = () => {
                     Cancel
                   </button>
                   <button
+                    className="sc-primary-btn"
                     type="submit"
                     disabled={creatingTicket}
                     style={{
@@ -3341,12 +3561,12 @@ const SupportCenter = () => {
                     flexDirection: "column",
                     gap: 12,
                     maxHeight: 360,
-                    background: "#fafbfc",
+                    background: C.surface,
                   }}
                 >
                   {loadingTicketMessages ? (
                     <div style={{ textAlign: "center", padding: 20 }}>
-                      <Text style={{ color: C.textSec }}>Loading replies---</Text>
+                      <Text style={{ color: C.textSec }}>Loading replies...</Text>
                     </div>
                   ) : ticketMessages.length === 0 ? (
                     <div
@@ -3360,7 +3580,7 @@ const SupportCenter = () => {
                         padding: 40,
                       }}
                     >
-                      <div style={{ fontSize: 28 }}>----</div>
+                      <div style={{ fontSize: 28 }}>💬</div>
                       <Text style={{ color: C.textSec, fontSize: 13 }}>
                         No replies yet. Add the first reply below.
                       </Text>
@@ -3415,7 +3635,7 @@ const SupportCenter = () => {
                                 borderRadius: mine
                                   ? "14px 14px 4px 14px"
                                   : "14px 14px 14px 4px",
-                                background: mine ? C.accent : "#fff",
+                                background: mine ? C.accent : C.bg,
                                 color: mine ? "#fff" : C.text,
                                 fontSize: 13,
                                 lineHeight: 1.5,
@@ -3504,7 +3724,7 @@ const SupportCenter = () => {
                           color: C.textSec,
                         }}
                       >
-                        --
+                        <CloseOutlined />
                       </button>
                     </div>
                   )}
@@ -3543,7 +3763,7 @@ const SupportCenter = () => {
                       <Input.TextArea
                         value={ticketReply}
                         onChange={(e) => setTicketReply(e.target.value)}
-                        placeholder="Write a reply---"
+                        placeholder="Write a reply..."
                         autoSize={{ minRows: 1, maxRows: 4 }}
                         onPressEnter={(e) => {
                           if (!e.shiftKey) {
@@ -3562,6 +3782,7 @@ const SupportCenter = () => {
                       />
                     </div>
                     <button
+                      className="sc-primary-btn"
                       onClick={sendTicketReply}
                       disabled={
                         sendingTicketReply ||
@@ -3655,7 +3876,7 @@ const SupportCenter = () => {
                       label: "Source",
                       value: (
                         <span style={{ fontSize: 12, color: C.textSec }}>
-                          {String(selectedTicket.source || "---").replaceAll(
+                          {String(selectedTicket.source || "N/A").replaceAll(
                             "_",
                             " ",
                           )}
@@ -3708,9 +3929,32 @@ const SupportCenter = () => {
       </Modal>
 
       {/* ------------ FLOATING CHAT WIDGET --------------------------------------------------------------------- */}
+      {isAdmin && (
+        <FloatingChatWidget
+          profile={profile}
+          isSuperadmin={isSuperadmin}
+          isLiveChatDisabled={isLiveChatDisabled}
+          tenantId={tenantId}
+          conversations={conversations}
+          selectedConversationId={selectedConversationId}
+          setSelectedConversationId={setSelectedConversationId}
+          messagesState={messagesState}
+          combinedThreadMessages={combinedThreadMessages}
+          chatBoxRef={chatBoxRef}
+          chatText={chatText}
+          setChatText={setChatText}
+          chatAttachment={chatAttachment}
+          setChatAttachment={setChatAttachment}
+          sendingChat={sendingChat}
+          sendMessage={sendMessage}
+          createOrGetConversation={createOrGetConversation}
+          startConversationByIssue={startConversationByIssue}
+          loadConversations={loadConversations}
+          isAiMessage={isAiMessage}
+        />
+      )}
     </div>
   );
 };
 
 export default SupportCenter;
-

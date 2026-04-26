@@ -7,8 +7,6 @@
 } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.bubble.css";
 import {
   Avatar,
   Modal,
@@ -245,23 +243,23 @@ commStyleElement.textContent = `
     .comm-light ::-webkit-scrollbar-thumb { background:#cbd5e1; }
 
     /* ---------------- Dark sidebar item ---------------- */
-    .si { display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:8px;
-      cursor:pointer;transition:all .15s;color:var(--si-color,#9ca3af);font-size:13.5px;font-weight:500;
+    .si { display:flex;align-items:center;gap:7px;padding:4px 9px;border-radius:8px;
+      cursor:pointer;transition:all .15s;color:var(--si-color,#9ca3af);font-size:12.5px;font-weight:500;
       user-select:none;margin-bottom:1px; }
     .si:hover { background:var(--si-hover-bg,#1e1f25);color:var(--si-hover-color,#e5e7eb); }
     .si.active { background:var(--si-active-bg,linear-gradient(135deg,#1a2540,#1a1d38));color:var(--si-active-color,#60a5fa);font-weight:600;
       box-shadow:0 1px 3px rgba(37,99,235,.15); }
 
     /* ---------------- Message rows ---------------- */
-    .msg-row { position:relative;padding:3px 24px 3px 72px;transition:background .12s; }
+    .msg-row { position:relative;padding:3px 20px 3px 64px;transition:background .12s; }
     .msg-row:hover { background:var(--msg-hover-bg,#1a1b20); }
     .msg-row.first { padding-top:14px; }
     .msg-row.mention-hl { background:linear-gradient(90deg,#1a2540,#141820);
-      border-left:3px solid #3b82f6;padding-left:69px; }
+      border-left:3px solid #3b82f6;padding-left:61px; }
     @media(max-width:640px){
-      .msg-row { padding:3px 12px 3px 52px; }
+      .msg-row { padding:3px 10px 3px 48px; }
       .msg-row.first { padding-top:12px; }
-      .msg-row.mention-hl { padding-left:49px; }
+      .msg-row.mention-hl { padding-left:45px; }
     }
     .msg-toolbar { display:none;position:absolute;top:-18px;right:12px;z-index:20;
       background:#1e1f25;border:1px solid #2a2b31;border-radius:12px;padding:4px 6px;
@@ -290,10 +288,6 @@ commStyleElement.textContent = `
       font-size:15px;resize:none;width:100%;padding:10px 0;line-height:1.6;
       font-family:'Plus Jakarta Sans',sans-serif;max-height:160px;overflow-y:auto; }
     .comm-ta::placeholder { color:#4b5563; }
-    .comm-quill .ql-container { border:none !important; font-family:'Plus Jakarta Sans',sans-serif;
-      font-size:15px; max-height:160px; overflow-y:auto; }
-    .comm-quill .ql-editor { padding:10px 0; color:#e5e7eb; line-height:1.6; min-height:40px; }
-    .comm-quill .ql-editor.ql-blank::before { left:0; right:0; color:#4b5563; font-style:normal; }
 
     /* ---------------- Mention list ---------------- */
     .mlist { background:#1e1f25;border:1px solid #2a2b31;border-radius:12px;padding:6px;
@@ -394,6 +388,7 @@ commStyleElement.textContent = `
         transform:translateX(-100%);transition:transform .25s cubic-bezier(.4,0,.2,1); }
       .comm-sidebar.open { transform:translateX(0)!important;box-shadow:8px 0 40px rgba(0,0,0,.5); }
       .mob-overlay { display:block!important; }
+      .si { font-size:12px; padding:4px 8px; }
     }
     .mob-overlay { display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40; }
     .dm-tick { display:flex;align-items:center;gap:3px;margin-top:4px;transition:all .2s; }
@@ -446,8 +441,6 @@ commStyleElement.textContent = `
     .comm-light .rq-bar:hover { background:#eff6ff; }
     .comm-light .comm-ta { color:#0f172a; }
     .comm-light .comm-ta::placeholder { color:#94a3b8; }
-    .comm-light .comm-quill .ql-editor { color:#0f172a; }
-    .comm-light .comm-quill .ql-editor.ql-blank::before { color:#94a3b8; }
     .comm-light .mlist {
       background:#ffffff;
       border-color:#dbe2ea;
@@ -941,9 +934,21 @@ const tFmt = (ts) => {
         d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 };
 
+const seenAtFmt = (ts) => {
+  if (!ts) return "";
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 const renderText = (text) => {
   if (!text) return null;
-  return text.split(/(@\S[^@]*?\b)/g).map((p, i) =>
+  return text.split(/(@[A-Za-z0-9_]+(?:\s+[A-Za-z0-9_]+)*)/g).map((p, i) =>
     p.startsWith("@") ? (
       <span
         key={i}
@@ -1454,6 +1459,76 @@ const ReactionViewer = ({ reacts, users, profile, dark = false }) => {
   );
 };
 
+const SeenByViewer = ({ entries, users, dark = false }) => {
+  const sorted = [...(entries || [])].sort((a, b) => {
+    const ta = new Date(a?.read_at || 0).getTime();
+    const tb = new Date(b?.read_at || 0).getTime();
+    return tb - ta;
+  });
+
+  return (
+    <div
+      style={{
+        width: 260,
+        maxHeight: 280,
+        overflowY: "auto",
+        padding: 8,
+        background: dark ? "#1e1f25" : "#ffffff",
+        border: `1px solid ${dark ? "#2a2b31" : "#dbe2ea"}`,
+        borderRadius: 10,
+      }}
+    >
+      {sorted.map((entry) => {
+        const u = users.find((x) => x.id === entry.user_id);
+        return (
+          <div
+            key={entry.key}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+              padding: "6px 8px",
+              borderRadius: 8,
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.background = dark ? "#1a1b20" : "#f8fafc")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = "transparent")
+            }
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+              <Ava user={u} size={24} />
+              <span
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: dark ? "#e5e7eb" : "#0f172a",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {u?.full_name || "Someone"}
+              </span>
+            </div>
+            <span
+              style={{
+                fontSize: 11,
+                color: dark ? "#9ca3af" : "#64748b",
+                flexShrink: 0,
+              }}
+            >
+              {seenAtFmt(entry.read_at) || "Seen"}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const Toolbar = ({ msg, isOwn, onReact, onReply, onEdit, onDelete, dark = false }) => (
   <div className="msg-toolbar">
     {QUICK.map((e) => (
@@ -1891,9 +1966,7 @@ const MsgRow = ({
   const isOwn = msg.sender_id === profile.id && !isRyzentAiMsg;
   const sender = msg.sender || users.find((u) => u.id === msg.sender_id) || {};
   const displayUser = isRyzentAiMsg ? RYZENT_AI_USER : isOwn ? profile : sender;
-  const name = isOwn
-    ? profile.full_name || "You"
-    : displayUser.full_name || "Unknown";
+  const name = isOwn ? "You" : displayUser.full_name || "Unknown";
   const isFirst =
     !prev ||
     prev.sender_id !== msg.sender_id ||
@@ -1905,6 +1978,22 @@ const MsgRow = ({
   const isDm = !msg.channel_id;
   const showDmStatus = isOwn && isDm && !msg.is_deleted;
   const receiverOnline = isDm && !!presence[msg.receiver_id];
+  const readEntries = (msg.read_by || [])
+    .map((entry) => {
+      if (!entry) return null;
+      if (typeof entry === "string")
+        return { user_id: entry, read_at: null, key: entry };
+      const userId = entry.user_id || entry.id || null;
+      if (!userId) return null;
+      const readAt = entry.read_at || entry.created_at || null;
+      return { user_id: userId, read_at: readAt, key: `${userId}:${readAt || ""}` };
+    })
+    .filter(Boolean);
+  const isDmSeen =
+    !!msg.is_read ||
+    (isDm &&
+      !!msg.receiver_id &&
+      readEntries.some((r) => r.user_id === msg.receiver_id));
 
   const [editText, setEditText] = useState("");
   const [isEditing, setIsEditing] = useState(false);
@@ -1943,10 +2032,10 @@ const MsgRow = ({
         dark={dark}
       />
       {isFirst && (
-        <div style={{ position: "absolute", left: 22, top: 14 }}>
+        <div style={{ position: "absolute", left: 16, top: 12 }}>
           <Ava
             user={displayUser}
-            size={36}
+            size={30}
             dot={dot}
             variant={isDm ? "dm" : "default"}
           />
@@ -1973,7 +2062,7 @@ const MsgRow = ({
         >
           <span
             style={{
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: 700,
               color: dark ? "#e5e7eb" : "#0f172a",
               display: "inline-flex",
@@ -2411,18 +2500,40 @@ const MsgRow = ({
       )}
 
       {showDmStatus && (
-        <DmStatusTick isRead={!!msg.is_read} receiverOnline={receiverOnline} />
+        <DmStatusTick isRead={isDmSeen} receiverOnline={receiverOnline} />
       )}
 
-      {isOwn && !isDm && msg.read_by && msg.read_by.length > 0 && (
-        <Tooltip
-          title={`Seen by: ${msg.read_by
-            .map((uid) => {
-              const u = users.find((x) => x.id === uid);
-              return u?.full_name || "Someone";
-            })
-            .join(", ")}`}
-          placement="right"
+      {isOwn && !isDm && !msg.is_deleted && (
+        <Popover
+          content={
+            readEntries.length > 0 ? (
+              <SeenByViewer entries={readEntries} users={users} dark={dark} />
+            ) : (
+              <div
+                style={{
+                  padding: "8px 10px",
+                  fontSize: 12,
+                  color: dark ? "#9ca3af" : "#64748b",
+                  minWidth: 160,
+                }}
+              >
+                No one has seen this message yet.
+              </div>
+            )
+          }
+          title={
+            <span
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: dark ? "#e5e7eb" : "#0f172a",
+              }}
+            >
+              Seen by
+            </span>
+          }
+          trigger={["hover", "click"]}
+          placement="rightTop"
         >
           <div
             style={{
@@ -2430,14 +2541,15 @@ const MsgRow = ({
               alignItems: "center",
               gap: 4,
               marginTop: 4,
+              cursor: "pointer",
             }}
           >
             <div style={{ display: "flex" }}>
-              {msg.read_by.slice(0, 4).map((uid, i) => {
-                const u = users.find((x) => x.id === uid);
+              {readEntries.slice(0, 4).map((entry, i) => {
+                const u = users.find((x) => x.id === entry.user_id);
                 return (
                   <div
-                    key={uid}
+                    key={entry.key}
                     style={{ marginLeft: i > 0 ? -6 : 0, zIndex: i }}
                   >
                     <Ava user={u} size={14} />
@@ -2456,12 +2568,14 @@ const MsgRow = ({
               }}
             >
               <CheckCheck size={12} color="#22c55e" />
-              {msg.read_by.length === 1
-                ? "Seen"
-                : `Seen by ${msg.read_by.length}`}
+              {readEntries.length === 0
+                ? "Not seen yet"
+                : readEntries.length === 1
+                  ? "Seen"
+                  : `Seen by ${readEntries.length}`}
             </span>
           </div>
-        </Tooltip>
+        </Popover>
       )}
     </div>
   );
@@ -3216,7 +3330,6 @@ const Communication = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedChannel, setSelectedChannel] = useState(null);
   const [newMessage, setNewMessage] = useState("");
-  const [quillValue, setQuillValue] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [stagedFile, setStagedFile] = useState(null);
@@ -3255,7 +3368,7 @@ const Communication = () => {
   const [loadingMessages, setLoadingMessages] = useState(false);
 
   const endRef = useRef(null),
-    quillRef = useRef(null),
+    messageInputRef = useRef(null),
     recorderRef = useRef(null);
   const chunksRef = useRef([]),
     msgRefs = useRef({}),
@@ -3464,14 +3577,12 @@ const Communication = () => {
   useEffect(() => {
     if (selectedUser || selectedChannel) {
       fetchMessages();
-      markRead();
     }
   }, [selectedUser?.id, selectedChannel?.id]);
   useEffect(() => {
     if (shouldScrollRef.current)
       endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
   const markReadForMsgRef = useRef(null);
   markReadForMsgRef.current = async (msg) => {
     const myId = profileIdRef.current;
@@ -3564,8 +3675,6 @@ const Communication = () => {
             setMessagesRef.current?.((prev) => [...prev, newMsg]);
             shouldScrollRef.current = true;
             markReadForMsgRef.current?.(msg);
-          } else if (!inConv) {
-            fetchUnreadRef.current?.();
           }
           if (msg.sender_id !== myId) {
             playNotificationRef.current?.();
@@ -3700,7 +3809,17 @@ const Communication = () => {
               prev.map((m) => {
                 if (m.id !== rs.message_id) return m;
                 const read_by = [...(m.read_by || [])];
-                if (!read_by.includes(rs.user_id)) read_by.push(rs.user_id);
+                const exists = read_by.some((entry) => {
+                  if (!entry) return false;
+                  if (typeof entry === "string") return entry === rs.user_id;
+                  return entry.user_id === rs.user_id;
+                });
+                if (!exists) {
+                  read_by.push({
+                    user_id: rs.user_id,
+                    read_at: rs.read_at || rs.created_at || new Date().toISOString(),
+                  });
+                }
                 const is_read =
                   m.is_read || rs.user_id === (m.receiver_id ?? rs.user_id);
                 return { ...m, read_by, is_read };
@@ -3755,7 +3874,7 @@ const Communication = () => {
     let q = supabase
       .from("messages")
       .select(
-        `*,sender:profiles!messages_sender_id_fkey(id,full_name,user_photo),reactions:message_reactions(id,emoji,user_id,created_at),message_read_status(user_id)`,
+        `*,sender:profiles!messages_sender_id_fkey(id,full_name,user_photo),reactions:message_reactions(id,emoji,user_id,created_at),message_read_status(user_id,read_at,created_at)`,
       )
       .eq("tenant_id", tenantId)
       .order("created_at", { ascending: true });
@@ -3778,8 +3897,11 @@ const Communication = () => {
         ...m,
         poll,
         read_by: (m.message_read_status || [])
-          .map((r) => r.user_id)
-          .filter((uid) => uid !== profile.id),
+          .map((r) => ({
+            user_id: r.user_id,
+            read_at: r.read_at || r.created_at || null,
+          }))
+          .filter((r) => r.user_id !== profile.id),
       };
     });
     const convChannelId = selChanRef.current?.id || null;
@@ -4377,7 +4499,10 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
         reply_to_id: replyTo?.id || null,
         reply_to_snapshot: replyTo
           ? {
-              sender_name: replyTo.sender?.full_name || "Unknown",
+              sender_name:
+                replyTo.sender_id === profile.id
+                  ? "You"
+                  : replyTo.sender?.full_name || "Unknown",
               message_preview: (
                 replyTo.message ||
                 (replyTo.file_type === "image"
@@ -4438,7 +4563,6 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
         shouldScrollRef.current = true;
       }
       setNewMessage("");
-      setQuillValue("");
       setReplyTo(null);
       clearStaged();
       if (hasAudio) {
@@ -4833,11 +4957,16 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
     } else setShowMentions(false);
   };
 
-  const onKey = (e) => {
+  const onKey = useCallback((e) => {
     const mentionPool = [RYZENT_AI_USER, ...users];
+    const currentText = newMessage;
+    const at = currentText.lastIndexOf("@");
+    const rawQuery = at !== -1 ? currentText.slice(at + 1) : mentionQuery;
+    const query = String(rawQuery || "").trimStart().toLowerCase();
     const filt = mentionPool.filter((u) =>
-      u.full_name?.toLowerCase().includes(mentionQuery.toLowerCase()),
+      (u.full_name || "").toLowerCase().includes(query),
     );
+    const hasMentionContext = showMentions || at !== -1;
     if (showMentions) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -4849,7 +4978,7 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
         setMentionIdx((i) => Math.max(i - 1, 0));
         return;
       }
-      if (e.key === "Enter" || e.key === "Tab") {
+      if (e.key === "Tab") {
         e.preventDefault();
         if (filt[mentionIdx]) insMention(filt[mentionIdx]);
         return;
@@ -4859,38 +4988,72 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
         return;
       }
     }
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      send();
+    if ((e.key === "Enter" || e.key === "Tab") && hasMentionContext) {
+      if (filt.length > 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        const safeIdx = Math.min(Math.max(mentionIdx, 0), filt.length - 1);
+        insMention(filt[safeIdx] || filt[0]);
+        return;
+      }
     }
-  };
+  }, [
+    users,
+    mentionQuery,
+    showMentions,
+    mentionIdx,
+    newMessage,
+    send,
+  ]);
 
-  useEffect(() => {
-    const editor = quillRef.current?.getEditor?.();
-    if (!editor) return;
-    const root = editor.root;
-    const handler = (e) => onKey(e);
-    root.addEventListener("keydown", handler);
-    return () => root.removeEventListener("keydown", handler);
-  });
+  const handleEnterAction = useCallback(() => {
+    const mentionPool = [RYZENT_AI_USER, ...users];
+    const currentText = newMessage;
+    const at = currentText.lastIndexOf("@");
+    const rawQuery = at !== -1 ? currentText.slice(at + 1) : mentionQuery;
+    const query = String(rawQuery || "").trimStart().toLowerCase();
+    const filt = mentionPool.filter((u) =>
+      (u.full_name || "").toLowerCase().includes(query),
+    );
+    const hasMentionContext = showMentions || at !== -1;
+
+    if (hasMentionContext && filt.length > 0) {
+      const safeIdx = Math.min(Math.max(mentionIdx, 0), filt.length - 1);
+      insMention(filt[safeIdx] || filt[0]);
+      return;
+    }
+    send();
+  }, [users, mentionQuery, showMentions, mentionIdx, newMessage, send]);
+
+  const onInputKeyDown = useCallback(
+    (e) => {
+      onKey(e);
+      if (e.defaultPrevented) return;
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleEnterAction();
+      }
+    },
+    [onKey, handleEnterAction],
+  );
 
   const insMention = (u) => {
-    const editor = quillRef.current?.getEditor?.();
-    const currentText = editor
-      ? editor.getText().replace(/\n+$/g, "")
-      : newMessage;
+    const currentText = newMessage;
     const at = currentText.lastIndexOf("@");
     if (at === -1) return;
     const next = currentText.slice(0, at) + `@${u.full_name} `;
-    if (editor) {
-      editor.setText(next);
-      editor.setSelection(next.length, 0);
-      setQuillValue(editor.root.innerHTML);
-    }
     setNewMessage(next);
     setShowMentions(false);
     setMentionQuery("");
-    editor?.focus();
+    requestAnimationFrame(() => {
+      const input = messageInputRef.current;
+      if (!input) return;
+      input.focus();
+      const pos = next.length;
+      if (typeof input.setSelectionRange === "function") {
+        input.setSelectionRange(pos, pos);
+      }
+    });
   };
 
   const scrollTo = (id) => {
@@ -5012,7 +5175,7 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
         <div
           className={`comm-sidebar${isMobile && sidebarOpen ? " open" : ""}`}
           style={{
-            width: 256,
+            width: isMobile ? "min(86vw, 300px)" : 256,
             flexShrink: 0,
             background: dark ? "#0f1011" : "#ffffff",
             borderRight: `1.5px solid ${dark ? "#1e1f25" : "#e2e8f0"}`,
@@ -5208,7 +5371,7 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                       }}
                       onClick={() => openConv(ch, null)}
                     >
-                      <Hash size={14} style={{ opacity: 0.4, flexShrink: 0 }} />
+                      <Hash size={12} style={{ opacity: 0.4, flexShrink: 0 }} />
                       <span
                         style={{
                           overflow: "hidden",
@@ -5326,16 +5489,17 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                       >
                         <Ava
                           user={u}
-                          size={26}
+                          size={22}
                           dot={isOnline ? "active" : "off"}
                           variant="dm"
                         />
                         <span
                           style={{
+                            fontSize: 12,
                             overflow: "hidden",
                             textOverflow: "ellipsis",
                             whiteSpace: "nowrap",
-                            maxWidth: 128,
+                            maxWidth: 118,
                           }}
                         >
                           {u.full_name}
@@ -5448,7 +5612,7 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
             {/* Header */}
             <div
               style={{
-                padding: "12px 16px",
+                padding: isMobile ? "10px 12px" : "12px 16px",
                 borderBottom: `1.5px solid ${dark ? "#1e1f25" : "#e2e8f0"}`,
                 display: "flex",
                 alignItems: "center",
@@ -5466,16 +5630,16 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                 {selectedUser ? (
                   <Ava
                     user={selectedUser}
-                    size={38}
+                    size={isMobile ? 32 : 38}
                     dot={presence[selectedUser.id] ? "active" : "off"}
                     variant="dm"
                   />
                 ) : (
                   <div
                     style={{
-                      width: 38,
-                      height: 38,
-                      borderRadius: 12,
+                      width: isMobile ? 32 : 38,
+                      height: isMobile ? 32 : 38,
+                      borderRadius: isMobile ? 10 : 12,
                       background: "rgba(99,102,241,.15)",
                       display: "flex",
                       alignItems: "center",
@@ -5483,13 +5647,13 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                       border: "1.5px solid rgba(99,102,241,.25)",
                     }}
                   >
-                    <Hash size={17} color="#818cf8" />
+                    <Hash size={isMobile ? 15 : 17} color="#818cf8" />
                   </div>
                 )}
                 <div>
                   <div
                     style={{
-                      fontSize: 15,
+                      fontSize: isMobile ? 14 : 15,
                       fontWeight: 800,
                       color: dark ? "#f9fafb" : "#0f172a",
                     }}
@@ -5499,7 +5663,7 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                   {convSub && (
                     <div
                       style={{
-                        fontSize: 12,
+                        fontSize: isMobile ? 11 : 12,
                         color: dark ? "#6b7280" : "#64748b",
                         marginTop: 1,
                       }}
@@ -5545,8 +5709,8 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                   <button
                     className="tb"
                     style={{
-                      width: 36,
-                      height: 36,
+                      width: isMobile ? 32 : 36,
+                      height: isMobile ? 32 : 36,
                       color: "#60a5fa",
                       background: "rgba(37,99,235,.12)",
                       border: "1.5px solid rgba(37,99,235,.2)",
@@ -5554,15 +5718,15 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                     }}
                     onClick={() => createCall("video")}
                   >
-                    <Video size={16} />
+                    <Video size={isMobile ? 14 : 16} />
                   </button>
                 </Tooltip>
                 <Tooltip title="Start audio call">
                   <button
                     className="tb"
                     style={{
-                      width: 36,
-                      height: 36,
+                      width: isMobile ? 32 : 36,
+                      height: isMobile ? 32 : 36,
                       color: "#22c55e",
                       background: "rgba(34,197,94,.1)",
                       border: "1.5px solid rgba(34,197,94,.2)",
@@ -5570,13 +5734,13 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                     }}
                     onClick={() => createCall("audio")}
                   >
-                    <PhoneCall size={16} />
+                    <PhoneCall size={isMobile ? 14 : 16} />
                   </button>
                 </Tooltip>
                 {selectedChannel && profile?.role === "admin" && (
                   <button
                     className="tb"
-                    style={{ width: 36, height: 36 }}
+                    style={{ width: isMobile ? 32 : 36, height: isMobile ? 32 : 36 }}
                     onClick={() => {
                       fetchChannelMembers(selectedChannel.id);
                       setChannelSettingsTab("members");
@@ -5584,7 +5748,7 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                       setMembersDrawer(true);
                     }}
                   >
-                    <Users size={16} />
+                    <Users size={isMobile ? 14 : 16} />
                   </button>
                 )}
               </div>
@@ -5945,7 +6109,10 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                           fontSize: 12,
                         }}
                       >
-                        Replying to {replyTo.sender?.full_name || ""}
+                        Replying to{" "}
+                        {replyTo.sender_id === profile.id
+                          ? "You"
+                          : replyTo.sender?.full_name || ""}
                       </span>
                       <span
                         style={{
@@ -6150,16 +6317,13 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                     </button>
                   </Tooltip>
                   <div style={{ flex: 1, position: "relative" }}>
-                    <ReactQuill
-                      ref={quillRef}
-                      theme="bubble"
-                      className="comm-quill"
-                      value={quillValue}
-                      onChange={(content, _delta, _source, editor) => {
-                        setQuillValue(content);
-                        onInput(editor.getText().replace(/\n+$/g, ""));
-                      }}
-                      modules={{ toolbar: false }}
+                    <textarea
+                      ref={messageInputRef}
+                      className="comm-ta"
+                      value={newMessage}
+                      onChange={(e) => onInput(e.target.value)}
+                      onKeyDown={onInputKeyDown}
+                      rows={1}
                       placeholder={
                         stagedFile
                           ? "Add a caption or press send..."
@@ -6179,20 +6343,27 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
                       <button
                         className="tb"
                         onClick={() => {
-                          const editor = quillRef.current?.getEditor?.();
-                          if (editor) {
-                            const range = editor.getSelection(true);
-                            const idx =
-                              typeof range?.index === "number"
-                                ? range.index
-                                : Math.max(editor.getLength() - 1, 0);
-                            editor.insertText(idx, "@");
-                            editor.setSelection(idx + 1, 0);
-                            setQuillValue(editor.root.innerHTML);
-                            onInput(editor.getText().replace(/\n+$/g, ""));
-                            editor.focus();
+                          const input = messageInputRef.current;
+                          if (input) {
+                            const start =
+                              typeof input.selectionStart === "number"
+                                ? input.selectionStart
+                                : newMessage.length;
+                            const end =
+                              typeof input.selectionEnd === "number"
+                                ? input.selectionEnd
+                                : start;
+                            const next =
+                              newMessage.slice(0, start) +
+                              "@" +
+                              newMessage.slice(end);
+                            onInput(next);
+                            requestAnimationFrame(() => {
+                              input.focus();
+                              input.setSelectionRange(start + 1, start + 1);
+                            });
                           } else {
-                            setNewMessage((p) => p + "@");
+                            onInput(newMessage + "@");
                           }
                           setShowMentions(true);
                           setMentionQuery("");
@@ -7413,6 +7584,3 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
 };
 
 export default Communication;
-
-
-

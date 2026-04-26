@@ -349,7 +349,7 @@ const getFT = (mime) =>
   };
 const formatSize = (b) =>
   !b
-    ? "--------"
+    ? "--"
     : b < 1024
       ? `${b} B`
       : b < 1048576
@@ -697,9 +697,8 @@ function TrainingPaywall() {
             }}
           >
             From onboarding modules to skill development courses, technical
-            training to professional growth -------- describe what you want to learn
-            and get structured, practical training content tailored to your
-            goals.
+            training to professional growth, describe what you want to learn and
+            get structured, practical training content tailored to your goals.
           </p>
         </div>
 
@@ -829,8 +828,13 @@ function TrainingPaywall() {
                   }}
                 >
                   <Search size={12} style={{ color: "#94a3b8" }} />
-                  <span style={{ fontSize: 12, color: dark ? "#6b7280" : "#cbd5e1" }}>
-                    Search courses-------
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: dark ? "#6b7280" : "#cbd5e1",
+                    }}
+                  >
+                    Search courses
                   </span>
                 </div>
                 <div
@@ -858,7 +862,11 @@ function TrainingPaywall() {
             <div style={{ padding: "16px 24px 0", background: pw.surface }}>
               <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
                 {[
-                  { label: "Total", value: "6", color: dark ? pw.text : "#0f172a" },
+                  {
+                    label: "Total",
+                    value: "6",
+                    color: dark ? pw.text : "#0f172a",
+                  },
                   { label: "Beginner", value: "2", color: "#10b981" },
                   { label: "Intermediate", value: "2", color: "#f59e0b" },
                   { label: "Advanced", value: "2", color: "#ef4444" },
@@ -1343,7 +1351,7 @@ function DocumentViewerModal({ material, onClose }) {
               {material?.title}
             </p>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              {ft.label} ---- {formatSize(material?.file_size)}
+              {ft.label} • {formatSize(material?.file_size)}
             </p>
           </div>
         </div>
@@ -1398,7 +1406,7 @@ function DocumentViewerModal({ material, onClose }) {
           <div className="flex flex-col items-center justify-center py-24 gap-3">
             <Spin size="large" />
             <p className="text-[13px] text-slate-400 font-medium">
-              Loading document-------
+              Loading document...
             </p>
           </div>
         )}
@@ -1430,7 +1438,10 @@ function DocumentViewerModal({ material, onClose }) {
                 src={url}
                 title={material?.title}
                 className="w-full border-0"
-                style={{ height: "75vh", background: dark ? "#17181c" : "#f8fafc" }}
+                style={{
+                  height: "75vh",
+                  background: dark ? "#17181c" : "#f8fafc",
+                }}
                 onError={() => setError("PDF preview failed.")}
               />
             )}
@@ -1673,7 +1684,11 @@ function QuizEditor({ quiz, onChange, onRegenerate, generating, title }) {
         className={`border-2 border-dashed rounded-2xl p-10 text-center ${dark ? "border-[#2a2b31] bg-[#17181c]" : "border-slate-200"}`}
       >
         <FileQuestion size={40} className="mx-auto text-slate-300 mb-3" />
-        <p className={`font-semibold text-lg mb-1 ${dark ? "text-slate-100" : "text-slate-700"}`}>No quiz yet</p>
+        <p
+          className={`font-semibold text-lg mb-1 ${dark ? "text-slate-100" : "text-slate-700"}`}
+        >
+          No quiz yet
+        </p>
         <p className="text-sm text-slate-400 mb-6">
           Choose how you'd like to create this quiz
         </p>
@@ -1685,7 +1700,7 @@ function QuizEditor({ quiz, onChange, onRegenerate, generating, title }) {
           >
             {generating ? <Spin size="small" /> : <Wand2 size={20} />}
             <span className="text-[13px] font-bold">
-              {generating ? "Generating-------" : "AI Generate"}
+              {generating ? "Generating..." : "AI Generate"}
             </span>
             <span className="text-[10px] opacity-80">
               Auto-create 5 questions
@@ -1710,9 +1725,13 @@ function QuizEditor({ quiz, onChange, onRegenerate, generating, title }) {
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between mb-1">
         <div>
-          <p className={`text-sm font-bold ${dark ? "text-slate-100" : "text-slate-800"}`}>{title}</p>
+          <p
+            className={`text-sm font-bold ${dark ? "text-slate-100" : "text-slate-800"}`}
+          >
+            {title}
+          </p>
           <p className="text-xs text-slate-400 mt-0.5">
-            {quiz.questions?.length || 0} questions -------- click circles to set
+            {quiz.questions?.length || 0} questions • click circles to set
             correct answer
           </p>
         </div>
@@ -1758,7 +1777,7 @@ function QuizEditor({ quiz, onChange, onRegenerate, generating, title }) {
                     ),
                   }))
                 }
-                placeholder="Enter your question here-------"
+                placeholder="Enter your question here"
                 className={`flex-1 border rounded-lg px-3 py-1.5 text-[13px] font-semibold outline-none focus:border-indigo-400 transition-all ${dark ? "border-[#2a2b31] bg-[#17181c] text-slate-100" : "border-slate-200 text-slate-800"}`}
               />
               <button
@@ -1794,9 +1813,17 @@ function QuizEditor({ quiz, onChange, onRegenerate, generating, title }) {
                     className="shrink-0"
                   >
                     {q.correct_index === oi ? (
-                      <CheckCircle size={14} className={dark ? "text-emerald-300" : "text-emerald-500"} />
+                      <CheckCircle
+                        size={14}
+                        className={
+                          dark ? "text-emerald-300" : "text-emerald-500"
+                        }
+                      />
                     ) : (
-                      <Circle size={14} className={dark ? "text-slate-500" : "text-slate-300"} />
+                      <Circle
+                        size={14}
+                        className={dark ? "text-slate-500" : "text-slate-300"}
+                      />
                     )}
                   </button>
                   <input
@@ -1832,7 +1859,7 @@ function QuizEditor({ quiz, onChange, onRegenerate, generating, title }) {
                   ),
                 }))
               }
-              placeholder="Explanation (optional) -------- shown after answering"
+              placeholder="Explanation (optional) • shown after answering"
               className={`w-full border border-dashed rounded-lg px-3 py-1.5 text-[11px] outline-none focus:border-indigo-300 transition-all mt-1 ${dark ? "border-[#2a2b31] bg-[#17181c] text-slate-300" : "border-slate-200 text-slate-400"}`}
             />
           </div>
@@ -1934,7 +1961,7 @@ function MaterialRow({ mat, onDetach, onView, showDetach = true }) {
           {mat.title}
         </p>
         <p className="text-[10px] text-slate-400">
-          {ft.label} ---- {formatSize(mat.file_size)}
+          {ft.label} • {formatSize(mat.file_size)}
         </p>
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
@@ -2147,7 +2174,7 @@ function CourseDetailView({
       if (finalQuiz?.questions?.length) {
         const savedId = await upsertQuiz(
           finalQuiz.id,
-          `${course.title} -------- Final Quiz`,
+          `${course.title} - Final Quiz`,
           [{ _meta: { type: "final" } }, ...finalQuiz.questions],
         );
         if (savedId && !finalQuiz.id)
@@ -2182,10 +2209,13 @@ function CourseDetailView({
     return (
       <div
         className={`training-page training-scope min-h-screen ${dark ? "training-dark bg-[#141416]" : "bg-[#f8fafc]"}`}
-        style={{ fontFamily: "'DM Sans', sans-serif" }}
+        style={{
+          fontFamily:
+            'Geist, "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif',
+        }}
       >
-        <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&display=swap');*{font-family:'DM Sans',sans-serif!important}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.animate-pulse{animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}${trainingDarkCss}`}</style>
-        <header className="bg-white border-b border-slate-100 sticky top-0 z-40 px-6 h-[60px] flex items-center justify-between">
+        <style>{`*{font-family:Geist,"SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif!important}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.animate-pulse{animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}${trainingDarkCss}`}</style>
+        <header className="border-b border-slate-100 sticky top-0 z-40 px-6 h-[60px] flex items-center justify-between">
           <div className="flex items-center gap-4">
             <SkeletonPulse className="h-4 w-24" />
             <span className="text-slate-200">|</span>
@@ -2204,9 +2234,12 @@ function CourseDetailView({
   return (
     <div
       className={`training-page training-scope min-h-screen ${dark ? "training-dark bg-[#141416]" : "bg-[#f8fafc]"}`}
-      style={{ fontFamily: "'DM Sans', sans-serif" }}
+      style={{
+        fontFamily:
+          'Geist, "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif',
+      }}
     >
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&display=swap');*{font-family:'DM Sans',sans-serif!important}.ant-select-selector{border-radius:10px!important;border-color:#e2e8f0!important}.ant-modal-content{border-radius:16px!important;padding:0!important;overflow:hidden!important}.ant-modal-header{padding:20px 24px 0!important;border-bottom:none!important}.ant-modal-body{padding:0!important}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.animate-pulse{animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}${trainingDarkCss}`}</style>
+      <style>{`*{font-family:Geist,"SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif!important}.ant-select-selector{border-radius:10px!important;border-color:#e2e8f0!important}.ant-modal-content{border-radius:16px!important;padding:0!important;overflow:hidden!important}.ant-modal-header{padding:20px 24px 0!important;border-bottom:none!important}.ant-modal-body{padding:0!important}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.animate-pulse{animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}${trainingDarkCss}`}</style>
 
       {viewingMaterial && (
         <DocumentViewerModal
@@ -2215,7 +2248,7 @@ function CourseDetailView({
         />
       )}
 
-      <header className="bg-white border-b border-slate-100 sticky top-0 z-40 px-6 h-[60px] flex items-center justify-between">
+      <header className="border-b border-slate-100 sticky top-0 z-40 px-6 h-[60px] flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
             onClick={onBack}
@@ -2258,11 +2291,15 @@ function CourseDetailView({
         <button
           onClick={handleSave}
           disabled={saving}
-          className={`flex items-center gap-2 px-5 h-9 disabled:opacity-40 text-[13px] font-bold rounded-xl transition-all ${dark ? "bg-[#ffffff] text-[#111111] hover:bg-[#e5e7eb]" : "bg-slate-900 hover:bg-slate-800 text-white"}`}
+          className={`flex items-center gap-2 px-5 h-9 disabled:opacity-40 text-[13px] font-bold rounded-xl transition-all border ${
+            dark
+              ? "bg-[#3453b7] hover:bg-[#2f489f] text-white border-[#3453b7]"
+              : "bg-[#3453b7] hover:bg-[#2f489f] text-white border-[#3453b7]"
+          }`}
         >
           {saving ? (
             <>
-              <Spin size="small" /> Saving-------
+              <Spin size="small" /> Saving...
             </>
           ) : (
             <>
@@ -2323,7 +2360,7 @@ function CourseDetailView({
                     {isModules
                       ? `${modules.length} module${modules.length !== 1 ? "s" : ""}`
                       : hasContent
-                        ? "Quiz ready -------"
+                        ? "Quiz ready"
                         : "Not generated"}
                   </p>
                 </div>
@@ -2460,7 +2497,7 @@ function CourseDetailView({
                                   ),
                                 )
                               }
-                              placeholder="Module description or learning objectives (optional)-------"
+                              placeholder="Module description or learning objectives (optional)"
                               rows={2}
                               className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-[13px] text-slate-700 outline-none focus:border-indigo-400 transition-all resize-none mb-4"
                             />
@@ -2506,7 +2543,7 @@ function CourseDetailView({
                                     onClick={() => setMatPickerOpen(mi)}
                                     className="text-[12px] font-semibold text-indigo-500 hover:text-indigo-700"
                                   >
-                                    Browse library --------
+                                    Browse library
                                   </button>
                                 </div>
                               </div>
@@ -2575,10 +2612,10 @@ function CourseDetailView({
                     </div>
                     <div>
                       <h2 className="text-xl font-bold text-slate-900">
-                        {mod?.title || `Module ${modIdx + 1}`} -------- Quiz
+                        {mod?.title || `Module ${modIdx + 1}`} - Quiz
                       </h2>
                       <p className="text-sm text-slate-500 mt-0.5">
-                        Questions for this module -------- AI or manual
+                        Questions for this module • AI or manual
                       </p>
                     </div>
                   </div>
@@ -2588,7 +2625,7 @@ function CourseDetailView({
                     </p>
                     {attachedMats.length === 0 ? (
                       <p className="text-[13px] text-slate-400 italic">
-                        No materials -------- quiz will be based on module title only.
+                        No materials • quiz will be based on module title only.
                       </p>
                     ) : (
                       <div className="flex flex-col gap-2">
@@ -2709,11 +2746,15 @@ function CourseDetailView({
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  className="flex items-center gap-2 px-5 h-10 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white text-[13px] font-bold rounded-xl"
+                  className={`flex items-center gap-2 px-5 h-10 disabled:opacity-40 text-[13px] font-bold rounded-xl border transition-all ${
+                    dark
+                      ? "bg-[#3453b7] hover:bg-[#2f489f] text-white border-[#3453b7]"
+                      : "bg-[#3453b7] hover:bg-[#2f489f] text-white border-[#3453b7]"
+                  }`}
                 >
                   {saving ? (
                     <>
-                      <Spin size="small" /> Saving-------
+                      <Spin size="small" /> Saving...
                     </>
                   ) : (
                     <>
@@ -2735,7 +2776,11 @@ function CourseDetailView({
             <div className="flex justify-end pt-2">
               <button
                 onClick={() => setMatPickerOpen(null)}
-                className="px-4 h-9 bg-slate-900 text-white text-[13px] font-bold rounded-xl"
+                className={`px-4 h-9 text-[13px] font-bold rounded-xl border transition-all ${
+                  dark
+                    ? "bg-[#3453b7] hover:bg-[#2f489f] text-white border-[#3453b7]"
+                    : "bg-[#3453b7] hover:bg-[#2f489f] text-white border-[#3453b7]"
+                }`}
               >
                 Done
               </button>
@@ -2746,7 +2791,7 @@ function CourseDetailView({
             <div className="flex items-center gap-2">
               <Link2 size={15} className="text-indigo-500" />
               <span className="font-bold">
-                Attach Materials -------- "
+                Attach Materials - "
                 {modules[matPickerOpen]?.title || `Module ${matPickerOpen + 1}`}
                 "
               </span>
@@ -2793,7 +2838,7 @@ function CourseDetailView({
                         {mat.title}
                       </p>
                       <p className="text-[11px] text-slate-400">
-                        {mat.category} ---- {ft.label} ----{" "}
+                        {mat.category} • {ft.label} •{" "}
                         {formatSize(mat.file_size)}
                       </p>
                     </div>
@@ -2910,7 +2955,7 @@ function CoursesListView({ tenantId, allMaterials, onOpenCourse }) {
       setCreating(false);
       return;
     }
-    message.success("Course created! Opening editor-------");
+    message.success("Course created! Opening editor...");
     setCreateOpen(false);
     setForm({
       title: "",
@@ -2944,21 +2989,30 @@ function CoursesListView({ tenantId, allMaterials, onOpenCourse }) {
   return (
     <div
       className={`training-page training-scope min-h-screen ${dark ? "training-dark bg-[#141416]" : "bg-[#f8fafc]"}`}
-      style={{ fontFamily: "'DM Sans', sans-serif" }}
+      style={{
+        fontFamily:
+          'Geist, "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif',
+      }}
     >
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&display=swap');*{font-family:'DM Sans',sans-serif!important}.ant-select-selector{border-radius:10px!important;border-color:#e2e8f0!important}.ant-modal-content{border-radius:16px!important;padding:0!important;overflow:hidden!important}.ant-modal-header{padding:20px 24px 0!important;border-bottom:none!important}.ant-modal-body{padding:16px 24px 24px!important}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.animate-pulse{animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}${trainingDarkCss}`}</style>
+      <style>{`*{font-family:Geist,"SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif!important}.ant-select-selector{border-radius:10px!important;border-color:#e2e8f0!important}.ant-modal-content{border-radius:16px!important;padding:0!important;overflow:hidden!important}.ant-modal-header{padding:20px 24px 0!important;border-bottom:none!important}.ant-modal-body{padding:16px 24px 24px!important}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.animate-pulse{animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}${trainingDarkCss}`}</style>
 
-      <header className="bg-white border-b border-slate-100 sticky top-0 z-40 px-6 h-[60px] flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center">
-            <GraduationCap size={14} className="text-white" />
-          </div>
-          <div>
-            <p className="font-extrabold text-[15px] text-slate-900 leading-none">
-              Courses
-            </p>
-            <p className="text-[11px] text-slate-400 mt-0.5">{TENANT_NAME}</p>
-          </div>
+      <header className="bg-white border-b border-slate-300 sticky top-0 z-40 px-6 py-3 flex items-center justify-between gap-4">
+        <div>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: 26,
+              fontWeight: 800,
+              letterSpacing: "-0.04em",
+              lineHeight: 1,
+              marginBottom: 4,
+            }}
+          >
+            Training
+          </h1>
+          <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>
+            Organize your training into focused groups
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -2969,7 +3023,7 @@ function CoursesListView({ tenantId, allMaterials, onOpenCourse }) {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search courses-------"
+              placeholder="Search courses"
               className="pl-9 pr-3 h-9 w-48 bg-slate-50 border border-slate-200 rounded-xl text-[13px] text-slate-700 outline-none focus:border-indigo-400 focus:bg-white transition-all"
             />
           </div>
@@ -2988,7 +3042,11 @@ function CoursesListView({ tenantId, allMaterials, onOpenCourse }) {
           </Select>
           <button
             onClick={() => setCreateOpen(true)}
-            className="flex items-center gap-2 px-4 h-9 bg-slate-900 hover:bg-slate-800 text-white text-[13px] font-bold rounded-xl"
+            className={`flex items-center gap-2 px-4 h-9 text-[13px] font-bold rounded-xl border transition-all ${
+              dark
+                ? "bg-[#3453b7] hover:bg-[#2f489f] text-white border-[#3453b7]"
+                : "bg-[#3453b7] hover:bg-[#2f489f] text-white border-[#3453b7]"
+            }`}
           >
             <Plus size={14} /> New Course
           </button>
@@ -3058,7 +3116,11 @@ function CoursesListView({ tenantId, allMaterials, onOpenCourse }) {
                 {courses.length === 0 && (
                   <button
                     onClick={() => setCreateOpen(true)}
-                    className="flex items-center gap-2 px-5 h-10 bg-slate-900 text-white text-[13px] font-bold rounded-xl mt-2"
+                    className={`flex items-center gap-2 px-5 h-10 text-[13px] font-bold rounded-xl mt-2 border transition-all ${
+                      dark
+                        ? "bg-[#3453b7] hover:bg-[#2f489f] text-white border-[#3453b7]"
+                        : "bg-[#3453b7] hover:bg-[#2f489f] text-white border-[#3453b7]"
+                    }`}
                   >
                     <Plus size={14} /> Create First Course
                   </button>
@@ -3162,7 +3224,13 @@ function CoursesListView({ tenantId, allMaterials, onOpenCourse }) {
                             {dayjs(course.created_at).format("MMM DD")}
                           </span>
                         </div>
-                        <div className="flex items-center justify-center gap-2 h-9 bg-slate-900 group-hover:bg-slate-800 text-white text-[13px] font-bold rounded-xl transition-all">
+                        <div
+                          className={`flex items-center justify-center gap-2 h-9 text-[13px] font-bold rounded-xl transition-all border ${
+                            dark
+                              ? "bg-[#3453b7] group-hover:bg-[#2f489f] text-white border-[#3453b7]"
+                              : "bg-white group-hover:bg-slate-50 text-slate-900 border-slate-200"
+                          }`}
+                        >
                           <Play size={13} /> Open Course
                         </div>
                       </div>
@@ -3280,11 +3348,15 @@ function CoursesListView({ tenantId, allMaterials, onOpenCourse }) {
           <button
             onClick={handleCreate}
             disabled={creating || !form.title || !form.category}
-            className="flex items-center gap-2 px-5 h-9 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white text-[13px] font-bold rounded-xl"
+            className={`flex items-center gap-2 px-5 h-9 disabled:opacity-40 text-[13px] font-bold rounded-xl border transition-all ${
+              dark
+                ? "bg-[#3453b7] hover:bg-[#2f489f] text-white border-[#3453b7]"
+                : "bg-[#3453b7] hover:bg-[#2f489f] text-white border-[#3453b7]"
+            }`}
           >
             {creating ? (
               <>
-                <Spin size="small" /> Creating-------
+                <Spin size="small" /> Creating...
               </>
             ) : (
               <>
@@ -3367,9 +3439,12 @@ export default function AdminTrainingCourses() {
     return (
       <div
         className={`training-page training-scope min-h-screen ${dark ? "training-dark bg-[#141416]" : "bg-[#f8fafc]"}`}
-        style={{ fontFamily: "'DM Sans', sans-serif" }}
+        style={{
+          fontFamily:
+            'Geist, "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif',
+        }}
       >
-        <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&display=swap');*{font-family:'DM Sans',sans-serif!important}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.animate-pulse{animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}${trainingDarkCss}`}</style>
+        <style>{`*{font-family:Geist,"SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif!important}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.animate-pulse{animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}${trainingDarkCss}`}</style>
         <header className="bg-white border-b border-slate-100 px-6 h-[60px] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <SkeletonPulse className="w-8 h-8 rounded-xl" />
@@ -3433,5 +3508,3 @@ export default function AdminTrainingCourses() {
     />
   );
 }
-
-

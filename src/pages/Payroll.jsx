@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect, useCallback } from "react";
-import { Progress, Spin, Empty, Select, Tooltip, Button } from "antd";
+import { Progress, Empty, Select, Tooltip, Button } from "antd";
 import {
   CheckCheck,
   X,
@@ -37,10 +37,11 @@ if (!document.getElementById("asp-css")) {
     @keyframes aspFadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
     @keyframes aspSlideIn { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
     @keyframes aspPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+    @keyframes aspShimmer { 0%{background-position:-560px 0} 100%{background-position:560px 0} }
     .asp-fade { animation: aspFadeUp 0.45s cubic-bezier(0.22,1,0.36,1) both; }
     .asp-slide { animation: aspSlideIn 0.35s cubic-bezier(0.22,1,0.36,1) both; }
-    .asp-card { transition: box-shadow 0.25s, transform 0.2s, border-color 0.2s; }
-    .asp-card:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.08) !important; transform: translateY(-2px); border-color: var(--asp-border-hover) !important; }
+    .asp-card { transition: background 0.2s; }
+    .asp-card:hover { box-shadow: none !important; transform: none !important; border-color: transparent !important; }
     .asp-day:hover { filter: brightness(0.82); transform: scale(1.15); }
     .asp-day { transition: filter 0.1s, transform 0.1s; }
     .asp-row { transition: background 0.15s; }
@@ -50,6 +51,19 @@ if (!document.getElementById("asp-css")) {
     .asp-bar { transition: height 0.6s cubic-bezier(0.22,1,0.36,1); }
     .asp-pulse { animation: aspPulse 2s ease-in-out infinite; }
     .asp-select .ant-select-selector { border-radius: 10px !important; border: 1px solid var(--asp-border) !important; }
+    .asp-skel {
+      display: block;
+      background-color: var(--asp-skel-base);
+      background-image: linear-gradient(
+        90deg,
+        var(--asp-skel-base) 0%,
+        var(--asp-skel-shine) 45%,
+        var(--asp-skel-base) 100%
+      );
+      background-size: 560px 100%;
+      animation: aspShimmer 1.1s linear infinite;
+      border-radius: 10px;
+    }
   `;
   document.head.appendChild(s);
 }
@@ -477,7 +491,7 @@ const EmpCard = ({
       className="asp-card asp-fade"
       style={{
         background: "var(--asp-card)",
-        border: "1px solid var(--asp-border)",
+        border: "none",
         borderRadius: 18,
         padding: 20,
         animationDelay: `${delay}ms`,
@@ -728,6 +742,8 @@ export default function EmployeeStatsPage() {
   );
   const [weekOffIndices, setWeekOffIndices] = useState([0, 6]);
   const [allHolidays, setAllHolidays] = useState([]);
+  const pickFirst = (...values) =>
+    values.find((v) => String(v || "").trim().length > 0) || "";
 
   const holidaySet = new Set(
     allHolidays.filter((h) => h.date.startsWith(ym)).map((h) => h.date),
@@ -758,6 +774,8 @@ export default function EmployeeStatsPage() {
         r.style.setProperty("--asp-muted", "#64748b");
         r.style.setProperty("--asp-hover", "#18181c");
         r.style.setProperty("--asp-surface", "#1a1a1f");
+        r.style.setProperty("--asp-skel-base", "#23262d");
+        r.style.setProperty("--asp-skel-shine", "#343944");
       } else {
         r.style.setProperty("--asp-bg", "#f4f6fa");
         r.style.setProperty("--asp-card", "#ffffff");
@@ -768,6 +786,8 @@ export default function EmployeeStatsPage() {
         r.style.setProperty("--asp-muted", "#94a3b8");
         r.style.setProperty("--asp-hover", "#f1f5f9");
         r.style.setProperty("--asp-surface", "#f8fafc");
+        r.style.setProperty("--asp-skel-base", "#e5e9f0");
+        r.style.setProperty("--asp-skel-shine", "#f6f8fc");
       }
     };
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -797,31 +817,80 @@ export default function EmployeeStatsPage() {
         if (!user) return;
         const { data: profile } = await supabase
           .from("profiles")
-          .select("tenant_id,company_name,user_photo")
+          .select("*")
           .eq("id", user.id)
           .single();
         setTenantId(profile?.tenant_id ?? null);
-        let resolvedLogo = profile?.user_photo || "";
-        if (profile?.company_name) {
-          setCompanyBrand(profile.company_name);
-        } else if (profile?.tenant_id) {
-          const { data: tenantData } = await supabase
-            .from("tenants")
-            .select("*")
-            .eq("id", profile.tenant_id)
-            .single();
-          if (tenantData?.name) setCompanyBrand(tenantData.name);
-          resolvedLogo =
-            resolvedLogo || tenantData?.logo_url || tenantData?.logo || "";
-          if (!resolvedLogo) {
-            const { data: wsData } = await supabase
+        const profileCompany = pickFirst(
+          profile?.company_name,
+          profile?.organization_name,
+          profile?.company,
+        );
+        let resolvedBrand = profileCompany || "Your Company";
+        let resolvedLogo = pickFirst(
+          profile?.company_logo_url,
+          profile?.company_logo,
+          profile?.logo_url,
+          profile?.user_photo,
+        );
+
+        if (profile?.tenant_id) {
+          const [{ data: tenantData }, { data: wsData }, { data: adminBrandRow }] =
+            await Promise.all([
+            supabase
+              .from("tenants")
+              .select("*")
+              .eq("id", profile.tenant_id)
+              .maybeSingle(),
+            supabase
               .from("workspace_settings")
               .select("*")
               .eq("tenant_id", profile.tenant_id)
-              .maybeSingle();
-            resolvedLogo = wsData?.logo_url || wsData?.brand_logo_url || "";
-          }
+              .maybeSingle(),
+            supabase
+              .from("profiles")
+              .select(
+                "company_name, organization_name, company, company_logo_url, company_logo, logo_url, user_photo",
+              )
+              .eq("tenant_id", profile.tenant_id)
+              .in("role", ["admin", "superadmin"])
+              .limit(1)
+              .maybeSingle(),
+          ]);
+
+          resolvedBrand =
+            pickFirst(
+              profileCompany,
+              adminBrandRow?.company_name,
+              adminBrandRow?.organization_name,
+              adminBrandRow?.company,
+              wsData?.company_name,
+              wsData?.organization_name,
+              wsData?.workspace_name,
+              wsData?.brand_name,
+              wsData?.app_name,
+              tenantData?.company_name,
+              tenantData?.display_name,
+              tenantData?.brand_name,
+              tenantData?.name,
+            ) || "Your Company";
+
+          resolvedLogo = pickFirst(
+            resolvedLogo,
+            adminBrandRow?.company_logo_url,
+            adminBrandRow?.company_logo,
+            adminBrandRow?.logo_url,
+            adminBrandRow?.user_photo,
+            wsData?.logo_url,
+            wsData?.company_logo,
+            wsData?.brand_logo_url,
+            wsData?.logo,
+            tenantData?.logo_url,
+            tenantData?.logo,
+            tenantData?.company_logo,
+          );
         }
+        setCompanyBrand(resolvedBrand);
         setCompanyLogoUrl(resolvedLogo || "");
       } catch (e) {
         console.error(e);
@@ -1292,42 +1361,22 @@ export default function EmployeeStatsPage() {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 10,
-                background: "linear-gradient(135deg,#4f46e5,#7c3aed)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 4px 12px rgba(79,70,229,0.3)",
-              }}
-            >
-              <DollarSign size={16} color="#fff" strokeWidth={2.5} />
-            </div>
             <div>
               <h1
                 style={{
-                  margin: 0,
-                  fontSize: 16,
+                  margin: "0 0 4px",
+                  fontSize: 26,
                   fontWeight: 800,
                   color: "var(--asp-text)",
-                  letterSpacing: "-0.03em",
-                  lineHeight: 1.2,
+                  letterSpacing: "-0.04em",
+                  lineHeight: 1,
                 }}
               >
                 Payroll
               </h1>
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "var(--asp-muted)",
-                  fontFamily: "'DM Sans',sans-serif",
-                }}
-              >
-                {monthLabel}
-              </div>
+              <p style={{ margin: 0, color: "var(--asp-muted)", fontSize: 13 }}>
+                Simplify payroll. Empower your team
+              </p>
             </div>
           </div>
           <div
@@ -1355,13 +1404,13 @@ export default function EmployeeStatsPage() {
                 alignItems: "center",
                 gap: 6,
                 padding: "7px 14px",
-                background: "var(--asp-surface)",
-                border: "1px solid var(--asp-border)",
+                background: "transparent",
+                border: "1px solid #3453b7",
                 borderRadius: 10,
                 cursor: "pointer",
                 fontSize: 12,
                 fontWeight: 600,
-                color: "var(--asp-sub)",
+                color: "#3453b7",
                 fontFamily: "'DM Sans',sans-serif",
                 width: isMobile ? "100%" : "auto",
                 justifyContent: "center",
@@ -1377,8 +1426,8 @@ export default function EmployeeStatsPage() {
                 alignItems: "center",
                 gap: 6,
                 padding: "7px 14px",
-                background: "linear-gradient(135deg,#4f46e5,#7c3aed)",
-                border: "none",
+                background: "#3453b7",
+                border: "1px solid #3453b7",
                 borderRadius: 10,
                 cursor: "pointer",
                 fontSize: 12,
@@ -1387,7 +1436,7 @@ export default function EmployeeStatsPage() {
                 fontFamily: "'DM Sans',sans-serif",
                 width: isMobile ? "100%" : "auto",
                 justifyContent: "center",
-                boxShadow: "0 4px 12px rgba(79,70,229,0.25)",
+                boxShadow: "0 4px 12px rgba(52,83,183,0.22)",
               }}
             >
               <Download size={13} /> Export PDF
@@ -1399,38 +1448,82 @@ export default function EmployeeStatsPage() {
       <div style={{ padding: isMobile ? "16px" : "24px 28px 36px" }}>
         {loading ? (
           <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "center",
-              alignItems: "center",
-              height: 360,
-              gap: 16,
-            }}
+            className="asp-fade"
+            style={{ display: "grid", gap: 16 }}
           >
             <div
               style={{
-                width: 48,
-                height: 48,
-                borderRadius: 14,
-                background: "linear-gradient(135deg,#4f46e5,#7c3aed)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 8px 24px rgba(79,70,229,0.3)",
+                display: "grid",
+                gridTemplateColumns: isMobile
+                  ? "repeat(2,minmax(0,1fr))"
+                  : "repeat(4,minmax(0,1fr))",
+                gap: 12,
               }}
             >
-              <DollarSign size={22} color="#fff" strokeWidth={2} />
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div
+                  key={`sk-kpi-${i}`}
+                  style={{
+                    background: "var(--asp-card)",
+                    borderRadius: 16,
+                    padding: "16px 18px",
+                    display: "grid",
+                    gap: 10,
+                  }}
+                >
+                  <div
+                    className="asp-skel"
+                    style={{ width: "46%", height: 10, borderRadius: 6 }}
+                  />
+                  <div
+                    className="asp-skel"
+                    style={{ width: "38%", height: 26, borderRadius: 8 }}
+                  />
+                  <div
+                    className="asp-skel"
+                    style={{ width: "52%", height: 10, borderRadius: 6 }}
+                  />
+                </div>
+              ))}
             </div>
-            <Spin size="large" />
+
             <div
               style={{
-                fontSize: 13,
-                color: "var(--asp-muted)",
-                fontFamily: "'DM Sans',sans-serif",
+                background: "var(--asp-card)",
+                borderRadius: 16,
+                padding: isMobile ? 16 : 20,
+                display: "grid",
+                gap: 12,
               }}
             >
-              Loading payroll data…
+              <div className="asp-skel" style={{ width: 220, height: 16 }} />
+              <div className="asp-skel" style={{ width: 180, height: 11 }} />
+              <div className="asp-skel" style={{ width: "100%", height: 120 }} />
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                gap: 14,
+              }}
+            >
+              {Array.from({ length: 2 }).map((_, i) => (
+                <div
+                  key={`sk-chart-${i}`}
+                  style={{
+                    background: "var(--asp-card)",
+                    borderRadius: 16,
+                    padding: 20,
+                    display: "grid",
+                    gap: 12,
+                  }}
+                >
+                  <div className="asp-skel" style={{ width: 180, height: 16 }} />
+                  <div className="asp-skel" style={{ width: 140, height: 11 }} />
+                  <div className="asp-skel" style={{ width: "100%", height: 180 }} />
+                </div>
+              ))}
             </div>
           </div>
         ) : employees.length === 0 ? (
@@ -1488,25 +1581,14 @@ export default function EmployeeStatsPage() {
                   key={k.label}
                   className="asp-card asp-fade"
                   style={{
-                    border: "1px solid var(--asp-border)",
+                    border: "none",
                     borderRadius: 16,
                     background: "var(--asp-card)",
                     padding: "16px 18px",
                     animationDelay: `${i * 40}ms`,
                     position: "relative",
-                    overflow: "hidden",
                   }}
                 >
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: 3,
-                      background: `linear-gradient(90deg,${k.color},${k.color}88)`,
-                    }}
-                  />
                   <div
                     style={{
                       display: "flex",
@@ -1564,7 +1646,7 @@ export default function EmployeeStatsPage() {
             {/* ── Currency Breakdown ── */}
             <div
               style={{
-                border: "1px solid var(--asp-border)",
+                border: "none",
                 borderRadius: 16,
                 background: "var(--asp-card)",
                 padding: isMobile ? 16 : 20,
@@ -1626,7 +1708,7 @@ export default function EmployeeStatsPage() {
                         key={item.currency}
                         className="asp-card"
                         style={{
-                          border: "1px solid var(--asp-border)",
+                          border: "none",
                           borderRadius: 14,
                           background: dark ? "#18181c" : "#f8fafc",
                           padding: 16,
@@ -1817,7 +1899,7 @@ export default function EmployeeStatsPage() {
               {/* Team Distribution */}
               <div
                 style={{
-                  border: "1px solid var(--asp-border)",
+                  border: "none",
                   borderRadius: 16,
                   background: "var(--asp-card)",
                   padding: 20,
@@ -2064,7 +2146,7 @@ export default function EmployeeStatsPage() {
               {/* Monthly Trend */}
               <div
                 style={{
-                  border: "1px solid var(--asp-border)",
+                  border: "none",
                   borderRadius: 16,
                   background: "var(--asp-card)",
                   padding: 20,
@@ -2228,7 +2310,7 @@ export default function EmployeeStatsPage() {
             {/* ── Employee Payroll Table ── */}
             <div
               style={{
-                border: "1px solid var(--asp-border)",
+                border: "none",
                 borderRadius: 16,
                 background: "var(--asp-card)",
                 overflow: "hidden",

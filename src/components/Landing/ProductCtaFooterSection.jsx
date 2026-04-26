@@ -3,6 +3,10 @@ import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 
 export default function ProductCtaFooterSection() {
+  const PRIVACY_POLICY_URL =
+    "https://res.cloudinary.com/dge3lt4u6/image/upload/v1777137233/Ryzent_AI_Privacy_Policy_sa791w.pdf";
+  const TERMS_OF_USE_URL =
+    "https://res.cloudinary.com/dge3lt4u6/image/upload/v1777137232/Ryzent_AI_Terms_and_Conditions_sku63t.pdf";
   const footerLinkMap = {
     "About Ryzent AI": "/company",
     Careers: "/careers",
@@ -20,6 +24,14 @@ export default function ProductCtaFooterSection() {
     "Help Center": "/product/support",
     "Trust Center": "/trust-center",
     "System Status": "/status",
+    "Ryzent Community": "/community",
+    Blog: "/resources?tab=blogs_updates",
+    Documentation: "/resources?tab=documentation",
+    Tutorial: "/resources?tab=tutorials",
+    FAQs: "/resources?tab=faqs",
+    "Agentic AI Interview": "/recruitment",
+    "AI Meeting Summarizer": "/product/meetings",
+    "Contract Builder": "/product/contract-builder",
   };
 
   const socialLinks = [
@@ -35,8 +47,6 @@ export default function ProductCtaFooterSection() {
     {
       title: "Company",
       items: ["About Ryzent AI", "Careers"],
-      extraTitle: "Support",
-      extraItems: ["Help Center", "Trust Center", "System Status"],
     },
     {
       title: "Platform",
@@ -50,25 +60,17 @@ export default function ProductCtaFooterSection() {
       ],
     },
     {
-      title: "Industry",
-      items: [
-        "Tech Startups",
-        "Professional Services",
-        "Marketing Teams",
-        "Operations & HR",
-        "Finance Teams",
-        "Product Organizations",
-      ],
+      title: "AI Powered",
+      items: ["Agentic AI Interview", "AI Meeting Summarizer", "Contract Builder"],
     },
     {
       title: "Resources",
       items: [
-        "Ryzent Academy",
+        "Ryzent Community",
         "Blog",
         "Documentation",
-        "Implementation Guides",
-        "Release Notes",
-        "Community",
+        "Tutorial",
+        "FAQs",
       ],
     },
     {
@@ -82,16 +84,8 @@ export default function ProductCtaFooterSection() {
       ],
     },
     {
-      title: "Guides & Tools",
-      items: [
-        "Operational Playbook",
-        "AI Workflow Templates",
-        "Capacity Planning Guide",
-        "Hiring Pipeline Guide",
-        "Project Health Dashboard Guide",
-        "ROI Calculator",
-        "Automation Readiness Checklist",
-      ],
+      title: "Support",
+      items: ["Help Center", "Trust Center", "System Status"],
     },
   ];
 
@@ -207,9 +201,9 @@ export default function ProductCtaFooterSection() {
             </p>
 
             <div className="flex items-center gap-3 text-xs text-white/85 md:text-sm">
-              <span>Privacy policy</span>
+              <a href={PRIVACY_POLICY_URL} target="_blank" rel="noopener noreferrer" className="text-white/85 no-underline hover:text-white">Privacy policy</a>
               <span>•</span>
-              <span>Terms & conditions</span>
+              <a href={TERMS_OF_USE_URL} target="_blank" rel="noopener noreferrer" className="text-white/85 no-underline hover:text-white">Terms & conditions</a>
             </div>
           </div>
         </div>

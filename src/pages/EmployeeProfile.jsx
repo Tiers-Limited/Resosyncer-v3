@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { buildOtpEmail } from "../lib/emailTemplates";
 import dayjs from "dayjs";
 
 const { TextArea } = Input;
@@ -52,35 +53,30 @@ const sendEmail = async ({ to, subject, body, companyName }) => {
 const generateOtp = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
-const otpEmailHtml = (otp, name) => `
-  <div style="font-family:Arial,Helvetica,sans-serif;max-width:460px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
-    <div style="background:#0b1f5e;color:#fff;padding:20px 24px;">
-      <h2 style="margin:0;font-size:18px;font-weight:700;">Email verification code</h2>
-      <p style="margin:8px 0 0;font-size:13px;opacity:0.9;">Hi ${name}, use this code to enable email 2FA.</p>
-    </div>
-    <div style="padding:22px 24px;background:#f8fafc;">
-      <div style="background:#fff;border:1px dashed #cbd5e1;border-radius:10px;padding:18px;text-align:center;">
-        <div style="font-size:34px;font-weight:800;letter-spacing:8px;color:#0f172a;font-family:monospace;">${otp}</div>
-        <p style="margin:8px 0 0;font-size:12px;color:#64748b;">Expires in 10 minutes</p>
-      </div>
-    </div>
-  </div>
-`;
+const otpEmailHtml = (otp, name, companyName) =>
+  buildOtpEmail({
+    otp,
+    name,
+    title: "Email verification code",
+    intro: `Hi ${name}, use this code to enable email 2FA.`,
+    variant: "company",
+    companyName,
+  });
 
 /* ------------------------ Constants -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const CURRENCIES = [
   { code: "USD", symbol: "$", name: "US Dollar" },
-  { code: "EUR", symbol: "-------", name: "Euro" },
-  { code: "GBP", symbol: "----", name: "British Pound" },
-  { code: "PKR", symbol: "-------", name: "Pakistani Rupee" },
-  { code: "INR", symbol: "-------", name: "Indian Rupee" },
-  { code: "AED", symbol: "----.----", name: "UAE Dirham" },
-  { code: "SAR", symbol: "------", name: "Saudi Riyal" },
+  { code: "EUR", symbol: "EUR", name: "Euro" },
+  { code: "GBP", symbol: "GBP", name: "British Pound" },
+  { code: "PKR", symbol: "PKR", name: "Pakistani Rupee" },
+  { code: "INR", symbol: "INR", name: "Indian Rupee" },
+  { code: "AED", symbol: "AED", name: "UAE Dirham" },
+  { code: "SAR", symbol: "SAR", name: "Saudi Riyal" },
   { code: "CAD", symbol: "CA$", name: "Canadian Dollar" },
   { code: "AUD", symbol: "A$", name: "Australian Dollar" },
   { code: "SGD", symbol: "S$", name: "Singapore Dollar" },
-  { code: "JPY", symbol: "----", name: "Japanese Yen" },
-  { code: "CNY", symbol: "----", name: "Chinese Yuan" },
+  { code: "JPY", symbol: "JPY", name: "Japanese Yen" },
+  { code: "CNY", symbol: "CNY", name: "Chinese Yuan" },
   { code: "CHF", symbol: "Fr", name: "Swiss Franc" },
   { code: "OTHER", symbol: "", name: "Other (specify)" },
 ];
@@ -680,6 +676,8 @@ const EmployeeProfile = () => {
   const [otpExpiry, setOtpExpiry] = useState(null);
   const [resendCooldown, setResendCooldown] = useState(0);
   const { profile, refreshProfile } = useAuth();
+  const pickFirst = (...values) =>
+    values.find((v) => String(v || "").trim().length > 0) || "";
 
   // ------------------------ This ref holds ALL field values across all tabs at all times ------------------------
   const allValuesRef = useRef({});
@@ -744,49 +742,84 @@ const EmployeeProfile = () => {
   useEffect(() => {
     const resolveCompanyBrand = async () => {
       if (!profile) return;
-      const profileCompany = profile.company_name || "";
+      const profileCompany = pickFirst(
+        profile.company_name,
+        profile.organization_name,
+        profile.company,
+      );
       let resolvedName = profileCompany || "Your Company";
-      let resolvedLogo = "";
-
-      if (profileCompany) setCompanyBrand(profileCompany);
+      let resolvedLogo = pickFirst(
+        profile.company_logo_url,
+        profile.company_logo,
+        profile.logo_url,
+      );
 
       if (!profile.tenant_id) {
         setCompanyBrand(resolvedName);
-        setCompanyLogoUrl("");
+        setCompanyLogoUrl(resolvedLogo || "");
         return;
       }
       try {
-        const { data: tenantData } = await supabase
-          .from("tenants")
-          .select("*")
-          .eq("id", profile.tenant_id)
-          .single();
-
-        resolvedName = profileCompany || tenantData?.name || "Your Company";
-        resolvedLogo =
-          tenantData?.logo_url ||
-          tenantData?.logo ||
-          tenantData?.company_logo ||
-          "";
-
-        if (!resolvedLogo) {
-          const { data: wsData } = await supabase
+        const [{ data: tenantData }, { data: wsData }, { data: adminBrandRow }] =
+          await Promise.all([
+          supabase
+            .from("tenants")
+            .select("*")
+            .eq("id", profile.tenant_id)
+            .maybeSingle(),
+          supabase
             .from("workspace_settings")
             .select("*")
             .eq("tenant_id", profile.tenant_id)
-            .maybeSingle();
-          resolvedLogo =
-            wsData?.logo_url ||
-            wsData?.company_logo ||
-            wsData?.brand_logo_url ||
-            "";
-        }
+            .maybeSingle(),
+          supabase
+            .from("profiles")
+            .select(
+              "company_name, organization_name, company, company_logo_url, company_logo, logo_url, user_photo",
+            )
+            .eq("tenant_id", profile.tenant_id)
+            .in("role", ["admin", "superadmin"])
+            .limit(1)
+            .maybeSingle(),
+        ]);
+
+        resolvedName =
+          pickFirst(
+            profileCompany,
+            adminBrandRow?.company_name,
+            adminBrandRow?.organization_name,
+            adminBrandRow?.company,
+            wsData?.company_name,
+            wsData?.organization_name,
+            wsData?.workspace_name,
+            wsData?.brand_name,
+            wsData?.app_name,
+            tenantData?.company_name,
+            tenantData?.display_name,
+            tenantData?.brand_name,
+            tenantData?.name,
+          ) || "Your Company";
+
+        resolvedLogo = pickFirst(
+          resolvedLogo,
+          adminBrandRow?.company_logo_url,
+          adminBrandRow?.company_logo,
+          adminBrandRow?.logo_url,
+          adminBrandRow?.user_photo,
+          wsData?.logo_url,
+          wsData?.company_logo,
+          wsData?.brand_logo_url,
+          wsData?.logo,
+          tenantData?.logo_url,
+          tenantData?.logo,
+          tenantData?.company_logo,
+        );
 
         setCompanyBrand(resolvedName);
         setCompanyLogoUrl(resolvedLogo || "");
       } catch {
         setCompanyBrand(resolvedName);
-        setCompanyLogoUrl("");
+        setCompanyLogoUrl(resolvedLogo || "");
       }
     };
     resolveCompanyBrand();
@@ -1108,7 +1141,11 @@ const EmployeeProfile = () => {
     const emailRes = await sendEmail({
       to: profile?.email,
       subject: "Your verification code",
-      body: otpEmailHtml(otp, profile?.full_name || "there"),
+      body: otpEmailHtml(
+        otp,
+        profile?.full_name || "there",
+        companyBrand || "Resosyncer",
+      ),
       companyName: companyBrand || "Resosyncer",
     });
     if (!emailRes.success) throw new Error("Email send failed");
@@ -1645,7 +1682,7 @@ const EmployeeProfile = () => {
                 <TextArea rows={2} placeholder="Street, City, Country" />
               </Form.Item>
               <Form.Item name="bio" label="Bio">
-                <TextArea rows={3} placeholder="Tell us about yourself-------" />
+                <TextArea rows={3} placeholder="Tell us about yourself" />
               </Form.Item>
             </div>
             <SaveBar />
@@ -1662,7 +1699,7 @@ const EmployeeProfile = () => {
               </div>
               <div className="ep-grid-2">
                 <Form.Item name="employment_type" label="Employment Type">
-                  <Select placeholder="Select type" disabled>
+                  <Select placeholder="Select type">
                     {EMPLOYMENT_TYPES.map((t) => (
                       <Select.Option key={t.value} value={t.value}>
                         {t.label}
@@ -1696,7 +1733,7 @@ const EmployeeProfile = () => {
                     precision={1}
                     placeholder="8"
                     addonAfter="hrs"
-                    readOnly
+                    disabled
                   />
                 </Form.Item>
                 <Form.Item name="github_username" label="GitHub Username">
@@ -1712,7 +1749,7 @@ const EmployeeProfile = () => {
               <Form.Item name="skills" label="Skills">
                 <Select
                   mode="multiple"
-                  placeholder="Add skills-------"
+                  placeholder="Add skills"
                   allowClear
                   showSearch
                 >
@@ -1819,7 +1856,7 @@ const EmployeeProfile = () => {
                     </span>
                   }
                 >
-                  <Input placeholder="e.g. HSBC, Chase, Meezan Bank-------" />
+                  <Input placeholder="e.g. HSBC, Chase, Meezan Bank" />
                 </Form.Item>
                 <Form.Item name="bank_account_name" label="Account Holder Name">
                   <Input placeholder="As on bank records" />
@@ -1854,7 +1891,7 @@ const EmployeeProfile = () => {
                       <Select.Option key={c.code} value={c.code}>
                         {c.code === "OTHER"
                           ? "Other (type manually)"
-                          : `${c.symbol} ${c.code} -------- ${c.name}`}
+                          : `${c.symbol} ${c.code} - ${c.name}`}
                       </Select.Option>
                     ))}
                   </Select>

@@ -1,5 +1,5 @@
-﻿import { useState, useEffect, useMemo } from "react";
-import { Table, Button, message, Modal, Input, Select, Spin, Skeleton } from "antd";
+import { useState, useEffect } from "react";
+import { Table, Button, message, Modal, Input, Select, DatePicker } from "antd";
 import {
   PlusOutlined,
   SendOutlined,
@@ -19,12 +19,14 @@ import {
 } from "@ant-design/icons";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import dayjs from "dayjs";
 
 const { TextArea } = Input;
+const EMAIL_API = import.meta.env.VITE_EMAIL_API_URL;
 
 // ------------------------------------------------------ Theme styles (CSS variables) ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const THEME_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
 
   .rq-root {
     /* Backgrounds */
@@ -97,7 +99,23 @@ const THEME_STYLES = `
   }
 
   /* ------------------------------------ Font reset ------------------------------------ */
-  .rq-root * { font-family: 'Outfit', sans-serif !important; box-sizing: border-box; }
+  .rq-root * { font-family: 'DM Sans', sans-serif !important; box-sizing: border-box; }
+  @keyframes rqShimmer {
+    0% { background-position: -500px 0; }
+    100% { background-position: 500px 0; }
+  }
+  .rq-skel {
+    background: linear-gradient(
+      90deg,
+      var(--bg-subtle) 25%,
+      var(--border) 50%,
+      var(--bg-subtle) 75%
+    );
+    background-size: 500px 100%;
+    animation: rqShimmer 1.2s ease-in-out infinite;
+    border-radius: 8px;
+    border: 1px solid var(--border-subtle);
+  }
 
   /* ------------------------------------ Table ------------------------------------ */
   .rq-root .req-table .ant-table { background: transparent !important; }
@@ -189,68 +207,49 @@ const THEME_STYLES = `
 `;
 
 // ------------------------------------------------------ Token accessors ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-const STATUS_KEYS = ["pending", "approved", "rejected"];
-const TYPE_KEYS = ["advance_salary", "leave", "other"];
-
-const VAR_MAP = {
+const statusConfig = {
   pending: {
-    color: "--pending-color",
-    bg: "--pending-bg",
-    border: "--pending-border",
+    label: "Pending",
+    icon: <ClockCircleOutlined />,
+    color: "var(--pending-color)",
+    bg: "var(--pending-bg)",
+    border: "var(--pending-border)",
   },
   approved: {
-    color: "--approved-color",
-    bg: "--approved-bg",
-    border: "--approved-border",
+    label: "Approved",
+    icon: <CheckCircleOutlined />,
+    color: "var(--approved-color)",
+    bg: "var(--approved-bg)",
+    border: "var(--approved-border)",
   },
   rejected: {
-    color: "--rejected-color",
-    bg: "--rejected-bg",
-    border: "--rejected-border",
+    label: "Rejected",
+    icon: <CloseCircleOutlined />,
+    color: "var(--rejected-color)",
+    bg: "var(--rejected-bg)",
+    border: "var(--rejected-border)",
   },
+};
+
+const typeConfig = {
   advance_salary: {
-    color: "--type-advance-color",
-    bg: "--type-advance-bg",
-    border: "--type-advance-border",
+    label: "Advance Salary",
+    color: "var(--type-advance-color)",
+    bg: "var(--type-advance-bg)",
+    border: "var(--type-advance-border)",
   },
   leave: {
-    color: "--type-leave-color",
-    bg: "--type-leave-bg",
-    border: "--type-leave-border",
+    label: "Leave Request",
+    color: "var(--type-leave-color)",
+    bg: "var(--type-leave-bg)",
+    border: "var(--type-leave-border)",
   },
   other: {
-    color: "--type-other-color",
-    bg: "--type-other-bg",
-    border: "--type-other-border",
+    label: "Other",
+    color: "var(--type-other-color)",
+    bg: "var(--type-other-bg)",
+    border: "var(--type-other-border)",
   },
-};
-
-const STATUS_META = {
-  pending: { label: "Pending", icon: <ClockCircleOutlined /> },
-  approved: { label: "Approved", icon: <CheckCircleOutlined /> },
-  rejected: { label: "Rejected", icon: <CloseCircleOutlined /> },
-};
-
-const TYPE_META = {
-  advance_salary: { label: "Advance Salary" },
-  leave: { label: "Leave Request" },
-  other: { label: "Other" },
-};
-
-const readTokens = (el, keys) => {
-  const cs = el ? getComputedStyle(el) : { getPropertyValue: () => "" };
-  const g = (v) => cs.getPropertyValue(v).trim();
-  return Object.fromEntries(
-    keys.map((k) => [
-      k,
-      {
-        color: g(VAR_MAP[k].color),
-        bg: g(VAR_MAP[k].bg),
-        border: g(VAR_MAP[k].border),
-        ...(STATUS_META[k] || TYPE_META[k] || {}),
-      },
-    ]),
-  );
 };
 
 const getIsDarkTheme = () => {
@@ -267,6 +266,39 @@ const normalizePlanTier = (planName) => {
   if (value.includes("pro")) return "pro";
   if (value.includes("enterprise")) return "enterprise";
   return "unknown";
+};
+
+const formatDisplayDate = (date) => {
+  if (!date) return "-";
+  try {
+    return new Date(date).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return String(date);
+  }
+};
+
+const getRequestTypeLabel = (requestType) =>
+  typeConfig[requestType]?.label || "Request";
+
+const sendPlainEmail = async ({ to, subject, html, companyName }) => {
+  if (!EMAIL_API || !to) return { success: false, error: "EMAIL_API_NOT_CONFIGURED" };
+  const safeCompany = String(companyName || "").trim() || "Ryzent";
+  try {
+    const res = await fetch(`${EMAIL_API}/api/email/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to, subject, html, companyName: safeCompany }),
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) return { success: false, error: payload?.error || "EMAIL_SEND_FAILED" };
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err?.message || "EMAIL_SEND_FAILED" };
+  }
 };
 
 const RequestsLockedPaywall = ({ dark = false, planName, role }) => {
@@ -990,7 +1022,7 @@ const RequestsLockedPaywall = ({ dark = false, planName, role }) => {
   );
 };
 
-const RequestsContentSkeleton = () => {
+const RequestsContentSkeleton = ({ isMobile = false }) => {
   const cardStyles = {
     background: "var(--bg-card)",
     border: "1px solid var(--border)",
@@ -999,20 +1031,29 @@ const RequestsContentSkeleton = () => {
 
   return (
     <>
-      <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(4, minmax(0, 1fr))",
+          gap: 12,
+          marginBottom: 24,
+        }}
+      >
         {[1, 2, 3, 4].map((n) => (
           <div
             key={n}
             style={{
               ...cardStyles,
-              flex: "1 1 120px",
-              minWidth: 110,
+              minWidth: 0,
               padding: "16px 18px",
             }}
           >
-            <Skeleton.Button active size="small" shape="square" block />
-            <div style={{ height: 10 }} />
-            <Skeleton.Input active size="small" block />
+            <div
+              className="rq-skel"
+              style={{ width: 34, height: 34, borderRadius: 10, marginBottom: 10 }}
+            />
+            <div className="rq-skel" style={{ width: "58%", height: 10, marginBottom: 8 }} />
+            <div className="rq-skel" style={{ width: "42%", height: 22 }} />
           </div>
         ))}
       </div>
@@ -1030,17 +1071,29 @@ const RequestsContentSkeleton = () => {
             padding: "16px 20px",
             borderBottom: "1px solid var(--border-faint)",
             display: "flex",
-            alignItems: "center",
+            alignItems: isMobile ? "flex-start" : "center",
             justifyContent: "space-between",
+            gap: 10,
+            flexWrap: "wrap",
           }}
         >
-          <Skeleton.Input active size="small" style={{ width: 180 }} />
-          <Skeleton.Input active size="small" style={{ width: 140 }} />
+          <div className="rq-skel" style={{ width: 200, height: 34 }} />
+          {!isMobile && <div className="rq-skel" style={{ width: 150, height: 34 }} />}
         </div>
         <div style={{ padding: 16 }}>
           {[1, 2, 3, 4, 5].map((n) => (
-            <div key={n} style={{ marginBottom: n === 5 ? 0 : 14 }}>
-              <Skeleton active paragraph={{ rows: 1 }} title={false} />
+            <div
+              key={n}
+              style={{
+                marginBottom: n === 5 ? 0 : 14,
+                border: "1px solid var(--border-subtle)",
+                borderRadius: 12,
+                padding: "12px 14px",
+              }}
+            >
+              <div className="rq-skel" style={{ width: "50%", height: 12, marginBottom: 8 }} />
+              <div className="rq-skel" style={{ width: "72%", height: 10, marginBottom: 8 }} />
+              <div className="rq-skel" style={{ width: isMobile ? "45%" : "28%", height: 10 }} />
             </div>
           ))}
         </div>
@@ -1051,15 +1104,8 @@ const RequestsContentSkeleton = () => {
 
 const Requests = () => {
   const [dark, setDark] = useState(getIsDarkTheme);
-  const [rootEl, setRootEl] = useState(null);
-
-  const statusConfig = useMemo(
-    () => readTokens(rootEl, STATUS_KEYS),
-    [rootEl, dark],
-  );
-  const typeConfig = useMemo(
-    () => readTokens(rootEl, TYPE_KEYS),
-    [rootEl, dark],
+  const [viewportWidth, setViewportWidth] = useState(
+    typeof window !== "undefined" ? window.innerWidth : 1200,
   );
 
   const [requests, setRequests] = useState([]);
@@ -1077,9 +1123,11 @@ const Requests = () => {
     request_type: "",
     subject: "",
     description: "",
+    leave_date: "",
   });
 
   const { profile } = useAuth();
+  const senderCompanyName = String(profile?.company_name || "").trim() || "Ryzent";
 
   // Theme listener
   useEffect(() => {
@@ -1092,6 +1140,14 @@ const Requests = () => {
       mq.removeEventListener("change", sync);
     };
   }, []);
+
+  useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const isMobile = viewportWidth <= 768;
 
   // Auth init
   useEffect(() => {
@@ -1154,6 +1210,83 @@ const Requests = () => {
     }
   };
 
+  const getMainAdminForTenant = async () => {
+    if (!tenantId) return null;
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id,full_name,email,created_at")
+      .eq("tenant_id", tenantId)
+      .eq("role", "admin")
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data || null;
+  };
+
+  const sendRequestCreatedEmailToMainAdmin = async ({ requestRow }) => {
+    try {
+      const admin = await getMainAdminForTenant();
+      if (!admin?.email) return;
+      const requestTypeLabel = getRequestTypeLabel(requestRow?.request_type);
+      const leaveDateLine =
+        requestRow?.request_type === "leave" && requestRow?.leave_date
+          ? `<p style="margin:0 0 10px;">Leave date: ${formatDisplayDate(requestRow.leave_date)}</p>`
+          : "";
+      const subject = `New ${requestTypeLabel} Submitted`;
+      const html = `
+        <p style="margin:0 0 10px;">Hello ${admin.full_name || "Admin"},</p>
+        <p style="margin:0 0 10px;">
+          A new ${requestTypeLabel.toLowerCase()} has been submitted by ${profile?.full_name || "an employee"}.
+        </p>
+        <p style="margin:0 0 10px;">Subject: ${requestRow?.subject || "-"}</p>
+        ${leaveDateLine}
+        <p style="margin:0 0 10px;">Description: ${requestRow?.description || "-"}</p>
+        <p style="margin:0;">Please review this request in the Requests module.</p>
+      `;
+      await sendPlainEmail({
+        to: admin.email,
+        subject,
+        html,
+        companyName: senderCompanyName,
+      });
+    } catch (err) {
+      console.warn("[Requests] Failed to notify main admin:", err?.message || err);
+    }
+  };
+
+  const sendRequestResponseEmailToEmployee = async ({ requestRow, status, response }) => {
+    try {
+      const employeeEmail = requestRow?.profiles?.email;
+      if (!employeeEmail) return;
+      const requestTypeLabel = getRequestTypeLabel(requestRow?.request_type);
+      const decisionLabel = status === "approved" ? "Approved" : "Rejected";
+      const leaveDateLine =
+        requestRow?.request_type === "leave" && requestRow?.leave_date
+          ? `<p style="margin:0 0 10px;">Leave date: ${formatDisplayDate(requestRow.leave_date)}</p>`
+          : "";
+      const subject = `Your ${requestTypeLabel} Has Been ${decisionLabel}`;
+      const html = `
+        <p style="margin:0 0 10px;">Hello ${requestRow?.profiles?.full_name || "Employee"},</p>
+        <p style="margin:0 0 10px;">
+          Your ${requestTypeLabel.toLowerCase()} has been ${decisionLabel.toLowerCase()}.
+        </p>
+        <p style="margin:0 0 10px;">Subject: ${requestRow?.subject || "-"}</p>
+        ${leaveDateLine}
+        <p style="margin:0 0 10px;">Response: ${response || "-"}</p>
+        <p style="margin:0;">Regards,<br/>${profile?.full_name || "Admin Team"}<br/>${senderCompanyName}</p>
+      `;
+      await sendPlainEmail({
+        to: employeeEmail,
+        subject,
+        html,
+        companyName: senderCompanyName,
+      });
+    } catch (err) {
+      console.warn("[Requests] Failed to notify employee:", err?.message || err);
+    }
+  };
+
   const handleCreateRequest = async () => {
     if (!profile?.id) {
       message.error("Please wait for profile to load");
@@ -1167,24 +1300,37 @@ const Requests = () => {
       message.error("Please fill all required fields");
       return;
     }
+    if (createFormData.request_type === "leave" && !createFormData.leave_date) {
+      message.error("Please select leave date");
+      return;
+    }
     setLoading(true);
     try {
+      const payload = {
+        user_id: profile.id,
+        tenant_id: tenantId,
+        request_type: createFormData.request_type,
+        subject: createFormData.subject,
+        description: createFormData.description,
+        status: "pending",
+        leave_date:
+          createFormData.request_type === "leave" && createFormData.leave_date
+            ? createFormData.leave_date
+            : null,
+      };
       const { error } = await supabase
         .from("requests")
-        .insert([
-          {
-            user_id: profile.id,
-            tenant_id: tenantId,
-            request_type: createFormData.request_type,
-            subject: createFormData.subject,
-            description: createFormData.description,
-            status: "pending",
-          },
-        ]);
+        .insert([payload]);
       if (error) throw error;
       message.success("Request submitted successfully");
+      await sendRequestCreatedEmailToMainAdmin({ requestRow: payload });
       setCreateModal(false);
-      setCreateFormData({ request_type: "", subject: "", description: "" });
+      setCreateFormData({
+        request_type: "",
+        subject: "",
+        description: "",
+        leave_date: "",
+      });
       fetchRequests();
     } catch {
       message.error("Failed to submit request");
@@ -1211,6 +1357,11 @@ const Requests = () => {
         .eq("id", selectedRequest.id);
       if (error) throw error;
       message.success("Response submitted successfully");
+      await sendRequestResponseEmailToEmployee({
+        requestRow: selectedRequest,
+        status: formData.status,
+        response: formData.response,
+      });
       setResponseModal(false);
       setFormData({ status: "", response: "" });
       fetchRequests();
@@ -1227,58 +1378,67 @@ const Requests = () => {
     approved: requests.filter((r) => r.status === "approved").length,
     rejected: requests.filter((r) => r.status === "rejected").length,
   };
+  const isProjectManager = profile?.role === "project_manager";
+
+  const formatShortDate = (date) =>
+    new Date(date).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
 
   // ------------------------------------ Columns ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  const columns = [
-    {
-      title: "Employee",
-      key: "employee",
-      render: (_, rec) => (
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+  const employeeColumn = {
+    title: "Employee",
+    key: "employee",
+    render: (_, rec) => (
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: "50%",
+            background: "linear-gradient(135deg,#6366f1,#0ea5e9)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 13,
+            fontWeight: 700,
+            color: "#fff",
+            flexShrink: 0,
+            overflow: "hidden",
+          }}
+        >
+          {rec.profiles?.user_photo ? (
+            <img
+              src={rec.profiles.user_photo}
+              alt=""
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            (rec.profiles?.full_name || "?")[0].toUpperCase()
+          )}
+        </div>
+        <div>
           <div
             style={{
-              width: 34,
-              height: 34,
-              borderRadius: "50%",
-              background: "linear-gradient(135deg,#6366f1,#0ea5e9)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              fontWeight: 600,
               fontSize: 13,
-              fontWeight: 700,
-              color: "#fff",
-              flexShrink: 0,
-              overflow: "hidden",
+              color: "var(--text-primary)",
+              lineHeight: 1.2,
             }}
           >
-            {rec.profiles?.user_photo ? (
-              <img
-                src={rec.profiles.user_photo}
-                alt=""
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              />
-            ) : (
-              (rec.profiles?.full_name || "?")[0].toUpperCase()
-            )}
+            {rec.profiles?.full_name || "-"}
           </div>
-          <div>
-            <div
-              style={{
-                fontWeight: 600,
-                fontSize: 13,
-                color: "var(--text-primary)",
-                lineHeight: 1.2,
-              }}
-            >
-              {rec.profiles?.full_name || "-"}
-            </div>
-            <div style={{ fontSize: 11, color: "var(--text-faint)" }}>
-              {rec.profiles?.email || ""}
-            </div>
+          <div style={{ fontSize: 11, color: "var(--text-faint)" }}>
+            {rec.profiles?.email || ""}
           </div>
         </div>
-      ),
-    },
+      </div>
+    ),
+  };
+
+  const baseColumns = [
     {
       title: "Type",
       dataIndex: "request_type",
@@ -1347,16 +1507,22 @@ const Requests = () => {
       },
     },
     {
+      title: "Leave Date",
+      dataIndex: "leave_date",
+      key: "leave_date",
+      render: (_, rec) => (
+        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+          {rec.request_type === "leave" ? formatDisplayDate(rec.leave_date) : "-"}
+        </span>
+      ),
+    },
+    {
       title: "Date",
       dataIndex: "created_at",
       key: "created_at",
       render: (date) => (
         <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-          {new Date(date).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}
+          {formatDisplayDate(date)}
         </span>
       ),
     },
@@ -1408,6 +1574,7 @@ const Requests = () => {
       },
     },
   ];
+  const columns = isProjectManager ? baseColumns : [employeeColumn, ...baseColumns];
 
   // ------------------------------------ Shared label helper ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const FieldLabel = ({ children, required }) => (
@@ -1431,19 +1598,22 @@ const Requests = () => {
         className={`rq-root${dark ? " dark" : ""}`}
         style={{
           minHeight: "100vh",
-          background: dark ? "#141416" : "#f8fafc",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          background: "var(--bg-page)",
+          padding: isMobile ? "18px 12px 20px" : "28px 32px",
         }}
       >
         <style>{THEME_STYLES}</style>
-        <div style={{ textAlign: "center" }}>
-          <Spin size="large" />
-          <p style={{ marginTop: 12, color: dark ? "#94a3b8" : "#64748b" }}>
-            Loading your workspace...
-          </p>
+        <div style={{ marginBottom: isMobile ? 18 : 28 }}>
+          <div
+            className="rq-skel"
+            style={{ width: isMobile ? 100 : 120, height: 12, marginBottom: 8 }}
+          />
+          <div
+            className="rq-skel"
+            style={{ width: isMobile ? 160 : 210, height: isMobile ? 32 : 38 }}
+          />
         </div>
+        <RequestsContentSkeleton isMobile={isMobile} />
       </div>
     );
   }
@@ -1460,12 +1630,11 @@ const Requests = () => {
 
   return (
     <div
-      ref={setRootEl}
       className={`rq-root${dark ? " dark" : ""}`}
       style={{
         minHeight: "100vh",
         background: "var(--bg-page)",
-        padding: "28px 32px",
+        padding: isMobile ? "18px 12px 20px" : "28px 32px",
       }}
     >
       <style>{THEME_STYLES}</style>
@@ -1476,53 +1645,31 @@ const Requests = () => {
           display: "flex",
           alignItems: "flex-start",
           justifyContent: "space-between",
-          marginBottom: 28,
+          marginBottom: isMobile ? 18 : 28,
           flexWrap: "wrap",
-          gap: 16,
+          gap: isMobile ? 12 : 16,
         }}
       >
         <div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              marginBottom: 4,
-            }}
-          >
-            <div
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: "50%",
-                background: "var(--text-primary)",
-              }}
-            />
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: "var(--text-faint)",
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-              }}
-            >
-              Management
-            </span>
-          </div>
           <h1
             style={{
-              margin: 0,
-              fontSize: 26,
+              margin: "0 0 4px",
+              fontSize: isMobile ? 22 : 26,
               fontWeight: 800,
               color: "var(--text-primary)",
               letterSpacing: -0.5,
+              lineHeight: 1,
             }}
           >
             Requests
           </h1>
+          <p style={{ margin: 0, color: "var(--text-muted)", fontSize: 13 }}>
+            {isProjectManager
+              ? "Your requests, approvals, and response history"
+              : "Employee requests, approvals, and response history"}
+          </p>
         </div>
-        {profile?.role === "project_manager" && (
+        {isProjectManager && (
           <Button
             disabled={requestsLoading}
             icon={<PlusOutlined />}
@@ -1537,6 +1684,7 @@ const Requests = () => {
               fontWeight: 700,
               fontSize: 13,
               boxShadow: "var(--shadow-btn)",
+              width: isMobile ? "100%" : "auto",
             }}
           >
             New Request
@@ -1545,12 +1693,19 @@ const Requests = () => {
       </div>
 
       {requestsLoading ? (
-        <RequestsContentSkeleton />
+        <RequestsContentSkeleton isMobile={isMobile} />
       ) : (
         <>
       {/* ------------------------------------ Stat Cards ------------------------------------ */}
       <div
-        style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}
+        style={{
+          display: "grid",
+          gridTemplateColumns: isMobile
+            ? "repeat(2, minmax(0, 1fr))"
+            : "repeat(4, minmax(0, 1fr))",
+          gap: 12,
+          marginBottom: 24,
+        }}
       >
         {[
           {
@@ -1590,8 +1745,7 @@ const Requests = () => {
             key={label}
             className="stat-card"
             style={{
-              flex: "1 1 120px",
-              minWidth: 110,
+              minWidth: 0,
               padding: "16px 18px",
               borderRadius: 14,
               border: `1px solid ${border}`,
@@ -1644,8 +1798,10 @@ const Requests = () => {
             padding: "16px 20px",
             borderBottom: "1px solid var(--border-faint)",
             display: "flex",
-            alignItems: "center",
+            alignItems: isMobile ? "flex-start" : "center",
             justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 10,
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1659,7 +1815,7 @@ const Requests = () => {
                 color: "var(--text-primary)",
               }}
             >
-              All Requests
+              {isProjectManager ? "My Requests" : "All Requests"}
             </span>
             <span
               style={{
@@ -1674,59 +1830,197 @@ const Requests = () => {
               {requests.length}
             </span>
           </div>
-          <span style={{ fontSize: 12, color: "var(--text-faint)" }}>
-            Click a row to expand details
-          </span>
+          {!isMobile && (
+            <span style={{ fontSize: 12, color: "var(--text-faint)" }}>
+              Click a row to expand details
+            </span>
+          )}
         </div>
-
-        <Table
-          className="req-table"
-          columns={columns}
-          dataSource={requests}
-          rowKey="id"
-          onRow={(rec) => ({
-            onClick: () =>
-              setExpandedRow(expandedRow === rec.id ? null : rec.id),
-          })}
-          expandable={{
-            expandedRowKeys: expandedRow ? [expandedRow] : [],
-            showExpandColumn: false,
-            expandedRowRender: (record) => {
-              const sCfg = statusConfig[record.status] || statusConfig.pending;
-              return (
-                <div
-                  style={{
-                    padding: "20px 24px 20px 70px",
-                    background: "var(--bg-card-alt)",
-                    borderTop: "1px solid var(--border-subtle)",
-                  }}
-                >
-                  <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
-                    <div style={{ flex: 2, minWidth: 220 }}>
-                      <div
+        {isMobile ? (
+          <div style={{ padding: "10px 10px 12px" }}>
+            {requests.length === 0 ? (
+              <div
+                style={{
+                  padding: "22px 12px",
+                  textAlign: "center",
+                  color: "var(--text-muted)",
+                  fontSize: 13,
+                }}
+              >
+                No requests found.
+              </div>
+            ) : (
+              requests.map((record) => {
+                const sCfg = statusConfig[record.status] || statusConfig.pending;
+                const tCfg = typeConfig[record.request_type] || typeConfig.other;
+                const isExpanded = expandedRow === record.id;
+                return (
+                  <div
+                    key={record.id}
+                    onClick={() => setExpandedRow(isExpanded ? null : record.id)}
+                    style={{
+                      border: "1px solid var(--border)",
+                      borderRadius: 12,
+                      padding: "12px 12px 10px",
+                      marginBottom: 10,
+                      background: "var(--bg-card-alt)",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 14,
+                            fontWeight: 700,
+                            color: "var(--text-primary)",
+                            lineHeight: 1.3,
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {record.subject}
+                        </div>
+                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>
+                          {isProjectManager
+                            ? formatShortDate(record.created_at)
+                            : `${record.profiles?.full_name || "-"} | ${formatShortDate(record.created_at)}`}
+                        </div>
+                        {record.request_type === "leave" && (
+                          <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                            Leave Date: {formatDisplayDate(record.leave_date)}
+                          </div>
+                        )}
+                      </div>
+                      <span
                         style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          padding: "3px 8px",
+                          borderRadius: 999,
+                          border: `1px solid ${sCfg.border}`,
+                          background: sCfg.bg,
                           fontSize: 10,
                           fontWeight: 700,
-                          color: "var(--text-faint)",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.06em",
-                          marginBottom: 6,
+                          color: sCfg.color,
+                          whiteSpace: "nowrap",
+                          height: "fit-content",
                         }}
                       >
-                        Description
-                      </div>
-                      <p
-                        style={{
-                          margin: 0,
-                          fontSize: 13,
-                          color: "var(--text-secondary)",
-                          lineHeight: 1.7,
-                        }}
-                      >
-                        {record.description || "No description provided"}
-                      </p>
+                        {sCfg.icon} {sCfg.label}
+                      </span>
                     </div>
-                    {record.response && (
+                    <div style={{ marginTop: 8 }}>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          padding: "2px 8px",
+                          borderRadius: 20,
+                          border: `1px solid ${tCfg.border}`,
+                          background: tCfg.bg,
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: tCfg.color,
+                        }}
+                      >
+                        {tCfg.label}
+                      </span>
+                    </div>
+                    {isExpanded && (
+                      <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border-faint)" }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-faint)", marginBottom: 5 }}>
+                          Description
+                        </div>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: 12,
+                            color: "var(--text-secondary)",
+                            lineHeight: 1.6,
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {record.description || "No description provided"}
+                        </p>
+                        {record.response && (
+                          <>
+                            <div
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 700,
+                                color: "var(--text-faint)",
+                                marginTop: 8,
+                                marginBottom: 5,
+                              }}
+                            >
+                              Response
+                            </div>
+                            <p
+                              style={{
+                                margin: 0,
+                                fontSize: 12,
+                                color: "var(--text-secondary)",
+                                lineHeight: 1.6,
+                                wordBreak: "break-word",
+                              }}
+                            >
+                              {record.response}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    )}
+                    {profile?.role !== "project_manager" && record.status === "pending" && (
+                      <Button
+                        icon={<MessageOutlined />}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedRequest(record);
+                          setResponseModal(true);
+                        }}
+                        style={{
+                          marginTop: 10,
+                          width: "100%",
+                          borderRadius: 8,
+                          height: 34,
+                          fontWeight: 600,
+                          fontSize: 12,
+                          background: "var(--text-primary)",
+                          border: "none",
+                          color: "var(--bg-page)",
+                        }}
+                      >
+                        Respond
+                      </Button>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        ) : (
+          <Table
+            className="req-table"
+            columns={columns}
+            dataSource={requests}
+            rowKey="id"
+            onRow={(rec) => ({
+              onClick: () =>
+                setExpandedRow(expandedRow === rec.id ? null : rec.id),
+            })}
+            expandable={{
+              expandedRowKeys: expandedRow ? [expandedRow] : [],
+              showExpandColumn: false,
+              expandedRowRender: (record) => {
+                const sCfg = statusConfig[record.status] || statusConfig.pending;
+                return (
+                  <div
+                    style={{
+                      padding: isProjectManager ? "20px 24px" : "20px 24px 20px 70px",
+                      background: "var(--bg-card-alt)",
+                      borderTop: "1px solid var(--border-subtle)",
+                    }}
+                  >
+                    <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
                       <div style={{ flex: 2, minWidth: 220 }}>
                         <div
                           style={{
@@ -1738,7 +2032,7 @@ const Requests = () => {
                             marginBottom: 6,
                           }}
                         >
-                          Response
+                          Description
                         </div>
                         <p
                           style={{
@@ -1748,69 +2042,117 @@ const Requests = () => {
                             lineHeight: 1.7,
                           }}
                         >
-                          {record.response}
+                          {record.description || "No description provided"}
                         </p>
+                        {record.request_type === "leave" && (
+                          <p
+                            style={{
+                              margin: "10px 0 0",
+                              fontSize: 12,
+                              color: "var(--text-muted)",
+                            }}
+                          >
+                            <strong>Leave Date:</strong> {formatDisplayDate(record.leave_date)}
+                          </p>
+                        )}
                       </div>
-                    )}
-                    <div style={{ minWidth: 140 }}>
-                      <div
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 700,
-                          color: "var(--text-faint)",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.06em",
-                          marginBottom: 6,
-                        }}
-                      >
-                        Status
-                      </div>
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 6,
-                          padding: "6px 14px",
-                          borderRadius: 20,
-                          border: `1px solid ${sCfg.border}`,
-                          background: sCfg.bg,
-                          fontSize: 12,
-                          fontWeight: 700,
-                          color: sCfg.color,
-                        }}
-                      >
-                        {sCfg.icon} {sCfg.label}
-                      </span>
-                      {record.responded_at && (
-                        <div
-                          style={{
-                            fontSize: 11,
-                            color: "var(--text-faint)",
-                            marginTop: 6,
-                          }}
-                        >
-                          {new Date(record.responded_at).toLocaleDateString(
-                            "en-US",
-                            { month: "short", day: "numeric" },
-                          )}
+                      {record.response && (
+                        <div style={{ flex: 2, minWidth: 220 }}>
+                          <div
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              color: "var(--text-faint)",
+                              textTransform: "uppercase",
+                              letterSpacing: "0.06em",
+                              marginBottom: 6,
+                            }}
+                          >
+                            Response
+                          </div>
+                          <p
+                            style={{
+                              margin: 0,
+                              fontSize: 13,
+                              color: "var(--text-secondary)",
+                              lineHeight: 1.7,
+                            }}
+                          >
+                            {record.response}
+                          </p>
                         </div>
                       )}
+                      <div style={{ minWidth: 140 }}>
+                        <div
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            color: "var(--text-faint)",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.06em",
+                            marginBottom: 6,
+                          }}
+                        >
+                          Status
+                        </div>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "6px 14px",
+                            borderRadius: 20,
+                            border: `1px solid ${sCfg.border}`,
+                            background: sCfg.bg,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: sCfg.color,
+                          }}
+                        >
+                          {sCfg.icon} {sCfg.label}
+                        </span>
+                        {record.request_type === "leave" && (
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: "var(--text-muted)",
+                              marginTop: 6,
+                            }}
+                          >
+                            Leave: {formatDisplayDate(record.leave_date)}
+                          </div>
+                        )}
+                        {record.responded_at && (
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: "var(--text-faint)",
+                              marginTop: 6,
+                            }}
+                          >
+                            {new Date(record.responded_at).toLocaleDateString(
+                              "en-US",
+                              { month: "short", day: "numeric" },
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            },
-          }}
-          pagination={{
-            pageSize: 10,
-            showTotal: (total) => (
-              <span style={{ fontSize: 12, color: "var(--text-faint)" }}>
-                {total} requests
-              </span>
-            ),
-          }}
-          style={{ borderRadius: 0 }}
-        />
+                );
+              },
+            }}
+            pagination={{
+              pageSize: 10,
+              showTotal: (total) => (
+                <span style={{ fontSize: 12, color: "var(--text-faint)" }}>
+                  {total} requests
+                </span>
+              ),
+            }}
+            style={{ borderRadius: 0 }}
+          />
+        )}
       </div>
         </>
       )}
@@ -1862,7 +2204,12 @@ const Requests = () => {
         open={createModal}
         onCancel={() => {
           setCreateModal(false);
-          setCreateFormData({ request_type: "", subject: "", description: "" });
+          setCreateFormData({
+            request_type: "",
+            subject: "",
+            description: "",
+            leave_date: "",
+          });
         }}
         onOk={handleCreateRequest}
         confirmLoading={loading}
@@ -1873,7 +2220,7 @@ const Requests = () => {
           </span>
         }
         cancelText="Cancel"
-        width={500}
+        width={isMobile ? "calc(100vw - 20px)" : 500}
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <div className="req-select">
@@ -1881,7 +2228,11 @@ const Requests = () => {
             <Select
               value={createFormData.request_type || undefined}
               onChange={(v) =>
-                setCreateFormData({ ...createFormData, request_type: v })
+                setCreateFormData({
+                  ...createFormData,
+                  request_type: v,
+                  leave_date: v === "leave" ? createFormData.leave_date : "",
+                })
               }
               placeholder="Select a type..."
               style={{ width: "100%" }}
@@ -1893,6 +2244,23 @@ const Requests = () => {
               <Select.Option value="other">Other</Select.Option>
             </Select>
           </div>
+          {createFormData.request_type === "leave" && (
+            <div className="req-input">
+              <FieldLabel required>Leave Date</FieldLabel>
+              <DatePicker
+                value={createFormData.leave_date ? dayjs(createFormData.leave_date) : null}
+                onChange={(_, dateString) =>
+                  setCreateFormData({
+                    ...createFormData,
+                    leave_date: Array.isArray(dateString) ? dateString[0] : dateString,
+                  })
+                }
+                style={{ width: "100%" }}
+                format="YYYY-MM-DD"
+                placeholder="Select leave date"
+              />
+            </div>
+          )}
           <div className="req-input">
             <FieldLabel required>Subject</FieldLabel>
             <Input
@@ -1982,7 +2350,7 @@ const Requests = () => {
           </span>
         }
         cancelText="Cancel"
-        width={500}
+        width={isMobile ? "calc(100vw - 20px)" : 500}
       >
         {selectedRequest && (
           <div
@@ -2017,9 +2385,15 @@ const Requests = () => {
               {selectedRequest.subject}
             </div>
             <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-              {selectedRequest.profiles?.full_name} -{" "}
-              {typeConfig[selectedRequest.request_type]?.label}
+              {isProjectManager
+                ? typeConfig[selectedRequest.request_type]?.label
+                : `${selectedRequest.profiles?.full_name} - ${typeConfig[selectedRequest.request_type]?.label}`}
             </div>
+            {selectedRequest.request_type === "leave" && (
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
+                Leave Date: {formatDisplayDate(selectedRequest.leave_date)}
+              </div>
+            )}
           </div>
         )}
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>

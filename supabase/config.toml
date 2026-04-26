@@ -2,3 +2,6 @@
 
 [functions.jira-oauth-exchange]
 verify_jwt = false
+
+[functions.dm-unread-reminder-cron]
+verify_jwt = false

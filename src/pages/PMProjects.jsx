@@ -47,6 +47,8 @@ import {
   ExternalLink,
   Activity,
   Bell,
+  Play,
+  Pause,
 } from "lucide-react";
 import {
   Drawer,
@@ -72,6 +74,7 @@ import {
 import { useParams } from "react-router-dom";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
+import { jsPDF } from "jspdf";
 import { supabase } from "../lib/supabase";
 import TicketDetailsModal from "../components/TicketDetailsModal";
 
@@ -175,6 +178,25 @@ const TICKET_TYPE = {
   },
 };
 
+const getTypeTone = (type, dark = false) => {
+  const base = TICKET_TYPE[type] || TICKET_TYPE.task;
+  if (!dark) {
+    return {
+      color: base.color,
+      bg: base.bg,
+      border: `${base.color}30`,
+    };
+  }
+  const darkMap = {
+    epic: { color: "#c4b5fd", bg: "rgba(124,58,237,0.22)", border: "rgba(196,181,253,0.35)" },
+    story: { color: "#6ee7b7", bg: "rgba(5,150,105,0.2)", border: "rgba(52,211,153,0.35)" },
+    task: { color: "#93c5fd", bg: "rgba(59,130,246,0.2)", border: "rgba(147,197,253,0.35)" },
+    bug: { color: "#fca5a5", bg: "rgba(239,68,68,0.2)", border: "rgba(252,165,165,0.35)" },
+    subtask: { color: "#cbd5e1", bg: "rgba(100,116,139,0.25)", border: "rgba(148,163,184,0.35)" },
+  };
+  return darkMap[type] || darkMap.task;
+};
+
 const TICKET_STATUS = [
   {
     key: "open",
@@ -270,6 +292,72 @@ const avatarColor = (str = "") => {
 
 const fmtDate = (d) => (d ? dayjs(d).format("MMM D") : "--");
 const fmtTime = (d) => (d ? dayjs(d).fromNow() : "");
+const fmtClock = (s) => {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+};
+
+const getBreakSeconds = (log, nowMs) => {
+  if (!Array.isArray(log?.breaks) || log.breaks.length === 0) return 0;
+  return log.breaks.reduce((acc, br) => {
+    if (!br?.pause_time) return acc;
+    const st = new Date(br.pause_time).getTime();
+    if (!Number.isFinite(st)) return acc;
+    const en = br.resume_time ? new Date(br.resume_time).getTime() : nowMs;
+    if (!Number.isFinite(en) || en <= st) return acc;
+    return acc + Math.floor((en - st) / 1000);
+  }, 0);
+};
+
+const getElapsed = (log) => {
+  const nowMs = Date.now();
+  if (
+    log?.status === "active" ||
+    log?.status === "break" ||
+    log?.status === "paused"
+  ) {
+    const startMs = new Date(log.start_time).getTime();
+    const derived = Number.isFinite(startMs)
+      ? Math.max(
+          0,
+          Math.floor((nowMs - startMs) / 1000) - getBreakSeconds(log, nowMs),
+        )
+      : 0;
+    if (log.status === "paused") {
+      const fromTotal = Math.floor((log.total_hours || 0) * 3600);
+      return Math.max(fromTotal, derived);
+    }
+    return derived;
+  }
+  return 0;
+};
+
+const ActiveLogTimer = ({ log, dark = false }) => {
+  const [elapsed, setElapsed] = useState(() => getElapsed(log));
+  useEffect(() => {
+    setElapsed(getElapsed(log));
+  }, [log]);
+  useEffect(() => {
+    if (log?.status !== "active") return;
+    const id = setInterval(() => setElapsed(getElapsed(log)), 1000);
+    return () => clearInterval(id);
+  }, [log]);
+
+  return (
+    <span
+      style={{
+        fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+        fontSize: 12,
+        fontWeight: 600,
+        color: dark ? "#e5e7eb" : "#334155",
+      }}
+    >
+      {fmtClock(elapsed)}
+    </span>
+  );
+};
 
 const sprintProgress = (tickets = []) => {
   if (!tickets.length) return 0;
@@ -485,6 +573,505 @@ Rules:
   return normalizeAiPlan(parsed);
 };
 
+const AI_DOC_TYPES = [
+  { value: "project_plan", label: "Project Plan" },
+  { value: "prd", label: "PRD" },
+  { value: "risk_management", label: "Risk Management" },
+];
+
+const aiDocLabelByType = (type) =>
+  AI_DOC_TYPES.find((d) => d.value === type)?.label || "Project Document";
+
+const AI_DOC_PROJECT_COLUMN = {
+  project_plan: "project_plan_doc_link",
+  prd: "prd_doc_link",
+  risk_management: "risk_management_doc_link",
+};
+
+const AI_DOC_PRIMARY_BUCKET = "documents";
+const AI_DOC_LEGACY_BUCKETS = ["attachments"];
+
+const extractBucketPathFromStorageUrl = (value = "") => {
+  if (!value || typeof value !== "string") return null;
+  try {
+    const url = new URL(value, window.location.origin);
+    const match = url.pathname.match(
+      /\/storage\/v1\/object\/(?:sign|public|authenticated)\/([^/]+)\/(.+)$/,
+    );
+    if (!match) return null;
+    return {
+      bucket: decodeURIComponent(match[1] || "").trim(),
+      path: decodeURIComponent(match[2] || "").trim(),
+    };
+  } catch {
+    return null;
+  }
+};
+
+const buildAiDocStorageCandidates = (storedLink = "") => {
+  const candidates = [];
+  const pushUnique = (bucket, path) => {
+    const cleanBucket = String(bucket || "").trim();
+    const cleanPath = String(path || "")
+      .replace(/^\/+/, "")
+      .trim();
+    if (!cleanBucket || !cleanPath) return;
+    if (candidates.some((c) => c.bucket === cleanBucket && c.path === cleanPath)) return;
+    candidates.push({ bucket: cleanBucket, path: cleanPath });
+  };
+
+  const extracted = extractBucketPathFromStorageUrl(storedLink);
+  if (extracted?.bucket && extracted?.path) {
+    pushUnique(extracted.bucket, extracted.path);
+    pushUnique(AI_DOC_PRIMARY_BUCKET, extracted.path);
+    AI_DOC_LEGACY_BUCKETS.forEach((bucket) => pushUnique(bucket, extracted.path));
+    return candidates;
+  }
+
+  if (typeof storedLink === "string" && !/^https?:\/\//i.test(storedLink.trim())) {
+    const rawPath = storedLink.trim();
+    pushUnique(AI_DOC_PRIMARY_BUCKET, rawPath);
+    AI_DOC_LEGACY_BUCKETS.forEach((bucket) => pushUnique(bucket, rawPath));
+  }
+
+  return candidates;
+};
+
+const buildProjectDocsFromProject = (project) => {
+  if (!project) return [];
+  const docs = [
+    {
+      doc_kind: "project_plan",
+      link: project.project_plan_doc_link,
+    },
+    {
+      doc_kind: "prd",
+      link: project.prd_doc_link,
+    },
+    {
+      doc_kind: "risk_management",
+      link: project.risk_management_doc_link,
+    },
+  ]
+    .filter((d) => !!d.link)
+    .map((d) => ({
+      id: d.doc_kind,
+      doc_kind: d.doc_kind,
+      name: `${project.name || "Project"} - ${aiDocLabelByType(d.doc_kind)}.md`,
+      link: d.link,
+      updated_at: project.updated_at,
+      is_ai_generated: true,
+    }));
+  return docs;
+};
+
+const getDocumentSectionBlueprint = (docType) => {
+  if (docType === "project_plan") {
+    return `Project Plan -- Sections
+1. Project Overview
+- Project name
+- Objective / goals
+- Success criteria
+2. Scope
+- In-scope features
+- Out-of-scope items
+3. Timeline & Milestones
+- Key phases
+- Milestones with dates
+4. Task Breakdown
+- Major tasks / deliverables
+- Dependencies
+5. Team & Roles
+- Team members
+- Responsibilities
+6. Resource Planning
+- Tools / tech stack
+- Budget (if relevant)
+7. Communication Plan
+- Meeting cadence
+- Reporting format
+- Channels (Slack, email, etc.)
+8. Risk Overview
+- High-level risks (link to full risk doc)
+9. Assumptions & Constraints
+- Assumptions
+- Limitations
+10. Monitoring & Reporting
+- KPIs
+- Progress tracking method`;
+  }
+
+  if (docType === "prd") {
+    return `PRD (Product Requirements Document) -- Sections
+1. Product Overview
+- Product description
+- Problem statement
+- Target audience
+2. Goals & Objectives
+- Business goals
+- User goals
+3. User Personas
+- Key user types
+- Pain points
+4. Features / Requirements
+- Functional Requirements
+- Feature list
+- User stories
+- Acceptance criteria
+- Non-Functional Requirements
+- Performance
+- Security
+- Scalability
+5. User Flows
+- Step-by-step journeys
+6. UI/UX Requirements
+- Wireframes / references
+- Design guidelines
+7. Data & Integrations
+- APIs
+- Third-party services
+8. Success Metrics
+- KPIs
+- Analytics tracking
+9. Constraints & Assumptions
+- Tech limitations
+- Business constraints
+10. Future Scope
+- Nice-to-have features
+- Roadmap ideas`;
+  }
+
+  return `Risk Management Document -- Sections
+1. Risk Overview
+- Purpose of document
+- Risk management approach
+2. Risk Identification
+- List of potential risks
+3. Risk Analysis
+- Probability (Low/Medium/High)
+- Impact (Low/Medium/High)
+4. Risk Prioritization
+- Risk scoring (optional matrix)
+5. Mitigation Plan
+- Preventive actions
+- Contingency plans
+6. Risk Ownership
+- Responsible person for each risk
+7. Monitoring & Review
+- How often risks are reviewed
+- Tracking method`;
+};
+
+const generateDetailedProjectDocWithAI = async ({
+  docType,
+  projectName,
+  projectContext,
+  extraContext,
+}) => {
+  const systemPrompt = `You are a senior program manager, product manager, and technical writer.
+Write a complete, professional, implementation-ready document in Markdown.
+Rules:
+- Use clear heading hierarchy and numbered sections.
+- Follow the provided section blueprint exactly.
+- Make content concrete and actionable, not generic.
+- Add practical tables where useful (timeline, owners, risks, KPIs).
+- If details are missing, state explicit assumptions.
+- Keep tone executive + delivery-focused.
+- Output Markdown only (no code fences, no JSON).`;
+
+  const sectionBlueprint = getDocumentSectionBlueprint(docType);
+  const docLabel =
+    docType === "project_plan"
+      ? "Project Plan"
+      : docType === "prd"
+        ? "PRD"
+        : "Risk Management Document";
+
+  const res = await fetch(GROQ_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${GROQ_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: [
+            `Generate a detailed ${docLabel} for project "${projectName}".`,
+            "",
+            "Section blueprint:",
+            sectionBlueprint,
+            "",
+            "Project context:",
+            projectContext || "No structured project context provided.",
+            "",
+            "Additional context from PM:",
+            extraContext || "No additional context provided.",
+          ].join("\n"),
+        },
+      ],
+      temperature: 0.2,
+      max_tokens: 3800,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || "AI document generation failed");
+  }
+
+  const data = await res.json();
+  const text = data?.choices?.[0]?.message?.content?.trim() || "";
+  if (!text) throw new Error("AI returned an empty document");
+  return text;
+};
+
+// ---
+// PDF GENERATION WITH FORMATTING
+// ---
+const generateFormattedPDF = (markdownContent, filename = "document.pdf", projectName = "") => {
+  try {
+    const doc = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    });
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 15;
+    const maxWidth = pageWidth - margin * 2;
+    let yPosition = margin;
+
+    // Helper function to clean markdown formatting
+    const cleanMarkdown = (text) => {
+      return text
+        .replace(/\*\*_(.*?)_\*\*/g, "$1") // bold italic
+        .replace(/__(.*?)__/g, "$1") // bold underscore
+        .replace(/\*\*(.*?)\*\*/g, "$1") // bold asterisk
+        .replace(/\*_(.*?)_\*/g, "$1") // italic with asterisk and underscore
+        .replace(/_(.*?)_/g, "$1") // italic underscore
+        .replace(/\*(.*?)\*/g, "$1") // italic asterisk
+        .replace(/`(.*?)`/g, "$1") // inline code
+        .replace(/\[(.*?)\]\(.*?\)/g, "$1") // links
+        .replace(/\[([^\]]+)\]/g, "$1") // remaining brackets
+        .replace(/[*_`#\-~]+/g, ""); // remove any remaining markdown symbols
+    };
+
+    // Add project name at the top if provided
+    if (projectName && projectName.trim()) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.setTextColor(0, 20, 100);
+      const projectLines = doc.splitTextToSize(projectName, maxWidth);
+      projectLines.forEach((line) => {
+        doc.text(line, margin, yPosition);
+        yPosition += 7;
+      });
+      yPosition += 3;
+
+      // Add a separator line
+      doc.setDrawColor(0, 100, 200);
+      doc.setLineWidth(0.5);
+      doc.line(margin, yPosition, pageWidth - margin, yPosition);
+      yPosition += 6;
+    }
+
+    // Helper function to add text with wrapping
+    const addWrappedText = (text, fontSize, isBold = false, color = [0, 0, 0]) => {
+      if (yPosition + fontSize > pageHeight - margin) {
+        doc.addPage();
+        yPosition = margin;
+      }
+
+      doc.setFont("helvetica", isBold ? "bold" : "normal");
+      doc.setFontSize(fontSize);
+      doc.setTextColor(...color);
+
+      const lines = doc.splitTextToSize(text, maxWidth);
+      const lineHeight = fontSize * 0.5;
+
+      lines.forEach((line) => {
+        if (yPosition + lineHeight > pageHeight - margin) {
+          doc.addPage();
+          yPosition = margin;
+        }
+        doc.text(line, margin, yPosition);
+        yPosition += lineHeight;
+      });
+
+      yPosition += fontSize * 0.3;
+      return yPosition;
+    };
+
+    const lines = markdownContent.split("\n");
+    let i = 0;
+
+    while (i < lines.length) {
+      const line = lines[i];
+      const trimmed = line.trim();
+
+      // H1 (# Title)
+      if (trimmed.startsWith("# ") && !trimmed.startsWith("##")) {
+        let title = trimmed.replace(/^#\s+/, "");
+        title = cleanMarkdown(title);
+        if (yPosition > margin) yPosition += 5;
+        addWrappedText(title, 18, true, [15, 23, 42]);
+        yPosition += 3;
+      }
+      // H2 (## Section)
+      else if (trimmed.startsWith("## ") && !trimmed.startsWith("###")) {
+        let section = trimmed.replace(/^##\s+/, "");
+        section = cleanMarkdown(section);
+        if (yPosition > margin + 5) yPosition += 4;
+        addWrappedText(section, 14, true, [31, 41, 55]);
+        yPosition += 2;
+      }
+      // H3 (### Subsection)
+      else if (trimmed.startsWith("### ") && !trimmed.startsWith("####")) {
+        let subsection = trimmed.replace(/^###\s+/, "");
+        subsection = cleanMarkdown(subsection);
+        if (yPosition > margin + 5) yPosition += 3;
+        addWrappedText(subsection, 12, true, [55, 65, 81]);
+        yPosition += 1;
+      }
+      // H4 and below
+      else if (trimmed.startsWith("#### ")) {
+        let subsubsection = trimmed.replace(/^####\s+/, "");
+        subsubsection = cleanMarkdown(subsubsection);
+        if (yPosition > margin + 5) yPosition += 2;
+        addWrappedText(subsubsection, 11, true, [75, 85, 99]);
+        yPosition += 1;
+      }
+      // Unordered list (-, *, +)
+      else if (/^[-*+]\s+/.test(trimmed)) {
+        let bulletText = trimmed.replace(/^[-*+]\s+/, "");
+        bulletText = cleanMarkdown(bulletText);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+
+        if (yPosition + 5 > pageHeight - margin) {
+          doc.addPage();
+          yPosition = margin;
+        }
+
+        const bulletLines = doc.splitTextToSize(bulletText, maxWidth - 6);
+        bulletLines.forEach((bulletLine, idx) => {
+          if (yPosition + 4 > pageHeight - margin) {
+            doc.addPage();
+            yPosition = margin;
+          }
+          if (idx === 0) {
+            doc.text("•", margin + 2, yPosition);
+          }
+          doc.text(bulletLine, margin + 6, yPosition);
+          yPosition += 4;
+        });
+      }
+      // Ordered list (1. 2. etc)
+      else if (/^\d+\.\s+/.test(trimmed)) {
+        const match = trimmed.match(/^(\d+)\.\s+(.*)/);
+        if (match) {
+          const number = match[1];
+          let listText = match[2];
+          listText = cleanMarkdown(listText);
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(10);
+          doc.setTextColor(0, 0, 0);
+
+          if (yPosition + 5 > pageHeight - margin) {
+            doc.addPage();
+            yPosition = margin;
+          }
+
+          const listLines = doc.splitTextToSize(listText, maxWidth - 8);
+          listLines.forEach((listLine, idx) => {
+            if (yPosition + 4 > pageHeight - margin) {
+              doc.addPage();
+              yPosition = margin;
+            }
+            if (idx === 0) {
+              doc.text(`${number}.`, margin + 2, yPosition);
+            }
+            doc.text(listLine, margin + 8, yPosition);
+            yPosition += 4;
+          });
+        }
+      }
+      // Table detection (simple |...|...|)
+      else if (trimmed.includes("|")) {
+        // Skip markdown table separators
+        if (/^\|[\s-|:]+\|$/.test(trimmed)) {
+          i++;
+          continue;
+        }
+
+        // Parse table row
+        const cells = trimmed
+          .split("|")
+          .map((cell) => cell.trim())
+          .filter((cell) => cell.length > 0);
+
+        if (cells.length > 0) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(9);
+          doc.setTextColor(50, 50, 50);
+
+          if (yPosition + 5 > pageHeight - margin) {
+            doc.addPage();
+            yPosition = margin;
+          }
+
+          const cellWidth = maxWidth / cells.length;
+          const cellHeight = 5;
+
+          cells.forEach((cell, idx) => {
+            const cellContent = doc.splitTextToSize(cell, cellWidth - 1);
+            const x = margin + idx * cellWidth;
+            doc.rect(x, yPosition, cellWidth, cellHeight);
+            doc.text(cellContent[0] || "", x + 1, yPosition + 3);
+          });
+
+          yPosition += cellHeight + 2;
+        }
+      }
+      // Empty lines
+      else if (trimmed === "") {
+        yPosition += 2;
+      }
+      // Regular paragraph text
+      else if (trimmed.length > 0) {
+        // Remove markdown formatting more robustly
+        let cleanText = trimmed
+          .replace(/\*\*_(.*?)_\*\*/g, "$1") // bold italic
+          .replace(/__(.*?)__/g, "$1") // bold underscore
+          .replace(/\*\*(.*?)\*\*/g, "$1") // bold asterisk
+          .replace(/\*_(.*?)_\*/g, "$1") // italic with asterisk and underscore
+          .replace(/_(.*?)_/g, "$1") // italic underscore
+          .replace(/\*(.*?)\*/g, "$1") // italic asterisk
+          .replace(/`(.*?)`/g, "$1") // inline code
+          .replace(/\[(.*?)\]\(.*?\)/g, "$1") // links
+          .replace(/\[([^\]]+)\]/g, "$1") // remaining brackets
+          .replace(/[*_`]+/g, ""); // remove any remaining markdown symbols
+
+        addWrappedText(cleanText, 10, false, [0, 0, 0]);
+      }
+
+      i++;
+    }
+
+    // Save the PDF
+    doc.save(filename);
+  } catch (err) {
+    console.error("PDF generation error:", err);
+    throw new Error("Failed to generate PDF: " + err.message);
+  }
+};
+
 // ---
 // SUB-COMPONENTS
 // ---
@@ -620,8 +1207,9 @@ const PriorityIcon = ({ priority }) => {
   );
 };
 
-const TypeChip = ({ type, size = "normal" }) => {
+const TypeChip = ({ type, size = "normal", dark = false }) => {
   const t = TICKET_TYPE[type] || TICKET_TYPE.task;
+  const tone = getTypeTone(type, dark);
   const small = size === "small";
   return (
     <span
@@ -633,9 +1221,9 @@ const TypeChip = ({ type, size = "normal" }) => {
         fontWeight: 700,
         padding: small ? "1px 5px" : "2px 7px",
         borderRadius: 3,
-        color: t.color,
-        background: t.bg,
-        border: `1px solid ${t.color}30`,
+        color: tone.color,
+        background: tone.bg,
+        border: `1px solid ${tone.border}`,
         lineHeight: 1.4,
       }}
     >
@@ -767,6 +1355,106 @@ const SkeletonBacklog = ({ dark = false }) => (
         <SkeletonPulse dark={dark} width={24} height={24} borderRadius="50%" />
       </div>
     ))}
+  </div>
+);
+
+const SkeletonOverview = ({ dark = false, isMobile = false }) => (
+  <div>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)",
+        gap: 12,
+        marginBottom: 16,
+      }}
+    >
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div
+          key={`sk-top-${i}`}
+          style={{
+            background: dark ? "#1a1b1f" : "#ffffff",
+            border: `1px solid ${dark ? "rgba(148,163,184,.22)" : "rgba(148,163,184,.28)"}`,
+            borderRadius: 10,
+            padding: "12px 14px",
+          }}
+        >
+          <SkeletonPulse dark={dark} width={96} height={10} borderRadius={4} />
+          <div style={{ marginTop: 8 }}>
+            <SkeletonPulse dark={dark} width={38} height={24} borderRadius={6} />
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <SkeletonPulse dark={dark} width={120} height={10} borderRadius={4} />
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "1.4fr .6fr",
+        gap: 14,
+      }}
+    >
+      <div
+        style={{
+          background: dark ? "#1a1b1f" : "#ffffff",
+          border: `1px solid ${dark ? "rgba(148,163,184,.22)" : "rgba(148,163,184,.28)"}`,
+          borderRadius: 10,
+          padding: "12px",
+        }}
+      >
+        <SkeletonPulse dark={dark} width={160} height={14} borderRadius={5} />
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: isMobile ? "1fr" : "repeat(3,minmax(0,1fr))",
+            gap: 10,
+            marginTop: 12,
+          }}
+        >
+          {Array.from({ length: 3 }).map((_, laneIdx) => (
+            <div
+              key={`sk-lane-${laneIdx}`}
+              style={{
+                background: dark ? "#1a1b1f" : "#f8fafc",
+                border: `1px solid ${dark ? "rgba(148,163,184,.16)" : "rgba(148,163,184,.24)"}`,
+                borderRadius: 8,
+                padding: 8,
+              }}
+            >
+              <SkeletonPulse dark={dark} width={84} height={11} borderRadius={4} />
+              <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                <SkeletonPulse dark={dark} height={56} borderRadius={8} />
+                <SkeletonPulse dark={dark} height={56} borderRadius={8} />
+                <SkeletonPulse dark={dark} height={56} borderRadius={8} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gap: 14 }}>
+        {Array.from({ length: 3 }).map((_, rightIdx) => (
+          <div
+            key={`sk-right-${rightIdx}`}
+            style={{
+              background: dark ? "#1a1b1f" : "#ffffff",
+              border: `1px solid ${dark ? "rgba(148,163,184,.22)" : "rgba(148,163,184,.28)"}`,
+              borderRadius: 10,
+              padding: 12,
+            }}
+          >
+            <SkeletonPulse dark={dark} width={130} height={13} borderRadius={5} />
+            <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+              <SkeletonPulse dark={dark} height={38} borderRadius={8} />
+              <SkeletonPulse dark={dark} height={38} borderRadius={8} />
+              <SkeletonPulse dark={dark} height={38} borderRadius={8} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   </div>
 );
 
@@ -2201,7 +2889,7 @@ const GroupedKanbanColumn = ({
         closed: "#262933",
       }
     : {};
-  const cardBg = dark ? "#181a20" : "#fff";
+  const cardBg = dark ? "#1a1b1f" : "#fff";
   const cardBorder = dark ? "#2a2d36" : "#e5e7eb";
   const hoverBg = dark ? "#21242d" : "#f8fafc";
   const textColor = dark ? "#e5e7eb" : "#172b4d";
@@ -2327,6 +3015,7 @@ const GroupedKanbanColumn = ({
         {groups.map(({ ticket: story, children }) => {
           const groupDragging = isDraggingThisGroup(story.id);
           const totalMembers = children.length;
+          const storyTone = getTypeTone("story", dark);
           return (
             <div
               key={story.id}
@@ -2392,11 +3081,11 @@ const GroupedKanbanColumn = ({
                   style={{
                     fontSize: 10,
                     fontWeight: 700,
-                    color: TICKET_TYPE.story.color,
-                    background: TICKET_TYPE.story.bg,
+                    color: storyTone.color,
+                    background: storyTone.bg,
                     padding: "1px 5px",
                     borderRadius: 3,
-                    border: `1px solid ${TICKET_TYPE.story.color}30`,
+                    border: `1px solid ${storyTone.border}`,
                     display: "flex",
                     alignItems: "center",
                     gap: 2,
@@ -2424,8 +3113,8 @@ const GroupedKanbanColumn = ({
                       style={{
                         fontSize: 9,
                         fontWeight: 700,
-                        color: TICKET_TYPE.story.color,
-                        background: TICKET_TYPE.story.bg,
+                        color: storyTone.color,
+                        background: storyTone.bg,
                         padding: "1px 5px",
                         borderRadius: 99,
                         flexShrink: 0,
@@ -2473,6 +3162,7 @@ const GroupedKanbanColumn = ({
               {/* Children */}
               {children.map((child) => {
                 const tt = TICKET_TYPE[child.ticket_type] || TICKET_TYPE.task;
+                const ttTone = getTypeTone(child.ticket_type, dark);
                 const p = PRIORITY[child.priority] || PRIORITY.medium;
                 return (
                   <div
@@ -2500,11 +3190,11 @@ const GroupedKanbanColumn = ({
                       style={{
                         fontSize: 9,
                         fontWeight: 700,
-                        color: tt.color,
-                        background: tt.bg,
+                        color: ttTone.color,
+                        background: ttTone.bg,
                         padding: "1px 4px",
                         borderRadius: 3,
-                        border: `1px solid ${tt.color}30`,
+                        border: `1px solid ${ttTone.border}`,
                         display: "flex",
                         alignItems: "center",
                         gap: 1,
@@ -2590,6 +3280,7 @@ const GroupedKanbanColumn = ({
         {/* Orphan tasks/bugs (no story parent in this column) */}
         {orphans.map((t) => {
           const tt = TICKET_TYPE[t.ticket_type] || TICKET_TYPE.task;
+          const ttTone = getTypeTone(t.ticket_type, dark);
           const p = PRIORITY[t.priority] || PRIORITY.medium;
           const isOrphanDragging =
             draggingGroup?.leadId === t.id && !draggingGroup?.members?.length;
@@ -2647,11 +3338,11 @@ const GroupedKanbanColumn = ({
                   style={{
                     fontSize: 9,
                     fontWeight: 700,
-                    color: tt.color,
-                    background: tt.bg,
+                    color: ttTone.color,
+                    background: ttTone.bg,
                     padding: "1px 5px",
                     borderRadius: 3,
-                    border: `1px solid ${tt.color}30`,
+                    border: `1px solid ${ttTone.border}`,
                     display: "flex",
                     alignItems: "center",
                     gap: 2,
@@ -3022,7 +3713,7 @@ const BacklogEpicRow = ({
         ) : (
           <ChevronRight size={12} color="#9ca3af" />
         )}
-        <TypeChip type="epic" />
+        <TypeChip type="epic" dark={dark} />
         <span
           style={{
             flex: 1,
@@ -3184,6 +3875,7 @@ const BacklogChildRow = ({
       : [];
   const isSubtask = ticket.ticket_type === "subtask";
   const tt = TICKET_TYPE[ticket.ticket_type] || TICKET_TYPE.task;
+  const ttTone = getTypeTone(ticket.ticket_type, dark);
   const p = PRIORITY[ticket.priority] || PRIORITY.medium;
 
   return (
@@ -3253,11 +3945,11 @@ const BacklogChildRow = ({
           style={{
             fontSize: 9,
             fontWeight: 700,
-            color: tt.color,
-            background: tt.bg,
+            color: ttTone.color,
+            background: ttTone.bg,
             padding: "1px 5px",
             borderRadius: 3,
-            border: `1px solid ${tt.color}30`,
+            border: `1px solid ${ttTone.border}`,
             display: "flex",
             alignItems: "center",
             gap: 2,
@@ -3749,6 +4441,9 @@ const PMProjects = ({
 }) => {
   const { projectId: routeProjectId } = useParams();
   const [dark, setDark] = useState(getIsDarkTheme);
+  const [isMobile, setIsMobile] = useState(
+    () => (typeof window !== "undefined" ? window.innerWidth <= 768 : false),
+  );
   const [profile, setProfile] = useState(null);
   const [projects, setProjects] = useState([]);
   const [tickets, setTickets] = useState([]);
@@ -3779,7 +4474,20 @@ const PMProjects = ({
   const [aiProjectBrief, setAiProjectBrief] = useState("");
   const [aiPlannerFile, setAiPlannerFile] = useState(null);
   const [aiPlannerResult, setAiPlannerResult] = useState(null);
+  const [showAiDocBuilder, setShowAiDocBuilder] = useState(false);
+  const [aiDocType, setAiDocType] = useState("project_plan");
+  const [aiDocContext, setAiDocContext] = useState("");
+  const [aiDocRequirementFile, setAiDocRequirementFile] = useState(null);
+  const [aiDocLoading, setAiDocLoading] = useState(false);
+  const [aiDocResult, setAiDocResult] = useState("");
+  const [projectDocs, setProjectDocs] = useState([]);
   const [clientProgressInvite, setClientProgressInvite] = useState(null);
+  const [dashboardActivities, setDashboardActivities] = useState([]);
+  const [dashboardActivityLoading, setDashboardActivityLoading] =
+    useState(false);
+  const [activeWorkingEmployees, setActiveWorkingEmployees] = useState([]);
+  const [activeWorkingEmpLoading, setActiveWorkingEmpLoading] = useState(false);
+  const [leaveEmployeesToday, setLeaveEmployeesToday] = useState([]);
 
   const [ticketForm] = Form.useForm();
   const [sprintForm] = Form.useForm();
@@ -3792,6 +4500,30 @@ const PMProjects = ({
   }, [profile]);
 
   useEffect(() => {
+    if (profile?.id && projects.length) {
+      fetchDashboardActivities();
+    } else if (!projects.length) {
+      setDashboardActivities([]);
+    }
+  }, [profile?.id, projects.length]);
+
+  useEffect(() => {
+    if (!profile?.id || !projects.length) return;
+    const timer = setInterval(() => {
+      fetchDashboardActivities();
+    }, 30000);
+    return () => clearInterval(timer);
+  }, [profile?.id, projects.length]);
+
+  useEffect(() => {
+    if (profile?.id && projects.length) {
+      fetchActiveWorkingEmployees();
+    } else if (!projects.length) {
+      setActiveWorkingEmployees([]);
+    }
+  }, [profile?.id, projects.length]);
+
+  useEffect(() => {
     const syncTheme = () => setDark(getIsDarkTheme());
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     window.addEventListener("storage", syncTheme);
@@ -3802,6 +4534,12 @@ const PMProjects = ({
       window.removeEventListener("themeModeChanged", syncTheme);
       mediaQuery.removeEventListener("change", syncTheme);
     };
+  }, []);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   const getAllowedParentTypes = (type) => HIERARCHY[type]?.parentTypes || [];
@@ -3854,6 +4592,284 @@ const PMProjects = ({
     }
   };
 
+  const fetchDashboardActivities = async () => {
+    if (!profile?.id || !projects.length) return;
+    setDashboardActivityLoading(true);
+    try {
+      const projectIds = projects.map((p) => p.id).filter(Boolean);
+      if (!projectIds.length) {
+        setDashboardActivities([]);
+        return;
+      }
+
+      const projectById = Object.fromEntries(
+        projects.map((p) => [String(p.id), p]),
+      );
+
+      const { data: projectTickets, error: ticketsErr } = await supabase
+        .from("tickets")
+        .select("id,title,project_id,created_at,updated_at,assigned_to,assigned_to_ids,created_by,creator:created_by(id,full_name,user_photo)")
+        .in("project_id", projectIds)
+        .limit(800);
+      if (ticketsErr) throw ticketsErr;
+
+      const ticketIds = (projectTickets || []).map((t) => t.id);
+      const todayStartIso = dayjs().startOf("day").toISOString();
+      const todayStartMs = dayjs(todayStartIso).valueOf();
+      const ticketById = Object.fromEntries(
+        (projectTickets || []).map((t) => [String(t.id), t]),
+      );
+
+      const commentsPromise = ticketIds.length
+        ? supabase
+            .from("ticket_comments")
+            .select("id,ticket_id,message,created_at,profiles:user_id(id,full_name,user_photo)")
+            .in("ticket_id", ticketIds)
+            .gte("created_at", todayStartIso)
+            .order("created_at", { ascending: false })
+            .limit(120)
+        : Promise.resolve({ data: [], error: null });
+
+      const attachmentsPromise = ticketIds.length
+        ? supabase
+            .from("ticket_attachments")
+            .select("id,ticket_id,file_name,created_at,profiles:uploaded_by(id,full_name,user_photo)")
+            .in("ticket_id", ticketIds)
+            .gte("created_at", todayStartIso)
+            .order("created_at", { ascending: false })
+            .limit(120)
+        : Promise.resolve({ data: [], error: null });
+      const completionReqPromise = ticketIds.length
+        ? supabase
+            .from("ticket_completion_requests")
+            .select("id,ticket_id,status,requested_at,requester:requested_by(id,full_name,user_photo)")
+            .in("ticket_id", ticketIds)
+            .gte("requested_at", todayStartIso)
+            .order("requested_at", { ascending: false })
+            .limit(120)
+        : Promise.resolve({ data: [], error: null });
+
+      const [
+        { data: commentRows, error: commentsErr },
+        { data: attachmentRows, error: attachmentsErr },
+        { data: completionRows, error: completionErr },
+      ] = await Promise.all([
+        commentsPromise,
+        attachmentsPromise,
+        completionReqPromise,
+      ]);
+      if (commentsErr) throw commentsErr;
+      if (attachmentsErr) throw attachmentsErr;
+      if (completionErr) throw completionErr;
+
+      const commentEvents = (commentRows || []).map((row) => {
+        const ticket = ticketById[String(row.ticket_id)];
+        const project = ticket ? projectById[String(ticket.project_id)] : null;
+        const actor = row.profiles?.full_name || "Team member";
+        return {
+          id: `c-${row.id}`,
+          created_at: row.created_at,
+          title: `${actor} commented on ${ticket?.title || "a ticket"}`,
+          subtitle: project?.name || "Project update",
+          icon: "comment_added",
+          actorPhoto: row.profiles?.user_photo || null,
+        };
+      });
+
+      const attachmentEvents = (attachmentRows || []).map((row) => {
+        const ticket = ticketById[String(row.ticket_id)];
+        const project = ticket ? projectById[String(ticket.project_id)] : null;
+        const actor = row.profiles?.full_name || "Team member";
+        return {
+          id: `a-${row.id}`,
+          created_at: row.created_at,
+          title: `${actor} attached ${row.file_name || "a file"} on ${ticket?.title || "a ticket"}`,
+          subtitle: project?.name || "Project update",
+          icon: "attachment_added",
+          actorPhoto: row.profiles?.user_photo || null,
+        };
+      });
+
+      const completionEvents = (completionRows || []).map((row) => {
+        const ticket = ticketById[String(row.ticket_id)];
+        const project = ticket ? projectById[String(ticket.project_id)] : null;
+        const actor = row.requester?.full_name || "Team member";
+        const statusLabel =
+          row.status === "approved"
+            ? "approved completion"
+            : row.status === "rejected"
+              ? "requested changes"
+              : "requested completion";
+        return {
+          id: `cr-${row.id}`,
+          created_at: row.requested_at,
+          title: `${actor} ${statusLabel} for ${ticket?.title || "a ticket"}`,
+          subtitle: project?.name || "Project update",
+          icon: "completion_request",
+          actorPhoto: row.requester?.user_photo || null,
+        };
+      });
+
+      const todayCreatedEvents = (projectTickets || [])
+        .filter(
+          (t) =>
+            t.created_at && dayjs(t.created_at).valueOf() >= todayStartMs,
+        )
+        .map((t) => {
+          const project = projectById[String(t.project_id)];
+          const actor = t.creator?.full_name || "Team member";
+          return {
+            id: `tc-${t.id}`,
+            created_at: t.created_at,
+            title: `${actor} created ticket ${t.title || "Untitled"}`,
+            subtitle: project?.name || "Project update",
+            icon: "ticket_created",
+            actorPhoto: t.creator?.user_photo || null,
+          };
+        });
+
+      const todayAssignedEvents = (projectTickets || [])
+        .filter((t) => {
+          const ids = Array.isArray(t.assigned_to_ids)
+            ? t.assigned_to_ids
+            : t.assigned_to
+              ? [t.assigned_to]
+              : [];
+          return (
+            ids.length > 0 &&
+            t.updated_at &&
+            dayjs(t.updated_at).valueOf() >= todayStartMs
+          );
+        })
+        .map((t) => {
+          const project = projectById[String(t.project_id)];
+          return {
+            id: `ta-${t.id}`,
+            created_at: t.updated_at,
+            title: `Ticket assigned: ${t.title || "Untitled"}`,
+            subtitle: project?.name || "Project update",
+            icon: "ticket_assigned",
+            actorPhoto: null,
+          };
+        });
+
+      const merged = [
+        ...commentEvents,
+        ...attachmentEvents,
+        ...completionEvents,
+        ...todayCreatedEvents,
+        ...todayAssignedEvents,
+      ]
+        .sort(
+          (a, b) =>
+            dayjs(b.created_at).valueOf() - dayjs(a.created_at).valueOf(),
+        );
+
+      setDashboardActivities(merged);
+    } catch (err) {
+      console.error("Failed to load dashboard activity:", err);
+      setDashboardActivities([]);
+    } finally {
+      setDashboardActivityLoading(false);
+    }
+  };
+
+  const fetchActiveWorkingEmployees = async () => {
+    if (!profile?.id || !projects.length) return;
+    setActiveWorkingEmpLoading(true);
+    try {
+      const projectIds = projects.map((p) => p.id).filter(Boolean);
+      if (!projectIds.length) {
+        setActiveWorkingEmployees([]);
+        return;
+      }
+
+      const { data: assigneesRows, error: assigneesError } = await supabase
+        .from("project_assignees")
+        .select("employee_id, project_id")
+        .in("project_id", projectIds);
+      if (assigneesError) throw assigneesError;
+
+      const employeeIds = Array.from(
+        new Set((assigneesRows || []).map((r) => r.employee_id).filter(Boolean)),
+      );
+      if (!employeeIds.length) {
+        setActiveWorkingEmployees([]);
+        return;
+      }
+
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const localToday = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+      const localYesterdayDate = new Date(now);
+      localYesterdayDate.setDate(now.getDate() - 1);
+      const localYesterday = `${localYesterdayDate.getFullYear()}-${pad(localYesterdayDate.getMonth() + 1)}-${pad(localYesterdayDate.getDate())}`;
+      const utcToday = new Date().toISOString().split("T")[0];
+      const candidateDates = Array.from(
+        new Set([utcToday, localToday, localYesterday]),
+      );
+
+      const { data: logs, error: logsError } = await supabase
+        .from("time_logs")
+        .select(
+          "id,user_id,date,start_time,end_time,total_hours,status,standup_message,breaks,profiles(full_name,email,user_photo,profile_picture_url,tenant_id)",
+        )
+        .in("date", candidateDates)
+        .in("status", ["active", "break", "paused"])
+        .in("user_id", employeeIds);
+      if (logsError) throw logsError;
+
+      let leaveQuery = supabase
+        .from("requests")
+        .select("id,user_id,leave_date,profiles:user_id(id,full_name,user_photo)")
+        .in("user_id", employeeIds)
+        .eq("request_type", "leave")
+        .eq("status", "approved")
+        .in("leave_date", Array.from(new Set([localToday, utcToday])));
+      if (profile?.tenant_id) {
+        leaveQuery = leaveQuery.eq("tenant_id", profile.tenant_id);
+      }
+      const { data: leaveRows, error: leaveErr } = await leaveQuery;
+      if (leaveErr) throw leaveErr;
+
+      const byUser = {};
+      (logs || []).forEach((l) => {
+        if (profile?.tenant_id && l.profiles?.tenant_id !== profile.tenant_id) return;
+        const prev = byUser[l.user_id];
+        if (!prev) {
+          byUser[l.user_id] = l;
+          return;
+        }
+        const prevLive = prev.status === "active" || prev.status === "break";
+        const currLive = l.status === "active" || l.status === "break";
+        if (currLive && !prevLive) {
+          byUser[l.user_id] = l;
+          return;
+        }
+        if (currLive === prevLive) {
+          const prevTs = new Date(prev.start_time || prev.created_at || 0).getTime();
+          const currTs = new Date(l.start_time || l.created_at || 0).getTime();
+          if (currTs > prevTs) byUser[l.user_id] = l;
+        }
+      });
+
+      setActiveWorkingEmployees(Object.values(byUser));
+      const leaveMap = new Map();
+      (leaveRows || []).forEach((row) => {
+        const userId = String(row.user_id || "");
+        if (!userId || leaveMap.has(userId)) return;
+        leaveMap.set(userId, row.profiles);
+      });
+      setLeaveEmployeesToday(Array.from(leaveMap.values()));
+    } catch (err) {
+      console.error("Failed to load active employees:", err);
+      setActiveWorkingEmployees([]);
+      setLeaveEmployeesToday([]);
+    } finally {
+      setActiveWorkingEmpLoading(false);
+    }
+  };
+
   // FIX 3: explicitly select assigned_to_ids in the query
   const fetchProjectData = async (projectId) => {
     setLoadingData(true);
@@ -3878,6 +4894,31 @@ const PMProjects = ({
       message.error("Failed to fetch project data");
     } finally {
       setLoadingData(false);
+    }
+  };
+
+  const fetchProjectDocs = async (projectId) => {
+    if (!projectId) {
+      setProjectDocs([]);
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id,name,updated_at,project_plan_doc_link,prd_doc_link,risk_management_doc_link")
+        .eq("id", projectId)
+        .maybeSingle();
+      if (error) throw error;
+      setProjectDocs(buildProjectDocsFromProject(data));
+      if (data?.id) {
+        setSelectedProject((prev) => (prev?.id === data.id ? { ...prev, ...data } : prev));
+        setProjects((prev) =>
+          (prev || []).map((p) => (p.id === data.id ? { ...p, ...data } : p)),
+        );
+      }
+    } catch (err) {
+      console.error("Failed to fetch project docs:", err);
+      message.error("Failed to load project docs");
     }
   };
 
@@ -3961,6 +5002,7 @@ const PMProjects = ({
   const openProject = (project) => {
     setSelectedProject(project);
     fetchProjectData(project.id);
+    fetchProjectDocs(project.id);
     fetchClientProgressInvite(project.id);
     setShowProjectDrawer(true);
   };
@@ -3980,6 +5022,7 @@ const PMProjects = ({
     if (!matchedProject) return;
     setSelectedProject(matchedProject);
     fetchProjectData(matchedProject.id);
+    fetchProjectDocs(matchedProject.id);
     fetchClientProgressInvite(matchedProject.id);
     setShowProjectDrawer(true);
   }, [initialProjectId, routeProjectId, projects, selectedProject?.id]);
@@ -4001,8 +5044,10 @@ const PMProjects = ({
   const closeProjectDrawer = () => {
     setShowProjectDrawer(false);
     setSelectedProject(null);
+    setActiveTab("board");
     setTickets([]);
     setSprints([]);
+    setProjectDocs([]);
     ticketForm.resetFields();
     setEditingTicket(null);
     setAiSuggestion(null);
@@ -4010,6 +5055,10 @@ const PMProjects = ({
     setAiPlannerResult(null);
     setAiProjectBrief("");
     setAiPlannerFile(null);
+    setShowAiDocBuilder(false);
+    setAiDocResult("");
+    setAiDocContext("");
+    setAiDocRequirementFile(null);
     setClientProgressInvite(null);
     if (embedded && typeof onCloseEmbeddedBoard === "function") {
       onCloseEmbeddedBoard();
@@ -4226,6 +5275,217 @@ const PMProjects = ({
       message.error("Failed to apply AI plan: " + (err?.message || "Unknown error"));
     } finally {
       setAiPlannerApplying(false);
+    }
+  };
+
+  const getProjectContextForDoc = () => {
+    const project = selectedProject || {};
+    const sprintLines = (sprints || []).map((s, idx) => {
+      const dates =
+        s.start_date || s.end_date
+          ? ` (${s.start_date || "?"} -> ${s.end_date || "?"})`
+          : "";
+      return `${idx + 1}. ${s.name} [${s.status || "planning"}]${dates}`;
+    });
+
+    const topTicketLines = (tickets || []).slice(0, 30).map((t, idx) => {
+      return `${idx + 1}. ${t.title} | type=${t.ticket_type || "task"} | status=${t.status || "open"} | priority=${t.priority || "medium"} | points=${t.story_points || 0}`;
+    });
+
+    return [
+      `Project Name: ${project.name || "Untitled Project"}`,
+      `Project Status: ${project.status || "in_progress"}`,
+      `Project Type: ${project.project_type || "not specified"}`,
+      `Client: ${project.client_name || "not specified"}`,
+      `Start Date: ${project.start_date || "not specified"}`,
+      `End Date: ${project.end_date || "not specified"}`,
+      `Priority: ${project.priority || "not specified"}`,
+      `Description/Brief: ${project.description || project.overview || "not specified"}`,
+      "",
+      `Sprints (${sprints.length}):`,
+      sprintLines.length ? sprintLines.join("\n") : "None",
+      "",
+      `Tickets (${tickets.length} total, sample up to 30):`,
+      topTicketLines.length ? topTicketLines.join("\n") : "None",
+    ].join("\n");
+  };
+
+  const openAiDocBuilder = () => {
+    if (!aiDocContext.trim() && selectedProject?.requirements) {
+      setAiDocContext(selectedProject.requirements);
+    }
+    setShowAiDocBuilder(true);
+  };
+
+  const runAiDocBuilder = async () => {
+    if (!selectedProject?.id) return;
+    if (!GROQ_API_KEY) {
+      message.error("Missing AI key. Set VITE_GROK_API_KEY in environment.");
+      return;
+    }
+    setAiDocLoading(true);
+    try {
+      const requirementFileText = aiDocRequirementFile
+        ? await readPlannerFileText(aiDocRequirementFile)
+        : "";
+      const additionalContext = [
+        aiDocContext.trim(),
+        requirementFileText ? `Requirement File Content:\n${requirementFileText}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+
+      const generated = await generateDetailedProjectDocWithAI({
+        docType: aiDocType,
+        projectName: selectedProject?.name || "Project",
+        projectContext: getProjectContextForDoc(),
+        extraContext: additionalContext,
+      });
+      const fileSafeProject = (selectedProject?.name || "project")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+      const objectPath = `${profile?.id || "system"}/project-docs/${selectedProject.id}/${fileSafeProject || "project"}-${aiDocType}-${Date.now()}.md`;
+      const docBlob = new Blob([generated], { type: "text/plain;charset=utf-8" });
+      const { error: uploadError } = await supabase.storage
+        .from(AI_DOC_PRIMARY_BUCKET)
+        .upload(objectPath, docBlob, {
+          upsert: true,
+          contentType: "text/plain",
+        });
+      if (uploadError) throw uploadError;
+
+      const linkColumn = AI_DOC_PROJECT_COLUMN[aiDocType];
+      const updatePayload = {
+        [linkColumn]: objectPath,
+      };
+      if (aiDocContext.trim()) {
+        updatePayload.requirements = aiDocContext.trim();
+      }
+      const { error: updateErr } = await supabase
+        .from("projects")
+        .update(updatePayload)
+        .eq("id", selectedProject.id);
+      if (updateErr) throw updateErr;
+
+      setAiDocResult(generated);
+      fetchProjectDocs(selectedProject.id);
+      message.success("Document generated successfully.");
+    } catch (err) {
+      message.error(err?.message || "Failed to generate document");
+    } finally {
+      setAiDocLoading(false);
+    }
+  };
+
+  const copyAiDocResult = async () => {
+    if (!aiDocResult.trim()) {
+      message.warning("No generated document to copy yet.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(aiDocResult);
+      message.success("Document copied to clipboard.");
+    } catch {
+      message.error("Copy failed. Please try again.");
+    }
+  };
+
+  const downloadAiDocResult = (asPdf = true) => {
+    if (!aiDocResult.trim()) {
+      message.warning("No generated document to download yet.");
+      return;
+    }
+    const label = AI_DOC_TYPES.find((d) => d.value === aiDocType)?.label || "document";
+    const fileSafeProject = (selectedProject?.name || "project")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+    const fileSafeType = label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const filename = `${fileSafeProject || "project"}-${fileSafeType || "document"}`;
+
+    try {
+      if (asPdf) {
+        // Download as formatted PDF with project name
+        generateFormattedPDF(aiDocResult, `${filename}.pdf`, selectedProject?.name || "Project");
+        message.success("PDF downloaded with formatting!");
+      } else {
+        // Download as markdown
+        const blob = new Blob([aiDocResult], { type: "text/markdown;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${filename}.md`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        message.success("Markdown downloaded!");
+      }
+    } catch (err) {
+      message.error("Download failed: " + (err?.message || "Unknown error"));
+    }
+  };
+
+  const downloadDocumentFromUrl = async (docLink, docName) => {
+    try {
+      let markdownText = "";
+      let lastError = null;
+
+      if (typeof docLink === "string" && /^https?:\/\//i.test(docLink.trim())) {
+        try {
+          const response = await fetch(docLink);
+          if (response.ok) {
+            markdownText = await response.text();
+          } else {
+            lastError = new Error("Stored document link is invalid or expired.");
+          }
+        } catch (err) {
+          lastError = err;
+        }
+      }
+
+      if (!markdownText) {
+        const storageCandidates = buildAiDocStorageCandidates(docLink);
+        for (const candidate of storageCandidates) {
+          const { data: signedData, error: signedError } = await supabase.storage
+            .from(candidate.bucket)
+            .createSignedUrl(candidate.path, 60 * 5);
+          if (signedError || !signedData?.signedUrl) {
+            lastError = signedError || lastError;
+            continue;
+          }
+          const response = await fetch(signedData.signedUrl);
+          if (!response.ok) {
+            lastError = new Error("Signed URL fetch failed.");
+            continue;
+          }
+          markdownText = await response.text();
+          break;
+        }
+      }
+
+      if (!markdownText) throw lastError || new Error("Failed to fetch document");
+      generateFormattedPDF(markdownText, `${docName}.pdf`, selectedProject?.name || "Project");
+      message.success("Document downloaded as PDF!");
+    } catch (err) {
+      message.error("Download failed: " + (err?.message || "Unknown error"));
+    }
+  };
+
+  const deleteProjectDoc = async (docKind) => {
+    if (!docKind || !window.confirm("Remove this document link?")) return;
+    try {
+      const linkColumn = AI_DOC_PROJECT_COLUMN[docKind];
+      const { error } = await supabase
+        .from("projects")
+        .update({ [linkColumn]: null })
+        .eq("id", selectedProject?.id);
+      if (error) throw error;
+      fetchProjectDocs(selectedProject?.id);
+      message.success("Document link removed.");
+    } catch (err) {
+      message.error(err?.message || "Failed to remove document link");
     }
   };
 
@@ -4471,21 +5731,131 @@ const PMProjects = ({
     (t) => t.status === "completed" || t.status === "closed",
   ).length;
   const openTickets = tickets.filter((t) => t.status === "open").length;
+  const today = dayjs().startOf("day");
+  const activeProjects = projects.filter((p) => p.status !== "completed");
+  const inProgressProjects = projects.filter((p) => p.status === "in_progress");
+  const testingProjects = projects.filter((p) => p.status === "testing");
+  const completedProjects = projects.filter((p) => p.status === "completed");
+  const onHoldProjects = projects.filter(
+    (p) => p.status === "on_hold" || p.status === "hold",
+  );
+  const overdueProjects = activeProjects.filter(
+    (p) => p.end_date && dayjs(p.end_date).isBefore(today, "day"),
+  );
+  const onTrackProjects = activeProjects.filter(
+    (p) => !p.end_date || !dayjs(p.end_date).isBefore(today, "day"),
+  );
+  const newThisMonthCount = projects.filter(
+    (p) => p.created_at && dayjs(p.created_at).isSame(dayjs(), "month"),
+  ).length;
+  const completedThisQuarterCount = completedProjects.filter((p) =>
+    dayjs(p.updated_at || p.created_at).isSame(dayjs(), "quarter"),
+  ).length;
+  const onTrackRatio = activeProjects.length
+    ? Math.round((onTrackProjects.length / activeProjects.length) * 100)
+    : 0;
+  const upcomingDeadlines = activeProjects
+    .filter((p) => p.end_date)
+    .sort((a, b) => dayjs(a.end_date).valueOf() - dayjs(b.end_date).valueOf());
+  const recentProjectActivity = [...projects]
+    .sort(
+      (a, b) =>
+        dayjs(b.updated_at || b.created_at).valueOf() -
+        dayjs(a.updated_at || a.created_at).valueOf(),
+    )
+    .slice(0, 4);
+  const upcomingNeedsScroll = upcomingDeadlines.length > 5;
+  const activeEmpNeedsScroll = activeWorkingEmployees.length > 5;
+  const activityNeedsScroll = dashboardActivities.length > 5;
 
   const watchedType = Form.useWatch("ticket_type", ticketForm);
+  const projectColumns = isMobile ? "1fr" : "repeat(4,1fr)";
+  const formColumns = isMobile ? "1fr" : "1fr 1fr";
+
+  const renderProjectDrawerActions = () => (
+    <Space wrap size={[6, 6]}>
+      <Tooltip
+        title={
+          clientProgressInvite?.share_token
+            ? "Open client progress link"
+            : "No client progress link found for this project yet"
+        }
+      >
+        <Button
+          icon={<ExternalLink size={12} />}
+          size="small"
+          disabled={!clientProgressInvite?.share_token}
+          onClick={() => {
+            if (!clientProgressInvite?.share_token) return;
+            window.open(
+              `${window.location.origin}/client/project-progress/${clientProgressInvite.share_token}`,
+              "_blank",
+            );
+          }}
+        >
+          Open Progress Link
+        </Button>
+      </Tooltip>
+      <Button
+        icon={<Sparkles size={12} />}
+        onClick={() => setShowAiPlanner(true)}
+        size="small"
+        style={{
+          background: dark
+            ? "linear-gradient(135deg,#2a2440,#1e3a8a)"
+            : "linear-gradient(135deg,#ede9fe,#e0e7ff)",
+          border: dark ? "1px solid #3b3d46" : "1px solid #c7d2fe",
+          color: dark ? "#dbeafe" : "#4338ca",
+          fontWeight: 600,
+        }}
+      >
+        AI Sprint Planner
+      </Button>
+      <Button
+        icon={<BookOpen size={12} />}
+        onClick={openAiDocBuilder}
+        size="small"
+        style={{
+          background: dark ? "#1f222a" : "#ffffff",
+          border: dark ? "1px solid #363b47" : "1px solid #d1d5db",
+          color: dark ? "#e5e7eb" : "#1f2937",
+          fontWeight: 600,
+        }}
+      >
+        AI Docs
+      </Button>
+      <Button
+        icon={<Zap size={12} />}
+        onClick={() => openSprintForm()}
+        size="small"
+      >
+        New Sprint
+      </Button>
+      <Button
+        type="primary"
+        icon={<Plus size={12} />}
+        onClick={() => openTicketForm(null, null, "open")}
+        size="small"
+        style={{
+          background: "linear-gradient(135deg,#003467,#0c66e4)",
+          border: "none",
+        }}
+      >
+        Create Issue
+      </Button>
+    </Space>
+  );
 
   if (!profile)
     return (
       <div
         style={{
           minHeight: "100vh",
-          background: dark ? "#141416" : "#f4f5f7",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          background: dark ? "#141416" : "#f8fafc",
+          padding: isMobile ? "14px 12px" : "24px 20px",
         }}
       >
-        <Spin size="large" />
+        <SkeletonOverview dark={dark} isMobile={isMobile} />
       </div>
     );
 
@@ -4573,6 +5943,13 @@ const PMProjects = ({
           color: #f3f4f6 !important;
           border-color: #2a2b31 !important;
         }
+        @media (max-width: 768px) {
+          .pm-project-summary { width: 100%; }
+          .pm-project-stats { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+          .pm-project-tabs-row { flex-wrap: wrap; gap: 10px; }
+          .pm-project-header-actions .ant-space-item { width: 100%; }
+          .pm-project-header-actions .ant-btn { width: 100%; justify-content: center; }
+        }
       `}</style>
 
       {!embedded && (
@@ -4580,200 +5957,644 @@ const PMProjects = ({
           className={`pm-root ${dark ? "dark" : ""}`}
           style={{
             minHeight: "100vh",
-            background: dark ? "#141416" : "#f4f5f7",
+            background: dark ? "#141416" : "#f8fafc",
           }}
         >
-          <div style={{ margin: "0 auto", padding: "24px 20px" }}>
-          {/* Header */}
+          <div style={{ margin: "0 auto", padding: isMobile ? "14px 12px" : "24px 20px" }}>
           <div
             style={{
               display: "flex",
               alignItems: "flex-start",
               justifyContent: "space-between",
-              marginBottom: 24,
+              flexWrap: "wrap",
+              gap: 12,
+              marginBottom: 16,
             }}
           >
-            <div>
-              <h1
-                style={{
-                  fontSize: 20,
-                  fontWeight: 800,
-                  margin: "0 0 2px",
-                }}
-              >
+            <div className="pm-project-summary">
+              <h1 style={{ margin: "0 0 4px", fontSize: 26, fontWeight: 800 }}>
                 Projects
               </h1>
-              <p style={{ fontSize: 12, color: "#626f86", margin: 0 }}>
-                Manage sprints, tickets, and team delivery
+              <p style={{ margin: 0, color: dark ? "#94a3b8" : "#64748b", fontSize: 13 }}>
+                Projects overview
               </p>
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              {[
-                { label: "Total", val: projects.length, color: "#ce4f12" },
-                {
-                  label: "Active",
-                  val: projects.filter((p) => p.status === "in_progress")
-                    .length,
-                  color: "#0c66e4",
-                },
-                {
-                  label: "Done",
-                  val: projects.filter((p) => p.status === "completed").length,
-                  color: "#22a06b",
-                },
-              ].map((s) => (
-                <div
-                  key={s.label}
-                  style={{
-                    background: dark ? "#1a1b1f" : "#fff",
-                    border: dark ? "1px solid #2a2b31" : "1px solid #dde3ec",
-                    borderRadius: 8,
-                    padding: "7px 14px",
-                    textAlign: "center",
-                    minWidth: 60,
-                  }}
-                >
-                  <div
-                    style={{ fontSize: 18, fontWeight: 800, color: s.color }}
-                  >
-                    {s.val}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 9,
-                      color: "#9ca3af",
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: 0.5,
-                    }}
-                  >
-                    {s.label}
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
 
-          {/* Projects grid */}
           {loading ? (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                height: 300,
-              }}
-            >
-              <Spin size="large" />
-            </div>
+            <SkeletonOverview dark={dark} isMobile={isMobile} />
           ) : (
-            <div
-              className="pm-scroll"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(4,1fr)",
-                gap: 16,
-                overflowX: "auto",
-              }}
-            >
-              {PROJECT_STATUS.map((ps) => {
-                const cols = projects.filter((p) => p.status === ps.key);
-                return (
-                  <div key={ps.key}>
+            <>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3,1fr)",
+                  gap: 12,
+                  marginBottom: 16,
+                }}
+              >
+                {[
+                  {
+                    label: "In Progress",
+                    value: inProgressProjects.length,
+                    note: `${inProgressProjects.length} currently running`,
+                  },
+                  {
+                    label: "Testing",
+                    value: testingProjects.length,
+                    note: `${testingProjects.length} in QA`,
+                  },
+                  {
+                    label: "Completed",
+                    value: completedProjects.length,
+                    note: `${completedThisQuarterCount} this quarter`,
+                  },
+                ].map((card) => (
+                  <div
+                    key={card.label}
+                    style={{
+                      background: dark ? "#1a1b1f" : "#ffffff",
+                      border: `1px solid ${dark ? "rgba(148,163,184,.22)" : "rgba(148,163,184,.28)"}`,
+                      borderRadius: 10,
+                      padding: "12px 14px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 11,
+                        letterSpacing: 0.8,
+                        textTransform: "uppercase",
+                        color: dark ? "#a3a8b3" : "#64748b",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {card.label}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 30,
+                        lineHeight: 1,
+                        fontWeight: 800,
+                        marginTop: 4,
+                        color: dark ? "#f8fafc" : "#0f172a",
+                      }}
+                    >
+                      {card.value}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        marginTop: 4,
+                        color: dark ? "#9ca3af" : "#64748b",
+                      }}
+                    >
+                      {card.note}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "1fr" : "1.4fr .6fr",
+                  gap: 14,
+                }}
+              >
+                <div
+                  style={{
+                    background: dark ? "#1a1b1f" : "#ffffff",
+                    border: `1px solid ${dark ? "rgba(148,163,184,.22)" : "rgba(148,163,184,.28)"}`,
+                    borderRadius: 10,
+                    padding: "12px 12px 10px",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "flex-start",
+                      alignItems: "center",
+                      marginBottom: 10,
+                    }}
+                  >
+                    <h3
+                      style={{
+                        margin: 0,
+                        fontSize: 18,
+                        fontWeight: 700,
+                        color: dark ? "#f8fafc" : "#0f172a",
+                      }}
+                    >
+                      Projects overview
+                    </h3>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: isMobile
+                        ? "1fr"
+                        : "repeat(3,minmax(0,1fr))",
+                      gap: 10,
+                    }}
+                  >
+                    {[
+                      {
+                        key: "in_progress",
+                        label: "In Progress",
+                        dot: "#f59e0b",
+                        items: inProgressProjects,
+                      },
+                      {
+                        key: "testing",
+                        label: "Testing",
+                        dot: "#f97316",
+                        items: testingProjects,
+                      },
+                      {
+                        key: "completed",
+                        label: "Completed",
+                        dot: "#65a30d",
+                        items: completedProjects,
+                      },
+                    ].map((lane) => (
+                      <div
+                        key={lane.key}
+                        style={{
+                          background: dark ? "#1a1b1f" : "#f8fafc",
+                          border: `1px solid ${dark ? "rgba(148,163,184,.16)" : "rgba(148,163,184,.24)"}`,
+                          borderRadius: 8,
+                          padding: "9px 9px 4px",
+                          maxHeight: 430,
+                          overflowY: "auto",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            marginBottom: 8,
+                          }}
+                        >
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 7,
+                              fontWeight: 700,
+                              fontSize: 15,
+                              color: dark ? "#dbe2ea" : "#334155",
+                            }}
+                          >
+                            <span
+                              style={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: 999,
+                                background: lane.dot,
+                              }}
+                            />
+                            {lane.label}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: 11,
+                              color: dark ? "#a3a8b3" : "#64748b",
+                              border: `1px solid ${dark ? "#3b3d43" : "#cbd5e1"}`,
+                              borderRadius: 999,
+                              padding: "1px 7px",
+                              fontWeight: 700,
+                            }}
+                          >
+                            {lane.items.length}
+                          </span>
+                        </div>
+
+                        {lane.items.slice(0, 6).map((p) => {
+                          const progress =
+                            p.status === "completed"
+                              ? 100
+                              : p.status === "testing"
+                                ? 78
+                                : p.status === "in_progress"
+                                  ? 46
+                                  : 8;
+                          return (
+                            <div
+                              key={p.id}
+                              onClick={() => openProject(p)}
+                              style={{
+                                border: `1px solid ${dark ? "rgba(148,163,184,.14)" : "rgba(148,163,184,.22)"}`,
+                                borderRadius: 8,
+                                padding: "10px 10px 8px",
+                                marginBottom: 8,
+                                cursor: "pointer",
+                                background: dark ? "#1a1b1f" : "#ffffff",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  fontSize: 14,
+                                  lineHeight: 1.22,
+                                  fontWeight: 700,
+                                  color: dark ? "#f8fafc" : "#0f172a",
+                                  marginBottom: 5,
+                                }}
+                              >
+                                {p.name}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: 12,
+                                  color: dark ? "#a3a8b3" : "#64748b",
+                                  marginBottom: 6,
+                                }}
+                              >
+                                {p.end_date
+                                  ? `Due ${dayjs(p.end_date).format("MMM D")}`
+                                  : "No deadline"}
+                              </div>
+                              <div style={{ display: "flex", alignItems: "center" }}>
+                                {(p.project_assignees || []).slice(0, 4).map((a, idx) => (
+                                  <div key={`${p.id}-assignee-${idx}`} style={{ marginLeft: idx > 0 ? -6 : 0 }}>
+                                    <UserAvatar
+                                      name={a?.profiles?.full_name || "?"}
+                                      image={a?.profiles?.user_photo}
+                                      size={20}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {lane.items.length === 0 && (
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: dark ? "#6b7280" : "#94a3b8",
+                              padding: "10px 2px",
+                            }}
+                          >
+                            No projects
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gap: 14, alignContent: "start" }}>
+                  <div
+                    style={{
+                      background: dark ? "#1a1b1f" : "#ffffff",
+                      border: `1px solid ${dark ? "rgba(148,163,184,.22)" : "rgba(148,163,184,.28)"}`,
+                      borderRadius: 10,
+                      padding: "12px 14px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "flex-start",
+                        alignItems: "center",
+                        marginBottom: 10,
+                      }}
+                    >
+                      <h3
+                        style={{
+                          margin: 0,
+                          fontSize: 16,
+                          fontWeight: 700,
+                          color: dark ? "#f8fafc" : "#0f172a",
+                        }}
+                      >
+                        Upcoming deadlines
+                      </h3>
+                    </div>
+
+                    {upcomingDeadlines.length === 0 ? (
+                      <div style={{ fontSize: 13, color: dark ? "#9ca3af" : "#64748b" }}>
+                        No upcoming deadlines.
+                      </div>
+                    ) : (
+                      <div
+                        className="pm-scroll"
+                        style={{
+                          maxHeight: upcomingNeedsScroll ? 300 : "none",
+                          overflowY: upcomingNeedsScroll ? "auto" : "visible",
+                          paddingRight: upcomingNeedsScroll ? 4 : 0,
+                        }}
+                      >
+                        {upcomingDeadlines.map((p) => {
+                          const overdue = p.end_date
+                            ? dayjs(p.end_date).isBefore(today, "day")
+                            : false;
+                          const dueSoon = p.end_date
+                            ? dayjs(p.end_date).diff(today, "day") <= 5
+                            : false;
+                          const dot = overdue
+                            ? "#ef4444"
+                            : dueSoon
+                              ? "#f59e0b"
+                              : "#65a30d";
+                          return (
+                            <div
+                              key={p.id}
+                              onClick={() => openProject(p)}
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "50px 1fr 12px",
+                                alignItems: "center",
+                                gap: 10,
+                                padding: "8px 0",
+                                borderTop: `1px solid ${dark ? "#34363d" : "#e2e8f0"}`,
+                                cursor: "pointer",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  background: dark ? "#1a1b1f" : "#f8fafc",
+                                  border: `1px solid ${dark ? "rgba(148,163,184,.16)" : "rgba(148,163,184,.22)"}`,
+                                  borderRadius: 6,
+                                  textAlign: "center",
+                                  padding: "6px 0",
+                                }}
+                              >
+                                <div style={{ fontWeight: 800, fontSize: 17 }}>
+                                  {dayjs(p.end_date).format("DD")}
+                                </div>
+                                <div style={{ fontSize: 10, color: dark ? "#9ca3af" : "#64748b" }}>
+                                  {dayjs(p.end_date).format("MMM")}
+                                </div>
+                              </div>
+                              <div>
+                                <div
+                                  style={{
+                                    fontWeight: 700,
+                                    fontSize: 14,
+                                    color: dark ? "#f8fafc" : "#0f172a",
+                                  }}
+                                >
+                                  {p.name}
+                                </div>
+                                <div style={{ fontSize: 11, color: dark ? "#9ca3af" : "#64748b" }}>
+                                  {overdue
+                                    ? "Final review - overdue"
+                                    : dueSoon
+                                      ? "Delivery window approaching"
+                                      : "On timeline"}
+                                </div>
+                              </div>
+                              <span
+                                style={{
+                                  width: 8,
+                                  height: 8,
+                                  borderRadius: 999,
+                                  background: dot,
+                                }}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div
+                    style={{
+                      background: dark ? "#1a1b1f" : "#ffffff",
+                      border: `1px solid ${dark ? "rgba(148,163,184,.22)" : "rgba(148,163,184,.28)"}`,
+                      borderRadius: 10,
+                      padding: "12px 14px",
+                    }}
+                  >
                     <div
                       style={{
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
-                        padding: "8px 12px",
-                        borderRadius: 6,
-                        marginBottom: 10,
-                        background: dark ? `${ps.color}20` : ps.bg,
-                        border: dark
-                          ? `1.5px solid ${ps.color}55`
-                          : `1.5px solid ${ps.border}`,
+                        marginBottom: 8,
                       }}
                     >
-                      <div
+                      <h3
                         style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: 2,
-                            background: ps.color,
-                          }}
-                        />
-                        <span
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 800,
-                            color: ps.color,
-                            textTransform: "uppercase",
-                            letterSpacing: 0.5,
-                          }}
-                        >
-                          {ps.label}
-                        </span>
-                      </div>
-                      <span
-                        style={{
-                          fontSize: 11,
+                          margin: 0,
+                          fontSize: 18,
                           fontWeight: 700,
-                          color: ps.color,
-                          background: dark ? "#1a1b1f" : "#fff",
-                          padding: "1px 7px",
-                          borderRadius: 99,
-                          border: dark
-                            ? "1px solid #2a2b31"
-                            : `1px solid ${ps.border}`,
+                          color: dark ? "#f8fafc" : "#0f172a",
                         }}
                       >
-                        {cols.length}
+                        Active employees
+                      </h3>
+                      <span style={{ fontSize: 11, color: dark ? "#9ca3af" : "#64748b" }}>
+                        {activeWorkingEmpLoading ? "..." : activeWorkingEmployees.length}
                       </span>
                     </div>
-                    <div style={{ minHeight: 140 }}>
-                      {cols.map((p) => (
-                        <ProjectCard
-                          key={p.id}
-                          project={p}
-                          dark={dark}
-                          onClick={() => openProject(p)}
-                        />
-                      ))}
-                      {cols.length === 0 && (
-                        <div
-                          style={{
-                            border: dark
-                              ? "1.5px dashed #2a2b31"
-                              : "1.5px dashed #dde3ec",
-                            borderRadius: 8,
-                            padding: "28px 14px",
-                            textAlign: "center",
-                            background: dark ? "#1a1b1f" : "transparent",
-                          }}
-                        >
-                          <p
+                    {leaveEmployeesToday.length > 0 && (
+                      <div
+                        style={{
+                          marginBottom: 10,
+                          padding: "8px 10px",
+                          borderRadius: 8,
+                          border: `1px solid ${dark ? "rgba(245,158,11,.35)" : "rgba(245,158,11,.35)"}`,
+                          background: dark ? "rgba(245,158,11,.12)" : "rgba(254,243,199,.75)",
+                          fontSize: 11.5,
+                          color: dark ? "#fde68a" : "#92400e",
+                        }}
+                      >
+                        {leaveEmployeesToday.map((emp) => emp?.full_name).filter(Boolean).join(", ")} {leaveEmployeesToday.length === 1 ? "is" : "are"} on leave today.
+                      </div>
+                    )}
+                    {activeWorkingEmpLoading ? (
+                      <div style={{ fontSize: 12, color: dark ? "#9ca3af" : "#64748b" }}>
+                        Loading...
+                      </div>
+                    ) : activeWorkingEmployees.length === 0 ? (
+                      <div style={{ fontSize: 12, color: dark ? "#9ca3af" : "#64748b" }}>
+                        No active employees found.
+                      </div>
+                    ) : (
+                      <div
+                        className="pm-scroll"
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 8,
+                          maxHeight: activeEmpNeedsScroll ? 290 : "none",
+                          overflowY: activeEmpNeedsScroll ? "auto" : "visible",
+                          paddingRight: activeEmpNeedsScroll ? 4 : 0,
+                        }}
+                      >
+                        {activeWorkingEmployees.map((emp, idx) => {
+                          const isWorking = emp.status === "active";
+                          return (
+                            <div
+                              key={`active-emp-${emp.user_id || emp.id || idx}`}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: 8,
+                                padding: "8px 9px",
+                                borderRadius: 8,
+                                border: `1px solid ${dark ? "rgba(148,163,184,.16)" : "rgba(148,163,184,.22)"}`,
+                                background: dark ? "#1a1b1f" : "#f8fafc",
+                              }}
+                            >
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <UserAvatar
+                                  name={emp.profiles?.full_name || "?"}
+                                  image={emp.profiles?.user_photo || emp.profiles?.profile_picture_url}
+                                  size={28}
+                                />
+                                <div>
+                                  <div
+                                    style={{
+                                      fontSize: 12,
+                                      fontWeight: 600,
+                                      color: dark ? "#f8fafc" : "#0f172a",
+                                      lineHeight: 1.2,
+                                    }}
+                                  >
+                                    {emp.profiles?.full_name || "Employee"}
+                                  </div>
+                                  <div
+                                    style={{
+                                      marginTop: 2,
+                                      fontSize: 11,
+                                      color: isWorking ? "#10b981" : "#f59e0b",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 4,
+                                    }}
+                                  >
+                                    {isWorking ? (
+                                      <Play size={10} color="#10b981" fill="#10b981" />
+                                    ) : (
+                                      <Pause size={10} color="#f59e0b" fill="#f59e0b" />
+                                    )}
+                                    {isWorking ? "Working" : "Paused"}
+                                  </div>
+                                </div>
+                              </div>
+                              <ActiveLogTimer log={emp} dark={dark} />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div
+                    style={{
+                      background: dark ? "#1a1b1f" : "#ffffff",
+                      border: `1px solid ${dark ? "rgba(148,163,184,.22)" : "rgba(148,163,184,.28)"}`,
+                      borderRadius: 10,
+                      padding: "12px 14px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: 8,
+                      }}
+                    >
+                      <h3
+                        style={{
+                          margin: 0,
+                          fontSize: 18,
+                          fontWeight: 700,
+                          color: dark ? "#f8fafc" : "#0f172a",
+                        }}
+                      >
+                        Recent activity
+                      </h3>
+                    </div>
+
+                    {dashboardActivityLoading ? (
+                      <div style={{ fontSize: 13, color: dark ? "#9ca3af" : "#64748b" }}>
+                        Loading activity...
+                      </div>
+                    ) : dashboardActivities.length === 0 ? (
+                      <div style={{ fontSize: 13, color: dark ? "#9ca3af" : "#64748b" }}>
+                        No activity yet.
+                      </div>
+                    ) : (
+                      <div
+                        className="pm-scroll"
+                        style={{
+                          maxHeight: activityNeedsScroll ? 260 : "none",
+                          overflowY: activityNeedsScroll ? "auto" : "visible",
+                          paddingRight: activityNeedsScroll ? 4 : 0,
+                        }}
+                      >
+                        {dashboardActivities.map((event, idx) => (
+                          <div
+                            key={event.id}
                             style={{
-                              fontSize: 11,
-                              color: dark ? "#6b7280" : "#d1d5db",
-                              margin: 0,
+                              display: "grid",
+                              gridTemplateColumns: "26px 1fr",
+                              gap: 10,
+                              alignItems: "start",
+                              padding: "8px 0",
+                              borderTop:
+                                idx === 0
+                                  ? "none"
+                                  : `1px solid ${dark ? "#34363d" : "#e2e8f0"}`,
                             }}
                           >
-                            No projects
-                          </p>
-                        </div>
-                      )}
-                    </div>
+                            <div
+                              style={{
+                                width: 26,
+                                height: 26,
+                                borderRadius: 8,
+                                background: dark ? "#1a1b1f" : "#f1f5f9",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              {event.icon === "comment_added" ? (
+                                <MessageSquare size={14} color={dark ? "#9ca3af" : "#475569"} />
+                              ) : event.icon === "attachment_added" ? (
+                                <Paperclip size={14} color={dark ? "#9ca3af" : "#475569"} />
+                              ) : event.icon === "completion_request" ? (
+                                <CheckCircle2 size={14} color={dark ? "#9ca3af" : "#475569"} />
+                              ) : event.icon === "ticket_created" ? (
+                                <Plus size={14} color={dark ? "#9ca3af" : "#475569"} />
+                              ) : event.icon === "ticket_assigned" ? (
+                                <User size={14} color={dark ? "#9ca3af" : "#475569"} />
+                              ) : (
+                                <Activity size={14} color={dark ? "#9ca3af" : "#475569"} />
+                              )}
+                            </div>
+                            <div>
+                              <div
+                                style={{
+                                  fontWeight: 600,
+                                  fontSize: 13,
+                                  color: dark ? "#f8fafc" : "#0f172a",
+                                  lineHeight: 1.25,
+                                }}
+                              >
+                                {event.title}
+                              </div>
+                              <div style={{ fontSize: 11, color: dark ? "#9ca3af" : "#64748b" }}>
+                                {event.subtitle} - {fmtTime(event.created_at)}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              </div>
+            </>
           )}
           </div>
         </div>
@@ -4784,25 +6605,27 @@ const PMProjects = ({
         open={showProjectDrawer}
         rootClassName={dark ? "pm-dark-overlay" : undefined}
         onClose={closeProjectDrawer}
-        width="96%"
+        width={isMobile ? "100%" : "96%"}
         styles={{
           header: {
             padding: "12px 18px",
             borderBottom: "1px solid #f1f2f4",
             background: "#fff",
           },
-          body: { padding: 0, background: "#f4f5f7" },
+          body: { padding: 0, background: "#f8fafc" },
         }}
         title={
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              width: "100%",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                width: "100%",
+                flexWrap: "wrap",
+                gap: 12,
+              }}
+            >
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flex: "1 1 100%" }}>
               <div
                 style={{
                   width: 32,
@@ -4829,9 +6652,9 @@ const PMProjects = ({
                 <div style={{ fontSize: 10, color: dark ? "#9ca3af" : "#94a3b8" }}>
                   {selectedProject?.description}
                 </div>
+                </div>
               </div>
-            </div>
-            <div style={{ display: "flex", gap: 7, marginRight: 40 }}>
+            <div className="pm-project-stats" style={{ display: "flex", gap: 7, flexWrap: "wrap", marginRight: isMobile ? 0 : 40 }}>
               {[
                 { label: "Tickets", val: totalTickets, color: "#003467" },
                 { label: "Open", val: openTickets, color: "#f97316" },
@@ -4870,70 +6693,12 @@ const PMProjects = ({
             </div>
           </div>
         }
-        extra={
-          <Space>
-            <Tooltip
-              title={
-                clientProgressInvite?.share_token
-                  ? "Open client progress link"
-                  : "No client progress link found for this project yet"
-              }
-            >
-              <Button
-                icon={<ExternalLink size={12} />}
-                size="small"
-                disabled={!clientProgressInvite?.share_token}
-                onClick={() => {
-                  if (!clientProgressInvite?.share_token) return;
-                  window.open(
-                    `${window.location.origin}/client/project-progress/${clientProgressInvite.share_token}`,
-                    "_blank",
-                  );
-                }}
-              >
-                Open Progress Link
-              </Button>
-            </Tooltip>
-            <Button
-              icon={<Sparkles size={12} />}
-              onClick={() => setShowAiPlanner(true)}
-              size="small"
-              style={{
-                background: dark
-                  ? "linear-gradient(135deg,#2a2440,#1e3a8a)"
-                  : "linear-gradient(135deg,#ede9fe,#e0e7ff)",
-                border: dark ? "1px solid #3b3d46" : "1px solid #c7d2fe",
-                color: dark ? "#dbeafe" : "#4338ca",
-                fontWeight: 600,
-              }}
-            >
-              AI Sprint Planner
-            </Button>
-            <Button
-              icon={<Zap size={12} />}
-              onClick={() => openSprintForm()}
-              size="small"
-            >
-              New Sprint
-            </Button>
-            <Button
-              type="primary"
-              icon={<Plus size={12} />}
-              onClick={() => openTicketForm(null, null, "open")}
-              size="small"
-              style={{
-                background: "linear-gradient(135deg,#003467,#0c66e4)",
-                border: "none",
-              }}
-            >
-              Create Issue
-            </Button>
-          </Space>
-        }
+        extra={!isMobile ? renderProjectDrawerActions() : null}
       >
-        <div style={{ padding: "0 18px 24px" }}>
+        <div style={{ padding: isMobile ? "0 12px 14px" : "0 18px 24px" }}>
           {/* Tabs + search */}
           <div
+            className="pm-project-tabs-row"
             style={{
               display: "flex",
               alignItems: "center",
@@ -4953,7 +6718,7 @@ const PMProjects = ({
                 border: dark ? "1px solid #2f3440" : "none",
               }}
             >
-              {["board", "backlog"].map((t) => (
+              {["board", "backlog", "docs"].map((t) => (
                 <button
                   key={t}
                   onClick={() => setActiveTab(t)}
@@ -4975,7 +6740,7 @@ const PMProjects = ({
                         : "none",
                   }}
                 >
-                  {t === "board" ? "Board" : "Backlog"}
+                  {t === "board" ? "Board" : t === "backlog" ? "Backlog" : "Docs"}
                   {t === "backlog" && backlogTickets.length > 0 && (
                     <span
                       style={{
@@ -4991,38 +6756,69 @@ const PMProjects = ({
                       {backlogTickets.length}
                     </span>
                   )}
+                  {t === "docs" && projectDocs.length > 0 && (
+                    <span
+                      style={{
+                        marginLeft: 4,
+                        background:
+                          activeTab === t
+                            ? dark
+                              ? "#1f345e"
+                              : "#e0e7ff"
+                            : dark
+                              ? "#2d323d"
+                              : "#e5e7eb",
+                        color:
+                          activeTab === t
+                            ? dark
+                              ? "#bfdbfe"
+                              : "#4338ca"
+                            : dark
+                              ? "#b4bccb"
+                              : "#6b7280",
+                        fontSize: 9,
+                        fontWeight: 700,
+                        padding: "1px 4px",
+                        borderRadius: 99,
+                      }}
+                    >
+                      {projectDocs.length}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                background: dark ? "#1d2027" : "#fff",
-                border: `1px solid ${dark ? "#313540" : "#dde3ec"}`,
-                borderRadius: 6,
-                padding: "5px 10px",
-              }}
-            >
-              <Search size={12} color={dark ? "#9098a8" : "#9ca3af"} />
-              <input
-                placeholder="Search issues"
-                value={searchQ}
-                onChange={(e) => setSearchQ(e.target.value)}
+            {activeTab !== "docs" && (
+              <div
                 style={{
-                  border: "none",
-                  outline: "none",
-                  fontSize: 12,
-                  color: dark ? "#f3f4f6" : "#172b4d",
-                  width: 150,
-                  background: "transparent",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: dark ? "#1d2027" : "#fff",
+                  border: `1px solid ${dark ? "#313540" : "#dde3ec"}`,
+                  borderRadius: 6,
+                  padding: "5px 10px",
+                  width: isMobile ? "100%" : "auto",
                 }}
-              />
-              {searchQ && (
-                <button
-                  onClick={() => setSearchQ("")}
+              >
+                <Search size={12} color={dark ? "#9098a8" : "#9ca3af"} />
+                <input
+                  placeholder="Search issues"
+                  value={searchQ}
+                  onChange={(e) => setSearchQ(e.target.value)}
                   style={{
+                    border: "none",
+                    outline: "none",
+                    fontSize: 12,
+                    color: dark ? "#f3f4f6" : "#172b4d",
+                    width: isMobile ? "100%" : 150,
+                    background: "transparent",
+                  }}
+                />
+                {searchQ && (
+                  <button
+                    onClick={() => setSearchQ("")}
+                    style={{
                       background: "none",
                       border: "none",
                       cursor: "pointer",
@@ -5031,11 +6827,17 @@ const PMProjects = ({
                       display: "flex",
                     }}
                   >
-                  <X size={12} />
-                </button>
-              )}
-            </div>
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
+          {isMobile && (
+            <div className="pm-project-header-actions" style={{ marginBottom: 12 }}>
+              {renderProjectDrawerActions()}
+            </div>
+          )}
 
           {/* BOARD */}
           {activeTab === "board" &&
@@ -5430,6 +7232,151 @@ const PMProjects = ({
                 </div>
               </div>
             ))}
+
+          {activeTab === "docs" && (
+            <div
+              style={{
+                background: dark ? "#17181c" : "#fff",
+                borderRadius: 8,
+                border: `1px solid ${dark ? "#2a2d36" : "#dde3ec"}`,
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "10px 14px",
+                  borderBottom: `1px solid ${dark ? "#2a2d36" : "#f1f2f4"}`,
+                  background: dark ? "#1d2027" : "#fafafa",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  <BookOpen size={13} color={dark ? "#a9afbd" : "#626f86"} />
+                  <span
+                    style={{
+                      fontWeight: 700,
+                      fontSize: 13,
+                      color: dark ? "#f3f4f6" : "#172b4d",
+                    }}
+                  >
+                    Project Documents
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: dark ? "#a9afbd" : "#626f86",
+                      background: dark ? "#2a2f39" : "#f1f2f4",
+                      padding: "2px 7px",
+                      borderRadius: 99,
+                    }}
+                  >
+                    {projectDocs.length} files
+                  </span>
+                </div>
+                <Button
+                  size="small"
+                  icon={<Sparkles size={12} />}
+                  onClick={openAiDocBuilder}
+                  style={{
+                    background: dark ? "#1f222a" : "#ffffff",
+                    border: dark ? "1px solid #363b47" : "1px solid #d1d5db",
+                    color: dark ? "#e5e7eb" : "#1f2937",
+                    fontWeight: 600,
+                  }}
+                >
+                  Generate New Doc
+                </Button>
+              </div>
+
+              {projectDocs.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "40px 0" }}>
+                  <BookOpen
+                    size={26}
+                    color={dark ? "#3a3f4c" : "#d1d5db"}
+                    style={{ margin: "0 auto 8px" }}
+                  />
+                  <p
+                    style={{
+                      fontSize: 13,
+                      color: dark ? "#9ca3af" : "#6b7280",
+                      margin: 0,
+                    }}
+                  >
+                    No project docs yet
+                  </p>
+                </div>
+              ) : (
+                <div style={{ padding: 12, display: "grid", gap: 10 }}>
+                  {projectDocs.map((doc) => (
+                    <div
+                      key={doc.id}
+                      style={{
+                        border: `1px solid ${dark ? "#2f3440" : "#e5e7eb"}`,
+                        borderRadius: 8,
+                        padding: "10px 12px",
+                        background: dark ? "#1d2027" : "#ffffff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: dark ? "#f3f4f6" : "#111827",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {doc.name}
+                        </div>
+                        <div
+                          style={{
+                            marginTop: 3,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            fontSize: 11,
+                            color: dark ? "#9ca3af" : "#6b7280",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <span>{aiDocLabelByType(doc.doc_kind)}</span>
+                          <span>•</span>
+                          <span>{dayjs(doc.updated_at || doc.created_at).format("MMM D, YYYY h:mm A")}</span>
+                          {doc.is_ai_generated && (
+                            <>
+                              <span>•</span>
+                              <span>AI</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <Space size={6} style={{ display: "flex", flexWrap: "wrap" }}>
+                        <Button
+                          size="small"
+                          icon={<Download size={12} />}
+                          onClick={() => downloadDocumentFromUrl(doc.link, doc.name.split(".")[0])}
+                        >
+                          Download
+                        </Button>
+                        <Button size="small" danger onClick={() => deleteProjectDoc(doc.doc_kind)}>
+                          Remove
+                        </Button>
+                      </Space>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </Drawer>
 
@@ -5462,7 +7409,7 @@ const PMProjects = ({
           if (aiPlannerLoading || aiPlannerApplying) return;
           setShowAiPlanner(false);
         }}
-        width={760}
+        width={isMobile ? "96%" : 760}
         footer={
           <Space>
             <Button
@@ -5687,6 +7634,257 @@ const PMProjects = ({
         )}
       </Modal>
 
+      <Modal
+        title={
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <BookOpen size={14} color={dark ? "#bfdbfe" : "#1d4ed8"} />
+            <span style={{ fontWeight: 700, color: dark ? "#f3f4f6" : "#172b4d" }}>
+              AI Project Documents
+            </span>
+          </div>
+        }
+        open={showAiDocBuilder}
+        rootClassName={dark ? "pm-dark-overlay" : undefined}
+        width={isMobile ? "96%" : 920}
+        onCancel={() => {
+          if (aiDocLoading) return;
+          setShowAiDocBuilder(false);
+        }}
+        footer={
+          <Space>
+            <Button
+              onClick={() => {
+                setShowAiDocBuilder(false);
+              }}
+              disabled={aiDocLoading}
+            >
+              Close
+            </Button>
+            <Button onClick={copyAiDocResult} disabled={!aiDocResult.trim()}>
+              Copy
+            </Button>
+            <Button
+              icon={<Download size={12} />}
+              onClick={() => downloadAiDocResult(true)}
+              disabled={!aiDocResult.trim()}
+              title="Download with formatted headings and sections"
+            >
+              Download PDF
+            </Button>
+            <Button
+              icon={<Download size={12} />}
+              onClick={() => downloadAiDocResult(false)}
+              disabled={!aiDocResult.trim()}
+              title="Download as markdown file"
+            >
+              Download .md
+            </Button>
+            <Button
+              type="primary"
+              icon={<Sparkles size={13} />}
+              loading={aiDocLoading}
+              onClick={runAiDocBuilder}
+              style={{
+                background: "linear-gradient(135deg,#003467,#0c66e4)",
+                border: "none",
+                fontWeight: 600,
+              }}
+            >
+              Generate Document
+            </Button>
+          </Space>
+        }
+        styles={{
+          content: {
+            background: dark ? "#1a1b1f" : "#ffffff",
+            border: dark ? "1px solid #2a2b31" : "1px solid #e5e7eb",
+          },
+          header: { background: dark ? "#1a1b1f" : "#ffffff" },
+          body: { background: dark ? "#1a1b1f" : "#ffffff" },
+          footer: { background: dark ? "#1a1b1f" : "#ffffff" },
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr",
+            gap: 12,
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: 12,
+                color: dark ? "#9ca3af" : "#6b7280",
+                marginBottom: 8,
+              }}
+            >
+              Generate detailed project documentation using current project data,
+              sprint/ticket context, and your additional notes.
+            </div>
+            <Select
+              value={aiDocType}
+              onChange={(val) => {
+                setAiDocType(val);
+                setAiDocResult("");
+              }}
+              style={{ width: "100%" }}
+              options={AI_DOC_TYPES.map((doc) => ({
+                value: doc.value,
+                label: doc.label,
+              }))}
+            />
+          </div>
+
+          <TextArea
+            rows={5}
+            value={aiDocContext}
+            onChange={(e) => setAiDocContext(e.target.value)}
+            placeholder="Optional: add constraints, deadlines, team names, budget guardrails, governance, or compliance notes."
+            style={{
+              background: dark ? "#17181c" : "#ffffff",
+              borderColor: dark ? "#2a2b31" : "#d1d5db",
+              color: dark ? "#f3f4f6" : "#111827",
+            }}
+          />
+
+          <div>
+            <label
+              htmlFor="ai-doc-upload"
+              style={{
+                display: "block",
+                border: `1px dashed ${dark ? "#3a3f4d" : "#cbd5e1"}`,
+                borderRadius: 10,
+                padding: "10px 12px",
+                background: dark ? "#17181c" : "#f8fafc",
+                cursor: "pointer",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <Upload size={14} color={dark ? "#93c5fd" : "#0c66e4"} />
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: dark ? "#f3f4f6" : "#172b4d",
+                    }}
+                  >
+                    Upload project requirements
+                  </div>
+                  <div style={{ fontSize: 11, color: dark ? "#9ca3af" : "#6b7280" }}>
+                    Supported: `.md`, `.pdf`, `.doc`, `.docx`, `.txt`, `.json`, `.csv`
+                  </div>
+                </div>
+              </div>
+            </label>
+            <input
+              id="ai-doc-upload"
+              type="file"
+              accept=".md,.pdf,.doc,.docx,.txt,.json,.csv"
+              onChange={(e) => setAiDocRequirementFile(e.target.files?.[0] || null)}
+              style={{ display: "none" }}
+            />
+            {aiDocRequirementFile && (
+              <div
+                style={{
+                  marginTop: 8,
+                  borderRadius: 8,
+                  border: `1px solid ${dark ? "#2f3440" : "#dbe2ea"}`,
+                  background: dark ? "#1d2027" : "#ffffff",
+                  padding: "8px 10px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: dark ? "#f3f4f6" : "#172b4d",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {aiDocRequirementFile.name}
+                  </div>
+                  <div style={{ fontSize: 11, color: dark ? "#9ca3af" : "#6b7280" }}>
+                    {(aiDocRequirementFile.size / 1024).toFixed(1)} KB
+                  </div>
+                </div>
+                <button
+                  onClick={() => setAiDocRequirementFile(null)}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    color: dark ? "#9ca3af" : "#6b7280",
+                    cursor: "pointer",
+                    padding: 2,
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div
+            style={{
+              border: `1px solid ${dark ? "#2a2b31" : "#e5e7eb"}`,
+              borderRadius: 10,
+              background: dark ? "#14161b" : "#f8fafc",
+              minHeight: 320,
+              maxHeight: 460,
+              overflow: "auto",
+              padding: 14,
+            }}
+          >
+            {aiDocLoading ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minHeight: 260,
+                }}
+              >
+                <Spin />
+              </div>
+            ) : aiDocResult.trim() ? (
+              <pre
+                style={{
+                  margin: 0,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                  fontSize: 12,
+                  lineHeight: 1.6,
+                  fontFamily:
+                    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                  color: dark ? "#e5e7eb" : "#1f2937",
+                }}
+              >
+                {aiDocResult}
+              </pre>
+            ) : (
+              <div
+                style={{
+                  color: dark ? "#9ca3af" : "#6b7280",
+                  fontSize: 12,
+                }}
+              >
+                Choose a document type and click "Generate Document".
+              </div>
+            )}
+          </div>
+        </div>
+      </Modal>
+
       <Drawer
         title={
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
@@ -5723,7 +7921,7 @@ const PMProjects = ({
           </div>
         }
         placement="right"
-        width={580}
+        width={isMobile ? "100%" : 580}
         open={showTicketForm}
         rootClassName={dark ? "pm-dark-overlay" : undefined}
         onClose={() => {
@@ -5736,8 +7934,10 @@ const PMProjects = ({
           <div
             style={{
               display: "flex",
-              alignItems: "center",
+              alignItems: isMobile ? "stretch" : "center",
               justifyContent: "space-between",
+              flexDirection: isMobile ? "column" : "row",
+              gap: isMobile ? 8 : 0,
             }}
           >
             <Button
@@ -5755,7 +7955,7 @@ const PMProjects = ({
             >
               {aiLoading ? "Analyzing" : "AI Suggest"}
             </Button>
-            <Space>
+            <Space wrap style={{ width: isMobile ? "100%" : "auto", justifyContent: "flex-end" }}>
               <Button
                 onClick={() => {
                   setShowTicketForm(false);
@@ -5922,7 +8122,7 @@ const PMProjects = ({
           )}
 
           <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}
+            style={{ display: "grid", gridTemplateColumns: formColumns, gap: 10 }}
           >
             <Form.Item
               name="priority"
@@ -6038,7 +8238,7 @@ const PMProjects = ({
           </Form.Item>
 
           <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}
+            style={{ display: "grid", gridTemplateColumns: formColumns, gap: 10 }}
           >
             <Form.Item
               name="story_points"
@@ -6121,13 +8321,19 @@ const PMProjects = ({
             >
               <Zap size={12} color="#fff" />
             </div>
-            <span style={{ fontSize: 14, fontWeight: 700, color: "#172b4d" }}>
+            <span
+              style={{
+                fontSize: 14,
+                fontWeight: 700,
+                color: dark ? "#f3f4f6" : "#172b4d",
+              }}
+            >
               {editingSprint ? "Edit Sprint" : "New Sprint"}
             </span>
           </div>
         }
         placement="right"
-        width={460}
+        width={isMobile ? "100%" : 460}
         open={showSprintForm}
         rootClassName={dark ? "pm-dark-overlay" : undefined}
         onClose={() => {
@@ -6137,7 +8343,7 @@ const PMProjects = ({
         }}
         footer={
           <div style={{ textAlign: "right" }}>
-            <Space>
+            <Space wrap style={{ width: isMobile ? "100%" : "auto", justifyContent: "flex-end" }}>
               <Button
                 onClick={() => {
                   setShowSprintForm(false);
@@ -6191,7 +8397,7 @@ const PMProjects = ({
             </Select>
           </Form.Item>
           <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}
+            style={{ display: "grid", gridTemplateColumns: formColumns, gap: 10 }}
           >
             <Form.Item name="start_date" label="Start Date">
               <DatePicker
@@ -6215,7 +8421,3 @@ const PMProjects = ({
 };
 
 export default PMProjects;
-
-
-
-

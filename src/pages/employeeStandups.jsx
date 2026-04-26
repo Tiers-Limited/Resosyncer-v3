@@ -36,6 +36,13 @@ const PROJECT_STATUS_CFG = {
 const AVATAR_COLORS = ["#6366f1","#0ea5e9","#10b981","#f59e0b","#ec4899","#8b5cf6","#14b8a6","#f97316"];
 const getInitials = (name = "") => name.split(" ").filter(Boolean).map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 const capitalize = (s = "") => s.charAt(0).toUpperCase() + s.slice(1);
+const formatStatusLabel = (s = "") =>
+  String(s || "")
+    .replace(/[_-]+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
 const getIsDarkTheme = () => {
   if (typeof window === "undefined") return false;
   const mode = localStorage.getItem("themeMode") || "light";
@@ -62,6 +69,9 @@ export default function StandupStats() {
   const { profile } = useAuth();
   const userId = profile?.id;
   const [dark, setDark] = useState(getIsDarkTheme);
+  const [isMobile, setIsMobile] = useState(
+    () => (typeof window !== "undefined" ? window.innerWidth <= 768 : false),
+  );
 
   const [selectedMonth, setMonth]           = useState(dayjs());
 
@@ -88,6 +98,14 @@ export default function StandupStats() {
       window.removeEventListener("themeModeChanged", applyTheme);
       media.removeEventListener?.("change", applyTheme);
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const onResize = () => setIsMobile(window.innerWidth <= 768);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   // ---------------- Load projects assigned to this employee --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -277,15 +295,21 @@ export default function StandupStats() {
       render: (status) => {
         const key = (status || "").toLowerCase();
         const cfg = PROJECT_STATUS_CFG[key] || { color: "#64748b", bg: "#f8fafc", border: "#e2e8f0" };
+        const darkCfg = {
+          color: "#cbd5e1",
+          bg: "rgba(226,232,240,0.14)",
+          border: "rgba(148,163,184,0.35)",
+        };
         return (
           <span style={{
             display: "inline-flex", alignItems: "center", gap: 5,
             padding: "3px 10px", borderRadius: 20,
-            border: `1px solid ${cfg.border}`, background: cfg.bg,
-            fontSize: 12, fontWeight: 600, color: cfg.color,
+            border: `1px solid ${dark ? darkCfg.border : cfg.border}`,
+            background: dark ? darkCfg.bg : cfg.bg,
+            fontSize: 12, fontWeight: 600, color: dark ? darkCfg.color : cfg.color,
           }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: cfg.color, display: "inline-block" }} />
-            {capitalize(status || "--------")}
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: dark ? darkCfg.color : cfg.color, display: "inline-block" }} />
+            {formatStatusLabel(status) || "N/A"}
           </span>
         );
       },
@@ -311,16 +335,23 @@ export default function StandupStats() {
           <Space size={10}>
             <Space size={5}>
               <Text style={{ fontSize: 12, fontWeight: 700, color: "#059669" }}>{c.present}P</Text>
-              <Text style={{ color: "#e2e8f0" }}>----</Text>
+              <Text style={{ color: dark ? "#475569" : "#e2e8f0" }}>|</Text>
               <Text style={{ fontSize: 12, fontWeight: 700, color: "#e11d48" }}>{c.absent}A</Text>
-              <Text style={{ color: "#e2e8f0" }}>----</Text>
+              <Text style={{ color: dark ? "#475569" : "#e2e8f0" }}>|</Text>
               <Text style={{ fontSize: 12, fontWeight: 700, color: "#d97706" }}>{c.late}L</Text>
-              <Text style={{ color: "#e2e8f0" }}>----</Text>
+              <Text style={{ color: dark ? "#475569" : "#e2e8f0" }}>|</Text>
               <Text style={{ fontSize: 12, fontWeight: 700, color: "#2563eb" }}>{c.leave || 0}Lv</Text>
             </Space>
             <span style={{
               fontSize: 12, fontWeight: 800, color: rateColor,
-              background: rate >= 80 ? "#ecfdf5" : rate >= 60 ? "#fffbeb" : "#fff1f2",
+              background: dark
+                ? (rate >= 80 ? "rgba(16,185,129,0.18)" : rate >= 60 ? "rgba(245,158,11,0.18)" : "rgba(244,63,94,0.18)")
+                : (rate >= 80 ? "#ecfdf5" : rate >= 60 ? "#fffbeb" : "#fff1f2"),
+              border: `1px solid ${
+                dark
+                  ? (rate >= 80 ? "rgba(16,185,129,0.35)" : rate >= 60 ? "rgba(245,158,11,0.35)" : "rgba(244,63,94,0.35)")
+                  : "transparent"
+              }`,
               padding: "1px 8px", borderRadius: 20,
             }}>
               {rate}%
@@ -340,8 +371,10 @@ export default function StandupStats() {
           style={{
             borderRadius: 8, height: 34, paddingInline: 16,
             fontWeight: 600, fontSize: 13,
-            background: "#0f172a", border: "none", color: "#fff",
-            boxShadow: "0 2px 8px rgba(15,23,42,0.15)",
+            background: dark ? "#ffffff" : "#0f172a",
+            border: dark ? "1px solid #ffffff" : "none",
+            color: dark ? "#0f172a" : "#fff",
+            boxShadow: dark ? "none" : "0 2px 8px rgba(15,23,42,0.15)",
           }}
         >
           View Stats
@@ -350,13 +383,18 @@ export default function StandupStats() {
     },
   ];
 
+  const memberColWidth = isMobile ? 170 : 220;
+  const rateColWidth = isMobile ? 84 : 100;
+  const palColWidth = isMobile ? 80 : 90;
+  const dayColWidth = isMobile ? 30 : 34;
+
   // ---------------- Calendar heatmap columns --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const calendarColumns = useMemo(() => [
     {
       title: <Text style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>Member</Text>,
       key: "member",
       fixed: "left",
-      width: 220,
+      width: memberColWidth,
       render: (_, rec, i) => (
         <Space size={10} style={{ padding: "2px 0" }}>
           <Avatar
@@ -375,12 +413,12 @@ export default function StandupStats() {
             <Space size={4}>
               <Text strong style={{ fontSize: 13, color: dark ? "#f3f4f6" : "#0f172a", lineHeight: 1.2, whiteSpace: "nowrap" }}>{rec.full_name}</Text>
               {rec.isMe && (
-                <span style={{ fontSize: 10, fontWeight: 700, color: "#6366f1", background: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: 20, padding: "1px 7px" }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: dark ? "#c7d2fe" : "#6366f1", background: dark ? "rgba(99,102,241,0.2)" : "#eef2ff", border: `1px solid ${dark ? "rgba(129,140,248,0.45)" : "#c7d2fe"}`, borderRadius: 20, padding: "1px 7px" }}>
                   You
                 </span>
               )}
             </Space>
-            <Text style={{ fontSize: 11, color: "#94a3b8", display: "block" }}>{rec.job_title || rec.department || "--------"}</Text>
+            <Text style={{ fontSize: 11, color: "#94a3b8", display: "block" }}>{rec.job_title || rec.department || "N/A"}</Text>
           </div>
         </Space>
       ),
@@ -395,7 +433,7 @@ export default function StandupStats() {
             <div style={{
               display: "flex", flexDirection: "column", alignItems: "center", gap: 1,
               padding: "4px 2px", borderRadius: 6,
-              background: isToday ? "#0f172a" : "transparent", minWidth: 26,
+              background: isToday ? (dark ? "#0b1224" : "#0f172a") : "transparent", minWidth: 26,
             }}>
               <Text style={{ fontSize: 9, fontWeight: 700, lineHeight: 1, textTransform: "uppercase", letterSpacing: "0.04em", color: isToday ? "#fff" : "#94a3b8" }}>
                 {d.format("dd")[0]}
@@ -407,22 +445,22 @@ export default function StandupStats() {
           </Tooltip>
         ),
         key: date,
-        width: 34,
+        width: dayColWidth,
         align: "center",
         render: (_, rec) => {
-          if (isFuture) return <div style={{ width: 20, height: 20, borderRadius: 5, background: "#f8fafc", margin: "0 auto" }} />;
+          if (isFuture) return <div style={{ width: 20, height: 20, borderRadius: 5, background: dark ? "#2a2f3a" : "#f8fafc", margin: "0 auto" }} />;
           const sess = sessionMap[date];
           if (!sess) return (
             <Tooltip title="No standup held">
-              <div style={{ width: 20, height: 20, borderRadius: 5, background: "#f1f5f9", border: "1px solid #e2e8f0", margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Text style={{ fontSize: 8, color: "#cbd5e1", fontWeight: 700 }}>--------</Text>
+              <div style={{ width: 20, height: 20, borderRadius: 5, background: dark ? "#252a34" : "#f1f5f9", border: `1px solid ${dark ? "#3a4456" : "#e2e8f0"}`, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ fontSize: 8, color: dark ? "#94a3b8" : "#cbd5e1", fontWeight: 700 }}>NA</Text>
               </div>
             </Tooltip>
           );
           const status = sess[rec.id];
           const cfg = STATUS_CFG[status] || STATUS_CFG.none;
           return (
-            <Tooltip title={`${d.format("MMM DD")} ---- ${cfg.label}`} mouseEnterDelay={0.2}>
+            <Tooltip title={`${d.format("MMM DD")} - ${cfg.label}`} mouseEnterDelay={0.2}>
               <div style={{
                 width: 20, height: 20, borderRadius: 5,
                 background: cfg.bg, border: `1px solid ${cfg.border}`,
@@ -439,7 +477,7 @@ export default function StandupStats() {
     {
       title: <Text style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>Rate</Text>,
       key: "rate",
-      width: 100,
+      width: rateColWidth,
       fixed: "right",
       align: "center",
       sorter: (a, b) => a.rate - b.rate,
@@ -449,40 +487,40 @@ export default function StandupStats() {
         return (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
             <Text style={{ fontSize: 15, fontWeight: 800, color, lineHeight: 1 }}>{rec.rate}%</Text>
-            <Progress percent={rec.rate} size="small" showInfo={false} strokeColor={color} trailColor="#f1f5f9" style={{ width: 58, margin: 0 }} />
+            <Progress percent={rec.rate} size="small" showInfo={false} strokeColor={color} trailColor={dark ? "#374151" : "#f1f5f9"} style={{ width: 58, margin: 0 }} />
           </div>
         );
       },
     },
     {
-      title: <Text style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>P ---- A ---- L ---- LV</Text>,
+      title: <Text style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>P | A | L | LV</Text>,
       key: "pal",
-      width: 90,
+      width: palColWidth,
       fixed: "right",
       align: "center",
       render: (_, rec) => (
         <Space size={3}>
           <Text style={{ fontSize: 12, fontWeight: 700, color: "#059669" }}>{rec.present}</Text>
-          <Text style={{ color: "#e2e8f0", fontSize: 10 }}>----</Text>
+          <Text style={{ color: "#e2e8f0", fontSize: 10 }}>|</Text>
           <Text style={{ fontSize: 12, fontWeight: 700, color: "#e11d48" }}>{rec.absent}</Text>
-          <Text style={{ color: "#e2e8f0", fontSize: 10 }}>----</Text>
+          <Text style={{ color: "#e2e8f0", fontSize: 10 }}>|</Text>
           <Text style={{ fontSize: 12, fontWeight: 700, color: "#d97706" }}>{rec.late}</Text>
-          <Text style={{ color: "#e2e8f0", fontSize: 10 }}>----</Text>
+          <Text style={{ color: "#e2e8f0", fontSize: 10 }}>|</Text>
           <Text style={{ fontSize: 12, fontWeight: 700, color: "#2563eb" }}>{rec.leave || 0}</Text>
         </Space>
       ),
     },
-  ], [weekdays, sessionMap, today, userId]);
+  ], [weekdays, sessionMap, today, userId, isMobile, memberColWidth, dayColWidth, rateColWidth, palColWidth]);
 
   // ---------------- Render ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   return (
     <div
       className={dark ? "standups-dark" : ""}
-      style={{ minHeight: "100vh", background: dark ? "#141416" : "#f8fafc", fontFamily: "'Outfit', sans-serif" }}
+      style={{ minHeight: "100vh", background: dark ? "#141416" : "#f8fafc", fontFamily: "'DM Sans', sans-serif" }}
     >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
-        * { font-family: 'Outfit', sans-serif !important; }
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+        * { font-family: 'DM Sans', sans-serif !important; }
         .ant-table { background: transparent !important; }
         .ant-table-thead > tr > th {
           background: #f9fafb !important; color: #94a3b8 !important;
@@ -568,21 +606,41 @@ export default function StandupStats() {
         .standups-dark .row-me:hover > td {
           background: #242838 !important;
         }
+        @media (max-width: 768px) {
+          .standups-header-row {
+            flex-direction: column;
+            align-items: stretch !important;
+          }
+          .standups-header-left {
+            width: 100%;
+          }
+          .standups-month-picker {
+            width: 100% !important;
+          }
+          .standups-summary-card {
+            flex: 1 1 100% !important;
+            min-width: 100% !important;
+          }
+          .standups-breakdown-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
       `}</style>
 
       {/* ---------------- Header ---------------- */}
-      <div className="standups-header" style={{  borderBottom: dark ? "none" : "1px solid #f1f5f9", padding: "0 40px" }}>
+      <div className="standups-header" style={{  borderBottom: dark ? "none" : "1px solid #f1f5f9", padding: isMobile ? "0 14px" : "0 40px" }}>
         <div style={{ margin: "0 auto" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 0", flexWrap: "wrap", gap: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="standups-header-row" style={{ display: "flex", alignItems: isMobile ? "stretch" : "center", justifyContent: "space-between", padding: isMobile ? "16px 0" : "20px 0", flexWrap: "wrap", gap: isMobile ? 12 : 16 }}>
+            <div className="standups-header-left" style={{ display: "flex", alignItems: "center", gap: 12 }}>
               {activeProject && (
                 <button
                   onClick={closeStats}
                   style={{
                     display: "flex", alignItems: "center", gap: 6,
-                    background: "transparent", border: "1px solid #e2e8f0",
+                    background: dark ? "#ffffff" : "transparent",
+                    border: dark ? "1px solid #ffffff" : "1px solid #e2e8f0",
                     borderRadius: 8, padding: "6px 12px", cursor: "pointer",
-                    color: dark ? "#cbd5e1" : "#64748b", fontSize: 13, fontWeight: 600,
+                    color: dark ? "#0f172a" : "#64748b", fontSize: 13, fontWeight: 600,
                   }}
                 >
                   <ArrowLeftOutlined style={{ fontSize: 11 }} /> Back
@@ -590,14 +648,14 @@ export default function StandupStats() {
               )}
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                  <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#0f172a" }} />
+                  <div style={{ width: 7, height: 7, borderRadius: "50%", background: dark ? "#93c5fd" : "#0f172a" }} />
                   <Text style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                    {activeProject ? `${activeProject.name} ---- Stats` : "My Standups"}
+                    {activeProject ? `${activeProject.name} - Stats` : "My Standups"}
                   </Text>
                 </div>
                 <Title level={4} style={{ margin: 0, color: dark ? "#f3f4f6" : "#0f172a", fontWeight: 800, letterSpacing: -0.5 }}>
                   {activeProject
-                    ? `Attendance ---- ${selectedMonth.format("MMMM YYYY")}`
+                    ? `Attendance - ${selectedMonth.format("MMMM YYYY")}`
                     : "Standup Attendance"
                   }
                 </Title>
@@ -605,6 +663,7 @@ export default function StandupStats() {
             </div>
 
             <DatePicker
+              className="standups-month-picker"
               picker="month"
               value={selectedMonth}
               onChange={(d) => {
@@ -616,7 +675,7 @@ export default function StandupStats() {
               }}
               disabledDate={(d) => d && d > dayjs().endOf("month")}
               format="MMMM YYYY"
-              style={{ width: 160 }}
+              style={{ width: isMobile ? "100%" : 160 }}
               allowClear={false}
               suffixIcon={<CalendarOutlined style={{ color: "#94a3b8" }} />}
             />
@@ -625,13 +684,13 @@ export default function StandupStats() {
       </div>
 
       {/* ---------------- Body ---------------- */}
-      <div style={{ margin: "0 auto", padding: "28px 40px" }}>
+      <div style={{ margin: "0 auto", padding: isMobile ? "20px 14px" : "28px 40px" }}>
 
         {/* Auth loading */}
         {!userId && (
           <div style={{ textAlign: "center", padding: "80px 0" }}>
             <Spin size="large" />
-            <Text style={{ display: "block", marginTop: 16, color: "#94a3b8" }}>Loading session-------</Text>
+            <Text style={{ display: "block", marginTop: 16, color: "#94a3b8" }}>Loading session...</Text>
           </div>
         )}
 
@@ -654,7 +713,7 @@ export default function StandupStats() {
                           return marked > 0 ? Math.round(((c.present + c.late + (c.leave || 0)) / marked) * 100) : null;
                         })
                         .filter((r) => r !== null);
-                      return rates.length ? `${Math.round(rates.reduce((a, b) => a + b, 0) / rates.length)}%` : "--------";
+                      return rates.length ? `${Math.round(rates.reduce((a, b) => a + b, 0) / rates.length)}%` : "N/A";
                     })(),
                     color: dark ? "#4ade80" : "#059669", bg: dark ? "rgba(34,197,94,0.16)" : "#ecfdf5", border: dark ? "rgba(74,222,128,0.35)" : "#a7f3d0",
                   },
@@ -665,8 +724,11 @@ export default function StandupStats() {
                   },
                 ].map(({ label, value, color, bg, border }) => (
                   <div
+                    className="standups-summary-card"
                     key={label}
                     style={{
+                      flex: isMobile ? "1 1 100%" : "1 1 220px",
+                      minWidth: isMobile ? "100%" : 220,
                       padding: "10px 18px",
                       borderRadius: 10,
                       border: dark ? "none" : `1px solid ${border}`,
@@ -684,11 +746,11 @@ export default function StandupStats() {
             )}
 
             <div className="standups-card" style={{ background: "#fff", borderRadius: 14, border: dark ? "none" : "1px solid #f1f5f9", overflow: "hidden", boxShadow: "0 1px 4px rgba(15,23,42,0.04)" }}>
-              <div style={{ padding: "16px 20px", borderBottom: dark ? "none" : "1px solid #f9fafb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ padding: "16px 20px", borderBottom: dark ? "none" : "1px solid #f9fafb", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                 <Space>
                   <TeamOutlined style={{ color: "#94a3b8" }} />
                   <Text strong style={{ fontSize: 14, color: dark ? "#f3f4f6" : "#0f172a" }}>My Projects</Text>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#64748b", background: "#f1f5f9", borderRadius: 20, padding: "1px 10px" }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: dark ? "#cbd5e1" : "#64748b", background: dark ? "#232630" : "#f1f5f9", borderRadius: 20, padding: "1px 10px" }}>
                     {projects.length}
                   </span>
                 </Space>
@@ -705,6 +767,7 @@ export default function StandupStats() {
                   columns={projectColumns}
                   rowKey="id"
                   pagination={false}
+                  scroll={isMobile ? { x: 760 } : undefined}
                   style={{ borderRadius: 0 }}
                 />
               )}
@@ -737,11 +800,11 @@ export default function StandupStats() {
                       </Avatar>
                       <div>
                         <Text strong style={{ fontSize: 14, color: dark ? "#f3f4f6" : "#0f172a", display: "block", lineHeight: 1.2 }}>{myStats.full_name}</Text>
-                        <Text style={{ fontSize: 12, color: "#94a3b8" }}>Your attendance ---- {selectedMonth.format("MMM YYYY")}</Text>
+                        <Text style={{ fontSize: 12, color: "#94a3b8" }}>Your attendance - {selectedMonth.format("MMM YYYY")}</Text>
                       </div>
                     </Space>
 
-                    <div style={{ height: 32, width: 1, background: "#e2e8f0" }} />
+                    <div style={{ height: 32, width: 1, background: dark ? "#374151" : "#e2e8f0" }} />
 
                     <div>
                       <Text style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 2 }}>Rate</Text>
@@ -786,7 +849,7 @@ export default function StandupStats() {
                       </div>
                     ))}
 
-                    <div style={{ marginLeft: "auto" }}>
+                    <div style={{ marginLeft: isMobile ? 0 : "auto", width: isMobile ? "100%" : "auto" }}>
                       <Text style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 2 }}>Rank</Text>
                       <Space>
                         {sortedStats.findIndex((e) => e.id === userId) === 0 && <TrophyOutlined style={{ color: "#d97706" }} />}
@@ -806,7 +869,7 @@ export default function StandupStats() {
                     { icon: <ClockCircleOutlined />, label: "Joined Late", value: overall.l, sub: overall.p + overall.a + overall.l + overall.lv > 0 ? `${Math.round((overall.l / (overall.p + overall.a + overall.l + overall.lv)) * 100)}% of marked` : "No data", color: dark ? "#fbbf24" : "#d97706", bg: dark ? "rgba(217,119,6,0.16)" : "#fffbeb", border: dark ? "rgba(251,191,36,0.35)" : "#fde68a" },
                                         { icon: <CalendarOutlined />, label: "On Leave", value: overall.lv, sub: overall.p + overall.a + overall.l + overall.lv > 0 ? `${Math.round((overall.lv / (overall.p + overall.a + overall.l + overall.lv)) * 100)}% of marked` : "No data", color: dark ? "#93c5fd" : "#2563eb", bg: dark ? "rgba(37,99,235,0.16)" : "#eff6ff", border: dark ? "rgba(147,197,253,0.35)" : "#bfdbfe" },
                   ].map(({ icon, label, value, sub, color, bg, border }) => (
-                    <div key={label} style={{ flex: "1 1 140px", minWidth: 130, padding: "14px 16px", borderRadius: 12, border: `1px solid ${border}`, background: bg }}>
+                    <div key={label} style={{ flex: isMobile ? "1 1 calc(50% - 12px)" : "1 1 140px", minWidth: isMobile ? 145 : 130, padding: "14px 16px", borderRadius: 12, border: `1px solid ${border}`, background: bg }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 7 }}>
                         <span style={{ color, fontSize: 12 }}>{icon}</span>
                         <Text style={{ fontSize: 10, fontWeight: 700, color: dark ? "#9ca3af" : "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</Text>
@@ -820,9 +883,9 @@ export default function StandupStats() {
                 {/* Legend */}
                 <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12, flexWrap: "wrap" }}>
                   <Text style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                    {activeProject.name} ---- {selectedMonth.format("MMMM YYYY")}
+                    {activeProject.name} - {selectedMonth.format("MMMM YYYY")}
                   </Text>
-                  <div style={{ height: 12, width: 1, background: "#e2e8f0" }} />
+                  <div style={{ height: 12, width: 1, background: dark ? "#374151" : "#e2e8f0" }} />
                   {Object.entries(STATUS_CFG).map(([key, cfg]) => (
                     <div key={key} style={{ display: "flex", alignItems: "center", gap: 5 }}>
                       <div style={{ width: 13, height: 13, borderRadius: 3, background: cfg.bg, border: `1px solid ${cfg.border}`, display: "flex", alignItems: "center", justifyContent: "center", color: cfg.color }}>
@@ -832,7 +895,7 @@ export default function StandupStats() {
                     </div>
                   ))}
                   <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    <div style={{ width: 13, height: 13, borderRadius: 3, background: "#f1f5f9", border: "1px solid #e2e8f0" }} />
+                    <div style={{ width: 13, height: 13, borderRadius: 3, background: dark ? "#2a2f3a" : "#f1f5f9", border: `1px solid ${dark ? "#3a4456" : "#e2e8f0"}` }} />
                     <Text style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>Future</Text>
                   </div>
                 </div>
@@ -843,18 +906,18 @@ export default function StandupStats() {
                 ) : (
                   <div className="standups-card" style={{ background: "#fff", borderRadius: 14, border: "1px solid #f1f5f9", overflow: "hidden", boxShadow: "0 1px 4px rgba(15,23,42,0.04)" }}>
                     {/* Week strip */}
-                    <div style={{ padding: "10px 20px 0", borderBottom: "1px solid #f8fafc", display: "flex", alignItems: "center" }}>
-                      <div style={{ width: 220, flexShrink: 0 }} />
+                    <div style={{ padding: "10px 20px 0", borderBottom: `1px solid ${dark ? "#2a2b31" : "#f8fafc"}`, display: "flex", alignItems: "center" }}>
+                      <div style={{ width: memberColWidth, flexShrink: 0 }} />
                       <div style={{ display: "flex", flex: 1, overflowX: "auto", paddingBottom: 6 }}>
                         {weeks.map((week, wi) => (
-                          <div key={wi} style={{ minWidth: week.length * 34, textAlign: "center", padding: "0 2px", borderLeft: wi > 0 ? "1px solid #f1f5f9" : "none" }}>
-                            <Text style={{ fontSize: 10, fontWeight: 700, color: "#cbd5e1", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                          <div key={wi} style={{ minWidth: week.length * dayColWidth, textAlign: "center", padding: "0 2px", borderLeft: wi > 0 ? `1px solid ${dark ? "#2a2b31" : "#f1f5f9"}` : "none" }}>
+                            <Text style={{ fontSize: 10, fontWeight: 700, color: dark ? "#64748b" : "#cbd5e1", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                               W{dayjs(week[0]).isoWeek()}
                             </Text>
                           </div>
                         ))}
                       </div>
-                      <div style={{ width: 190, flexShrink: 0 }} />
+                      <div style={{ width: rateColWidth + palColWidth, flexShrink: 0 }} />
                     </div>
 
                     <Table
@@ -877,7 +940,7 @@ export default function StandupStats() {
                     <Text style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 14 }}>
                       Team Breakdown
                     </Text>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(255px, 1fr))", gap: 12 }}>
+                    <div className="standups-breakdown-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(255px, 1fr))", gap: 12 }}>
                       {sortedStats.map((emp, i) => {
                         const rateColor  = emp.rate >= 80 ? "#059669" : emp.rate >= 60 ? "#d97706" : "#e11d48";
                         const rateBg     = emp.rate >= 80
@@ -892,10 +955,10 @@ export default function StandupStats() {
                             : dark ? "rgba(251,113,133,0.35)" : "#fecdd3";
                         return (
                           <div key={emp.id} className="standups-card" style={{
-                            background: "#fff", borderRadius: 12,
-                            border: emp.isMe ? "1.5px solid #c7d2fe" : "1px solid #f1f5f9",
+                            background: dark ? "#1a1b1f" : "#fff", borderRadius: 12,
+                            border: emp.isMe ? `1.5px solid ${dark ? "#4f5d86" : "#c7d2fe"}` : `1px solid ${dark ? "#2a2b31" : "#f1f5f9"}`,
                             padding: "16px 18px",
-                            boxShadow: emp.isMe ? "0 0 0 3px #eef2ff" : "0 1px 3px rgba(15,23,42,0.04)",
+                            boxShadow: emp.isMe ? (dark ? "0 0 0 2px rgba(99,102,241,0.16)" : "0 0 0 3px #eef2ff") : (dark ? "none" : "0 1px 3px rgba(15,23,42,0.04)"),
                           }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
                               <Space size={10}>
@@ -907,9 +970,9 @@ export default function StandupStats() {
                                 <div>
                                   <Space size={4}>
                                     <Text strong style={{ fontSize: 13, color: dark ? "#f3f4f6" : "#0f172a", lineHeight: 1.2 }}>{emp.full_name}</Text>
-                                    {emp.isMe && <span style={{ fontSize: 10, fontWeight: 700, color: "#6366f1", background: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: 20, padding: "1px 7px" }}>You</span>}
+                                    {emp.isMe && <span style={{ fontSize: 10, fontWeight: 700, color: dark ? "#c7d2fe" : "#6366f1", background: dark ? "rgba(99,102,241,0.2)" : "#eef2ff", border: `1px solid ${dark ? "rgba(129,140,248,0.45)" : "#c7d2fe"}`, borderRadius: 20, padding: "1px 7px" }}>You</span>}
                                   </Space>
-                                  <Text style={{ fontSize: 11, color: "#94a3b8", display: "block" }}>{emp.job_title || emp.department || "--------"}</Text>
+                                  <Text style={{ fontSize: 11, color: "#94a3b8", display: "block" }}>{emp.job_title || emp.department || "N/A"}</Text>
                                 </div>
                               </Space>
                               <div style={{ padding: "3px 10px", borderRadius: 20, border: `1px solid ${rateBorder}`, background: rateBg, flexShrink: 0 }}>
@@ -917,7 +980,7 @@ export default function StandupStats() {
                               </div>
                             </div>
 
-                            <Progress percent={emp.rate} showInfo={false} strokeColor={rateColor} trailColor="#f1f5f9" size="small" style={{ marginBottom: 12 }} />
+                            <Progress percent={emp.rate} showInfo={false} strokeColor={rateColor} trailColor={dark ? "#374151" : "#f1f5f9"} size="small" style={{ marginBottom: 12 }} />
 
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
                               {[

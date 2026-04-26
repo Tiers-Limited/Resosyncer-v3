@@ -1,3 +1,5 @@
+import { getIntegrationAuthHeaders, getIntegrationUserIdSync } from "../authHeaders";
+
 const JIRA_FIELDS =
   "summary,description,status,priority,issuetype,assignee,comment,attachment,created,updated,subtasks,parent";
 
@@ -26,6 +28,8 @@ export const JIRA_BACKEND_BASE = `${apiBase}/jira`;
 export function getJiraBackendAuthUrl(returnTo) {
   const authUrl = new URL(JIRA_BACKEND_BASE + "/auth", window.location.origin);
   if (returnTo) authUrl.searchParams.set("returnTo", returnTo);
+  const userId = getIntegrationUserIdSync();
+  if (userId) authUrl.searchParams.set("userId", userId);
   return authUrl.toString();
 }
 
@@ -45,7 +49,7 @@ async function jiraProxyRequest({ path, method = "GET", query, body } = {}) {
   const res = await fetch(`${JIRA_BACKEND_BASE}/proxy`, {
     method: "POST",
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(await getIntegrationAuthHeaders()) },
     body: JSON.stringify(payloadBody),
   });
 

@@ -22,6 +22,7 @@ import {
   Popconfirm,
   Spin,
   Tabs,
+  Upload,
 } from "antd";
 import {
   Plus,
@@ -54,11 +55,21 @@ import {
   Filter,
   Star,
   Zap,
+  RefreshCw,
   ChevronRight,
   ExternalLink,
+  Linkedin,
+  ImagePlus,
 } from "lucide-react";
 import dayjs from "dayjs";
 import { supabase } from "../lib/supabase";
+import {
+  connectLinkedin,
+  createLinkedinPost,
+  disconnectLinkedin,
+  getLinkedinPages,
+  getLinkedinStatus,
+} from "./integrations/LinkedIn/api";
 
 const EMAIL_API = import.meta.env.VITE_EMAIL_API_URL || "http://localhost:3001";
 const EMAIL_KEY = import.meta.env.VITE_EMAIL_API_KEY || "";
@@ -164,15 +175,19 @@ const EMAIL_TEMPLATES = [
 
 const DEFAULT_SUBJECTS = {
   shortlisted: (job, co) =>
-    `Great news! You've been shortlisted -------- ${job} at ${co}`,
-  interview_scheduled: (job, co) => `Interview Scheduled -------- ${job} at ${co}`,
-  offer: (job, co) => `Job Offer -------- ${job} at ${co}`,
+    `Great news! You've been shortlisted - ${job} at ${co}`,
+  interview_scheduled: (job, co) => `Interview Scheduled - ${job} at ${co}`,
+  offer: (job, co) => `Job Offer - ${job} at ${co}`,
   rejected: (job, co) => `Your application for ${job} at ${co}`,
   custom: () => "",
 };
 
 const PUBLIC_DOMAIN =
   import.meta.env.VITE_PUBLIC_DOMAIN || window.location.origin;
+const CLOUDINARY_CLOUD_NAME =
+  import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "dge3lt4u6";
+const CLOUDINARY_UPLOAD_PRESET =
+  import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || "wukncq9d";
 
 const DEFAULT_BRANDING = {
   company_name: "",
@@ -187,6 +202,288 @@ const getIsDarkTheme = () => {
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
+const getIsMobileView = () =>
+  typeof window !== "undefined" ? window.innerWidth < 768 : false;
+
+const makeLinkedinCaptionForOpening = (opening, companyName = "") => {
+  const title = opening?.title || "New Opening";
+  const dept = opening?.department || "General";
+  const company = companyName || "Our Team";
+  const deadline = opening?.deadline ? dayjs(opening.deadline).format("MMM D, YYYY") : "Open until filled";
+  const applyLink = opening?.applyLink || `${PUBLIC_DOMAIN}/apply`;
+  return [
+    `We are hiring: ${title}`,
+    "",
+    `Department: ${dept}`,
+    `Company: ${company}`,
+    `Application deadline: ${deadline}`,
+    `Apply here: ${applyLink}`,
+    "",
+    "If this sounds like your next move, we would love to hear from you.",
+    "",
+    "#hiring #jobs #careers #opportunity",
+  ].join("\n");
+};
+
+const formatLinkedinScopeWarning = (rawWarning) => {
+  const value = String(rawWarning || "").trim();
+  if (!value) return "";
+  const match = value.match(/missing_scope:([a-zA-Z0-9_]+)/);
+  if (!match) return value;
+  const scope = match[1];
+  return `Missing LinkedIn permission: ${scope}. Reconnect LinkedIn with Page permissions to post as a Company Page.`;
+};
+
+const LINKEDIN_PROFILE_TARGET = "__profile__";
+
+const normalizeLinkedinPageOption = (raw) => {
+  if (!raw) return null;
+
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    if (trimmed.startsWith("urn:li:organization:"))
+      return {
+        key: trimmed,
+        pageId: "",
+        pageUrn: trimmed,
+        name: "LinkedIn Company Page",
+      };
+    if (/^\d+$/.test(trimmed))
+      return {
+        key: trimmed,
+        pageId: trimmed,
+        pageUrn: `urn:li:organization:${trimmed}`,
+        name: "LinkedIn Company Page",
+      };
+    return null;
+  }
+
+  const pageId = String(
+    raw.pageId || raw.id || raw.organizationId || raw.companyId || "",
+  ).trim();
+  const pageUrn = String(
+    raw.pageUrn ||
+      raw.organizationUrn ||
+      raw.urn ||
+      raw.entityUrn ||
+      raw.organization?.urn ||
+      (pageId ? `urn:li:organization:${pageId}` : ""),
+  ).trim();
+  const name = String(
+    raw.name ||
+      raw.localizedName?.localized ||
+      raw.localizedName ||
+      raw.companyName ||
+      raw.organization?.name ||
+      raw.vanityName ||
+      "LinkedIn Company Page",
+  ).trim();
+  const key = pageId || pageUrn;
+  if (!key) return null;
+
+  return {
+    key,
+    pageId,
+    pageUrn,
+    name,
+  };
+};
+
+const extractLinkedinPageOptions = (statusPayload) => {
+  const sources = [
+    ...(Array.isArray(statusPayload?.pages) ? statusPayload.pages : []),
+    ...(Array.isArray(statusPayload?.organizationPages)
+      ? statusPayload.organizationPages
+      : []),
+    ...(Array.isArray(statusPayload?.companyPages) ? statusPayload.companyPages : []),
+    ...(Array.isArray(statusPayload?.organizations)
+      ? statusPayload.organizations
+      : []),
+  ];
+
+  const seen = new Set();
+  const options = [];
+  sources.forEach((item) => {
+    const normalized = normalizeLinkedinPageOption(item);
+    if (!normalized || seen.has(normalized.key)) return;
+    seen.add(normalized.key);
+    options.push(normalized);
+  });
+  return options;
+};
+
+const drawWrappedCanvasText = (ctx, text, x, y, maxWidth, lineHeight) => {
+  const words = String(text || "").split(" ");
+  let line = "";
+  let lineIndex = 0;
+  words.forEach((word) => {
+    const candidate = `${line}${word} `;
+    if (ctx.measureText(candidate).width > maxWidth && line) {
+      ctx.fillText(line.trim(), x, y + lineIndex * lineHeight);
+      line = `${word} `;
+      lineIndex += 1;
+    } else {
+      line = candidate;
+    }
+  });
+  if (line.trim()) {
+    ctx.fillText(line.trim(), x, y + lineIndex * lineHeight);
+  }
+};
+
+const dataUrlToBytes = (dataUrl) => {
+  const base64 = String(dataUrl || "").split(",")[1] || "";
+  return Math.floor((base64.length * 3) / 4);
+};
+
+const optimizeImageDataUrlForPost = async (
+  inputDataUrl,
+  { maxBytes = 650 * 1024, maxWidth = 1400, maxHeight = 1400 } = {},
+) => {
+  if (!inputDataUrl || typeof document === "undefined") return inputDataUrl;
+
+  const loadImage = () =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = inputDataUrl;
+    });
+
+  const img = await loadImage();
+  const ratio = Math.min(1, maxWidth / img.width, maxHeight / img.height);
+  const width = Math.max(1, Math.round(img.width * ratio));
+  const height = Math.max(1, Math.round(img.height * ratio));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return inputDataUrl;
+  ctx.drawImage(img, 0, 0, width, height);
+
+  let quality = 0.9;
+  let output = canvas.toDataURL("image/jpeg", quality);
+  while (dataUrlToBytes(output) > maxBytes && quality > 0.45) {
+    quality -= 0.08;
+    output = canvas.toDataURL("image/jpeg", quality);
+  }
+  return output;
+};
+
+const uploadImageDataUrlToCloudinary = async (dataUrl) => {
+  if (!dataUrl) return "";
+  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+    throw new Error("Cloudinary is not configured.");
+  }
+  const blob = await fetch(dataUrl).then((r) => r.blob());
+  const form = new FormData();
+  form.append("file", blob);
+  form.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+    {
+      method: "POST",
+      body: form,
+    },
+  );
+  const payload = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error(
+      payload?.error?.message ||
+        payload?.message ||
+        `Cloudinary upload failed (${res.status})`,
+    );
+  }
+  return payload?.secure_url || payload?.url || "";
+};
+
+const buildLinkedinOpeningImage = ({
+  title,
+  department,
+  companyName,
+  deadline,
+  applyLink,
+  accent = "#f4b400",
+}) => {
+  if (typeof document === "undefined") return "";
+  const canvas = document.createElement("canvas");
+  canvas.width = 1200;
+  canvas.height = 627;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return "";
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(360, 0);
+  ctx.lineTo(260, 160);
+  ctx.lineTo(0, 240);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(1200, 0);
+  ctx.lineTo(1200, 250);
+  ctx.lineTo(1030, 180);
+  ctx.lineTo(980, 0);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(1200, 627);
+  ctx.lineTo(980, 627);
+  ctx.lineTo(1050, 510);
+  ctx.lineTo(1200, 440);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "#111827";
+  ctx.font = "700 54px Arial";
+  ctx.fillText("We Are", 480, 150);
+  ctx.font = "800 84px Arial";
+  ctx.fillText("HIRING", 480, 230);
+
+  ctx.fillStyle = "#111827";
+  ctx.fillRect(480, 248, 340, 42);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "700 24px Arial";
+  ctx.fillText("JOIN OUR TEAM", 528, 276);
+
+  ctx.fillStyle = "#111827";
+  ctx.font = "700 30px Arial";
+  ctx.fillText("OPEN POSITION", 480, 342);
+
+  ctx.font = "600 27px Arial";
+  drawWrappedCanvasText(ctx, title || "New Opening", 480, 384, 650, 36);
+  ctx.font = "500 24px Arial";
+  ctx.fillText(`Department: ${department || "General"}`, 480, 476);
+  ctx.fillText(
+    `Deadline: ${deadline ? dayjs(deadline).format("MMM D, YYYY") : "Open until filled"}`,
+    480,
+    514,
+  );
+
+  ctx.fillStyle = "#111827";
+  ctx.font = "700 24px Arial";
+  ctx.fillText("APPLY HERE:", 70, 560);
+  ctx.fillStyle = "#1d4ed8";
+  ctx.font = "600 20px Arial";
+  const shortLink = String(applyLink || `${PUBLIC_DOMAIN}/apply`).slice(0, 44);
+  ctx.fillText(shortLink, 70, 592);
+
+  ctx.fillStyle = "#111827";
+  ctx.font = "700 22px Arial";
+  ctx.fillText(companyName || "Your Company", 890, 560);
+  ctx.font = "500 19px Arial";
+  ctx.fillText(dayjs().format("MMM D, YYYY"), 890, 592);
+
+  return canvas.toDataURL("image/png");
 };
 
 const normalizePlanTier = (planName) => {
@@ -409,7 +706,7 @@ const sendTrackingEmail = async ({
         to: applicantEmail,
         fromName: fromName || companyName || "Recruitment Team",
         fromEmail: fromEmail || import.meta.env.VITE_DEFAULT_FROM_EMAIL || "",
-        subject: `Your application for ${jobTitle}${companyName ? ` at ${companyName}` : ""} -------- Track your status`,
+        subject: `Your application for ${jobTitle}${companyName ? ` at ${companyName}` : ""} - Track your status`,
         templateType: "application_received",
         applicantName,
         jobTitle,
@@ -430,12 +727,12 @@ const RecruitmentPaywall = ({ dark = false }) => {
     {
       icon: <FileText size={16} />,
       title: "Custom Application Forms",
-      desc: "Build branded forms with any field type -------- text, file upload, dropdowns & more",
+      desc: "Build branded forms with any field type: text, file upload, dropdowns, and more",
     },
     {
       icon: <Users size={16} />,
       title: "Visual Hiring Pipeline",
-      desc: "Drag-and-drop kanban board to move candidates through Applied -------- Hired stages",
+      desc: "Drag-and-drop kanban board to move candidates from Applied to Hired",
     },
     {
       icon: <Mail size={16} />,
@@ -544,7 +841,7 @@ const RecruitmentPaywall = ({ dark = false }) => {
               Recruitment
             </h1>
             <p style={{ margin: 0, color: "var(--rec-text-2)", fontSize: 13 }}>
-              Build forms ---- Share links ---- Track candidates end-to-end
+              Build forms, share links, and track candidates end-to-end
             </p>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -903,7 +1200,7 @@ const RecruitmentPaywall = ({ dark = false }) => {
                 lineHeight: 1.6,
               }}
             >
-              A complete end-to-end hiring system -------- from branded application
+              A complete end-to-end hiring system from branded application
               forms to pipeline management, automated emails, and real-time
               tracking.
             </p>
@@ -1237,7 +1534,7 @@ const RecruitmentPaywall = ({ dark = false }) => {
                       <span
                         style={{ fontSize: 11, color: "var(--rec-text-faint)" }}
                       >
-                        --------
+                        N/A
                       </span>
                     )}
                   </div>
@@ -1420,7 +1717,7 @@ const JobBrandingTab = ({ branding, onChange }) => {
               prefix={<Link size={13} color="var(--rec-text-3)" />}
               value={b.logo_url}
               onChange={(e) => onChange({ ...b, logo_url: e.target.value })}
-              placeholder="https://-------/logo.png"
+              placeholder="https://yourdomain.com/logo.png"
             />
           </div>
           <div>
@@ -1695,6 +1992,7 @@ const FormBuilderModal = ({
   onSave,
   saving,
   dark = false,
+  mobile = false,
 }) => {
   const [fields, setFields] = useState([]);
   const [adding, setAdding] = useState(false);
@@ -2013,9 +2311,9 @@ const FormBuilderModal = ({
       }
       onCancel={onClose}
       onOk={() => onSave(fields, branding)}
-      okText={saving ? "Saving-------" : "Save"}
+      okText={saving ? "Saving..." : "Save"}
       confirmLoading={saving}
-      width={760}
+      width={mobile ? "94vw" : 760}
       okButtonProps={{
         style: {
           background: "var(--rec-text)",
@@ -2043,6 +2341,7 @@ const EmailModal = ({
   onClose,
   dark = false,
   aiEnabled = true,
+  mobile = false,
 }) => {
   const [form] = Form.useForm();
   const [sending, setSending] = useState(false);
@@ -2147,7 +2446,7 @@ const EmailModal = ({
             <div style={{ fontWeight: 700, fontSize: 15 }}>Send Email</div>
             {applicant && (
               <div style={{ fontSize: 12, color: "var(--rec-text-3)" }}>
-                to {applicant.name} ---- {applicant.email}
+                to {applicant.name} • {applicant.email}
               </div>
             )}
           </div>
@@ -2155,9 +2454,9 @@ const EmailModal = ({
       }
       onCancel={onClose}
       onOk={send}
-      okText={sending ? "Sending-------" : "Send Email"}
+      okText={sending ? "Sending..." : "Send Email"}
       confirmLoading={sending}
-      width={580}
+      width={mobile ? "94vw" : 580}
       okButtonProps={{
         style: {
           background: "#3b82f6",
@@ -2169,7 +2468,7 @@ const EmailModal = ({
     >
       <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
         <div
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
+          style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "1fr 1fr", gap: 12 }}
         >
           <Form.Item
             name="fromName"
@@ -2241,7 +2540,7 @@ const EmailModal = ({
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr",
+                gridTemplateColumns: mobile ? "1fr" : "1fr 1fr",
                 gap: 12,
               }}
             >
@@ -2288,7 +2587,7 @@ const EmailModal = ({
               label="Meeting Link"
               style={{ marginBottom: 0 }}
             >
-              <Input placeholder="https://meet.google.com/-------" />
+              <Input placeholder="https://meet.google.com/abc-defg-hij" />
             </Form.Item>
           </div>
         )}
@@ -2316,7 +2615,7 @@ const EmailModal = ({
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr",
+                gridTemplateColumns: mobile ? "1fr" : "1fr 1fr",
                 gap: 12,
               }}
             >
@@ -2438,7 +2737,7 @@ const NewJobModal = ({
       }
       onCancel={onClose}
       onOk={submit}
-      okText={saving ? "Creating-------" : "Create Opening"}
+      okText={saving ? "Creating..." : "Create Opening"}
       confirmLoading={saving}
       okButtonProps={{
         style: {
@@ -2688,7 +2987,7 @@ const AnswerValue = ({ row, onOpenFile }) => {
 
   if (empty)
     return (
-      <span style={{ fontSize: 12, color: "var(--rec-text-faint)" }}>--------</span>
+      <span style={{ fontSize: 12, color: "var(--rec-text-faint)" }}>N/A</span>
     );
 
   if (
@@ -2915,7 +3214,7 @@ const OverviewTab = ({
         }}
       >
         <StatCard label="Stage" value={info.label} color={info.color} />
-        <StatCard label="Applied" value={applicant.appliedAt || "--------"} />
+        <StatCard label="Applied" value={applicant.appliedAt || "N/A"} />
         <StatCard
           label="Score"
           value={score != null ? `${score}/100` : "Not set"}
@@ -2965,7 +3264,7 @@ const OverviewTab = ({
           rows={4}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Add private notes about this candidate-------"
+          placeholder="Add private notes about this candidate..."
           style={{ resize: "none", borderRadius: 10, fontSize: 13 }}
         />
       </div>
@@ -3140,7 +3439,7 @@ const ManageTab = ({
     </div>
 
     <div>
-      <SectionLabel>Candidate score (0--------100)</SectionLabel>
+      <SectionLabel>Candidate score (0-100)</SectionLabel>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <InputNumber
           min={0}
@@ -3222,7 +3521,7 @@ const ManageTab = ({
         rows={4}
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
-        placeholder="Add private notes about this candidate-------"
+          placeholder="Add private notes about this candidate..."
         style={{ resize: "none", borderRadius: 10, fontSize: 13 }}
       />
     </div>
@@ -3242,6 +3541,7 @@ const ApplicantDrawer = ({
   saving,
   onEmail,
   dark = false,
+  mobile = false,
 }) => {
   const [stage, setStage] = useState("applied");
   const [notes, setNotes] = useState("");
@@ -3394,7 +3694,7 @@ const ApplicantDrawer = ({
       rootClassName={`rec-portal${dark ? " dark" : ""}`}
       open={open}
       onClose={onClose}
-      width={600}
+      width={mobile ? "96vw" : 600}
       styles={{
         header: {
           borderBottom: "0.5px solid var(--rec-border-soft)",
@@ -3459,7 +3759,7 @@ const ApplicantDrawer = ({
               }}
             >
               <span>{job?.title || "Candidate"}</span>
-              <span style={{ color: "var(--rec-text-faint)" }}>-------</span>
+              <span style={{ color: "var(--rec-text-faint)" }}>•</span>
               <span>Applied {applicant.appliedAt}</span>
             </div>
           </div>
@@ -4098,7 +4398,7 @@ const JobCard = ({
                   whiteSpace: "nowrap",
                 }}
               >
-                -------- {brand.tagline}
+                • {brand.tagline}
               </span>
             )}
           </div>
@@ -4211,6 +4511,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [dark, setDark] = useState(getIsDarkTheme);
+  const [isMobile, setIsMobile] = useState(getIsMobileView);
   const [jobs, setJobs] = useState([]);
   const [applicants, setApplicants] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -4226,6 +4527,40 @@ export function RecruitmentPage({ initialView = "jobs" }) {
   const [emailApplicant, setEmailApplicant] = useState(null);
   const [TENANT_ID, setTenantId] = useState(null);
   const [orgPlan, setOrgPlan] = useState(null);
+  const [linkedinStatus, setLinkedinStatus] = useState({
+    configured: false,
+    connected: false,
+    profileName: "",
+  });
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [linkedinPagesWarning, setLinkedinPagesWarning] = useState("");
+  const [linkedinPageOptions, setLinkedinPageOptions] = useState([]);
+  const [linkedinPagesBusy, setLinkedinPagesBusy] = useState(false);
+  const [linkedinReconnectBusy, setLinkedinReconnectBusy] = useState(false);
+  const [linkedinPostTarget, setLinkedinPostTarget] = useState(LINKEDIN_PROFILE_TARGET);
+  const [linkedinBusy, setLinkedinBusy] = useState(false);
+  const [linkedinPostBusy, setLinkedinPostBusy] = useState(false);
+  const [linkedinPostOpen, setLinkedinPostOpen] = useState(false);
+  const [linkedinDraftText, setLinkedinDraftText] = useState("");
+  const [linkedinDraftImage, setLinkedinDraftImage] = useState("");
+  const [linkedinVisibility, setLinkedinVisibility] = useState("PUBLIC");
+  const [linkedinOpeningDraft, setLinkedinOpeningDraft] = useState(null);
+  const [linkedinImageSource, setLinkedinImageSource] = useState("generated");
+  const [orgCompanyName, setOrgCompanyName] = useState("");
+  const headerActionBtnStyle = {
+    borderRadius: 9,
+    height: isMobile ? 34 : 38,
+    fontWeight: 700,
+    fontSize: isMobile ? 12 : 14,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: isMobile ? "0 10px" : "0 14px",
+    minWidth: isMobile ? 0 : 148,
+    flex: isMobile ? "1 1 100%" : "0 0 auto",
+    maxWidth: "100%",
+    whiteSpace: "nowrap",
+  };
   const planTier = normalizePlanTier(orgPlan);
   const isStarterPlan = planTier === "starter";
   const recruitmentAiEnabled =
@@ -4247,10 +4582,203 @@ export function RecruitmentPage({ initialView = "jobs" }) {
   }, []);
 
   useEffect(() => {
+    const onResize = () => setIsMobile(getIsMobileView());
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
     setView(
       location.pathname === "/recruitment/pipeline" ? "pipeline" : "jobs",
     );
   }, [initialView, location.pathname]);
+
+  const persistLinkedinConnection = useCallback(
+    async (data = {}) => {
+      if (!currentUserId) return;
+      try {
+        const payload = {
+          user_id: currentUserId,
+          tenant_id: TENANT_ID || null,
+          provider: "linkedin",
+          connection_data: {
+            connected: true,
+            profileName:
+              data?.profileName ||
+              data?.profile?.name ||
+              data?.profile?.localizedFirstName ||
+              data?.name ||
+              "",
+            defaultPageId: data?.defaultPageId || data?.pageId || null,
+            defaultPageUrn:
+              data?.defaultPageUrn || data?.pageUrn || data?.organizationUrn || null,
+            synced_at: new Date().toISOString(),
+          },
+          updated_at: new Date().toISOString(),
+        };
+        const { error } = await supabase
+          .from("integration_connections")
+          .upsert(payload, { onConflict: "user_id,provider" });
+        if (error) {
+          console.error("Failed to persist LinkedIn connection:", error);
+        }
+      } catch (e) {
+        console.error("Failed to persist LinkedIn connection:", e);
+      }
+    },
+    [currentUserId, TENANT_ID],
+  );
+
+  const clearLinkedinConnection = useCallback(async () => {
+    if (!currentUserId) return;
+    try {
+      const { error } = await supabase
+        .from("integration_connections")
+        .delete()
+        .eq("user_id", currentUserId)
+        .in("provider", ["linkedin", "linked_in"]);
+      if (error) {
+        console.error("Failed to clear LinkedIn connection:", error);
+      }
+    } catch (e) {
+      console.error("Failed to clear LinkedIn connection:", e);
+    }
+  }, [currentUserId]);
+
+  const loadSavedLinkedinConnection = useCallback(async () => {
+    if (!currentUserId) return null;
+    try {
+      const { data: savedRows, error } = await supabase
+        .from("integration_connections")
+        .select("provider, connection_data, updated_at")
+        .eq("user_id", currentUserId)
+        .in("provider", ["linkedin", "linked_in"])
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      if (error) throw error;
+      const saved = savedRows?.[0] || null;
+      const payload = saved?.connection_data || {};
+      if (!saved || payload?.connected === false) return null;
+      return payload;
+    } catch (e) {
+      console.error("Failed to read saved LinkedIn connection:", e);
+      return null;
+    }
+  }, [currentUserId]);
+
+  const fetchLinkedinStatus = useCallback(async () => {
+    try {
+      const data = await getLinkedinStatus();
+      const pageOptions = extractLinkedinPageOptions(data);
+      const preferredId = String(
+        data?.defaultPageId || data?.pageId || data?.defaultOrganizationId || "",
+      ).trim();
+      const preferredUrn = String(
+        data?.defaultPageUrn ||
+          data?.pageUrn ||
+          data?.defaultOrganizationUrn ||
+          data?.organizationUrn ||
+          "",
+      ).trim();
+      const preferredOption = pageOptions.find(
+        (option) =>
+          (preferredId && option.pageId === preferredId) ||
+          (preferredUrn && option.pageUrn === preferredUrn),
+      );
+      setLinkedinStatus({
+        configured:
+          data?.configured != null ? Boolean(data.configured) : Boolean(data?.connected),
+        connected: Boolean(data?.connected),
+        profileName:
+          data?.profileName ||
+          data?.profile?.name ||
+          data?.profile?.localizedFirstName ||
+          data?.name ||
+          "",
+      });
+      setLinkedinPagesWarning(
+        formatLinkedinScopeWarning(data?.pagesWarning || data?.warning || ""),
+      );
+      setLinkedinPageOptions(pageOptions);
+      setLinkedinPostTarget((prev) => {
+        const currentStillValid =
+          prev === LINKEDIN_PROFILE_TARGET ||
+          pageOptions.some((option) => option.key === prev);
+        return currentStillValid
+          ? prev
+          : preferredOption?.key || LINKEDIN_PROFILE_TARGET;
+      });
+      if (data?.connected) {
+        persistLinkedinConnection(data);
+      } else {
+        const savedPayload = await loadSavedLinkedinConnection();
+        if (savedPayload) {
+          setLinkedinStatus((prev) => ({
+            ...prev,
+            configured: true,
+            connected: true,
+            profileName: savedPayload?.profileName || prev.profileName || "",
+          }));
+          setLinkedinPagesWarning(
+            "Using saved LinkedIn session. Backend status check is temporarily unavailable.",
+          );
+          setLinkedinPageOptions([]);
+          setLinkedinPostTarget(LINKEDIN_PROFILE_TARGET);
+        }
+      }
+    } catch {
+      const savedPayload = await loadSavedLinkedinConnection();
+      if (savedPayload) {
+        setLinkedinStatus((prev) => ({
+          ...prev,
+          configured: true,
+          connected: true,
+          profileName: savedPayload?.profileName || prev.profileName || "",
+        }));
+        setLinkedinPagesWarning(
+          "Using saved LinkedIn session. Backend status check is temporarily unavailable.",
+        );
+        setLinkedinPageOptions([]);
+        setLinkedinPostTarget(LINKEDIN_PROFILE_TARGET);
+        return;
+      }
+      setLinkedinStatus((prev) => ({ ...prev, connected: false }));
+      setLinkedinPagesWarning("");
+      setLinkedinPageOptions([]);
+      setLinkedinPostTarget(LINKEDIN_PROFILE_TARGET);
+    } finally {
+      setLinkedinBusy(false);
+    }
+  }, [loadSavedLinkedinConnection, persistLinkedinConnection]);
+
+  const refreshLinkedinPages = useCallback(async () => {
+    setLinkedinPagesBusy(true);
+    try {
+      const data = await getLinkedinPages();
+      const pageOptions = extractLinkedinPageOptions(data);
+      setLinkedinPageOptions(pageOptions);
+      setLinkedinPagesWarning(
+        formatLinkedinScopeWarning(data?.pagesWarning || data?.warning || ""),
+      );
+      setLinkedinPostTarget((prev) => {
+        const currentStillValid =
+          prev === LINKEDIN_PROFILE_TARGET ||
+          pageOptions.some((option) => option.key === prev);
+        return currentStillValid ? prev : LINKEDIN_PROFILE_TARGET;
+      });
+      if (pageOptions.length) {
+        message.success("LinkedIn pages refreshed.");
+      }
+    } catch (error) {
+      message.error(error?.message || "Failed to refresh LinkedIn pages.");
+    } finally {
+      setLinkedinPagesBusy(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLinkedinStatus();
+  }, [fetchLinkedinStatus]);
 
   useEffect(() => {
     const jobId = searchParams.get("job");
@@ -4290,6 +4818,93 @@ export function RecruitmentPage({ initialView = "jobs" }) {
     [navigate, setSearchParams],
   );
 
+  const connectLinkedinFromRecruitment = useCallback(() => {
+    if (linkedinStatus.connected) {
+      message.success("LinkedIn is already connected.");
+      return;
+    }
+    setLinkedinBusy(true);
+    const returnTo =
+      import.meta.env.VITE_LINKEDIN_CALLBACK_URL ||
+      "http://localhost:5173/integrations/linkedin/callback";
+    connectLinkedin(returnTo);
+  }, [linkedinStatus.connected]);
+
+  const reconnectLinkedinWithPages = useCallback(async () => {
+    setLinkedinReconnectBusy(true);
+    try {
+      if (linkedinStatus.connected) {
+        await disconnectLinkedin();
+        await clearLinkedinConnection();
+      }
+      const returnTo =
+        import.meta.env.VITE_LINKEDIN_CALLBACK_URL ||
+        "http://localhost:5173/integrations/linkedin/callback";
+      connectLinkedin(returnTo);
+    } catch (error) {
+      setLinkedinReconnectBusy(false);
+      message.error(error?.message || "Unable to reconnect LinkedIn.");
+    }
+  }, [linkedinStatus.connected, clearLinkedinConnection]);
+
+  const postOpeningToLinkedin = useCallback(async () => {
+    if (!linkedinStatus.connected) {
+      message.warning("Please connect LinkedIn first.");
+      return;
+    }
+    if (!linkedinDraftText.trim()) {
+      message.warning("Post caption is empty.");
+      return;
+    }
+    setLinkedinPostBusy(true);
+    try {
+      const optimizedImageDataUrl = linkedinDraftImage
+        ? await optimizeImageDataUrlForPost(linkedinDraftImage, {
+            maxBytes: 650 * 1024,
+            maxWidth: 1400,
+            maxHeight: 1400,
+          })
+        : "";
+      let cloudinaryImageUrl = "";
+      if (optimizedImageDataUrl) {
+        cloudinaryImageUrl = await uploadImageDataUrlToCloudinary(optimizedImageDataUrl);
+      }
+
+      const selectedPage =
+        linkedinPostTarget === LINKEDIN_PROFILE_TARGET
+          ? null
+          : linkedinPageOptions.find((option) => option.key === linkedinPostTarget) || null;
+
+      await createLinkedinPost({
+        text: linkedinDraftText.trim(),
+        visibility: linkedinVisibility,
+        imageUrl: cloudinaryImageUrl,
+        mediaUrl: cloudinaryImageUrl,
+        pageId: selectedPage?.pageId || "",
+        pageUrn: selectedPage?.pageUrn || "",
+      });
+      message.success("Posted to LinkedIn successfully.");
+      setLinkedinPostOpen(false);
+      fetchLinkedinStatus();
+    } catch (error) {
+      if (
+        String(error?.message || "")
+          .toLowerCase()
+          .includes("selected page is not available")
+      ) {
+        setLinkedinPostTarget(LINKEDIN_PROFILE_TARGET);
+        message.error(
+          "Selected page is not available for this LinkedIn account. Please reselect the page or reconnect LinkedIn.",
+        );
+        return;
+      }
+      const details = error?.details ? ` (${JSON.stringify(error.details)})` : "";
+      message.error(`${error?.message || "Failed to post on LinkedIn"}${details}`);
+    } finally {
+      setLinkedinPostBusy(false);
+    }
+  }, [linkedinStatus.connected, linkedinDraftText, linkedinVisibility, linkedinPostTarget, linkedinPageOptions, fetchLinkedinStatus]);
+
   useEffect(() => {
     const init = async () => {
       try {
@@ -4297,20 +4912,28 @@ export function RecruitmentPage({ initialView = "jobs" }) {
           data: { user },
         } = await supabase.auth.getUser();
         if (!user) return;
+        setCurrentUserId(user.id);
         const { data: profile } = await supabase
           .from("profiles")
-          .select("tenant_id")
+          .select("*")
           .eq("id", user.id)
           .single();
         setTenantId(profile?.tenant_id ?? null);
+        setOrgCompanyName(
+          profile?.company_name ||
+            profile?.organization_name ||
+            profile?.full_name ||
+            "",
+        );
 
         if (profile?.tenant_id) {
           const { data: org } = await supabase
             .from("tenants")
-            .select("plan")
+            .select("*")
             .eq("id", profile.tenant_id)
             .single();
           setOrgPlan(org?.plan ?? null);
+          setOrgCompanyName((prev) => prev || org?.name || org?.company_name || "");
         }
       } catch (e) {
         console.error(e);
@@ -4411,32 +5034,70 @@ export function RecruitmentPage({ initialView = "jobs" }) {
   const createJob = async (values) => {
     setSaving(true);
     try {
-      const { error } = await supabase.from("recruitment_jobs").insert([
-        {
-          tenant_id: TENANT_ID,
-          title: values.title,
-          department: values.department,
-          deadline: values.deadline || null,
-          fields: values.fields,
-          branding: {
-            ...DEFAULT_BRANDING,
-            aiSelection:
-              typeof values.aiSelection === "boolean"
-                ? values.aiSelection
-                : recruitmentAiEnabled,
-            aiDesiredSkills: Array.isArray(values.aiDesiredSkills)
-              ? values.aiDesiredSkills
-              : [],
-            aiCustomQuestions: Array.isArray(values.aiCustomQuestions)
-              ? values.aiCustomQuestions
-              : [],
+      const { data: createdJob, error } = await supabase
+        .from("recruitment_jobs")
+        .insert([
+          {
+            tenant_id: TENANT_ID,
+            title: values.title,
+            department: values.department,
+            deadline: values.deadline || null,
+            fields: values.fields,
+            branding: {
+              ...DEFAULT_BRANDING,
+              aiSelection:
+                typeof values.aiSelection === "boolean"
+                  ? values.aiSelection
+                  : recruitmentAiEnabled,
+              aiDesiredSkills: Array.isArray(values.aiDesiredSkills)
+                ? values.aiDesiredSkills
+                : [],
+              aiCustomQuestions: Array.isArray(values.aiCustomQuestions)
+                ? values.aiCustomQuestions
+                : [],
+            },
+            status: "active",
           },
-          status: "active",
-        },
-      ]);
+        ])
+        .select("id,title,department,deadline")
+        .single();
       if (error) throw error;
       setNewJobOpen(false);
       message.success("Job opening created!");
+      const applyLink = createdJob?.id
+        ? `${PUBLIC_DOMAIN}/apply/${createdJob.id}`
+        : `${PUBLIC_DOMAIN}/apply`;
+      const draftCaption = makeLinkedinCaptionForOpening(
+        {
+          title: createdJob?.title || values.title,
+          department: createdJob?.department || values.department,
+          deadline: createdJob?.deadline || values.deadline || null,
+          applyLink,
+        },
+        orgCompanyName || linkedinStatus.profileName || "Our Company",
+      );
+      const draftImage = buildLinkedinOpeningImage({
+        title: createdJob?.title || values.title,
+        department: createdJob?.department || values.department,
+        companyName: orgCompanyName || linkedinStatus.profileName || "Our Company",
+        deadline: createdJob?.deadline || values.deadline || null,
+        applyLink,
+        accent: "#3453b7",
+      });
+      setLinkedinOpeningDraft({
+        title: createdJob?.title || values.title,
+        department: createdJob?.department || values.department,
+        companyName: orgCompanyName || linkedinStatus.profileName || "Our Company",
+        deadline: createdJob?.deadline || values.deadline || null,
+        applyLink,
+        accent: "#3453b7",
+      });
+      setLinkedinDraftText(draftCaption);
+      setLinkedinDraftImage(draftImage);
+      setLinkedinImageSource("generated");
+      setLinkedinVisibility("PUBLIC");
+      setLinkedinPostTarget(LINKEDIN_PROFILE_TARGET);
+      setLinkedinPostOpen(true);
     } catch {
       message.error("Failed to create job opening");
     } finally {
@@ -4691,7 +5352,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
                   {j.title}
                 </span>
               ) : (
-                "--------"
+                "N/A"
               );
             },
           },
@@ -4728,7 +5389,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
           </div>
         ) : (
           <span style={{ color: "var(--rec-text-faint)", fontSize: 12 }}>
-            --------
+            N/A
           </span>
         ),
     },
@@ -4839,7 +5500,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
         style={{
           background: "var(--rec-bg-card)",
           borderBottom: "1px solid var(--rec-border)",
-          padding: "20px 28px",
+          padding: isMobile ? "14px 12px" : "20px 28px",
           marginBottom: 24,
         }}
       >
@@ -4864,7 +5525,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
               <h1
                 style={{
                   margin: 0,
-                  fontSize: 26,
+                  fontSize: isMobile ? 22 : 26,
                   fontWeight: 800,
                   color: "var(--rec-text)",
                   letterSpacing: "-0.04em",
@@ -4876,21 +5537,36 @@ export function RecruitmentPage({ initialView = "jobs" }) {
               <TenantBadge />
             </div>
             <p style={{ margin: 0, color: "var(--rec-text-2)", fontSize: 13 }}>
-              Build forms ---- Share links ---- Track candidates end-to-end
+              Build forms, share links, and track candidates end-to-end
             </p>
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+              flexWrap: "wrap",
+              width: isMobile ? "100%" : "auto",
+            }}
+          >
+            <Button
+              icon={<Linkedin size={14} />}
+              onClick={connectLinkedinFromRecruitment}
+              loading={linkedinBusy}
+              disabled={linkedinStatus.connected || linkedinBusy}
+              style={headerActionBtnStyle}
+            >
+              {linkedinStatus.connected ? "LinkedIn Connected" : "Connect LinkedIn"}
+            </Button>
             <Button
               type="primary"
               icon={<Plus size={14} />}
               onClick={() => setNewJobOpen(true)}
               style={{
+                ...headerActionBtnStyle,
                 background: "var(--rec-text)",
                 borderColor: "var(--rec-text)",
                 color: "var(--rec-bg-page)",
-                fontWeight: 700,
-                height: 38,
-                borderRadius: 9,
               }}
             >
               New Opening
@@ -4899,7 +5575,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
         </div>
       </div>
 
-      <div style={{ padding: "0 28px 32px" }}>
+      <div style={{ padding: isMobile ? "0 12px 22px" : "0 28px 32px" }}>
         {/* KPIs */}
         <div
           style={{
@@ -4966,7 +5642,18 @@ export function RecruitmentPage({ initialView = "jobs" }) {
                   textAlign: "center",
                 }}
               >
-                <div style={{ fontSize: 36, marginBottom: 12 }}>----------</div>
+                <div
+                  style={{
+                    fontSize: 36,
+                    marginBottom: 12,
+                    color: "var(--rec-text-faint)",
+                    width: "100%",
+                    display: "flex",
+                    justifyContent: "center",
+                  }}
+                >
+                  <FileText size={34} />
+                </div>
                 <div
                   style={{
                     fontSize: 16,
@@ -5004,7 +5691,9 @@ export function RecruitmentPage({ initialView = "jobs" }) {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+                  gridTemplateColumns: isMobile
+                    ? "1fr"
+                    : "repeat(auto-fill, minmax(300px, 1fr))",
                   gap: 16,
                 }}
               >
@@ -5348,6 +6037,280 @@ export function RecruitmentPage({ initialView = "jobs" }) {
       </div>
 
       {/* Modals & Drawers */}
+      <Modal
+        rootClassName={`rec-portal${dark ? " dark" : ""}`}
+        open={linkedinPostOpen}
+        onCancel={() => setLinkedinPostOpen(false)}
+        title={
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 9,
+                background: dark ? "#1a2233" : "#eff6ff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#0a66c2",
+              }}
+            >
+              <Linkedin size={15} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>
+                LinkedIn Post Draft
+              </div>
+              <div style={{ fontSize: 12, color: "var(--rec-text-3)" }}>
+                Opening created. Share this job on LinkedIn.
+              </div>
+            </div>
+          </div>
+        }
+        width={isMobile ? "96vw" : 820}
+        okText={linkedinStatus.connected ? "Post to LinkedIn" : "Connect LinkedIn"}
+        okButtonProps={{
+          icon: linkedinStatus.connected ? <Send size={13} /> : <Linkedin size={13} />,
+          loading: linkedinPostBusy,
+        }}
+        onOk={linkedinStatus.connected ? postOpeningToLinkedin : connectLinkedinFromRecruitment}
+      >
+        <div style={{ display: "grid", gap: 14, marginTop: 8 }}>
+          {!linkedinStatus.connected && (
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--rec-text-2)",
+                background: "var(--rec-bg-subtle)",
+                border: "1px solid var(--rec-border)",
+                borderRadius: 10,
+                padding: "9px 11px",
+              }}
+            >
+              Connect LinkedIn first, then click "Post to LinkedIn".
+            </div>
+          )}
+          <div
+            style={{
+              border: "1px solid var(--rec-border)",
+              borderRadius: 12,
+              background: "var(--rec-bg-subtle)",
+              padding: 10,
+              display: "grid",
+              gap: 8,
+            }}
+          >
+            <div style={{ fontSize: 12, color: "var(--rec-text-2)", fontWeight: 700 }}>
+              Caption
+            </div>
+            <TextArea
+              rows={5}
+              value={linkedinDraftText}
+              onChange={(e) => setLinkedinDraftText(e.target.value)}
+              placeholder="LinkedIn caption..."
+            />
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr" : "170px 1fr",
+              gap: 10,
+              alignItems: "center",
+            }}
+          >
+            <div style={{ fontSize: 12, color: "var(--rec-text-2)", fontWeight: 600 }}>
+              Post As
+            </div>
+            <Select
+              value={linkedinPostTarget}
+              onChange={setLinkedinPostTarget}
+              options={[
+                {
+                  value: LINKEDIN_PROFILE_TARGET,
+                  label: `Personal Profile${linkedinStatus.profileName ? ` (${linkedinStatus.profileName})` : ""}`,
+                },
+                ...linkedinPageOptions.map((option) => ({
+                  value: option.key,
+                  label: `Company Page (${option.name})`,
+                })),
+              ]}
+            />
+          </div>
+          {linkedinStatus.connected && (
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                flexWrap: "wrap",
+              }}
+            >
+              <Button
+                size="small"
+                icon={<RefreshCw size={12} />}
+                loading={linkedinPagesBusy}
+                onClick={refreshLinkedinPages}
+              >
+                Refresh Pages
+              </Button>
+              {!!linkedinPagesWarning && (
+                <Button
+                  size="small"
+                  danger
+                  loading={linkedinReconnectBusy}
+                  onClick={reconnectLinkedinWithPages}
+                >
+                  Reconnect With Page Permissions
+                </Button>
+              )}
+            </div>
+          )}
+          {!!linkedinPagesWarning && (
+            <div
+              style={{
+                fontSize: 12,
+                color: "#8a3405",
+                background: "#fff7ed",
+                border: "1px solid #fdba74",
+                borderRadius: 10,
+                padding: "8px 10px",
+              }}
+            >
+              {linkedinPagesWarning}
+            </div>
+          )}
+          {linkedinStatus.connected && linkedinPageOptions.length === 0 && !linkedinPagesWarning && (
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--rec-text-3)",
+                background: "var(--rec-bg-subtle)",
+                border: "1px solid var(--rec-border)",
+                borderRadius: 10,
+                padding: "8px 10px",
+              }}
+            >
+              No LinkedIn pages found for this account yet. Click "Refresh Pages" to fetch
+              the latest list.
+            </div>
+          )}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr" : "170px 1fr",
+              gap: 10,
+              alignItems: "center",
+            }}
+          >
+            <div style={{ fontSize: 12, color: "var(--rec-text-2)", fontWeight: 600 }}>
+              Visibility
+            </div>
+            <Select
+              value={linkedinVisibility}
+              onChange={setLinkedinVisibility}
+              options={[
+                { value: "PUBLIC", label: "PUBLIC" },
+                { value: "CONNECTIONS", label: "CONNECTIONS" },
+              ]}
+            />
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gap: 8,
+              border: "1px solid var(--rec-border)",
+              borderRadius: 12,
+              background: "var(--rec-bg-subtle)",
+              padding: 10,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <ImagePlus size={15} />
+              <span style={{ fontSize: 12, color: "var(--rec-text-2)", fontWeight: 600 }}>
+                LinkedIn Image ({linkedinImageSource === "uploaded" ? "Uploaded" : "Generated"})
+              </span>
+            </div>
+            <Upload
+              beforeUpload={(file) => {
+                const isImage = String(file.type || "").startsWith("image/");
+                if (!isImage) {
+                  message.error("Please upload an image file.");
+                  return false;
+                }
+                const reader = new FileReader();
+                reader.onload = async () => {
+                  const rawDataUrl = String(reader.result || "");
+                  const optimized = await optimizeImageDataUrlForPost(rawDataUrl, {
+                    maxBytes: 650 * 1024,
+                    maxWidth: 1400,
+                    maxHeight: 1400,
+                  });
+                  setLinkedinDraftImage(optimized);
+                  setLinkedinImageSource("uploaded");
+                };
+                reader.readAsDataURL(file);
+                return false;
+              }}
+              accept="image/*"
+              maxCount={1}
+              showUploadList={false}
+            >
+              <Button icon={<ImagePlus size={13} />}>Upload Image</Button>
+            </Upload>
+            {linkedinDraftImage ? (
+              <img
+                src={linkedinDraftImage}
+                alt="LinkedIn post draft"
+                style={{
+                  width: "100%",
+                  borderRadius: 10,
+                  border: "1px solid var(--rec-border)",
+                }}
+              />
+            ) : (
+              <div style={{ fontSize: 12, color: "var(--rec-text-3)" }}>
+                Image preview unavailable.
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <Button
+                icon={<ImagePlus size={13} />}
+                onClick={() => {
+                  setLinkedinDraftImage(
+                    buildLinkedinOpeningImage({
+                      title: linkedinOpeningDraft?.title || "New Opening",
+                      department: linkedinOpeningDraft?.department || "",
+                      companyName:
+                        linkedinOpeningDraft?.companyName ||
+                        linkedinStatus.profileName ||
+                        "Your Company",
+                      deadline: linkedinOpeningDraft?.deadline || null,
+                      applyLink: linkedinOpeningDraft?.applyLink || `${PUBLIC_DOMAIN}/apply`,
+                      accent: linkedinOpeningDraft?.accent || "#3453b7",
+                    }),
+                  );
+                  setLinkedinImageSource("generated");
+                }}
+              >
+                Regenerate Image
+              </Button>
+              {linkedinDraftImage && (
+                <Button
+                  icon={<Download size={13} />}
+                  onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = linkedinDraftImage;
+                    a.download = "linkedin-opening.png";
+                    a.click();
+                  }}
+                >
+                  Download Image
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </Modal>
+
       <NewJobModal
         open={newJobOpen}
         onClose={() => setNewJobOpen(false)}
@@ -5364,6 +6327,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
           onSave={saveFormFields}
           saving={saving}
           dark={dark}
+          mobile={isMobile}
         />
       )}
       {viewApplicant && (
@@ -5378,6 +6342,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
           onEmail={() => setEmailApplicant(viewApplicant)}
           dark={dark}
           aiEnabled={drawerJobAiEnabled}
+          mobile={isMobile}
         />
       )}
       <EmailModal
@@ -5387,6 +6352,7 @@ export function RecruitmentPage({ initialView = "jobs" }) {
         onClose={() => setEmailApplicant(null)}
         dark={dark}
         aiEnabled={emailJobAiEnabled}
+        mobile={isMobile}
       />
     </div>
   );
@@ -5395,5 +6361,3 @@ export function RecruitmentPage({ initialView = "jobs" }) {
 export default function Recruitment() {
   return <RecruitmentPage initialView="jobs" />;
 }
-
-

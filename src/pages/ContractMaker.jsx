@@ -1,9 +1,12 @@
-﻿import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   Button,
   Input,
+  Select,
+  DatePicker,
+  TimePicker,
+  Checkbox,
   Typography,
-  Spin,
   Alert,
   Upload,
   Modal,
@@ -14,7 +17,6 @@ import {
   DownloadOutlined,
   ThunderboltOutlined,
   EditOutlined,
-  PictureOutlined,
   DeleteOutlined,
   CheckOutlined,
   PlusOutlined,
@@ -45,19 +47,73 @@ import {
   Handshake,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { useLocation, useNavigate } from "react-router-dom";
+import {
+  connectDocusignOAuth,
+  createDocusignEnvelope,
+  createDocusignRecipientView,
+  getDocusignEnvelopeStatus,
+  emailDocusignSignedDocument,
+  getDocusignSignedDocument,
+  getDocusignAccount,
+  getDocusignStatus,
+} from "./integrations/DocuSign/api";
+import { getNames as getCountryNames } from "country-list";
+import dayjs from "dayjs";
 
 const { TextArea } = Input;
 const { Dragger } = Upload;
+const COUNTRY_OPTIONS = getCountryNames().map((name) => ({
+  label: name,
+  value: name,
+}));
 
 const GROQ_API_KEY = import.meta.env.VITE_GROK_API_KEY;
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
-const TNR = "'Times New Roman', Times, serif";
-const MIN_PROMPT_CHARS = 300;
+const CLOUDINARY_CLOUD_NAME =
+  import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "dge3lt4u6";
+const CLOUDINARY_UPLOAD_PRESET =
+  import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || "wukncq9d";
+const TNR = "Arial, Helvetica, sans-serif";
+const MIN_PROMPT_CHARS = 100;
+const CONTRACT_DRAFT_STORAGE_KEY = "contract_maker_draft_v1";
+const CONTRACT_PENDING_ENVELOPES_STORAGE_KEY =
+  "contract_maker_pending_envelopes_v1";
 const getIsDarkTheme = () => {
   const mode = localStorage.getItem("themeMode") || "light";
   if (mode === "dark") return true;
   if (mode === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
+
+const readPendingEnvelopeIds = () => {
+  try {
+    if (typeof window === "undefined" || !window.localStorage) return [];
+    const raw = localStorage.getItem(CONTRACT_PENDING_ENVELOPES_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((item) => String(item || "").trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+};
+
+const writePendingEnvelopeIds = (ids) => {
+  try {
+    if (typeof window === "undefined" || !window.localStorage) return;
+    const normalized = Array.from(
+      new Set((Array.isArray(ids) ? ids : []).map((id) => String(id || "").trim())),
+    ).filter(Boolean);
+    localStorage.setItem(
+      CONTRACT_PENDING_ENVELOPES_STORAGE_KEY,
+      JSON.stringify(normalized),
+    );
+  } catch {
+    // noop
+  }
 };
 
 // ------------------------ Document Types ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -168,7 +224,7 @@ REQUIRED SECTIONS:
 2. PARTIES AND RECITALS
 3. POSITION AND DUTIES
 4. COMMENCEMENT AND TERM
-5. COMPENSATION AND BENEFITS -------- use table: Benefit | Details
+5. COMPENSATION AND BENEFITS - use table: Benefit | Details
 6. WORKING HOURS AND LOCATION
 7. LEAVE ENTITLEMENTS
 8. CONFIDENTIALITY AND NON-DISCLOSURE
@@ -179,6 +235,44 @@ REQUIRED SECTIONS:
 13. GENERAL PROVISIONS
 
 RULES: paragraphs are plain text arrays, no markdown, return ONLY JSON.`,
+
+  offerLetter: `You are a professional legal document drafting assistant specializing in Job Offer Letters. Return ONLY a raw JSON object.
+
+JSON structure:
+{
+  "title": "DOCUMENT TITLE IN CAPS",
+  "parties": [
+    { "label": "Employer", "name": "[NAME]", "address": "[ADDRESS]", "email": "[EMAIL]" },
+    { "label": "Candidate", "name": "[NAME]", "address": "[ADDRESS]", "email": "[EMAIL]" }
+  ],
+  "sections": [
+    { "heading": "", "paragraphs": ["Letter paragraph content."], "table": null }
+  ]
+}
+
+REQUIRED CONTENT (letter flow, not numbered section headings):
+- Opening offer statement
+- Candidate details
+- Role title and reporting structure
+- Start date and work location
+- Compensation summary - use table: Component | Amount | Notes
+- Benefits and allowances - use table: Benefit | Details
+- Working hours and leave
+- Conditions precedent
+- Acceptance instructions and deadline
+- At-will / termination statement
+- Confidentiality and IP acknowledgement
+- Governing law
+- Signature/acceptance block
+
+RULES:
+- Write this specifically as an offer letter format, not a full employment agreement.
+- Include an explicit acceptance deadline date placeholder if user did not provide one.
+- Do not add numbered section headings.
+- "heading" may be empty for each section.
+- Use practical placeholders in paragraphs where details are unknown, for example:
+  [Employee Name], [Employer Address], [Salary], [Joining Date], [Work Location].
+- paragraphs are plain text arrays, no markdown, return ONLY JSON.`,
 
   partnership: `You are a professional legal document drafting assistant specializing in Partnership Agreements. Return ONLY a raw JSON object.
 
@@ -198,7 +292,7 @@ REQUIRED SECTIONS:
 1. DEFINITIONS AND INTERPRETATION
 2. PARTIES AND FORMATION
 3. PURPOSE AND SCOPE
-4. CAPITAL CONTRIBUTIONS -------- use table: Partner | Contribution | Percentage
+4. CAPITAL CONTRIBUTIONS - use table: Partner | Contribution | Percentage
 5. PROFIT AND LOSS SHARING
 6. MANAGEMENT AND DECISION MAKING
 7. BANKING AND ACCOUNTS
@@ -229,7 +323,7 @@ REQUIRED SECTIONS:
 1. DEFINITIONS
 2. PARTIES AND PREMISES
 3. LEASE TERM
-4. RENT AND PAYMENT TERMS -------- use table: Item | Amount | Due Date
+4. RENT AND PAYMENT TERMS - use table: Item | Amount | Due Date
 5. SECURITY DEPOSIT
 6. USE OF PREMISES
 7. MAINTENANCE AND REPAIRS
@@ -261,8 +355,8 @@ REQUIRED SECTIONS:
 1. PURPOSE AND BACKGROUND
 2. PARTIES
 3. SCOPE OF COLLABORATION
-4. ROLES AND RESPONSIBILITIES -------- use table: Party | Responsibilities
-5. TIMELINE AND MILESTONES -------- use table: Milestone | Target Date
+4. ROLES AND RESPONSIBILITIES - use table: Party | Responsibilities
+5. TIMELINE AND MILESTONES - use table: Milestone | Target Date
 6. FINANCIAL ARRANGEMENTS
 7. CONFIDENTIALITY
 8. INTELLECTUAL PROPERTY
@@ -292,8 +386,8 @@ REQUIRED SECTIONS:
 2. PARTIES AND RECITALS
 3. SCOPE OF SERVICES
 4. DELIVERABLES AND ACCEPTANCE
-5. PROJECT TIMELINE -------- use table: Milestone | Deadline | Deliverable
-6. FEES AND PAYMENT -------- use table: Item | Rate/Amount
+5. PROJECT TIMELINE - use table: Milestone | Deadline | Deliverable
+6. FEES AND PAYMENT - use table: Item | Rate/Amount
 7. INDEPENDENT CONTRACTOR STATUS
 8. INTELLECTUAL PROPERTY
 9. CONFIDENTIALITY
@@ -305,7 +399,7 @@ REQUIRED SECTIONS:
 
 RULES: paragraphs are plain text arrays, no markdown, return ONLY JSON.`,
 
-  contract: `You are a professional legal contract drafting assistant. Return ONLY a raw JSON object -------- no markdown, no code fences, no explanation.
+  contract: `You are a professional legal contract drafting assistant. Return ONLY a raw JSON object - no markdown, no code fences, no explanation.
 
 JSON structure:
 {
@@ -324,9 +418,9 @@ REQUIRED SECTIONS:
 2. PARTIES AND RECITALS
 3. SCOPE OF WORK
 4. DELIVERABLES AND ACCEPTANCE CRITERIA
-5. PROJECT TIMELINE AND MILESTONES -------- use table: Phase | Duration | Deliverable
-6. PAYMENT TERMS -------- use table if milestone-based
-7. TECHNOLOGY STACK -------- use table: Layer | Technology
+5. PROJECT TIMELINE AND MILESTONES - use table: Phase | Duration | Deliverable
+6. PAYMENT TERMS - use table if milestone-based
+7. TECHNOLOGY STACK - use table: Layer | Technology
 8. INTELLECTUAL PROPERTY RIGHTS
 9. CONFIDENTIALITY AND NON-DISCLOSURE
 10. WARRANTIES AND REPRESENTATIONS
@@ -386,9 +480,547 @@ async function ensureLibraries() {
 const buildPrompt = (text, extra, docType) =>
   `Generate a complete professional ${DOC_TYPES.find((d) => d.key === docType)?.label || "legal document"} based on the following:\n\n${text.slice(0, 14000)}${extra ? `\n\nExtra instructions: ${extra}` : ""}`;
 
+const OFFER_LETTER_KEYWORDS =
+  /\boffer letter\b|\bjob offer\b|\boffer of employment\b|\bemployment offer\b|\bemployment letter\b|\bappointment letter\b/i;
+
+const LETTER_STYLE_VARIANTS = new Set(["offerLetter"]);
+
+const DOC_BLUEPRINTS = {
+  nda: [
+    "1. DEFINITIONS",
+    "2. PARTIES AND RECITALS",
+    "3. CONFIDENTIAL INFORMATION",
+    "4. OBLIGATIONS OF RECEIVING PARTY",
+    "5. EXCLUSIONS FROM CONFIDENTIALITY",
+    "6. TERM AND DURATION",
+    "7. RETURN OR DESTRUCTION OF INFORMATION",
+    "8. REMEDIES",
+    "9. GOVERNING LAW AND DISPUTE RESOLUTION",
+    "10. GENERAL PROVISIONS",
+  ],
+  contract: [
+    "1. DEFINITIONS AND INTERPRETATION",
+    "2. PARTIES AND RECITALS",
+    "3. SCOPE OF WORK",
+    "4. DELIVERABLES AND ACCEPTANCE CRITERIA",
+    "5. PROJECT TIMELINE AND MILESTONES",
+    "6. PAYMENT TERMS",
+    "7. TECHNOLOGY STACK",
+    "8. INTELLECTUAL PROPERTY RIGHTS",
+    "9. CONFIDENTIALITY AND NON-DISCLOSURE",
+    "10. WARRANTIES AND REPRESENTATIONS",
+    "11. LIMITATION OF LIABILITY AND INDEMNIFICATION",
+    "12. TERMINATION",
+    "13. GOVERNING LAW AND DISPUTE RESOLUTION",
+    "14. GENERAL PROVISIONS",
+  ],
+  employment: [
+    "1. DEFINITIONS AND INTERPRETATION",
+    "2. PARTIES AND RECITALS",
+    "3. POSITION AND DUTIES",
+    "4. COMMENCEMENT AND TERM",
+    "5. COMPENSATION AND BENEFITS",
+    "6. WORKING HOURS AND LOCATION",
+    "7. LEAVE ENTITLEMENTS",
+    "8. CONFIDENTIALITY AND NON-DISCLOSURE",
+    "9. INTELLECTUAL PROPERTY",
+    "10. NON-COMPETE AND NON-SOLICITATION",
+    "11. TERMINATION",
+    "12. GOVERNING LAW AND DISPUTE RESOLUTION",
+    "13. GENERAL PROVISIONS",
+  ],
+  offerLetter: [
+    "1. OFFER INTRODUCTION",
+    "2. CANDIDATE DETAILS",
+    "3. ROLE TITLE AND REPORTING STRUCTURE",
+    "4. START DATE AND WORK LOCATION",
+    "5. COMPENSATION SUMMARY",
+    "6. BENEFITS AND ALLOWANCES",
+    "7. WORKING HOURS AND LEAVE",
+    "8. CONDITIONS PRECEDENT",
+    "9. ACCEPTANCE INSTRUCTIONS AND DEADLINE",
+    "10. AT-WILL / TERMINATION STATEMENT",
+    "11. CONFIDENTIALITY AND IP ACKNOWLEDGEMENT",
+    "12. GOVERNING LAW",
+    "13. SIGNATURES",
+  ],
+  partnership: [
+    "1. DEFINITIONS AND INTERPRETATION",
+    "2. PARTIES AND FORMATION",
+    "3. PURPOSE AND SCOPE",
+    "4. CAPITAL CONTRIBUTIONS",
+    "5. PROFIT AND LOSS SHARING",
+    "6. MANAGEMENT AND DECISION MAKING",
+    "7. BANKING AND ACCOUNTS",
+    "8. DUTIES AND OBLIGATIONS OF PARTNERS",
+    "9. ADMISSION OF NEW PARTNERS",
+    "10. TRANSFER OF INTEREST",
+    "11. DISSOLUTION AND WINDING UP",
+    "12. GOVERNING LAW AND DISPUTE RESOLUTION",
+    "13. GENERAL PROVISIONS",
+  ],
+  mou: [
+    "1. PURPOSE AND BACKGROUND",
+    "2. PARTIES",
+    "3. SCOPE OF COLLABORATION",
+    "4. ROLES AND RESPONSIBILITIES",
+    "5. TIMELINE AND MILESTONES",
+    "6. FINANCIAL ARRANGEMENTS",
+    "7. CONFIDENTIALITY",
+    "8. INTELLECTUAL PROPERTY",
+    "9. TERM AND TERMINATION",
+    "10. NON-BINDING NATURE",
+    "11. GOVERNING LAW",
+    "12. GENERAL PROVISIONS",
+  ],
+  freelance: [
+    "1. DEFINITIONS AND INTERPRETATION",
+    "2. PARTIES AND RECITALS",
+    "3. SCOPE OF SERVICES",
+    "4. DELIVERABLES AND ACCEPTANCE",
+    "5. PROJECT TIMELINE",
+    "6. FEES AND PAYMENT",
+    "7. INDEPENDENT CONTRACTOR STATUS",
+    "8. INTELLECTUAL PROPERTY",
+    "9. CONFIDENTIALITY",
+    "10. WARRANTIES",
+    "11. LIMITATION OF LIABILITY",
+    "12. TERMINATION",
+    "13. GOVERNING LAW",
+    "14. GENERAL PROVISIONS",
+  ],
+  custom: [],
+};
+
+const DEFAULT_PARTY_LABELS = {
+  nda: ["Disclosing Party", "Receiving Party"],
+  contract: ["Service Provider", "Client"],
+  employment: ["Employer", "Employee"],
+  offerLetter: ["Employer", "Candidate"],
+  partnership: ["Partner A", "Partner B"],
+  mou: ["Party A", "Party B"],
+  freelance: ["Client", "Freelancer / Consultant"],
+  custom: ["Party A", "Party B"],
+};
+
+const formatHumanDate = (value) => {
+  const raw = String(value || "").trim();
+  if (raw) {
+    const parsed = new Date(`${raw}T00:00:00`);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    }
+  }
+  return new Date().toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+};
+
+const PLACEHOLDER_REGEX = /\[([^[\]]+)\]/g;
+
+const normalizePlaceholderToken = (token) =>
+  String(token || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+const extractPlaceholderTokensFromText = (text) => {
+  const source = String(text ?? "");
+  const result = [];
+  let match;
+  while ((match = PLACEHOLDER_REGEX.exec(source)) !== null) {
+    const token = String(match[1] || "").trim();
+    if (token) result.push(token);
+  }
+  PLACEHOLDER_REGEX.lastIndex = 0;
+  return result;
+};
+
+const escapeRegExp = (value) =>
+  String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const replacePlaceholderTokensInText = (text, entries) => {
+  let next = String(text ?? "");
+  entries.forEach(({ token, value }) => {
+    if (!token || value === undefined || value === null || value === "") return;
+    const pattern = new RegExp(`\\[\\s*${escapeRegExp(token)}\\s*\\]`, "gi");
+    next = next.replace(pattern, String(value));
+  });
+  return next;
+};
+
+const removePlaceholderTokensInText = (text, tokens) => {
+  let next = String(text ?? "");
+  tokens.forEach((token) => {
+    if (!token) return;
+    const pattern = new RegExp(`\\[\\s*${escapeRegExp(token)}\\s*\\]`, "gi");
+    next = next.replace(pattern, "");
+  });
+  return next
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .trim();
+};
+
+const normalizeTableRowCells = (row) => {
+  if (Array.isArray(row)) return row;
+  if (row && typeof row === "object") return Object.values(row);
+  if (row === null || row === undefined) return [];
+  return [row];
+};
+
+const detectPlaceholderFieldType = (token) => {
+  const t = normalizePlaceholderToken(token);
+  if (!t) return "text";
+  const words = t.split(/[^a-z0-9]+/).filter(Boolean);
+  const hasWord = (word) => words.includes(word);
+  const hasPhrase = (phrase) => t.includes(phrase);
+
+  if (hasWord("email")) return "email";
+  if (hasWord("country") || hasWord("nationality")) return "country";
+  if (
+    hasWord("date") ||
+    hasWord("dob") ||
+    hasWord("birth") ||
+    hasWord("joining") ||
+    hasPhrase("start date") ||
+    hasPhrase("end date") ||
+    hasWord("deadline") ||
+    hasWord("effective")
+  ) {
+    return "date";
+  }
+  if (hasWord("time") || hasWord("hour") || hasWord("shift") || hasWord("slot"))
+    return "time";
+  if (
+    /(condition|conditions|term|terms|scope|responsibilit|instruction|note|clause|description|details|address)/i.test(
+      t,
+    )
+  )
+    return "textarea";
+  return "text";
+};
+
+const getPartyFieldPlaceholders = (variant, partyIndex = 0) => {
+  if (variant === "offerLetter") {
+    if (partyIndex === 0) {
+      return {
+        name: "Employer / Company Name",
+        address: "Employer Address",
+        email: "hr@company.com",
+      };
+    }
+    return {
+      name: "Employee / Candidate Name",
+      address: "Employee Address",
+      email: "employee@email.com",
+    };
+  }
+  if (variant === "employment") {
+    if (partyIndex === 0) {
+      return {
+        name: "Employer Name",
+        address: "Employer Address",
+        email: "hr@company.com",
+      };
+    }
+    return {
+      name: "Employee Name",
+      address: "Employee Address",
+      email: "employee@email.com",
+    };
+  }
+  return {
+    name: "Full Name",
+    address: "Address",
+    email: "Email",
+  };
+};
+
+const resolveDocVariant = (docType, userContent) => {
+  if (docType === "employment" && OFFER_LETTER_KEYWORDS.test(userContent || "")) {
+    return "offerLetter";
+  }
+  return docType;
+};
+
+const toParagraphs = (section) => {
+  if (Array.isArray(section?.paragraphs)) {
+    return section.paragraphs
+      .map((p) => String(p || "").trim())
+      .filter(Boolean);
+  }
+  if (typeof section?.content === "string" && section.content.trim()) {
+    return [section.content.trim()];
+  }
+  return [];
+};
+
+const normalizeHeading = (heading) =>
+  String(heading || "")
+    .toLowerCase()
+    .replace(/^\d+\.\s*/, "")
+    .replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const headingScore = (a, b) => {
+  const aa = new Set(normalizeHeading(a).split(" ").filter(Boolean));
+  const bb = new Set(normalizeHeading(b).split(" ").filter(Boolean));
+  if (!aa.size || !bb.size) return 0;
+  const overlap = [...aa].filter((w) => bb.has(w)).length;
+  return overlap / Math.max(aa.size, bb.size);
+};
+
+const mergeWithBlueprint = (sections, variant) => {
+  const blueprint = DOC_BLUEPRINTS[variant] || DOC_BLUEPRINTS.custom;
+  const sourceSections = Array.isArray(sections) ? sections : [];
+
+  // Offer/appointment letters are narrative documents and should not force numbered section headings.
+  if (LETTER_STYLE_VARIANTS.has(variant)) {
+    const normalized = sourceSections
+      .map((source) => {
+        const paragraphs = toParagraphs(source);
+        const hasTable = !!(
+          source?.table?.headers &&
+          Array.isArray(source?.table?.rows) &&
+          source.table.rows.length
+        );
+        if (!paragraphs.length && !hasTable) return null;
+        return {
+          heading: "",
+          paragraphs: paragraphs.length
+            ? paragraphs
+            : ["Details to be finalized by the parties."],
+          table: source?.table || null,
+        };
+      })
+      .filter(Boolean);
+    return normalized.length
+      ? normalized
+      : [
+          {
+            heading: "",
+            paragraphs: ["Details to be finalized by the parties."],
+            table: null,
+          },
+        ];
+  }
+
+  if (!blueprint.length) return sourceSections;
+
+  const used = new Set();
+  const merged = blueprint.map((targetHeading) => {
+    let bestIndex = -1;
+    let bestScore = 0;
+    sourceSections.forEach((source, index) => {
+      if (used.has(index)) return;
+      const score = headingScore(source?.heading, targetHeading);
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = index;
+      }
+    });
+
+    if (bestIndex >= 0 && bestScore >= 0.25) {
+      used.add(bestIndex);
+      const source = sourceSections[bestIndex] || {};
+      const paragraphs = toParagraphs(source);
+      return {
+        heading: targetHeading,
+        paragraphs: paragraphs.length
+          ? paragraphs
+          : ["Details to be finalized by the parties."],
+        table: source.table || null,
+      };
+    }
+
+    return {
+      heading: targetHeading,
+      paragraphs: ["Details to be finalized by the parties."],
+      table: null,
+    };
+  });
+
+  sourceSections.forEach((source, index) => {
+    if (used.has(index)) return;
+    const paragraphs = toParagraphs(source);
+    if (!String(source?.heading || "").trim() || !paragraphs.length) return;
+    merged.push({
+      heading: source.heading,
+      paragraphs,
+      table: source.table || null,
+    });
+  });
+
+  return merged;
+};
+
+const toTitleCase = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
+const parseInlineKeyValuePairs = (paragraph) => {
+  const text = String(paragraph || "").replace(/\s+/g, " ").trim();
+  const colonIndex = text.indexOf(":");
+  if (colonIndex < 0) return null;
+  const intro = text.slice(0, colonIndex + 1).trim();
+  const rest = text.slice(colonIndex + 1).trim();
+  if (!rest) return null;
+
+  const chunks = rest.split(/\s*,\s*(?=[A-Za-z][A-Za-z '\/&-]{1,40}\s*[-:])/g);
+  const rows = [];
+  chunks.forEach((chunk) => {
+    const m = chunk.match(/^([A-Za-z][A-Za-z '\/&-]{1,50})\s*[-:]\s*(.+)$/);
+    if (!m) return;
+    rows.push([toTitleCase(m[1]), String(m[2] || "").trim()]);
+  });
+  if (rows.length < 2) return null;
+  return { intro, rows };
+};
+
+const formatSectionsForReadability = (sections) =>
+  (Array.isArray(sections) ? sections : []).map((section) => {
+    if (section?.table?.headers?.length && section?.table?.rows?.length) return section;
+    const paragraphs = Array.isArray(section?.paragraphs) ? section.paragraphs : [];
+    const normalizedParagraphs = [];
+    const tableRows = [];
+
+    paragraphs.forEach((para) => {
+      const parsed = parseInlineKeyValuePairs(para);
+      if (!parsed) {
+        normalizedParagraphs.push(para);
+        return;
+      }
+      if (parsed.intro) normalizedParagraphs.push(parsed.intro);
+      parsed.rows.forEach((row) => tableRows.push(row));
+    });
+
+    if (!tableRows.length) {
+      return {
+        ...section,
+        paragraphs: normalizedParagraphs,
+      };
+    }
+
+    return {
+      ...section,
+      paragraphs: normalizedParagraphs,
+      table: {
+        headers: ["Field", "Details"],
+        rows: tableRows,
+      },
+    };
+  });
+
+const isSignatureSectionLike = (section) => {
+  const heading = String(section?.heading || "").toLowerCase();
+  const joined = (section?.paragraphs || []).join(" ").toLowerCase();
+  return heading.includes("signature") || joined.includes("signature");
+};
+
+const upsertDualPartySignatureSection = (sections, parties, variant) => {
+  const existing = Array.isArray(sections) ? sections : [];
+  const withoutSignatureSections = existing.filter(
+    (section) => !isSignatureSectionLike(section),
+  );
+
+  const p = Array.isArray(parties) ? parties : [];
+  const partyAName = String(p?.[0]?.name || "Party A").trim();
+  const partyALabel = String(p?.[0]?.label || "Party A").trim();
+  const partyBName = String(p?.[1]?.name || "Party B").trim();
+  const partyBLabel = String(p?.[1]?.label || "Party B").trim();
+
+  return [
+    ...withoutSignatureSections,
+    {
+      heading: LETTER_STYLE_VARIANTS.has(variant) ? "" : "SIGNATURES",
+      paragraphs: [
+        "Both parties agree to the terms and sign below.",
+      ],
+      table: {
+        headers: ["Party", "Name", "Signature", "Date"],
+        rows: [
+          [partyALabel, partyAName, "____________________", "____________________"],
+          [partyBLabel, partyBName, "____________________", "____________________"],
+        ],
+      },
+    },
+  ];
+};
+
+const normalizeParties = (parties, variant) => {
+  const labels = DEFAULT_PARTY_LABELS[variant] || DEFAULT_PARTY_LABELS.custom;
+  const safe = Array.isArray(parties) ? parties.slice(0, 4) : [];
+  const normalized = safe.map((p, i) => ({
+    label: p?.label || labels[i] || `Party ${i + 1}`,
+    name: p?.name || "",
+    address: p?.address || "",
+    email: p?.email || "",
+  }));
+
+  while (normalized.length < 2) {
+    const i = normalized.length;
+    normalized.push({
+      label: labels[i] || `Party ${i + 1}`,
+      name: "",
+      address: "",
+      email: "",
+    });
+  }
+  return normalized;
+};
+
+const normalizeGeneratedDocument = (result, docType, userContent) => {
+  const variant = resolveDocVariant(docType, userContent);
+  const fallbackLabel =
+    DOC_TYPES.find((d) => d.key === docType)?.label || "Legal Document";
+  const parties = normalizeParties(result?.parties, variant);
+  const mergedSections = mergeWithBlueprint(result?.sections, variant);
+  const readableSections = formatSectionsForReadability(mergedSections);
+  const sectionsWithSignatures = upsertDualPartySignatureSection(
+    readableSections,
+    parties,
+    variant,
+  );
+
+  return {
+    variant,
+    title: String(result?.title || `${fallbackLabel}`),
+    parties,
+    sections: sectionsWithSignatures,
+  };
+};
+
+const buildUserContent = ({ text, extra, docType }) => {
+  const typeLabel =
+    DOC_TYPES.find((d) => d.key === docType)?.label || "Legal Document";
+  const variant = resolveDocVariant(docType, `${text || ""}\n${extra || ""}`);
+  return `Document Type: ${typeLabel} (${docType})
+Instructions:
+- Draft strictly for this document type.
+- Use clauses and tone specific to this document type only.
+- Keep headings and structure aligned with this document type.${LETTER_STYLE_VARIANTS.has(variant) ? "\n- This is a letter-style document: do not use numbered section headings." : ""}
+
+Source details:
+${String(text || "").slice(0, 14000)}${extra ? `\n\nExtra instructions: ${extra}` : ""}`;
+};
+
+const resolveSystemPrompt = (docType, userContent) => {
+  const variant = resolveDocVariant(docType, userContent);
+  return DOC_SYSTEM_PROMPTS[variant] || DOC_SYSTEM_PROMPTS.custom;
+};
+
 async function callGroq(userContent, docType) {
   if (!GROQ_API_KEY) throw new Error("VITE_GROK_API_KEY not set in .env");
-  const systemPrompt = DOC_SYSTEM_PROMPTS[docType] || DOC_SYSTEM_PROMPTS.custom;
+  const systemPrompt = resolveSystemPrompt(docType, userContent);
   const res = await fetch(GROQ_URL, {
     method: "POST",
     headers: {
@@ -487,6 +1119,109 @@ async function extractTextFromFile(file) {
   return "";
 }
 
+const fileToBase64 = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = String(event?.target?.result || "");
+      const base64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : "";
+      resolve(base64 || "");
+    };
+    reader.onerror = () => reject(new Error("Unable to read file."));
+    reader.readAsDataURL(file);
+  });
+
+const htmlToPlainText = (html) => {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(String(html || ""), "text/html");
+  return (doc?.body?.textContent || "")
+    .replace(/\r/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+};
+
+const remoteImageToDataUrl = async (url) => {
+  const target = String(url || "").trim();
+  if (!target || !/^https?:\/\//i.test(target)) return target;
+  const res = await fetch(target);
+  if (!res.ok) return target;
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result || target));
+    reader.onerror = () => reject(new Error("Failed to process image"));
+    reader.readAsDataURL(blob);
+  });
+};
+
+async function htmlTextToPdfBase64(htmlText, documentName = "Agreement") {
+  await ensureLibraries();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+  const marginX = 56;
+  const marginY = 60;
+  const maxWidth = doc.internal.pageSize.getWidth() - marginX * 2;
+  const maxY = doc.internal.pageSize.getHeight() - marginY;
+  let y = marginY;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  const titleLines = doc.splitTextToSize(documentName, maxWidth);
+  titleLines.forEach((line) => {
+    doc.text(line, marginX, y);
+    y += 22;
+  });
+  y += 8;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  const plain = htmlToPlainText(htmlText);
+  const lines = doc.splitTextToSize(plain || " ", maxWidth);
+  lines.forEach((line) => {
+    if (y > maxY) {
+      doc.addPage();
+      y = marginY;
+    }
+    doc.text(line, marginX, y);
+    y += 16;
+  });
+
+  const dataUri = doc.output("datauristring");
+  return dataUri.split(",")[1] || "";
+}
+
+async function uploadPdfBlobToCloudinary(blob, filenameBase = "agreement") {
+  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+    throw new Error(
+      "Cloudinary config missing. Set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET.",
+    );
+  }
+  const safeName = String(filenameBase || "agreement")
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]/g, "_")
+    .slice(0, 80);
+
+  const form = new FormData();
+  form.append("file", blob, `${safeName || "agreement"}.pdf`);
+  form.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+  form.append("resource_type", "raw");
+  form.append("folder", "docusign");
+  form.append("public_id", `${safeName || "agreement"}_${Date.now()}`);
+
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/raw/upload`,
+    {
+      method: "POST",
+      body: form,
+    },
+  );
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(payload?.error?.message || "Failed to upload PDF to Cloudinary.");
+  }
+  return String(payload?.secure_url || payload?.url || "").trim();
+}
+
 async function downloadDocumentPDF({
   docTitle,
   effectiveDate,
@@ -495,6 +1230,10 @@ async function downloadDocumentPDF({
   logoDataUrl,
   contractData,
   signatures,
+  showSectionHeadings = true,
+  saveFile = true,
+  returnBase64 = false,
+  returnBlob = false,
 }) {
   await ensureLibraries();
   const { jsPDF } = window.jspdf;
@@ -523,7 +1262,7 @@ async function downloadDocumentPDF({
     doc.setDrawColor(...C.rule);
     doc.setLineWidth(0.4);
     doc.line(ML, 42, PW - MR, 42);
-    doc.setFont("times", "italic");
+    doc.setFont("helvetica", "italic");
     doc.setFontSize(7.5);
     doc.setTextColor(...C.light);
     doc.text((docTitle || "DOCUMENT").toUpperCase(), ML, 36);
@@ -533,7 +1272,7 @@ async function downloadDocumentPDF({
     const fy = PH - 28;
     doc.setDrawColor(...C.rule);
     doc.line(ML, fy - 8, PW - MR, fy - 8);
-    doc.setFont("times", "italic");
+    doc.setFont("helvetica", "italic");
     doc.setFontSize(7.5);
     doc.setTextColor(...C.light);
     doc.text(`Page ${currentPage}`, PW - MR, fy, { align: "right" });
@@ -553,17 +1292,71 @@ async function downloadDocumentPDF({
   };
 
   drawPageChrome();
+  const pdfParties = Array.isArray(contractData?.parties) ? contractData.parties : [];
+  const senderParty = pdfParties[0] || {};
+  const recipientParty = pdfParties[1] || pdfParties[0] || {};
+  const primarySignature = Array.isArray(signatures) ? signatures[0] || {} : {};
+  const letterDate = formatHumanDate(effectiveDate);
+  const recipientName = String(
+    primarySignature?.name || recipientParty?.name || "Recipient Name",
+  ).trim();
+  const recipientTitle = String(primarySignature?.title || "Position Title").trim();
+  const senderName = String(companyName || senderParty?.name || "Company Name").trim();
+  const senderAddress = String(senderParty?.address || "Company Address").trim();
+  const headerStartY = y + 2;
+  let headerLeftEndY = headerStartY;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(...C.mid);
+  doc.text("Date", ML, headerLeftEndY);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...C.dark);
+  doc.text(letterDate, ML + 44, headerLeftEndY);
+  headerLeftEndY += 18;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(...C.mid);
+  doc.text("To", ML, headerLeftEndY);
+  headerLeftEndY += 14;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10.5);
+  doc.setTextColor(...C.dark);
+  doc.text(recipientName, ML, headerLeftEndY);
+  headerLeftEndY += 14;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(...C.mid);
+  doc.text(recipientTitle, ML, headerLeftEndY);
+  headerLeftEndY += 22;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(...C.dark);
+  doc.text(senderName, ML, headerLeftEndY);
+  headerLeftEndY += 14;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(...C.mid);
+  const senderAddressLines = doc.splitTextToSize(senderAddress, CW * 0.6);
+  senderAddressLines.forEach((line) => {
+    doc.text(line, ML, headerLeftEndY);
+    headerLeftEndY += 13;
+  });
+
+  let logoBottomY = headerStartY;
   if (logoDataUrl && logoDataUrl.startsWith("data:image")) {
     try {
       await new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
           try {
-            const maxW = 180,
-              maxH = 60;
-            let lw = img.naturalWidth || img.width,
-              lh = img.naturalHeight || img.height,
-              ratio = lw / lh;
+            const maxW = 132;
+            const maxH = 58;
+            let lw = img.naturalWidth || img.width;
+            let lh = img.naturalHeight || img.height;
+            const ratio = lw / lh;
             if (lw > maxW) {
               lw = maxW;
               lh = lw / ratio;
@@ -572,20 +1365,9 @@ async function downloadDocumentPDF({
               lh = maxH;
               lw = lh * ratio;
             }
-            const cvs = document.createElement("canvas");
-            cvs.width = Math.round(lw * 3);
-            cvs.height = Math.round(lh * 3);
-            const ctx = cvs.getContext("2d");
-            ctx.drawImage(img, 0, 0, cvs.width, cvs.height);
-            doc.addImage(
-              cvs.toDataURL("image/png"),
-              "PNG",
-              PW / 2 - lw / 2,
-              y,
-              lw,
-              lh,
-            );
-            y += lh + 14;
+            const lx = PW - MR - lw;
+            doc.addImage(img, "PNG", lx, headerStartY - 4, lw, lh);
+            logoBottomY = headerStartY - 4 + lh;
           } catch (e) {
             console.warn(e);
           }
@@ -598,18 +1380,14 @@ async function downloadDocumentPDF({
       console.warn(e);
     }
   }
-  if (companyName) {
-    doc.setFont("times", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(...C.mid);
-    doc.text(companyName.toUpperCase(), PW / 2, y, {
-      align: "center",
-      charSpace: 2.2,
-    });
-    y += 16;
-  }
+
+  y = Math.max(headerLeftEndY, logoBottomY) + 14;
+  doc.setDrawColor(...C.rule);
+  doc.setLineWidth(0.75);
+  doc.line(ML, y, PW - MR, y);
+  y += 20;
   if (confidentiality) {
-    doc.setFont("times", "normal");
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(...C.light);
     doc.setDrawColor(...C.light);
@@ -620,88 +1398,23 @@ async function downloadDocumentPDF({
     doc.text(stamp, PW / 2, y, { align: "center" });
     y += 20;
   }
-  sp(16);
-  doc.setDrawColor(...C.black);
-  doc.setLineWidth(3);
-  doc.line(ML, y, PW - MR, y);
-  y += 20;
-  doc.setFont("times", "bold");
-  doc.setFontSize(20);
-  doc.setTextColor(...C.black);
-  const titleText = (docTitle || "LEGAL DOCUMENT").toUpperCase();
-  const titleLines = doc.splitTextToSize(titleText, CW);
-  titleLines.forEach((line) => {
-    doc.text(line, PW / 2, y, { align: "center" });
-    y += 26;
-  });
-  y += 6;
-  doc.setDrawColor(...C.rule);
-  doc.setLineWidth(0.75);
-  doc.line(ML, y, PW - MR, y);
-  y += 14;
-  if (effectiveDate) {
-    const d = new Date(effectiveDate + "T00:00:00");
-    const fmt = d.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-    doc.setFont("times", "italic");
-    doc.setFontSize(10.5);
-    doc.setTextColor(...C.mid);
-    doc.text(`Effective Date: ${fmt}`, PW / 2, y, { align: "center" });
-    y += 26;
-  }
-  const parties = contractData?.parties || [];
-  if (parties.length > 0) {
-    let totalH = 18;
-    parties.forEach(() => {
-      totalH += 14 + 18 + 8;
-    });
-    need(totalH + 12);
-    doc.setFillColor(...C.boxBg);
-    doc.setDrawColor(...C.rule);
-    doc.setLineWidth(0.5);
-    doc.roundedRect(ML, y, CW, totalH, 4, 4, "FD");
-    y += 14;
-    parties.forEach((p, pi) => {
-      doc.setFont("times", "bold");
-      doc.setFontSize(8.5);
-      doc.setTextColor(...C.mid);
-      doc.text((p.label || `Party ${pi + 1}`).toUpperCase(), ML + 16, y, {
-        charSpace: 0.8,
-      });
-      y += 14;
-      doc.setFont("times", "normal");
-      doc.setFontSize(10.5);
-      doc.setTextColor(...C.dark);
-      const info = [p.name, p.address, p.email].filter(Boolean).join("   ----   ");
-      const infoLines = doc.splitTextToSize(info, CW - 32);
-      infoLines.forEach((l) => {
-        doc.text(l, ML + 16, y);
-        y += 16;
-      });
-      y += 8;
-    });
-    y += 6;
-  }
   sp(20);
   const sections = contractData?.sections || [];
   sections.forEach((section) => {
     need(50);
-    doc.setFont("times", "bold");
-    doc.setFontSize(12);
-    doc.setTextColor(...C.black);
-    const headingLines = doc.splitTextToSize(
-      (section.heading || "").toUpperCase(),
-      CW,
-    );
-    headingLines.forEach((hl) => {
-      need(18);
-      doc.text(hl, ML, y);
-      y += 18;
-    });
-    y += 6;
+    const sectionHeading = String(section?.heading || "").trim();
+    if (showSectionHeadings && sectionHeading) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.setTextColor(...C.black);
+      const headingLines = doc.splitTextToSize(sectionHeading.toUpperCase(), CW);
+      headingLines.forEach((hl) => {
+        need(18);
+        doc.text(hl, ML, y);
+        y += 18;
+      });
+      y += 6;
+    }
     const paras = Array.isArray(section.paragraphs)
       ? section.paragraphs
       : section.content
@@ -709,15 +1422,16 @@ async function downloadDocumentPDF({
         : [];
     paras.forEach((para) => {
       if (!para?.trim()) return;
-      doc.setFont("times", "normal");
+      doc.setFont("helvetica", "normal");
       doc.setFontSize(10.5);
       doc.setTextColor(...C.dark);
       const lines = doc.splitTextToSize(para.trim(), CW);
       need(lines.length * 16 + 8);
-      lines.forEach((l) => {
-        doc.text(l, ML, y);
-        y += 16;
+      doc.text(para.trim(), ML, y, {
+        maxWidth: CW,
+        align: "justify",
       });
+      y += lines.length * 16;
       y += 6;
     });
     if (section.table?.headers && section.table?.rows?.length) {
@@ -729,7 +1443,7 @@ async function downloadDocumentPDF({
         margin: { left: ML, right: MR },
         tableWidth: CW,
         styles: {
-          font: "times",
+          font: "helvetica",
           fontSize: 10,
           cellPadding: { top: 7, right: 12, bottom: 7, left: 12 },
           lineColor: [210, 210, 210],
@@ -739,7 +1453,7 @@ async function downloadDocumentPDF({
           overflow: "linebreak",
         },
         headStyles: {
-          font: "times",
+          font: "helvetica",
           fontStyle: "bold",
           fontSize: 11,
           fillColor: C.thBg,
@@ -760,95 +1474,16 @@ async function downloadDocumentPDF({
     }
     sp(16);
   });
-  if (signatures?.length > 0) {
-    need(100);
-    sp(8);
-    doc.setDrawColor(...C.black);
-    doc.setLineWidth(2);
-    doc.line(ML, y, PW - MR, y);
-    y += 16;
-    doc.setFont("times", "bold");
-    doc.setFontSize(13);
-    doc.setTextColor(...C.black);
-    doc.text("IN WITNESS WHEREOF", ML, y);
-    y += 18;
-    doc.setFont("times", "normal");
-    doc.setFontSize(10.5);
-    doc.setTextColor(...C.dark);
-    const wt = doc.splitTextToSize(
-      "The parties have executed this Agreement as of the Effective Date first written above.",
-      CW,
-    );
-    wt.forEach((l) => {
-      doc.text(l, ML, y);
-      y += 16;
-    });
-    sp(24);
-    const colW = CW / Math.min(signatures.length, 2);
-    const pairs = [];
-    for (let i = 0; i < signatures.length; i += 2)
-      pairs.push(signatures.slice(i, i + 2));
-    for (const group of pairs) {
-      need(120);
-      const startY = y;
-      for (let gi = 0; gi < group.length; gi++) {
-        const sig = group[gi];
-        const x = ML + gi * colW;
-        let sy = startY;
-        doc.setFont("times", "bold");
-        doc.setFontSize(9);
-        doc.setTextColor(...C.mid);
-        doc.text((sig.role || `Party ${gi + 1}`).toUpperCase(), x, sy, {
-          charSpace: 0.8,
-        });
-        sy += 16;
-        if (sig.signatureImage) {
-          try {
-            doc.addImage(sig.signatureImage, "PNG", x, sy, colW - 20, 38);
-            sy += 42;
-          } catch {
-            doc.setDrawColor(...C.dark);
-            doc.setLineWidth(0.6);
-            doc.line(x, sy + 24, x + colW - 20, sy + 24);
-            sy += 32;
-          }
-        } else {
-          doc.setDrawColor(...C.dark);
-          doc.setLineWidth(0.6);
-          doc.line(x, sy + 24, x + colW - 20, sy + 24);
-          sy += 32;
-        }
-        doc.setFont("times", "italic");
-        doc.setFontSize(8);
-        doc.setTextColor(...C.light);
-        doc.text("Authorized Signature", x, sy);
-        sy += 20;
-        [
-          ["Printed Name", sig.name],
-          ["Title / Position", sig.title],
-          ["Date", sig.date],
-        ].forEach(([label, val]) => {
-          doc.setFont("times", "normal");
-          doc.setFontSize(10.5);
-          doc.setTextColor(...C.dark);
-          if (val) doc.text(String(val), x, sy);
-          doc.setDrawColor(...C.rule);
-          doc.setLineWidth(0.4);
-          doc.line(x, sy + 3, x + colW - 20, sy + 3);
-          doc.setFont("times", "italic");
-          doc.setFontSize(7.5);
-          doc.setTextColor(...C.light);
-          doc.text(label, x, sy + 12);
-          sy += 24;
-        });
-      }
-      y = startY + 130;
-    }
-  }
   drawPageChrome();
   const filename =
     (docTitle || "Document").replace(/[^a-zA-Z0-9 _-]/g, "").trim() + ".pdf";
-  doc.save(filename);
+  const dataUri = returnBase64 ? doc.output("datauristring") : "";
+  const blob = returnBlob ? doc.output("blob") : null;
+  if (saveFile) {
+    doc.save(filename);
+  }
+  if (returnBlob) return blob;
+  return returnBase64 ? dataUri.split(",")[1] || "" : "";
 }
 
 // ------------------------ Paywall ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -919,7 +1554,7 @@ function DocumentGeneratorPaywall({ dark = false }) {
 
   const mockDocs = [
     {
-      name: "Service Agreement -------- Acme Corp",
+      name: "Service Agreement - Acme Corp",
       type: "Contract",
       color: "#3b82f6",
       date: "Mar 28, 2026",
@@ -931,7 +1566,7 @@ function DocumentGeneratorPaywall({ dark = false }) {
       date: "Mar 25, 2026",
     },
     {
-      name: "Employment Contract -------- J. Smith",
+      name: "Employment Contract - J. Smith",
       type: "Employment",
       color: "#10b981",
       date: "Mar 20, 2026",
@@ -983,7 +1618,7 @@ function DocumentGeneratorPaywall({ dark = false }) {
               Document Generator
             </h1>
             <p style={{ margin: 0, color: colors.textMuted, fontSize: 13 }}>
-              AI-powered ---- 8 document types ---- PDF export ---- Digital signatures
+              AI-powered • 8 document types • PDF export • Digital signatures
             </p>
           </div>
         </div>
@@ -1298,7 +1933,7 @@ function DocumentGeneratorPaywall({ dark = false }) {
               }}
             >
               From NDAs to employment contracts, lease agreements to
-              partnerships -------- describe your document and get a complete,
+              partnerships - describe your document and get a complete,
               professional draft ready to sign and download.
             </p>
 
@@ -1879,9 +2514,9 @@ function EditableBlock({ value, isHeading, onEdit, onDelete, onAddAfter }) {
             }
           }}
           style={{
-            fontFamily: isHeading ? "inherit" : TNR,
-            fontSize: isHeading ? 11 : 13,
-            fontWeight: isHeading ? 700 : 400,
+            fontFamily: isHeading ? "Arial, Helvetica, sans-serif" : TNR,
+            fontSize: isHeading ? 12 : 13,
+            fontWeight: isHeading ? 800 : 400,
             borderColor: "#111",
             borderRadius: 6,
             color: "#111",
@@ -1900,7 +2535,7 @@ function EditableBlock({ value, isHeading, onEdit, onDelete, onAddAfter }) {
           }}
           className="border border-gray-200 rounded-md w-7 h-7 flex items-center justify-center bg-white cursor-pointer text-gray-400 flex-shrink-0 text-sm"
         >
-          -------
+          <ClearOutlined style={{ fontSize: 10 }} />
         </button>
       </div>
     );
@@ -1915,10 +2550,11 @@ function EditableBlock({ value, isHeading, onEdit, onDelete, onAddAfter }) {
         onClick={() => setEditing(true)}
         className="cursor-text rounded transition-colors px-1.5"
         style={{
-          fontFamily: isHeading ? "inherit" : TNR,
-          fontSize: isHeading ? 11 : 13,
-          fontWeight: isHeading ? 700 : 400,
+          fontFamily: isHeading ? "Arial, Helvetica, sans-serif" : TNR,
+          fontSize: isHeading ? 12 : 13,
+          fontWeight: isHeading ? 800 : 400,
           textTransform: isHeading ? "uppercase" : "none",
+          textAlign: isHeading ? "left" : "justify",
           letterSpacing: isHeading ? "0.06em" : "normal",
           lineHeight: 1.75,
           color: isHeading ? "#000" : "#222",
@@ -1986,7 +2622,7 @@ function SignatureCard({ sig, idx, onChange, onRemove }) {
         {[
           {
             key: "role",
-            placeholder: "Role (Client, Vendor-------)",
+            placeholder: "Role (Client, Vendor, Employer, etc.)",
             icon: <SafetyCertificateOutlined className="text-gray-300" />,
           },
           {
@@ -2079,9 +2715,11 @@ function SignatureCard({ sig, idx, onChange, onRemove }) {
 
 function SidePanel({ title, children, action }) {
   return (
-    <div className="cm-card bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
-      <div className="px-4 py-3.5 border-b border-gray-50 flex items-center justify-between">
-        <span className="text-sm font-semibold text-gray-800">{title}</span>
+    <div className="cm-card bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm transition-all">
+      <div className="px-4 py-3.5 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+        <span className="text-sm font-semibold text-gray-800 tracking-tight">
+          {title}
+        </span>
         {action}
       </div>
       <div className="p-4">{children}</div>
@@ -2091,7 +2729,12 @@ function SidePanel({ title, children, action }) {
 
 // ------------------------ Main ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 export default function DocumentGenerator() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [dark, setDark] = useState(getIsDarkTheme);
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth : 1280,
+  );
   const [orgPlan, setOrgPlan] = useState(null);
   const [planLoading, setPlanLoading] = useState(true);
   const planTier = String(orgPlan || "").toLowerCase();
@@ -2099,6 +2742,7 @@ export default function DocumentGenerator() {
     planTier.includes("free") || planTier.includes("starter");
 
   const [docType, setDocType] = useState("contract");
+  const [docVariant, setDocVariant] = useState("contract");
   const [inputMode, setInputMode] = useState("text");
   const [prompt, setPrompt] = useState("");
   const [uploadedFile, setUploadedFile] = useState(null);
@@ -2107,6 +2751,7 @@ export default function DocumentGenerator() {
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [step, setStep] = useState("input");
   const [genStep, setGenStep] = useState(0);
   const [docTitle, setDocTitle] = useState("");
@@ -2117,25 +2762,586 @@ export default function DocumentGenerator() {
   const [contractData, setContractData] = useState(null);
   const [sections, setSections] = useState([]);
   const [parties, setParties] = useState([]);
-  const [signatures, setSignatures] = useState([
-    {
-      role: "Party A",
-      name: "",
-      title: "",
-      date: "",
-      witness: false,
-      signatureImage: null,
-    },
-    {
-      role: "Party B",
-      name: "",
-      title: "",
-      date: "",
-      witness: false,
-      signatureImage: null,
-    },
-  ]);
+  const [signatures, setSignatures] = useState([]);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [sendingToDocusign, setSendingToDocusign] = useState(false);
+  const [docusignLoading, setDocusignLoading] = useState(false);
+  const [docusignConnecting, setDocusignConnecting] = useState(false);
+  const [docusignStatus, setDocusignStatus] = useState(null);
+  const [docusignAccount, setDocusignAccount] = useState(null);
+  const [envelopeId, setEnvelopeId] = useState("");
+  const [docusignSignerName, setDocusignSignerName] = useState("");
+  const [docusignSignerEmail, setDocusignSignerEmail] = useState("");
+  const [docusignEmailSubject, setDocusignEmailSubject] = useState(
+    "Please sign this agreement",
+  );
+  const [signedDocumentUrl, setSignedDocumentUrl] = useState("");
+  const [signedDocumentSource, setSignedDocumentSource] = useState("");
+  const [signedDocumentLoading, setSignedDocumentLoading] = useState(false);
+  const [signedDocumentEmailTo, setSignedDocumentEmailTo] = useState("");
+  const [isSignerEmailAutoFillEnabled, setIsSignerEmailAutoFillEnabled] =
+    useState(true);
+  const [isSignedEmailAutoFillEnabled, setIsSignedEmailAutoFillEnabled] =
+    useState(true);
+  const [sendingSignedDocumentEmail, setSendingSignedDocumentEmail] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState("");
+  const [currentUserEmail, setCurrentUserEmail] = useState("");
+  const [currentUserName, setCurrentUserName] = useState("");
+  const [currentTenantId, setCurrentTenantId] = useState("");
+  const [pendingEnvelopeIds, setPendingEnvelopeIds] = useState(() =>
+    readPendingEnvelopeIds(),
+  );
+  const [placeholderModalOpen, setPlaceholderModalOpen] = useState(false);
+  const [placeholderValues, setPlaceholderValues] = useState({});
+  const [placeholderEnabled, setPlaceholderEnabled] = useState({});
+  const [placeholderPromptedKey, setPlaceholderPromptedKey] = useState("");
+  const persistedEnvelopeIdsRef = useRef(new Set());
+  const addPendingEnvelopeId = useCallback((id) => {
+    const targetId = String(id || "").trim();
+    if (!targetId) return;
+    setPendingEnvelopeIds((prev) => {
+      const next = Array.from(new Set([...(prev || []), targetId]));
+      writePendingEnvelopeIds(next);
+      return next;
+    });
+  }, []);
+  const removePendingEnvelopeId = useCallback((id) => {
+    const targetId = String(id || "").trim();
+    if (!targetId) return;
+    setPendingEnvelopeIds((prev) => {
+      const next = (prev || []).filter((item) => item !== targetId);
+      writePendingEnvelopeIds(next);
+      return next;
+    });
+  }, []);
+  const isMobile = viewportWidth < 1024;
+  const showSectionHeadings = !LETTER_STYLE_VARIANTS.has(docVariant);
+  const buildDraftSnapshot = useCallback(
+    () => ({
+      step,
+      docType,
+      docVariant,
+      inputMode,
+      prompt,
+      uploadedText,
+      docTitle,
+      companyName,
+      effectiveDate,
+      confidentiality,
+      logoDataUrl,
+      contractData,
+      sections,
+      parties,
+      signatures,
+    }),
+    [
+      step,
+      docType,
+      docVariant,
+      inputMode,
+      prompt,
+      uploadedText,
+      docTitle,
+      companyName,
+      effectiveDate,
+      confidentiality,
+      logoDataUrl,
+      contractData,
+      sections,
+      parties,
+      signatures,
+    ],
+  );
+  const persistDraft = useCallback(() => {
+    try {
+      sessionStorage.setItem(
+        CONTRACT_DRAFT_STORAGE_KEY,
+        JSON.stringify(buildDraftSnapshot()),
+      );
+    } catch (e) {
+      console.warn("Failed to persist contract draft", e);
+    }
+  }, [buildDraftSnapshot]);
+  const clearPersistedDraft = useCallback(() => {
+    try {
+      sessionStorage.removeItem(CONTRACT_DRAFT_STORAGE_KEY);
+    } catch (e) {
+      console.warn("Failed to clear contract draft", e);
+    }
+  }, []);
+  const restoreDraft = useCallback(() => {
+    try {
+      const raw = sessionStorage.getItem(CONTRACT_DRAFT_STORAGE_KEY);
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      if (!data || typeof data !== "object") return false;
+      if (data.docType) setDocType(data.docType);
+      if (data.docVariant) setDocVariant(data.docVariant);
+      if (data.inputMode) setInputMode(data.inputMode);
+      if (typeof data.prompt === "string") setPrompt(data.prompt);
+      if (typeof data.uploadedText === "string") setUploadedText(data.uploadedText);
+      if (typeof data.step === "string") setStep(data.step);
+      if (typeof data.docTitle === "string") setDocTitle(data.docTitle);
+      if (typeof data.companyName === "string") setCompanyName(data.companyName);
+      if (typeof data.effectiveDate === "string") setEffectiveDate(data.effectiveDate);
+      if (typeof data.confidentiality === "boolean")
+        setConfidentiality(data.confidentiality);
+      if (typeof data.logoDataUrl === "string" || data.logoDataUrl === null)
+        setLogoDataUrl(data.logoDataUrl);
+      if (data.contractData) setContractData(data.contractData);
+      if (Array.isArray(data.sections)) setSections(data.sections);
+      if (Array.isArray(data.parties)) setParties(data.parties);
+      if (Array.isArray(data.signatures)) setSignatures(data.signatures);
+      return true;
+    } catch (e) {
+      console.warn("Failed to restore contract draft", e);
+      return false;
+    }
+  }, []);
+  const persistSignedContractToDocuments = useCallback(
+    async ({ envelopeId: id, url }) => {
+      const targetEnvelopeId = String(id || "").trim();
+      const sourceUrl = String(url || "").trim();
+      if (!targetEnvelopeId || !sourceUrl) return false;
+      if (persistedEnvelopeIdsRef.current.has(targetEnvelopeId)) return true;
+      persistedEnvelopeIdsRef.current.add(targetEnvelopeId);
+
+      try {
+        let authUserId = String(currentUserId || "").trim();
+        if (!authUserId) {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          authUserId = String(user?.id || "").trim();
+        }
+        if (!authUserId) throw new Error("User not available.");
+
+        let tenantId = String(currentTenantId || "").trim();
+        let uploaderProfileId = authUserId;
+        if (!tenantId) {
+          const { data: profileData, error: profileError } = await supabase
+            .from("profiles")
+            .select("id, tenant_id")
+            .eq("id", authUserId)
+            .maybeSingle();
+          if (!profileError && profileData) {
+            tenantId = String(profileData.tenant_id || "").trim();
+            uploaderProfileId = String(profileData.id || authUserId).trim();
+          }
+        }
+        if (!tenantId) throw new Error("Tenant not available.");
+
+        const fileRes = await fetch(sourceUrl);
+        if (!fileRes.ok) {
+          throw new Error("Could not fetch signed document file.");
+        }
+        const blob = await fileRes.blob();
+        const safeTitle =
+          String(docTitle || "Agreement")
+            .trim()
+            .replace(/[^a-zA-Z0-9-_ ]/g, "")
+            .replace(/\s+/g, "_")
+            .slice(0, 60) || "Agreement";
+        const storagePath = `${tenantId}/${authUserId}/Contracts/${safeTitle}_${targetEnvelopeId}.pdf`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("documents")
+          .upload(storagePath, blob, {
+            contentType: "application/pdf",
+            upsert: true,
+          });
+        if (uploadError) throw uploadError;
+
+        let contractsFolderId = null;
+        const { data: existingFolder } = await supabase
+          .from("documents")
+          .select("id")
+          .eq("tenant_id", tenantId)
+          .eq("type", "folder")
+          .is("parent_id", null)
+          .ilike("name", "contracts")
+          .limit(1)
+          .maybeSingle();
+
+        if (existingFolder?.id) {
+          contractsFolderId = existingFolder.id;
+        } else {
+          const { data: createdFolder, error: folderInsertError } = await supabase
+            .from("documents")
+            .insert([
+              {
+                name: "Contracts",
+                type: "folder",
+                parent_id: null,
+                uploaded_by: uploaderProfileId,
+                tenant_id: tenantId,
+              },
+            ])
+            .select("id")
+            .single();
+          if (folderInsertError) throw folderInsertError;
+          contractsFolderId = createdFolder?.id || null;
+        }
+
+        const { data: existingDoc } = await supabase
+          .from("documents")
+          .select("id")
+          .eq("tenant_id", tenantId)
+          .eq("file_url", storagePath)
+          .limit(1)
+          .maybeSingle();
+
+        if (!existingDoc?.id) {
+          const partyAName = String(parties?.[0]?.name || "").trim();
+          const partyBName = String(parties?.[1]?.name || "").trim();
+          const typeLabel =
+            DOC_TYPES.find((d) => d.key === docVariant)?.label || "Contract";
+          const partyPair = [partyAName, partyBName].filter(Boolean).join(" & ");
+          const prettyNameBase = partyPair
+            ? `${typeLabel} - ${partyPair}`
+            : String(docTitle || typeLabel).trim();
+          const prettyName = `${prettyNameBase.slice(0, 180)}.pdf`;
+          const { error: docInsertError } = await supabase.from("documents").insert([
+            {
+              name: prettyName,
+              type: "file",
+              file_url: storagePath,
+              file_size: blob.size || null,
+              mime_type: "application/pdf",
+              parent_id: contractsFolderId,
+              uploaded_by: uploaderProfileId,
+              tenant_id: tenantId,
+            },
+          ]);
+          if (docInsertError) throw docInsertError;
+        }
+        return true;
+      } catch (e) {
+        persistedEnvelopeIdsRef.current.delete(targetEnvelopeId);
+        console.error("Failed to persist signed contract to documents", e);
+        return false;
+      }
+    },
+    [currentUserId, currentTenantId, docTitle, parties, docVariant],
+  );
+
+  useEffect(() => {
+    const onResize = () => {
+      if (typeof window !== "undefined") {
+        setViewportWidth(window.innerWidth);
+      }
+    };
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  const refreshDocusignState = useCallback(async () => {
+    setDocusignLoading(true);
+    try {
+      const status = await getDocusignStatus();
+      setDocusignStatus(status || null);
+      if (status?.connected) {
+        try {
+          const account = await getDocusignAccount();
+          setDocusignAccount(account || null);
+        } catch {
+          setDocusignAccount(null);
+        }
+      } else {
+        setDocusignAccount(null);
+      }
+      return status || null;
+    } catch (e) {
+      setDocusignStatus(null);
+      setDocusignAccount(null);
+      setError(e?.message || "Could not load DocuSign status.");
+      return null;
+    } finally {
+      setDocusignLoading(false);
+    }
+  }, []);
+
+  const openDocusignDirect = useCallback(() => {
+    persistDraft();
+    const returnTo = `${window.location.origin}/integrations/docusign/callback`;
+    connectDocusignOAuth(returnTo, { userId: currentUserId });
+  }, [persistDraft, currentUserId]);
+
+  const handleConnectDocusign = useCallback(() => {
+    setDocusignConnecting(true);
+    setError("");
+    setSuccess("");
+    try {
+      openDocusignDirect();
+    } finally {
+      setDocusignConnecting(false);
+    }
+  }, [openDocusignDirect]);
+
+  const fetchSignedDocumentByEnvelope = useCallback(async (id, options = {}) => {
+    const silent = Boolean(options?.silent);
+    const suppressLoading = Boolean(options?.suppressLoading);
+    const targetId = String(id || "").trim();
+    if (!targetId) return;
+    const activeEnvelopeId = String(envelopeId || "").trim();
+    const isActiveEnvelope = activeEnvelopeId === targetId;
+    if (!suppressLoading && isActiveEnvelope) setSignedDocumentLoading(true);
+    if (!silent) setError("");
+    try {
+      if (
+        isActiveEnvelope &&
+        signedDocumentSource === "blob" &&
+        signedDocumentUrl
+      ) {
+        URL.revokeObjectURL(signedDocumentUrl);
+      }
+      const envelopeState = await getDocusignEnvelopeStatus(targetId);
+      const envelopeStatus = String(envelopeState?.status || "").toLowerCase();
+      if (envelopeStatus !== "completed") {
+        if (!silent) {
+          setSuccess(
+            `Envelope ${targetId} is currently "${envelopeStatus || "in progress"}". We will store the latest document after both parties complete signing.`,
+          );
+        }
+        return;
+      }
+      const result = await getDocusignSignedDocument(targetId);
+      const url = String(result?.url || "").trim();
+      if (!url) throw new Error("Signed document is not available yet.");
+      const source = String(result?.source || "");
+      if (isActiveEnvelope) {
+        setSignedDocumentUrl(url);
+        setSignedDocumentSource(source);
+      }
+      const persisted = await persistSignedContractToDocuments({
+        envelopeId: targetId,
+        url,
+      });
+      if (persisted) {
+        removePendingEnvelopeId(targetId);
+      }
+      if (!silent && isActiveEnvelope) {
+        setSuccess("Signed document is available and saved to Documents > Contracts.");
+      }
+    } catch (e) {
+      if (!silent) {
+        if (isActiveEnvelope) {
+          setSignedDocumentUrl("");
+          setSignedDocumentSource("");
+        }
+        setError(e?.message || "Could not load signed document.");
+      }
+    } finally {
+      if (!suppressLoading && isActiveEnvelope) setSignedDocumentLoading(false);
+    }
+  }, [
+    envelopeId,
+    signedDocumentSource,
+    signedDocumentUrl,
+    persistSignedContractToDocuments,
+    removePendingEnvelopeId,
+  ]);
+
+  useEffect(() => {
+    const targetId = String(envelopeId || "").trim();
+    if (!targetId || step !== "editor") return;
+
+    let cancelled = false;
+    let timer = null;
+
+    const tick = async () => {
+      if (cancelled) return;
+      await fetchSignedDocumentByEnvelope(targetId, {
+        silent: true,
+        suppressLoading: true,
+      });
+      if (cancelled) return;
+      if (!signedDocumentUrl) {
+        timer = setTimeout(tick, 20000);
+      }
+    };
+
+    tick();
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [envelopeId, step, signedDocumentUrl, fetchSignedDocumentByEnvelope]);
+
+  useEffect(() => {
+    if (!pendingEnvelopeIds.length) return;
+    let cancelled = false;
+    let timer = null;
+
+    const tick = async () => {
+      if (cancelled) return;
+      await Promise.all(
+        pendingEnvelopeIds.map((id) =>
+          fetchSignedDocumentByEnvelope(id, {
+            silent: true,
+            suppressLoading: true,
+          }),
+        ),
+      );
+      if (cancelled) return;
+      timer = setTimeout(tick, 20000);
+    };
+
+    tick();
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [pendingEnvelopeIds, fetchSignedDocumentByEnvelope]);
+
+  const handleSendSignedDocumentEmail = useCallback(async () => {
+    const targetId = String(envelopeId || "").trim();
+    const email = String(signedDocumentEmailTo || "").trim();
+    if (!targetId) {
+      setError("Envelope ID is missing.");
+      return;
+    }
+    if (!email) {
+      setError("Enter recipient email.");
+      return;
+    }
+    setSendingSignedDocumentEmail(true);
+    setError("");
+    try {
+      await emailDocusignSignedDocument(targetId, {
+        to: email,
+        email,
+        envelopeId: targetId,
+      });
+      setSuccess(`Signed document sent to ${email}.`);
+    } catch (e) {
+      setError(e?.message || "Failed to send signed document email.");
+    } finally {
+      setSendingSignedDocumentEmail(false);
+    }
+  }, [envelopeId, signedDocumentEmailTo]);
+
+  const buildEnvelopeDocumentBlob = useCallback(async () => {
+    if (!sections.length) {
+      throw new Error("Create the document first before sending to DocuSign.");
+    }
+    return downloadDocumentPDF({
+      docTitle,
+      effectiveDate,
+      companyName,
+      confidentiality,
+      logoDataUrl,
+      contractData: { ...contractData, sections, parties },
+      signatures,
+      showSectionHeadings,
+      saveFile: false,
+      returnBlob: true,
+    });
+  }, [
+    docTitle,
+    effectiveDate,
+    companyName,
+    confidentiality,
+    logoDataUrl,
+    contractData,
+    sections,
+    parties,
+    signatures,
+    showSectionHeadings,
+  ]);
+
+  useEffect(() => {
+    restoreDraft();
+  }, [restoreDraft]);
+
+  useEffect(() => {
+    refreshDocusignState();
+  }, [refreshDocusignState]);
+
+  useEffect(() => {
+    return () => {
+      if (signedDocumentSource === "blob" && signedDocumentUrl) {
+        URL.revokeObjectURL(signedDocumentUrl);
+      }
+    };
+  }, [signedDocumentSource, signedDocumentUrl]);
+
+  useEffect(() => {
+    const state = location?.state || {};
+    const callbackType = String(state?.docusignCallback || "").trim();
+    const callbackEnvelopeId = String(state?.envelopeId || "").trim();
+    if (!callbackType) return;
+
+    if (callbackType === "signed_return" && callbackEnvelopeId) {
+      setStep("editor");
+      setEnvelopeId(callbackEnvelopeId);
+      addPendingEnvelopeId(callbackEnvelopeId);
+      fetchSignedDocumentByEnvelope(callbackEnvelopeId);
+      setSuccess("Returned from DocuSign signing.");
+    } else if (callbackType === "error") {
+      setError(String(state?.docusignMessage || "DocuSign callback failed."));
+    } else if (callbackType === "connected") {
+      setSuccess("DocuSign connected.");
+    }
+
+    navigate(location.pathname, { replace: true, state: null });
+  }, [
+    location,
+    navigate,
+    addPendingEnvelopeId,
+    fetchSignedDocumentByEnvelope,
+  ]);
+
+  useEffect(() => {
+    const counterPartyName = String(parties?.[1]?.name || "").trim();
+    const counterPartyEmail = String(parties?.[1]?.email || "").trim();
+    if (!docusignSignerName && counterPartyName) {
+      setDocusignSignerName(counterPartyName);
+    }
+    if (isSignerEmailAutoFillEnabled && !docusignSignerEmail && counterPartyEmail) {
+      setDocusignSignerEmail(counterPartyEmail);
+    }
+    if (
+      isSignedEmailAutoFillEnabled &&
+      !signedDocumentEmailTo &&
+      docusignSignerEmail
+    ) {
+      setSignedDocumentEmailTo(docusignSignerEmail);
+    }
+  }, [
+    parties,
+    docusignSignerName,
+    docusignSignerEmail,
+    signedDocumentEmailTo,
+    isSignerEmailAutoFillEnabled,
+    isSignedEmailAutoFillEnabled,
+  ]);
+
+  useEffect(() => {
+    const senderPartyName = String(parties?.[0]?.name || "").trim();
+    const normalizedCompany = String(companyName || "").trim();
+    const shouldSyncEmployerName =
+      docVariant === "employment" || docVariant === "offerLetter";
+    if (!shouldSyncEmployerName || !normalizedCompany) return;
+    if (senderPartyName === normalizedCompany) return;
+    setParties((prev) => {
+      if (!Array.isArray(prev)) return prev;
+      const next = [...prev];
+      if (!next[0]) {
+        next[0] = {
+          label: DEFAULT_PARTY_LABELS[docVariant]?.[0] || "Employer",
+          name: normalizedCompany,
+          address: "",
+          email: "",
+        };
+        return next;
+      }
+      next[0] = { ...next[0], name: normalizedCompany };
+      return next;
+    });
+  }, [companyName, docVariant, parties]);
 
   // ---------------- Fetch plan ----------------
   useEffect(() => {
@@ -2148,18 +3354,68 @@ export default function DocumentGenerator() {
           setPlanLoading(false);
           return;
         }
+        setCurrentUserId(user.id);
+        setCurrentUserEmail(String(user.email || "").trim());
+        const fallbackNameFromEmail = String(user.email || "")
+          .split("@")[0]
+          .replace(/[._-]+/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
+          .replace(/\b\w/g, (c) => c.toUpperCase());
+        const metaName = String(
+          user?.user_metadata?.full_name ||
+            user?.user_metadata?.name ||
+            user?.user_metadata?.display_name ||
+            "",
+        ).trim();
+        setCurrentUserName(metaName || fallbackNameFromEmail || "Current User");
         const { data: profile } = await supabase
           .from("profiles")
-          .select("tenant_id")
+          .select("tenant_id, company_name, user_photo")
           .eq("id", user.id)
           .single();
+        setCurrentTenantId(String(profile?.tenant_id || "").trim());
+        const profileCompany = String(profile?.company_name || "").trim();
+        let resolvedCompanyName = profileCompany;
+        let resolvedLogo =
+          profile?.user_photo || "";
+        console.log(profile);
         if (profile?.tenant_id) {
           const { data: org } = await supabase
             .from("tenants")
-            .select("plan")
+            .select("*")
             .eq("id", profile.tenant_id)
             .single();
           setOrgPlan(org?.plan ?? null);
+          resolvedCompanyName =
+            resolvedCompanyName ||
+            String(org?.company_name || org?.name || "").trim();
+          resolvedLogo =
+            resolvedLogo ||
+            org?.logo_url ||
+            org?.company_logo ||
+            org?.logo ||
+            "";
+          if (!resolvedLogo) {
+            const { data: ws } = await supabase
+              .from("workspace_settings")
+              .select("*")
+              .eq("tenant_id", profile.tenant_id)
+              .maybeSingle();
+            resolvedLogo = ws?.logo_url || ws?.brand_logo_url || ws?.company_logo || "";
+          }
+        }
+        if (resolvedCompanyName) {
+          setCompanyName(resolvedCompanyName);
+        }
+        setEffectiveDate((prev) => prev || new Date().toISOString().slice(0, 10));
+        if (resolvedLogo) {
+          try {
+            const normalizedLogo = await remoteImageToDataUrl(resolvedLogo);
+            setLogoDataUrl(normalizedLogo);
+          } catch {
+            setLogoDataUrl(resolvedLogo);
+          }
         }
       } catch (e) {
         console.error(e);
@@ -2186,6 +3442,7 @@ export default function DocumentGenerator() {
   };
 
   const handleGenerate = async () => {
+    setSuccess("");
     if (inputMode === "text" && !prompt.trim()) {
       setError("Please describe the document.");
       return;
@@ -2206,36 +3463,27 @@ export default function DocumentGenerator() {
     try {
       const userContent =
         inputMode === "upload"
-          ? buildPrompt(uploadedText, prompt, docType)
-          : prompt.trim();
+          ? buildUserContent({ text: uploadedText, extra: prompt, docType })
+          : buildUserContent({ text: prompt.trim(), extra: "", docType });
       const result = await callGroq(userContent, docType);
-      setContractData(result);
-      setSections(result.sections || []);
-      setParties(result.parties || []);
+      const normalized = normalizeGeneratedDocument(result, docType, userContent);
+      setContractData(normalized);
+      setDocVariant(normalized?.variant || resolveDocVariant(docType, userContent));
+      setSections(normalized.sections || []);
+      setParties(normalized.parties || []);
       setDocTitle(
         (
-          result.title ||
+          normalized.title ||
           DOC_TYPES.find((d) => d.key === docType)?.label.toUpperCase() ||
           "DOCUMENT"
         )
           .replace(/[^a-zA-Z0-9 &,\-]/g, "")
           .slice(0, 80),
       );
-      // Set default signature roles from parties
-      if (result.parties?.length >= 2) {
-        setSignatures(
-          result.parties.map((p) => ({
-            role: p.label || "Party",
-            name: p.name || "",
-            title: "",
-            date: "",
-            witness: false,
-            signatureImage: null,
-          })),
-        );
-      }
+      setPlaceholderPromptedKey("");
       setGenStep(2);
-      setSetupOpen(true);
+      setSetupOpen(false);
+      setStep("editor");
     } catch (e) {
       setError(e.message);
       setGenStep(0);
@@ -2248,6 +3496,63 @@ export default function DocumentGenerator() {
     setParties((p) =>
       p.map((party, i) => (i === pi ? { ...party, [key]: val } : party)),
     );
+  const ensurePartyAndUpdate = useCallback(
+    (partyIndex, key, value) => {
+      setParties((prev) => {
+        const next = Array.isArray(prev) ? [...prev] : [];
+        const labels = DEFAULT_PARTY_LABELS[docVariant] || DEFAULT_PARTY_LABELS.custom;
+        while (next.length <= partyIndex) {
+          const idx = next.length;
+          next.push({
+            label: labels[idx] || `Party ${idx + 1}`,
+            name: "",
+            address: "",
+            email: "",
+          });
+        }
+        next[partyIndex] = { ...next[partyIndex], [key]: value };
+        return next;
+      });
+    },
+    [docVariant],
+  );
+  const updateRecipientNameInline = useCallback(
+    (value) => {
+      const clean = String(value || "").trim();
+      setSignatures((prev) => {
+        if (!Array.isArray(prev) || prev.length === 0) return prev;
+        const next = [...prev];
+        next[0] = { ...next[0], name: clean };
+        return next;
+      });
+      ensurePartyAndUpdate(1, "name", clean);
+    },
+    [ensurePartyAndUpdate],
+  );
+  const updateRecipientTitleInline = useCallback((value) => {
+    const clean = String(value || "").trim();
+    setSignatures((prev) => {
+      if (!Array.isArray(prev) || prev.length === 0) return prev;
+      const next = [...prev];
+      next[0] = { ...next[0], title: clean };
+      return next;
+    });
+  }, []);
+  const updateSenderCompanyInline = useCallback(
+    (value) => {
+      const clean = String(value || "").trim();
+      setCompanyName(clean);
+      ensurePartyAndUpdate(0, "name", clean);
+    },
+    [ensurePartyAndUpdate],
+  );
+  const updateSenderAddressInline = useCallback(
+    (value) => {
+      const clean = String(value || "").trim();
+      ensurePartyAndUpdate(0, "address", clean);
+    },
+    [ensurePartyAndUpdate],
+  );
   const updateHeading = (si, v) =>
     setSections((p) => p.map((s, i) => (i === si ? { ...s, heading: v } : s)));
   const updatePara = (si, pi, v) =>
@@ -2284,7 +3589,7 @@ export default function DocumentGenerator() {
     setSections((p) => {
       const n = [...p];
       n.splice(si + 1, 0, {
-        heading: "NEW SECTION",
+        heading: showSectionHeadings ? "NEW SECTION" : "",
         paragraphs: ["Click to edit."],
         table: null,
       });
@@ -2320,51 +3625,41 @@ export default function DocumentGenerator() {
       },
     ]);
   const removeSig = (i) => setSignatures((p) => p.filter((_, j) => j !== i));
-  const logoUpload = (file) => {
-    const r = new FileReader();
-    r.onload = (e) => setLogoDataUrl(e.target.result);
-    r.readAsDataURL(file);
-    return false;
-  };
-
   const handleReset = () => {
+    clearPersistedDraft();
     setStep("input");
+    setDocVariant(docType);
     setSections([]);
     setContractData(null);
     setPrompt("");
     setError("");
+    setSuccess("");
     setGenStep(0);
     setDocTitle("");
-    setCompanyName("");
     setEffectiveDate("");
     setConfidentiality(false);
-    setLogoDataUrl(null);
     setUploadedFile(null);
     setUploadedText("");
     setParties([]);
-    setSignatures([
-      {
-        role: "Party A",
-        name: "",
-        title: "",
-        date: "",
-        witness: false,
-        signatureImage: null,
-      },
-      {
-        role: "Party B",
-        name: "",
-        title: "",
-        date: "",
-        witness: false,
-        signatureImage: null,
-      },
-    ]);
+    setSignatures([]);
+    if (signedDocumentSource === "blob" && signedDocumentUrl) {
+      URL.revokeObjectURL(signedDocumentUrl);
+    }
+    setEnvelopeId("");
+    setSignedDocumentUrl("");
+    setSignedDocumentSource("");
+    setSignedDocumentEmailTo("");
+    setPlaceholderModalOpen(false);
+    setPlaceholderValues({});
+    setPlaceholderPromptedKey("");
+    setIsSignerEmailAutoFillEnabled(true);
+    setIsSignedEmailAutoFillEnabled(true);
   };
 
   const handleDownload = async () => {
     setDownloading(true);
     setError("");
+    setSuccess("");
     try {
       await downloadDocumentPDF({
         docTitle,
@@ -2374,6 +3669,7 @@ export default function DocumentGenerator() {
         logoDataUrl,
         contractData: { ...contractData, sections, parties },
         signatures,
+        showSectionHeadings,
       });
     } catch (e) {
       setError("PDF error: " + e.message);
@@ -2381,6 +3677,146 @@ export default function DocumentGenerator() {
       setDownloading(false);
     }
   };
+
+  const handleSendToDocusign = useCallback(async () => {
+    setSendingToDocusign(true);
+    setError("");
+    setSuccess("");
+    try {
+      const status = docusignStatus?.connected
+        ? docusignStatus
+        : await refreshDocusignState();
+      if (!status?.connected) {
+        throw new Error(
+          "DocuSign is not connected. Use Connect DocuSign first.",
+        );
+      }
+
+      const signerName = String(docusignSignerName || "").trim();
+      const signerEmail = String(docusignSignerEmail || "").trim();
+      const normalizedCurrentUserEmail = String(currentUserEmail || "")
+        .trim()
+        .toLowerCase();
+      const creatorSignerName = String(currentUserName || "").trim();
+      const emailSubject = String(docusignEmailSubject || "").trim();
+      if (!creatorSignerName || !normalizedCurrentUserEmail) {
+        throw new Error("Current user signer profile is missing.");
+      }
+      if (!signerName || !signerEmail) {
+        throw new Error("Second party signer name and email are required.");
+      }
+      if (normalizedCurrentUserEmail === signerEmail.toLowerCase()) {
+        throw new Error(
+          "Second party signer email must be different from your account email.",
+        );
+      }
+      if (!emailSubject) {
+        throw new Error("Email subject is required.");
+      }
+
+      const documentBlob = await buildEnvelopeDocumentBlob();
+      if (!documentBlob) {
+        throw new Error("Could not prepare the document for DocuSign.");
+      }
+      const cloudinaryUrl = await uploadPdfBlobToCloudinary(
+        documentBlob,
+        docTitle || "Agreement",
+      );
+      if (!cloudinaryUrl) {
+        throw new Error("Cloudinary upload failed for DocuSign document.");
+      }
+
+      const envelopePayload = {
+        emailSubject,
+        status: "sent",
+        fileExtension: "pdf",
+        documentName: docTitle || "Agreement",
+        documentUrl: cloudinaryUrl,
+        cloudinaryUrl,
+        signers: [
+          {
+            recipientId: "1",
+            routingOrder: "1",
+            email: normalizedCurrentUserEmail,
+            name: creatorSignerName,
+            clientUserId: "1000",
+          },
+          {
+            recipientId: "2",
+            routingOrder: "2",
+            email: signerEmail,
+            name: signerName,
+          },
+        ],
+        signer: {
+          email: normalizedCurrentUserEmail,
+          name: creatorSignerName,
+          clientUserId: "1000",
+        },
+      };
+
+      const envelopeResult = await createDocusignEnvelope(envelopePayload);
+      const nextEnvelopeId = String(
+        envelopeResult?.envelopeId || envelopeResult?.id || "",
+      ).trim();
+      if (!nextEnvelopeId) {
+        throw new Error("Envelope created but envelopeId was not returned.");
+      }
+      setEnvelopeId(nextEnvelopeId);
+      addPendingEnvelopeId(nextEnvelopeId);
+
+      let signingUrl = "";
+      try {
+        const recipientViewPayload = {
+          recipientId: "1",
+          email: normalizedCurrentUserEmail,
+          name: creatorSignerName,
+          clientUserId: "1000",
+          returnUrl: `${window.location.origin}/integrations/docusign/callback?flow=sign&envelopeId=${encodeURIComponent(nextEnvelopeId)}`,
+        };
+        const recipientViewResult = await createDocusignRecipientView(
+          nextEnvelopeId,
+          recipientViewPayload,
+        );
+        signingUrl = String(
+          recipientViewResult?.url ||
+            recipientViewResult?.recipientViewUrl ||
+            recipientViewResult?.signingUrl ||
+            "",
+        ).trim();
+      } catch {
+        signingUrl = "";
+      }
+
+      persistDraft();
+      if (signingUrl) {
+        window.location.assign(signingUrl);
+        setSuccess(
+          `DocuSign is ready. Envelope ID: ${nextEnvelopeId}. Opening your signing view now; party 2 will receive their signing email next.`,
+        );
+      } else {
+        setSuccess(
+          `Envelope ${nextEnvelopeId} created. If in-app signing cannot open, check your DocuSign email. Party 2 (${signerEmail}) will receive their signing request after your step.`,
+        );
+      }
+    } catch (e) {
+      setError(e?.message || "Failed to send document to DocuSign.");
+    } finally {
+      setSendingToDocusign(false);
+    }
+  }, [
+    docusignStatus,
+    refreshDocusignState,
+    docusignSignerName,
+    docusignSignerEmail,
+    currentUserEmail,
+    currentUserName,
+    docusignEmailSubject,
+    buildEnvelopeDocumentBlob,
+    docTitle,
+    persistDraft,
+    addPendingEnvelopeId,
+  ]);
 
   const promptLength = prompt.trim().length;
   const canGen =
@@ -2390,6 +3826,92 @@ export default function DocumentGenerator() {
   const inputLbl =
     "text-[10px] font-semibold uppercase tracking-widest text-gray-400 block mb-1.5";
   const selectedDocType = DOC_TYPES.find((d) => d.key === docType);
+  const previewRecipientName = String(
+    signatures?.[0]?.name || parties?.[1]?.name || "Name Here",
+  ).trim();
+  const previewRecipientTitle = String(
+    signatures?.[0]?.title || "Position Title",
+  ).trim();
+  const previewSenderName = String(companyName || parties?.[0]?.name || "Company Name Here").trim();
+  const previewSenderAddress = String(
+    parties?.[0]?.address || "Company Address Place Here",
+  ).trim();
+  const previewLetterDate = formatHumanDate(effectiveDate);
+  const detectedPlaceholders = useMemo(() => {
+    const found = new Map();
+    const addFromText = (value) => {
+      extractPlaceholderTokensFromText(value).forEach((token) => {
+        const key = normalizePlaceholderToken(token);
+        if (!key || found.has(key)) return;
+        found.set(key, token);
+      });
+    };
+
+    addFromText(docTitle);
+    addFromText(companyName);
+    addFromText(effectiveDate);
+    addFromText(docusignSignerName);
+    addFromText(docusignSignerEmail);
+    addFromText(docusignEmailSubject);
+
+    (parties || []).forEach((party) => {
+      addFromText(party?.label);
+      addFromText(party?.name);
+      addFromText(party?.address);
+      addFromText(party?.email);
+    });
+
+    (signatures || []).forEach((sig) => {
+      addFromText(sig?.role);
+      addFromText(sig?.name);
+      addFromText(sig?.title);
+      addFromText(sig?.date);
+    });
+
+    (sections || []).forEach((section) => {
+      addFromText(section?.heading);
+      (section?.paragraphs || []).forEach((p) => addFromText(p));
+      (section?.table?.headers || []).forEach((h) => addFromText(h));
+      (section?.table?.rows || []).forEach((row) =>
+        normalizeTableRowCells(row).forEach((cell) => addFromText(cell)),
+      );
+    });
+
+    return Array.from(found.entries()).map(([key, token]) => ({ key, token }));
+  }, [
+    docTitle,
+    companyName,
+    effectiveDate,
+    docusignSignerName,
+    docusignSignerEmail,
+    docusignEmailSubject,
+    parties,
+    signatures,
+    sections,
+  ]);
+  const placeholderDiscoveryKey = useMemo(
+    () => detectedPlaceholders.map((p) => p.key).join("|"),
+    [detectedPlaceholders],
+  );
+  const placeholderFields = useMemo(
+    () => {
+      const hasTimeContext = detectedPlaceholders.some(({ key }) =>
+        /(start time|end time|working hours|work hours|shift time)/i.test(key),
+      );
+      return detectedPlaceholders.map(({ key, token }) => {
+        const normalized = normalizePlaceholderToken(token);
+        const displayToken =
+          normalized === "number" && hasTimeContext ? "Working Hours" : token;
+        return {
+          key,
+          token,
+          displayToken,
+          type: detectPlaceholderFieldType(token),
+        };
+      });
+    },
+    [detectedPlaceholders],
+  );
 
   useEffect(() => {
     const syncTheme = () => setDark(getIsDarkTheme());
@@ -2404,18 +3926,273 @@ export default function DocumentGenerator() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!placeholderFields.length) return;
+    setPlaceholderValues((prev) => {
+      const next = { ...prev };
+      placeholderFields.forEach(({ key }) => {
+        if (!(key in next)) next[key] = "";
+      });
+      return next;
+    });
+    setPlaceholderEnabled((prev) => {
+      const next = { ...prev };
+      placeholderFields.forEach(({ key }) => {
+        if (!(key in next)) next[key] = true;
+      });
+      return next;
+    });
+  }, [placeholderFields]);
+
+  useEffect(() => {
+    if (step !== "editor") return;
+    if (!placeholderFields.length) return;
+    if (placeholderPromptedKey === placeholderDiscoveryKey) return;
+    setPlaceholderPromptedKey(placeholderDiscoveryKey);
+    setPlaceholderModalOpen(true);
+  }, [
+    step,
+    placeholderFields.length,
+    placeholderDiscoveryKey,
+    placeholderPromptedKey,
+  ]);
+
+  const applyDetectedPlaceholders = useCallback(() => {
+    const replacements = placeholderFields
+      .map(({ key, token }) => ({
+        key,
+        token,
+        value: String(placeholderValues[key] || "").trim(),
+        enabled: placeholderEnabled[key] !== false,
+      }))
+      .filter((item) => item.enabled && item.value);
+    const disabledTokens = placeholderFields
+      .filter(({ key }) => placeholderEnabled[key] === false)
+      .map(({ token }) => token);
+    const disabledKeys = new Set(
+      placeholderFields
+        .filter(({ key }) => placeholderEnabled[key] === false)
+        .map(({ key }) => key),
+    );
+    if (!replacements.length) {
+      if (!disabledTokens.length) {
+        setPlaceholderModalOpen(false);
+        return;
+      }
+    }
+
+    const replaceText = (value) => {
+      const withValues = replacePlaceholderTokensInText(value, replacements);
+      return removePlaceholderTokensInText(withValues, disabledTokens);
+    };
+    const hasDisabledToken = (value) =>
+      extractPlaceholderTokensFromText(value).some((token) =>
+        disabledKeys.has(normalizePlaceholderToken(token)),
+      );
+    const isEmptyText = (value) => !String(value || "").trim();
+    const isLabelOnlyLine = (value) =>
+      /^[A-Za-z][A-Za-z0-9 '&/()_-]{1,80}:\s*$/.test(String(value || "").trim());
+
+    setDocTitle((prev) => replaceText(prev));
+    setCompanyName((prev) => replaceText(prev));
+    setEffectiveDate((prev) => replaceText(prev));
+    setDocusignSignerName((prev) => replaceText(prev));
+    setDocusignSignerEmail((prev) => replaceText(prev));
+    setDocusignEmailSubject((prev) => replaceText(prev));
+    const nextParties = (parties || []).map((party) => ({
+        ...party,
+        label: replaceText(party?.label),
+        name: replaceText(party?.name),
+        address: replaceText(party?.address),
+        email: replaceText(party?.email),
+      }));
+    setParties(nextParties);
+    const nextSignatures = (signatures || []).map((sig) => ({
+        ...sig,
+        role: replaceText(sig?.role),
+        name: replaceText(sig?.name),
+        title: replaceText(sig?.title),
+        date: replaceText(sig?.date),
+      }));
+    setSignatures(nextSignatures);
+    const nextSections = ((sections || [])
+        .map((section) => ({
+          ...section,
+          heading: replaceText(section?.heading),
+          paragraphs: (section?.paragraphs || [])
+            .map((p) => replaceText(p))
+            .filter((p) => String(p || "").trim())
+            .filter((p) => !isLabelOnlyLine(p)),
+          table: section?.table
+            ? {
+                ...section.table,
+                headers: (section.table.headers || []).map((h) => replaceText(h)),
+                rows: (section.table.rows || [])
+                  .map((row) => {
+                    const cells = normalizeTableRowCells(row);
+                    const replaced = cells.map((cell) => replaceText(cell));
+                    const disabledInValueColumns = cells
+                      .slice(1)
+                      .some((cell) => hasDisabledToken(cell));
+                    const valueColumnsEmpty = replaced
+                      .slice(1)
+                      .every((cell) => isEmptyText(cell));
+                    if (disabledInValueColumns && valueColumnsEmpty) return null;
+                    if (replaced.every((cell) => isEmptyText(cell))) return null;
+                    return replaced;
+                  })
+                  .filter(Boolean),
+              }
+            : section?.table,
+        }))
+        .filter(
+          (section) =>
+            String(section?.heading || "").trim() ||
+            (section?.paragraphs || []).length ||
+            (section?.table?.rows || []).length,
+        ));
+    setSections(
+      upsertDualPartySignatureSection(nextSections, nextParties, docVariant),
+    );
+    setPlaceholderModalOpen(false);
+    setSuccess("Document placeholders updated.");
+  }, [
+    placeholderFields,
+    placeholderValues,
+    placeholderEnabled,
+    parties,
+    signatures,
+    sections,
+    docVariant,
+  ]);
+
   // ---------------- Loading ----------------
   if (planLoading) {
+    const shellBg = dark ? "#141416" : "#f8fafc";
+    const cardBg = dark ? "#1a1b1f" : "#ffffff";
+    const cardBorder = dark ? "#2a2b31" : "#e5e7eb";
+    const mutedBg = dark ? "#202127" : "#f1f5f9";
+    const lineBg = dark ? "#30323a" : "#e5e7eb";
     return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "60vh",
-        }}
-      >
-        <Spin size="large" />
+      <div className="min-h-screen" style={{ background: shellBg }}>
+        <main
+          className="max-w-6xl mx-auto pb-20 pt-6"
+          style={{ paddingInline: isMobile ? 12 : 24 }}
+        >
+          <div
+            className="grid gap-6"
+            style={{ gridTemplateColumns: isMobile ? "1fr" : "1fr 296px" }}
+          >
+            <div>
+              <div
+                className="flex items-center justify-between mb-4 animate-pulse"
+                style={{
+                  flexDirection: isMobile ? "column" : "row",
+                  alignItems: isMobile ? "flex-start" : "center",
+                  gap: isMobile ? 10 : 0,
+                }}
+              >
+                <div className="space-y-2">
+                  <div className="h-3 w-44 rounded-full" style={{ background: lineBg }} />
+                  <div className="h-6 w-72 rounded-md" style={{ background: lineBg }} />
+                  <div className="h-3 w-32 rounded-full" style={{ background: lineBg }} />
+                </div>
+                <div className="flex gap-2">
+                  <div className="h-10 w-24 rounded-xl" style={{ background: mutedBg }} />
+                  <div className="h-10 w-36 rounded-xl" style={{ background: mutedBg }} />
+                </div>
+              </div>
+
+              <div
+                className="h-11 rounded-xl mb-4 animate-pulse"
+                style={{ background: mutedBg, border: `1px solid ${cardBorder}` }}
+              />
+
+              <div
+                className="rounded-2xl overflow-hidden border"
+                style={{ background: cardBg, borderColor: cardBorder }}
+              >
+                <div
+                  className="px-4 py-2.5 flex items-center gap-2 border-b"
+                  style={{ background: mutedBg, borderColor: cardBorder }}
+                >
+                  {["#fc5f57", "#febc2e", "#28c840"].map((c) => (
+                    <div key={c} className="w-3 h-3 rounded-full" style={{ background: c }} />
+                  ))}
+                  <div className="h-3 w-44 rounded-full ml-2 animate-pulse" style={{ background: lineBg }} />
+                </div>
+                <div className="p-6" style={{ background: dark ? "#202127" : "#f1f5f9" }}>
+                  <div
+                    className="mx-auto rounded-sm border p-10 animate-pulse"
+                    style={{
+                      maxWidth: 640,
+                      minHeight: 920,
+                      background: "#ffffff",
+                      borderColor: "#e5e7eb",
+                    }}
+                  >
+                    <div className="h-2 w-24 rounded-full mb-6" style={{ background: "#e5e7eb" }} />
+                    <div className="space-y-3">
+                      <div className="h-3 rounded-full" style={{ background: "#e5e7eb" }} />
+                      <div className="h-3 rounded-full w-[92%]" style={{ background: "#e5e7eb" }} />
+                      <div className="h-3 rounded-full w-[88%]" style={{ background: "#e5e7eb" }} />
+                      <div className="h-3 rounded-full" style={{ background: "#e5e7eb" }} />
+                      <div className="h-3 rounded-full w-[94%]" style={{ background: "#e5e7eb" }} />
+                      <div className="h-3 rounded-full w-[90%]" style={{ background: "#e5e7eb" }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 animate-pulse">
+              <div
+                className="rounded-2xl p-4 border"
+                style={{
+                  background: dark
+                    ? "linear-gradient(135deg, #0f172a 0%, #1e293b 65%, #23324d 100%)"
+                    : "linear-gradient(135deg, #0f172a 0%, #334155 100%)",
+                  borderColor: dark ? "#2e3d57" : "#cbd5e1",
+                }}
+              >
+                <div className="h-3 w-32 rounded-full bg-white/25 mb-3" />
+                <div className="h-5 w-44 rounded bg-white/25 mb-3" />
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="h-14 rounded-xl bg-white/20" />
+                  <div className="h-14 rounded-xl bg-white/20" />
+                </div>
+              </div>
+              <div
+                className="rounded-2xl p-4 border"
+                style={{
+                  background: cardBg,
+                  borderColor: cardBorder,
+                }}
+              >
+                <div className="h-5 w-28 rounded mb-4" style={{ background: lineBg }} />
+                <div className="space-y-3">
+                  <div className="h-3 w-16 rounded" style={{ background: lineBg }} />
+                  <div className="h-9 rounded-xl" style={{ background: mutedBg }} />
+                  <div className="h-3 w-24 rounded" style={{ background: lineBg }} />
+                  <div className="h-9 rounded-xl" style={{ background: mutedBg }} />
+                  <div className="h-10 rounded-xl" style={{ background: mutedBg }} />
+                </div>
+              </div>
+              <div
+                className="rounded-2xl p-4 border"
+                style={{ background: cardBg, borderColor: cardBorder }}
+              >
+                <div className="h-5 w-32 rounded mb-4" style={{ background: lineBg }} />
+                <div className="space-y-3">
+                  <div className="h-14 rounded-xl" style={{ background: mutedBg }} />
+                  <div className="h-8 rounded-lg" style={{ background: mutedBg }} />
+                  <div className="h-3 w-36 rounded" style={{ background: lineBg }} />
+                  <div className="h-9 rounded-lg" style={{ background: mutedBg }} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
@@ -2493,6 +4270,40 @@ export default function DocumentGenerator() {
         }
         .contract-root.dark .ant-modal-title { color: #f3f4f6 !important; }
 
+        /* Placeholder modal is rendered in portal, so apply dark styles via modal class */
+        .cm-placeholder-modal-dark .ant-modal-content {
+          background: #1a1b1f !important;
+          border: 1px solid #2a2b31 !important;
+          color: #f3f4f6 !important;
+        }
+        .cm-placeholder-modal-dark .ant-modal-header {
+          background: transparent !important;
+          border-bottom-color: #2a2b31 !important;
+        }
+        .cm-placeholder-modal-dark .ant-modal-title {
+          color: #f3f4f6 !important;
+        }
+        .cm-placeholder-modal-dark .ant-input,
+        .cm-placeholder-modal-dark .ant-input-affix-wrapper,
+        .cm-placeholder-modal-dark .ant-picker,
+        .cm-placeholder-modal-dark .ant-select-selector,
+        .cm-placeholder-modal-dark .ant-input-textarea textarea {
+          background: #111318 !important;
+          border-color: #303541 !important;
+          color: #e5e7eb !important;
+          box-shadow: none !important;
+        }
+        .cm-placeholder-modal-dark .ant-input::placeholder,
+        .cm-placeholder-modal-dark .ant-input-textarea textarea::placeholder,
+        .cm-placeholder-modal-dark .ant-select-selection-placeholder {
+          color: #6b7280 !important;
+        }
+        .cm-placeholder-modal-dark .ant-btn-default {
+          background: #111318 !important;
+          border-color: #303541 !important;
+          color: #e5e7eb !important;
+        }
+
         /* Keep legal paper preview white for real-document editing */
         .contract-root.dark .contract-paper,
         .contract-root.dark .contract-paper * {
@@ -2509,7 +4320,7 @@ export default function DocumentGenerator() {
         footer={null}
         closable={false}
         centered
-        width={520}
+        width={isMobile ? "92vw" : 520}
         styles={{
           content: {
             borderRadius: 20,
@@ -2547,29 +4358,16 @@ export default function DocumentGenerator() {
                 style={{ fontSize: 14, borderColor: "#e8e8e8" }}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={inputLbl}>Company / Firm</label>
-                <Input
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="Acme Corp"
-                  size="large"
-                  className="rounded-xl"
-                  style={{ fontSize: 14 }}
-                />
-              </div>
-              <div>
-                <label className={inputLbl}>Effective Date</label>
-                <Input
-                  type="date"
-                  value={effectiveDate}
-                  onChange={(e) => setEffectiveDate(e.target.value)}
-                  size="large"
-                  className="rounded-xl"
-                  style={{ fontSize: 14 }}
-                />
-              </div>
+            <div>
+              <label className={inputLbl}>Effective Date</label>
+              <Input
+                type="date"
+                value={effectiveDate}
+                onChange={(e) => setEffectiveDate(e.target.value)}
+                size="large"
+                className="rounded-xl"
+                style={{ fontSize: 14 }}
+              />
             </div>
             <div
               className="flex items-center gap-3 p-3.5 bg-gray-50 rounded-xl border border-gray-100 cursor-pointer select-none"
@@ -2592,40 +4390,6 @@ export default function DocumentGenerator() {
               </div>
               <LockOutlined className="text-gray-300 ml-auto" />
             </div>
-            <div>
-              <label className={inputLbl}>Logo (optional)</label>
-              {logoDataUrl ? (
-                <div className="flex items-center gap-3 p-3 border border-gray-100 rounded-xl bg-gray-50">
-                  <img
-                    src={logoDataUrl}
-                    alt="logo"
-                    className="max-h-10 max-w-36 object-contain"
-                  />
-                  <Button
-                    danger
-                    icon={<DeleteOutlined />}
-                    onClick={() => setLogoDataUrl(null)}
-                    size="small"
-                    className="ml-auto rounded-lg"
-                  >
-                    Remove
-                  </Button>
-                </div>
-              ) : (
-                <Upload
-                  accept="image/*"
-                  showUploadList={false}
-                  beforeUpload={logoUpload}
-                >
-                  <div className="border-2 border-dashed border-gray-200 rounded-xl p-5 text-center cursor-pointer transition-all bg-white">
-                    <PictureOutlined className="text-2xl text-gray-300 block mb-1" />
-                    <span className="text-xs text-gray-400">
-                      PNG, JPG or SVG
-                    </span>
-                  </div>
-                </Upload>
-              )}
-            </div>
             <Button
               type="primary"
               size="large"
@@ -2644,34 +4408,149 @@ export default function DocumentGenerator() {
               }}
               className="mt-1"
             >
-              Open Document Editor --------
+              Open Document Editor
             </Button>
           </div>
         </div>
       </Modal>
 
-      <main className="max-w-6xl mx-auto px-6 pb-20">
+      <Modal
+        open={placeholderModalOpen}
+        className={dark ? "cm-placeholder-modal-dark" : ""}
+        title="Fill Document Fields"
+        onCancel={() => setPlaceholderModalOpen(false)}
+        onOk={applyDetectedPlaceholders}
+        okText="Apply Values"
+        cancelText="Skip"
+        width={isMobile ? "94vw" : 920}
+        styles={{
+          content: {
+            borderRadius: 14,
+            border: dark ? "1px solid #2a2b31" : "1px solid #e5e7eb",
+          },
+        }}
+      >
+        <p className="text-xs text-gray-500 mb-3">
+          We found placeholders in your draft. Fill them once and we will apply
+          values across the document automatically.
+        </p>
+        <div className="max-h-[62vh] overflow-y-auto pr-1 grid grid-cols-1 md:grid-cols-2 gap-3">
+          {placeholderFields.map(({ key, token, displayToken, type }) => (
+            <div key={key} className={type === "textarea" ? "md:col-span-2" : ""}>
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 block">
+                  {displayToken}
+                </label>
+                <Checkbox
+                  checked={placeholderEnabled[key] !== false}
+                  onChange={(e) =>
+                    setPlaceholderEnabled((prev) => ({
+                      ...prev,
+                      [key]: e.target.checked,
+                    }))
+                  }
+                >
+                  <span className="text-[11px] text-gray-500">Include</span>
+                </Checkbox>
+              </div>
+              {placeholderEnabled[key] === false ? (
+                <div className="rounded-lg border border-dashed border-gray-300 px-3 py-2 text-xs text-gray-400">
+                  This section will be hidden where this field appears.
+                </div>
+              ) : null}
+              {placeholderEnabled[key] !== false &&
+                (type === "country" ? (
+                  <Select
+                    showSearch
+                    options={COUNTRY_OPTIONS}
+                    value={placeholderValues[key] || undefined}
+                    onChange={(value) =>
+                      setPlaceholderValues((prev) => ({
+                        ...prev,
+                        [key]: value,
+                      }))
+                    }
+                    placeholder={`Select ${token}`}
+                    className="w-full"
+                    optionFilterProp="label"
+                  />
+                ) : type === "date" ? (
+                  <DatePicker
+                    value={(() => {
+                      const raw = String(placeholderValues[key] || "").trim();
+                      if (!raw) return null;
+                      const parsed = dayjs(raw);
+                      return parsed.isValid() ? parsed : null;
+                    })()}
+                    onChange={(value) =>
+                      setPlaceholderValues((prev) => ({
+                        ...prev,
+                        [key]: value ? value.format("YYYY-MM-DD") : "",
+                      }))
+                    }
+                    format="YYYY-MM-DD"
+                    className="w-full"
+                  />
+                ) : type === "time" ? (
+                  <TimePicker
+                    value={(() => {
+                      const raw = String(placeholderValues[key] || "").trim();
+                      if (!raw) return null;
+                      const parsed = dayjs(`2000-01-01T${raw}`);
+                      return parsed.isValid() ? parsed : null;
+                    })()}
+                    onChange={(value) =>
+                      setPlaceholderValues((prev) => ({
+                        ...prev,
+                        [key]: value ? value.format("HH:mm") : "",
+                      }))
+                    }
+                    format="HH:mm"
+                    className="w-full"
+                  />
+                ) : type === "textarea" ? (
+                  <TextArea
+                    value={placeholderValues[key] || ""}
+                    onChange={(e) =>
+                      setPlaceholderValues((prev) => ({
+                        ...prev,
+                        [key]: e.target.value,
+                      }))
+                    }
+                    rows={3}
+                    placeholder={`Enter ${token}`}
+                    className="rounded-lg"
+                  />
+                ) : (
+                  <Input
+                    type={type === "email" ? "email" : "text"}
+                    value={placeholderValues[key] || ""}
+                    onChange={(e) =>
+                      setPlaceholderValues((prev) => ({
+                        ...prev,
+                        [key]: e.target.value,
+                      }))
+                    }
+                    placeholder={`Enter ${token}`}
+                    className="rounded-lg"
+                  />
+                ))}
+            </div>
+          ))}
+        </div>
+      </Modal>
+
+      <main
+        className="max-w-6xl mx-auto pb-20"
+        style={{ paddingInline: isMobile ? 12 : 24 }}
+      >
         {/* ---------------- INPUT STEP ---------------- */}
         {step === "input" && (
-          <div className="pt-16 pb-8">
+          <div className="pt-16 pb-8" style={{ paddingTop: isMobile ? 24 : 64 }}>
             <div className="text-center mb-10 fade-up">
-              <div
-                className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-8 text-xs font-medium shadow-sm"
-                style={{
-                  background: dark ? "#1a1b1f" : "#ffffff",
-                  border: dark ? "1px solid #2a2b31" : "1px solid #e5e7eb",
-                  color: dark ? "#d1d5db" : "#6b7280",
-                }}
-              >
-                <ThunderboltOutlined
-                  className="text-amber-500"
-                  style={{ fontSize: 11 }}
-                />
-                Powered by Llama 3.3 ---- 8 document types ---- Legal grade output
-              </div>
               <h1
                 className="text-5xl font-extrabold text-gray-950 tracking-tight leading-none mb-4 fade-up fade-up-1"
-                style={{ letterSpacing: "-2px" }}
+                style={{ letterSpacing: "-2px", fontSize: isMobile ? 34 : undefined }}
               >
                 Legal documents,
                 <br />
@@ -2688,7 +4567,14 @@ export default function DocumentGenerator() {
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 text-center">
                 Choose Document Type
               </p>
-              <div className="grid grid-cols-4 gap-2">
+              <div
+                className="grid grid-cols-4 gap-2"
+                style={{
+                  gridTemplateColumns: isMobile
+                    ? "repeat(2, minmax(0, 1fr))"
+                    : "repeat(4, minmax(0, 1fr))",
+                }}
+              >
                 {DOC_TYPES.map((d) => (
                   <button
                     key={d.key}
@@ -2775,7 +4661,7 @@ export default function DocumentGenerator() {
                   <span
                     style={{ fontSize: 12, color: "#94a3b8", marginLeft: 4 }}
                   >
-                    -------- {selectedDocType?.desc}
+                    - {selectedDocType?.desc}
                   </span>
                 </div>
 
@@ -2805,14 +4691,14 @@ export default function DocumentGenerator() {
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
                         rows={6}
-                        placeholder={`Describe your ${selectedDocType?.label.toLowerCase()}------- e.g. ${
+                        placeholder={`Describe your ${selectedDocType?.label.toLowerCase()} in detail. e.g. ${
                           docType === "nda"
-                            ? "mutual NDA between two software companies, 2-year term, covers source code and client data-------"
+                            ? "mutual NDA between two software companies, 2-year term, covers source code and client data."
                             : docType === "employment"
-                              ? "full-time frontend engineer, $85k salary, 3-month probation, remote work, London governing law-------"
+                              ? "job offer letter for a full-time frontend engineer, $85k salary, 3-month probation, remote work, London governing law."
                               : docType === "lease"
-                                ? "office space lease, 12 months, $3,500/month, tenant responsible for utilities-------"
-                                : "web development contract, 60 days, $5,500 in 3 milestones, React/Node.js, full IP transfer-------"
+                                ? "office space lease, 12 months, $3,500/month, tenant responsible for utilities."
+                                : "web development contract, 60 days, $5,500 in 3 milestones, React/Node.js, full IP transfer."
                         }`}
                         style={{
                           fontSize: 14,
@@ -2820,7 +4706,6 @@ export default function DocumentGenerator() {
                           borderColor: "#e8e8e8",
                           borderRadius: 12,
                           resize: "none",
-                          color: "#111",
                           padding: "14px 16px",
                         }}
                         onKeyDown={(e) => {
@@ -2835,7 +4720,7 @@ export default function DocumentGenerator() {
                           {promptLength}/{MIN_PROMPT_CHARS} characters minimum
                         </span>
                         <span className="text-xs text-gray-300">
-                          ------ Enter to generate
+                          Ctrl/Cmd + Enter to generate
                         </span>
                       </div>
                     </>
@@ -2858,7 +4743,7 @@ export default function DocumentGenerator() {
                               Drop your document here
                             </p>
                             <p className="text-xs text-gray-300">
-                              PDF, DOCX, TXT -------- proposals, briefs, SOWs
+                              PDF, DOCX, TXT - proposals, briefs, SOWs
                             </p>
                           </div>
                         </Dragger>
@@ -2877,11 +4762,13 @@ export default function DocumentGenerator() {
                               </div>
                               <div className="text-xs text-gray-400 mt-0.5">
                                 {extracting
-                                  ? "Extracting text-------"
+                                  ? "Extracting text..."
                                   : `${uploadedText.length.toLocaleString()} characters extracted`}
                               </div>
                             </div>
-                            {extracting && <Spin size="small" />}
+                            {extracting && (
+                              <div className="w-6 h-6 rounded-full bg-gray-200 animate-pulse" />
+                            )}
                             {!extracting && (
                               <CheckCircleFilled className="text-green-500" />
                             )}
@@ -2899,7 +4786,7 @@ export default function DocumentGenerator() {
                           </div>
                           {uploadedText && !extracting && (
                             <div className="mt-3 p-3 bg-gray-100 rounded-lg text-xs text-gray-400 leading-relaxed line-clamp-3">
-                              {uploadedText.slice(0, 280)}-------
+                              {uploadedText.slice(0, 280)}...
                             </div>
                           )}
                         </div>
@@ -2912,13 +4799,12 @@ export default function DocumentGenerator() {
                           value={prompt}
                           onChange={(e) => setPrompt(e.target.value)}
                           rows={2}
-                          placeholder="e.g. Add 6-month warranty, use UK governing law-------"
+                          placeholder="e.g. Add 6-month warranty, use UK governing law."
                           style={{
                             fontSize: 13.5,
                             borderColor: "#e8e8e8",
                             borderRadius: 12,
                             resize: "none",
-                            color: "#111",
                           }}
                         />
                       </div>
@@ -2929,6 +4815,15 @@ export default function DocumentGenerator() {
                     <Alert
                       message={error}
                       type="error"
+                      showIcon
+                      className="mt-3 mb-1 rounded-xl"
+                      style={{ fontSize: 13, borderRadius: 12 }}
+                    />
+                  )}
+                  {success && (
+                    <Alert
+                      message={success}
+                      type="success"
                       showIcon
                       className="mt-3 mb-1 rounded-xl"
                       style={{ fontSize: 13, borderRadius: 12 }}
@@ -2954,7 +4849,7 @@ export default function DocumentGenerator() {
                     }}
                   >
                     {loading
-                      ? `Drafting your ${selectedDocType?.label}-------`
+                      ? `Drafting your ${selectedDocType?.label}...`
                       : `Generate ${selectedDocType?.label}`}
                   </Button>
 
@@ -2978,7 +4873,7 @@ export default function DocumentGenerator() {
                             {s.done ? (
                               <CheckOutlined style={{ fontSize: 9 }} />
                             ) : s.active ? (
-                              <Spin size="small" />
+                              <div className="w-3.5 h-3.5 rounded-full bg-gray-300 animate-pulse" />
                             ) : (
                               i + 1
                             )}
@@ -2996,7 +4891,7 @@ export default function DocumentGenerator() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-center gap-6 mt-6">
+              <div className="flex items-center justify-center gap-6 mt-6 flex-wrap">
                 {[
                   [LockOutlined, "End-to-end encrypted"],
                   [ClockCircleOutlined, "~15 sec generation"],
@@ -3019,28 +4914,41 @@ export default function DocumentGenerator() {
           <div className="pt-6">
             <div
               className="grid gap-6"
-              style={{ gridTemplateColumns: "1fr 296px" }}
+              style={{ gridTemplateColumns: isMobile ? "1fr" : "1fr 296px" }}
             >
               {/* Left: Document */}
               <div>
-                <div className="flex items-center justify-between mb-4">
+                <div
+                  className="flex items-center justify-between mb-4"
+                  style={{
+                    flexDirection: isMobile ? "column" : "row",
+                    alignItems: isMobile ? "flex-start" : "center",
+                    gap: isMobile ? 10 : 0,
+                  }}
+                >
                   <div>
                     <div className="flex items-center gap-3">
                       <button
                         onClick={handleReset}
                         className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-700 border-0 bg-transparent cursor-pointer transition-colors"
                       >
-                        ------- New Document
+                        <ArrowRight size={12} style={{ transform: "rotate(180deg)" }} />
+                        New Document
                       </button>
-                      <span style={{ fontSize: 10, color: "#94a3b8" }}>----</span>
+                      <span style={{ fontSize: 10, color: "#94a3b8" }}>•</span>
                       <span
                         style={{
                           fontSize: 11,
                           fontWeight: 700,
                           color: selectedDocType?.color,
-                          background: selectedDocType?.bg,
+                          background: dark
+                            ? `${selectedDocType?.color || "#334155"}22`
+                            : selectedDocType?.bg,
                           padding: "2px 8px",
                           borderRadius: 5,
+                          border: dark
+                            ? `1px solid ${(selectedDocType?.color || "#64748b")}55`
+                            : "none",
                         }}
                       >
                         {selectedDocType?.label}
@@ -3058,34 +4966,64 @@ export default function DocumentGenerator() {
                         day: "numeric",
                         year: "numeric",
                       })}{" "}
-                      ---- {sections.length} sections
+                      • {sections.length} sections
                     </p>
                   </div>
-                  <Button
-                    type="primary"
-                    icon={<DownloadOutlined />}
-                    loading={downloading}
-                    onClick={handleDownload}
-                    style={{
-                      background: "#111",
-                      border: "none",
-                      borderRadius: 12,
-                      fontWeight: 600,
-                      height: 40,
-                      paddingInline: 20,
-                      fontSize: 13,
-                    }}
+                  <div
+                    className="flex items-center gap-2"
+                    style={{ flexWrap: "wrap", width: isMobile ? "100%" : "auto" }}
                   >
-                    {downloading ? "Generating-------" : "Download PDF"}
-                  </Button>
+                    {detectedPlaceholders.length > 0 && (
+                      <Button
+                        icon={<EditOutlined />}
+                        onClick={() => setPlaceholderModalOpen(true)}
+                        style={{
+                          borderRadius: 12,
+                          fontWeight: 600,
+                          height: 40,
+                          paddingInline: 14,
+                          fontSize: 12,
+                          borderColor: "#d1d5db",
+                        }}
+                      >
+                        Fill Fields
+                      </Button>
+                    )}
+                    <Button
+                      type="primary"
+                      icon={<DownloadOutlined />}
+                      loading={downloading}
+                      onClick={handleDownload}
+                      style={{
+                        background: "#111",
+                        border: "none",
+                        borderRadius: 12,
+                        fontWeight: 600,
+                        height: 40,
+                        paddingInline: 20,
+                        fontSize: 13,
+                      }}
+                    >
+                      {downloading ? "Generating..." : "Download PDF"}
+                    </Button>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-xl px-4 py-2.5 mb-4">
+                <div
+                  className="flex items-center gap-2 rounded-xl px-4 py-2.5 mb-4"
+                  style={{
+                    background: dark ? "rgba(251, 191, 36, 0.12)" : "#fffbeb",
+                    border: `1px solid ${dark ? "rgba(251, 191, 36, 0.3)" : "#fde68a"}`,
+                  }}
+                >
                   <EditOutlined
-                    className="text-amber-500 flex-shrink-0"
-                    style={{ fontSize: 12 }}
+                    className="flex-shrink-0"
+                    style={{ color: dark ? "#fbbf24" : "#f59e0b", fontSize: 12 }}
                   />
-                  <span className="text-xs text-amber-700 font-medium">
+                  <span
+                    className="text-xs font-medium"
+                    style={{ color: dark ? "#fcd34d" : "#b45309" }}
+                  >
                     Click any text, heading, or table cell to edit inline
                   </span>
                 </div>
@@ -3106,41 +5044,149 @@ export default function DocumentGenerator() {
 
                   <div
                     className="paper-scroll bg-gray-100 p-6"
-                    style={{ maxHeight: "72vh", overflowY: "auto" }}
+                    style={{
+                      maxHeight: isMobile ? "68vh" : "72vh",
+                      overflowY: "auto",
+                      padding: isMobile ? 10 : 24,
+                    }}
                   >
                     <div
                       className="contract-paper bg-white mx-auto shadow-lg relative"
                       style={{
-                        maxWidth: 640,
-                        padding: "52px 56px 60px",
-                        minHeight: 900,
+                        maxWidth: isMobile ? "100%" : 640,
+                        padding: isMobile ? "26px 16px 32px" : "52px 56px 60px",
+                        minHeight: isMobile ? 760 : 900,
                       }}
                     >
                       <div className="absolute inset-3 border border-gray-100 pointer-events-none rounded" />
-                      {logoDataUrl && (
-                        <div className="text-center mb-3">
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr auto",
+                          alignItems: "start",
+                          gap: 18,
+                          marginBottom: 14,
+                        }}
+                      >
+                        <div>
+                          <div
+                            style={{
+                              fontFamily: TNR,
+                              fontSize: 11,
+                              color: "#737373",
+                              lineHeight: 1.55,
+                            }}
+                          >
+                            <div>
+                              <strong style={{ color: "#444", marginRight: 8 }}>Date</strong>
+                              {previewLetterDate}
+                            </div>
+                            <div style={{ marginTop: 10, color: "#444", fontWeight: 700 }}>
+                              To
+                            </div>
+                            <div
+                              contentEditable
+                              suppressContentEditableWarning
+                              onBlur={(e) =>
+                                updateRecipientNameInline(
+                                  e.currentTarget.textContent,
+                                )
+                              }
+                              style={{
+                                marginTop: 4,
+                                color: "#111",
+                                fontWeight: 700,
+                                outline: "none",
+                                cursor: "text",
+                              }}
+                            >
+                              {previewRecipientName}
+                            </div>
+                            <div
+                              contentEditable
+                              suppressContentEditableWarning
+                              onBlur={(e) =>
+                                updateRecipientTitleInline(
+                                  e.currentTarget.textContent,
+                                )
+                              }
+                              style={{
+                                color: "#6b7280",
+                                outline: "none",
+                                cursor: "text",
+                              }}
+                            >
+                              {previewRecipientTitle}
+                            </div>
+                            <div
+                              contentEditable
+                              suppressContentEditableWarning
+                              onBlur={(e) =>
+                                updateSenderCompanyInline(
+                                  e.currentTarget.textContent,
+                                )
+                              }
+                              style={{
+                                marginTop: 14,
+                                color: "#111",
+                                fontWeight: 700,
+                                outline: "none",
+                                cursor: "text",
+                              }}
+                            >
+                              {previewSenderName}
+                            </div>
+                            <div
+                              contentEditable
+                              suppressContentEditableWarning
+                              onBlur={(e) =>
+                                updateSenderAddressInline(
+                                  e.currentTarget.textContent,
+                                )
+                              }
+                              style={{
+                                color: "#6b7280",
+                                outline: "none",
+                                cursor: "text",
+                              }}
+                            >
+                              {previewSenderAddress}
+                            </div>
+                          </div>
+                        </div>
+                        {logoDataUrl ? (
                           <img
                             src={logoDataUrl}
                             alt="logo"
-                            className="max-h-12 max-w-40 object-contain mx-auto"
+                            className="max-h-14 max-w-36 object-contain"
+                            style={{ justifySelf: "end" }}
                           />
-                        </div>
-                      )}
-                      {companyName && (
-                        <div
-                          className="text-center mb-1"
-                          style={{
-                            fontFamily: TNR,
-                            fontWeight: 700,
-                            fontSize: 10,
-                            letterSpacing: "0.12em",
-                            textTransform: "uppercase",
-                            color: "#555",
-                          }}
-                        >
-                          {companyName}
-                        </div>
-                      )}
+                        ) : (
+                          <div
+                            style={{
+                              width: 120,
+                              height: 56,
+                              border: "1px dashed #d1d5db",
+                              borderRadius: 10,
+                              color: "#9ca3af",
+                              fontSize: 10,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              textTransform: "uppercase",
+                              letterSpacing: "0.08em",
+                            }}
+                          >
+                            Company Logo
+                          </div>
+                        )}
+                      </div>
+                      <div
+                        style={{
+                          borderTop: "1px solid #dcdcdc",
+                          marginBottom: 16,
+                        }}
+                      />
                       {confidentiality && (
                         <div className="text-center mb-2">
                           <span
@@ -3159,129 +5205,17 @@ export default function DocumentGenerator() {
                         </div>
                       )}
 
-                      <div
-                        style={{
-                          borderTop: "2.5px solid #111",
-                          marginTop: 8,
-                          paddingTop: 14,
-                          paddingBottom: 12,
-                          textAlign: "center",
-                          borderBottom: "0.75px solid #ddd",
-                          marginBottom: 22,
-                        }}
-                      >
-                        <div
-                          contentEditable
-                          suppressContentEditableWarning
-                          onBlur={(e) =>
-                            setDocTitle(e.currentTarget.textContent.trim())
-                          }
-                          style={{
-                            fontFamily: TNR,
-                            fontSize: 17,
-                            fontWeight: 700,
-                            letterSpacing: "0.06em",
-                            textTransform: "uppercase",
-                            color: "#000",
-                            outline: "none",
-                            cursor: "text",
-                            display: "inline-block",
-                          }}
-                        >
-                          {docTitle || "LEGAL DOCUMENT"}
-                        </div>
-                        {effectiveDate && (
-                          <div
-                            style={{
-                              fontFamily: TNR,
-                              fontStyle: "italic",
-                              fontSize: 10,
-                              color: "#999",
-                              marginTop: 5,
-                            }}
-                          >
-                            Effective Date:{" "}
-                            {new Date(
-                              effectiveDate + "T00:00:00",
-                            ).toLocaleDateString("en-US", {
-                              year: "numeric",
-                              month: "long",
-                              day: "numeric",
-                            })}
-                          </div>
-                        )}
-                      </div>
-
-                      {parties.length > 0 && (
-                        <div className="relative mb-6 px-4 py-3 bg-gray-50 border border-gray-100 rounded">
-                          <div
-                            className="absolute top-2 right-2 text-gray-300 flex items-center gap-1"
-                            style={{ fontSize: 9, letterSpacing: "0.05em" }}
-                          >
-                            <EditOutlined style={{ fontSize: 8 }} /> editable
-                          </div>
-                          {parties.map((p, pi) => (
-                            <div
-                              key={pi}
-                              className={
-                                pi < parties.length - 1
-                                  ? "mb-3 pb-3 border-b border-gray-100"
-                                  : ""
-                              }
-                            >
-                              <div
-                                style={{
-                                  fontFamily: TNR,
-                                  fontWeight: 700,
-                                  fontSize: 9,
-                                  textTransform: "uppercase",
-                                  letterSpacing: "0.1em",
-                                  color: "#888",
-                                  marginBottom: 6,
-                                }}
-                              >
-                                {p.label}
-                              </div>
-                              <div
-                                className="grid gap-1"
-                                style={{ gridTemplateColumns: "1fr 1fr 1fr" }}
-                              >
-                                {[
-                                  ["name", "Full Name"],
-                                  ["address", "Address"],
-                                  ["email", "Email"],
-                                ].map(([key, ph]) => (
-                                  <input
-                                    key={key}
-                                    value={p[key] || ""}
-                                    onChange={(e) =>
-                                      updateParty(pi, key, e.target.value)
-                                    }
-                                    placeholder={ph}
-                                    className="border-0 border-b border-transparent hover:border-gray-200 focus:border-gray-400 outline-none bg-transparent transition-all"
-                                    style={{
-                                      fontFamily: TNR,
-                                      fontSize: 11,
-                                      color: "#333",
-                                      padding: "2px 4px",
-                                    }}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
                       {sections.map((section, si) => (
-                        <div key={si} className="mb-5">
-                          <EditableBlock
-                            value={section.heading}
-                            isHeading
-                            onEdit={(v) => updateHeading(si, v)}
-                            onDelete={() => deleteSection(si)}
-                            onAddAfter={() => addSection(si)}
-                          />
+                        <div key={si} className="mb-3">
+                          {showSectionHeadings && (
+                            <EditableBlock
+                              value={section.heading}
+                              isHeading
+                              onEdit={(v) => updateHeading(si, v)}
+                              onDelete={() => deleteSection(si)}
+                              onAddAfter={() => addSection(si)}
+                            />
+                          )}
                           {(section.paragraphs || []).map((para, pi) => (
                             <EditableBlock
                               key={pi}
@@ -3367,140 +5301,59 @@ export default function DocumentGenerator() {
                         </div>
                       ))}
 
-                      {signatures.length > 0 && (
-                        <div
-                          className="mt-10 pt-4"
-                          style={{ borderTop: "2px solid #111" }}
-                        >
-                          <div
-                            style={{
-                              fontFamily: TNR,
-                              fontWeight: 700,
-                              fontSize: 11,
-                              textTransform: "uppercase",
-                              letterSpacing: "0.06em",
-                              marginBottom: 6,
-                            }}
-                          >
-                            IN WITNESS WHEREOF
-                          </div>
-                          <p
-                            style={{
-                              fontFamily: TNR,
-                              fontSize: 12,
-                              color: "#555",
-                              marginBottom: 20,
-                              lineHeight: 1.7,
-                            }}
-                          >
-                            The parties have executed this Agreement as of the
-                            Effective Date first written above.
-                          </p>
-                          <div
-                            className="grid gap-6"
-                            style={{
-                              gridTemplateColumns: `repeat(${Math.min(signatures.length, 2)}, 1fr)`,
-                            }}
-                          >
-                            {signatures.map((sig, i) => (
-                              <div key={i}>
-                                <div
-                                  style={{
-                                    fontFamily: TNR,
-                                    fontWeight: 700,
-                                    fontSize: 9.5,
-                                    textTransform: "uppercase",
-                                    letterSpacing: "0.08em",
-                                    color: "#555",
-                                    marginBottom: 8,
-                                  }}
-                                >
-                                  {sig.role || `Party ${i + 1}`}
-                                </div>
-                                {sig.signatureImage ? (
-                                  <div
-                                    style={{
-                                      marginBottom: 4,
-                                      height: 40,
-                                      display: "flex",
-                                      alignItems: "flex-end",
-                                    }}
-                                  >
-                                    <img
-                                      src={sig.signatureImage}
-                                      alt="sig"
-                                      style={{
-                                        maxHeight: 40,
-                                        maxWidth: "90%",
-                                        objectFit: "contain",
-                                      }}
-                                    />
-                                  </div>
-                                ) : (
-                                  <div
-                                    style={{
-                                      borderBottom: "1px solid #555",
-                                      height: 36,
-                                      marginBottom: 4,
-                                    }}
-                                  />
-                                )}
-                                <div
-                                  style={{
-                                    fontSize: 8,
-                                    color: "#bbb",
-                                    fontFamily: TNR,
-                                    textTransform: "uppercase",
-                                    letterSpacing: "0.1em",
-                                    marginBottom: 12,
-                                  }}
-                                >
-                                  Authorized Signature
-                                </div>
-                                {[
-                                  ["name", "Printed Name"],
-                                  ["title", "Title / Position"],
-                                  ["date", "Date"],
-                                ].map(([k, label]) => (
-                                  <div key={k} className="mb-2">
-                                    <div
-                                      style={{
-                                        fontFamily: TNR,
-                                        fontSize: 12,
-                                        borderBottom: "0.5px solid #d0d0d0",
-                                        paddingBottom: 2,
-                                        marginBottom: 2,
-                                        minHeight: 18,
-                                        color: "#222",
-                                      }}
-                                    >
-                                      {sig[k] || ""}
-                                    </div>
-                                    <div
-                                      style={{
-                                        fontSize: 7.5,
-                                        color: "#bbb",
-                                        fontFamily: TNR,
-                                        textTransform: "uppercase",
-                                        letterSpacing: "0.09em",
-                                      }}
-                                    >
-                                      {label}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Right: Controls */}
-              <div className="flex flex-col gap-4 sticky top-20">
+              <div
+                className="flex flex-col gap-4"
+                style={{
+                  position: isMobile ? "static" : "sticky",
+                  top: isMobile ? "auto" : 80,
+                  alignSelf: "start",
+                }}
+              >
+                <div
+                  className="cm-card rounded-2xl border text-white px-4 py-4 shadow-sm"
+                  style={{
+                    borderColor: dark ? "#2e3d57" : "#cbd5e1",
+                    background: dark
+                      ? "linear-gradient(135deg, #0f172a 0%, #1e293b 65%, #23324d 100%)"
+                      : "linear-gradient(135deg, #0f172a 0%, #334155 100%)",
+                  }}
+                >
+                  <div className="text-[11px] uppercase tracking-widest text-slate-200">
+                    Contract Workspace
+                  </div>
+                  <div className="mt-1 text-base font-semibold leading-tight">
+                    {docTitle || "Untitled Document"}
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <div
+                      className="rounded-xl px-2.5 py-2"
+                      style={{
+                        background: dark ? "rgba(148, 163, 184, 0.2)" : "rgba(255,255,255,0.18)",
+                        border: `1px solid ${dark ? "rgba(148, 163, 184, 0.28)" : "rgba(255,255,255,0.22)"}`,
+                      }}
+                    >
+                      <div className="text-[10px] text-slate-200">Sections</div>
+                      <div className="text-sm font-semibold">{sections.length}</div>
+                    </div>
+                    <div
+                      className="rounded-xl px-2.5 py-2"
+                      style={{
+                        background: dark ? "rgba(148, 163, 184, 0.2)" : "rgba(255,255,255,0.18)",
+                        border: `1px solid ${dark ? "rgba(148, 163, 184, 0.28)" : "rgba(255,255,255,0.22)"}`,
+                      }}
+                    >
+                      <div className="text-[10px] text-slate-200">Parties</div>
+                      <div className="text-sm font-semibold">{parties.length}</div>
+                    </div>
+                  </div>
+                </div>
+
                 <SidePanel title="Document">
                   <div className="flex flex-col gap-3">
                     <div>
@@ -3509,16 +5362,6 @@ export default function DocumentGenerator() {
                         value={docTitle}
                         onChange={(e) => setDocTitle(e.target.value)}
                         placeholder="DOCUMENT TITLE"
-                        className="rounded-xl"
-                        style={{ fontSize: 13 }}
-                      />
-                    </div>
-                    <div>
-                      <label className={inputLbl}>Company / Firm</label>
-                      <Input
-                        value={companyName}
-                        onChange={(e) => setCompanyName(e.target.value)}
-                        placeholder="Acme Corp"
                         className="rounded-xl"
                         style={{ fontSize: 13 }}
                       />
@@ -3553,90 +5396,192 @@ export default function DocumentGenerator() {
                   </div>
                 </SidePanel>
 
-                <SidePanel title="Logo">
-                  {logoDataUrl ? (
-                    <div>
-                      <div className="flex items-center justify-center p-3 bg-gray-50 rounded-xl mb-2 border border-gray-100">
-                        <img
-                          src={logoDataUrl}
-                          alt="logo"
-                          className="max-h-10 max-w-32 object-contain"
-                        />
+                <SidePanel title="DocuSign Signing">
+                  <div className="flex flex-col gap-3">
+                    <div
+                      className="rounded-xl border px-3 py-2.5"
+                      style={{
+                        borderColor: docusignStatus?.connected
+                          ? dark
+                            ? "#166534"
+                            : "#bbf7d0"
+                          : dark
+                            ? "#374151"
+                            : "#e5e7eb",
+                        background: docusignStatus?.connected
+                          ? dark
+                            ? "rgba(22, 101, 52, 0.28)"
+                            : "#f0fdf4"
+                          : dark
+                            ? "#1f2937"
+                            : "#f9fafb",
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className="text-xs font-semibold"
+                          style={{ color: dark ? "#d1d5db" : "#374151" }}
+                        >
+                          Connection
+                        </span>
+                        <span
+                          className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                          style={{
+                            background: docusignStatus?.connected
+                              ? dark
+                                ? "#166534"
+                                : "#dcfce7"
+                              : dark
+                                ? "#374151"
+                                : "#e5e7eb",
+                            color: docusignStatus?.connected
+                              ? dark
+                                ? "#dcfce7"
+                                : "#166534"
+                              : dark
+                                ? "#e5e7eb"
+                                : "#374151",
+                          }}
+                        >
+                          {docusignLoading
+                            ? "Checking..."
+                            : docusignStatus?.connected
+                              ? "Connected"
+                              : "Not connected"}
+                        </span>
                       </div>
-                      <div className="flex gap-2">
-                        <Upload
-                          accept="image/*"
-                          showUploadList={false}
-                          beforeUpload={logoUpload}
-                          className="flex-1"
+                      {docusignAccount?.accountId && (
+                        <div
+                          className="mt-1.5 text-[11px] break-all"
+                          style={{ color: dark ? "#cbd5e1" : "#4b5563" }}
                         >
-                          <Button
-                            icon={<UploadOutlined />}
-                            size="small"
-                            className="w-full rounded-xl text-xs"
-                          >
-                            Replace
-                          </Button>
-                        </Upload>
+                          Account: {docusignAccount.accountName || "DocuSign"} (
+                          {docusignAccount.accountId})
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <Button
+                        size="small"
+                        onClick={handleConnectDocusign}
+                        loading={docusignConnecting}
+                        className="rounded-lg text-xs"
+                        block
+                      >
+                        Connect DocuSign
+                      </Button>
+                    </div>
+
+                    <div>
+                      <label className={inputLbl}>Second Party Signer Name</label>
+                      <Input
+                        value={docusignSignerName}
+                        onChange={(e) => setDocusignSignerName(e.target.value)}
+                        placeholder="Counterparty full name"
+                        className="rounded-lg"
+                        style={{ fontSize: 12 }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className={inputLbl}>Second Party Signer Email</label>
+                      <Input
+                        value={docusignSignerEmail}
+                        onChange={(e) => {
+                          setIsSignerEmailAutoFillEnabled(false);
+                          setDocusignSignerEmail(e.target.value);
+                        }}
+                        placeholder="counterparty@email.com"
+                        className="rounded-lg"
+                        style={{ fontSize: 12 }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className={inputLbl}>Email Subject</label>
+                      <Input
+                        value={docusignEmailSubject}
+                        onChange={(e) => setDocusignEmailSubject(e.target.value)}
+                        placeholder="Please sign this agreement"
+                        className="rounded-lg"
+                        style={{ fontSize: 12 }}
+                      />
+                    </div>
+
+                    <div
+                      className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5"
+                      style={{ fontSize: 12, color: "#4b5563", lineHeight: 1.5 }}
+                    >
+                      DocuSign will use the currently generated document automatically.
+                      No extra upload is required.
+                    </div>
+                    <div
+                      className="rounded-xl border px-3 py-2.5"
+                      style={{
+                        fontSize: 12,
+                        lineHeight: 1.5,
+                        borderColor: dark ? "#334155" : "#dbeafe",
+                        background: dark ? "rgba(37, 99, 235, 0.12)" : "#eff6ff",
+                        color: dark ? "#dbeafe" : "#1e3a8a",
+                      }}
+                    >
+                      Once both parties sign the contract, it will be available in
+                      Documents &gt; Contracts folder.
+                    </div>
+
+                    {envelopeId && (
+                      <div className="flex flex-col gap-2">
+                        <div className="rounded-lg bg-gray-50 border border-gray-200 px-2.5 py-2 text-xs text-gray-600 break-all">
+                          Envelope ID: {envelopeId}
+                        </div>
                         <Button
-                          danger
-                          icon={<DeleteOutlined />}
                           size="small"
-                          onClick={() => setLogoDataUrl(null)}
-                          className="rounded-xl text-xs"
+                          onClick={() => fetchSignedDocumentByEnvelope(envelopeId)}
+                          loading={signedDocumentLoading}
+                          className="rounded-lg text-xs"
                         >
-                          Remove
+                          {signedDocumentLoading
+                            ? "Checking signed file..."
+                            : "Load signed document"}
                         </Button>
                       </div>
-                    </div>
-                  ) : (
-                    <Upload
-                      accept="image/*"
-                      showUploadList={false}
-                      beforeUpload={logoUpload}
-                    >
-                      <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center cursor-pointer transition-all">
-                        <PictureOutlined className="text-xl text-gray-300 block mb-1" />
-                        <span className="text-xs text-gray-400">
-                          Upload logo
-                        </span>
-                      </div>
-                    </Upload>
-                  )}
-                </SidePanel>
+                    )}
 
-                <SidePanel
-                  title="Signatures"
-                  action={
-                    <button
-                      onClick={addSig}
-                      className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center border-0 cursor-pointer transition-colors"
-                    >
-                      <PlusOutlined style={{ fontSize: 11, color: "#555" }} />
-                    </button>
-                  }
-                >
-                  <div className="flex flex-col gap-2.5 max-h-80 overflow-y-auto">
-                    {signatures.map((sig, idx) => (
-                      <SignatureCard
-                        key={idx}
-                        sig={sig}
-                        idx={idx}
-                        onChange={updateSig}
-                        onRemove={removeSig}
-                      />
-                    ))}
-                    {signatures.length === 0 && (
-                      <div className="text-center py-4">
-                        <span className="text-xs text-gray-300">
-                          No signatories.{" "}
-                        </span>
-                        <button
-                          onClick={addSig}
-                          className="text-xs text-gray-700 underline border-0 bg-transparent cursor-pointer"
+                    {signedDocumentUrl && (
+                      <div className="rounded-xl border border-green-200 bg-green-50 p-3">
+                        <div className="text-xs font-semibold text-green-800 mb-2">
+                          Signed Document Ready
+                        </div>
+                        <a
+                          href={signedDocumentUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs font-medium"
+                          style={{ color: "#166534" }}
                         >
-                          Add one
-                        </button>
+                          View / Download signed PDF
+                        </a>
+                        <div className="mt-2 flex gap-2">
+                          <Input
+                            value={signedDocumentEmailTo}
+                            onChange={(e) => {
+                              setIsSignedEmailAutoFillEnabled(false);
+                              setSignedDocumentEmailTo(e.target.value);
+                            }}
+                            placeholder="recipient@email.com"
+                            className="rounded-lg"
+                            style={{ fontSize: 12 }}
+                          />
+                          <Button
+                            size="small"
+                            onClick={handleSendSignedDocumentEmail}
+                            loading={sendingSignedDocumentEmail}
+                            className="rounded-lg text-xs"
+                          >
+                            Send Email
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -3646,6 +5591,14 @@ export default function DocumentGenerator() {
                   <Alert
                     message={error}
                     type="error"
+                    showIcon
+                    style={{ borderRadius: 12, fontSize: 12 }}
+                  />
+                )}
+                {success && step === "editor" && (
+                  <Alert
+                    message={success}
+                    type="success"
                     showIcon
                     style={{ borderRadius: 12, fontSize: 12 }}
                   />
@@ -3667,7 +5620,27 @@ export default function DocumentGenerator() {
                     fontSize: 14,
                   }}
                 >
-                  {downloading ? "Generating PDF-------" : "Download PDF"}
+                  {downloading ? "Generating PDF..." : "Download PDF"}
+                </Button>
+                <Button
+                  size="large"
+                  block
+                  icon={<SignatureOutlined />}
+                  loading={sendingToDocusign}
+                  onClick={handleSendToDocusign}
+                  style={{
+                    height: 46,
+                    borderRadius: 14,
+                    fontWeight: 700,
+                    fontSize: 13,
+                    border: "1px solid #d1d5db",
+                    background: "#fff",
+                    color: "#111",
+                  }}
+                >
+                  {sendingToDocusign
+                    ? "Preparing DocuSign..."
+                    : "Create & Sign via DocuSign"}
                 </Button>
               </div>
             </div>

@@ -218,6 +218,12 @@ if (!document.getElementById("ets-css")) {
       height: 0;
       display: none;
     }
+
+    @media (max-width: 767px) {
+      .ets-table .ant-table-body {
+        -webkit-overflow-scrolling: touch;
+      }
+    }
   `;
   document.head.appendChild(s);
 }
@@ -1731,6 +1737,8 @@ export default function EmployeeTimingStats() {
     employee: null,
   });
   const [tableSearch, setTableSearch] = useState("");
+  const [tablePage, setTablePage] = useState(1);
+  const [tablePageSize, setTablePageSize] = useState(15);
   const [actionDrawer, setActionDrawer] = useState({
     open: false,
     employee: null,
@@ -2356,6 +2364,17 @@ export default function EmployeeTimingStats() {
     );
   });
 
+  useEffect(() => {
+    setTablePage(1);
+  }, [tableSearch, date]);
+
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(filteredRows.length / tablePageSize));
+    if (tablePage > maxPage) {
+      setTablePage(maxPage);
+    }
+  }, [filteredRows.length, tablePage, tablePageSize]);
+
   /* ------ KPIs --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
   const KPIs = [
     {
@@ -2441,7 +2460,7 @@ export default function EmployeeTimingStats() {
       title: "Employee",
       key: "emp",
       width: 215,
-      fixed: "left",
+      fixed: viewportWidth < 768 ? undefined : "left",
       render: (_, r) => (
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ position: "relative", flexShrink: 0 }}>
@@ -2922,7 +2941,7 @@ export default function EmployeeTimingStats() {
       title: "Actions",
       key: "actions",
       width: 110,
-      fixed: "right",
+      fixed: viewportWidth < 768 ? undefined : "right",
       render: (_, r) => (
         <Button
           size="small"
@@ -3226,7 +3245,8 @@ export default function EmployeeTimingStats() {
                 background: "var(--ets-card)",
                 border: "1px solid var(--ets-border)",
                 borderRadius: 12,
-                overflow: "hidden",
+                overflow: isMobile ? "auto" : "hidden",
+                WebkitOverflowScrolling: "touch",
               }}
             >
               <div
@@ -3256,12 +3276,28 @@ export default function EmployeeTimingStats() {
                 dataSource={filteredRows}
                 loading={loading && rows.length > 0}
                 pagination={{
-                  pageSize: 15,
-                  showSizeChanger: true,
+                  current: tablePage,
+                  pageSize: tablePageSize,
+                  showSizeChanger: {
+                    getPopupContainer: (trigger) =>
+                      trigger?.parentElement || document.body,
+                  },
                   pageSizeOptions: ["15", "20", "50"],
+                  onChange: (page, size) => {
+                    const nextSize = size || tablePageSize;
+                    if (nextSize !== tablePageSize) {
+                      setTablePageSize(nextSize);
+                      setTablePage(1);
+                      return;
+                    }
+                    setTablePage(page);
+                  },
                   style: { padding: "12px 20px" },
                 }}
-                scroll={{ x: ws.overtime_enabled ? 1520 : 1400 }}
+                scroll={{
+                  x: ws.overtime_enabled ? 1520 : 1400,
+                  y: isMobile ? 360 : undefined,
+                }}
                 rowClassName={() => "ets-row"}
                 locale={{
                   emptyText: (
