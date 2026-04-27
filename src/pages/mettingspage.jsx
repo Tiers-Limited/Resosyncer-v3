@@ -301,10 +301,60 @@ const styles = `
   .ctrl-btn-inner.active-yellow { background: var(--amber-subtle); border-color: rgba(217,119,6,0.3); color: var(--amber); }
   .ctrl-btn-inner.active-rec { background: var(--red-subtle); border-color: rgba(220,38,38,0.3); color: var(--red); }
   .ctrl-btn-label { font-size: 9px; color: var(--text-3); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+  .more-menu-btn { display: none; }
   .ctrl-btn-danger .ctrl-btn-inner { background: var(--red); border-color: var(--red); color: white; width: 50px; height: 50px; border-radius: 14px; box-shadow: 0 4px 16px rgba(220,38,38,0.3); }
   .ctrl-btn-danger .ctrl-btn-inner:hover { background: #b91c1c; box-shadow: 0 8px 24px rgba(220,38,38,0.35); transform: scale(1.06); }
   .video-grid { flex: 1; padding: 14px; display: grid; gap: 10px; overflow-y: auto; align-content: stretch; grid-auto-rows: minmax(0, 1fr); }
   .video-tile { position: relative; border-radius: var(--radius-lg); overflow: hidden; background: #e8e8e4; border: 1.5px solid var(--border); transition: all 0.2s ease; width: 100%; aspect-ratio: 16/9; box-shadow: var(--shadow-sm); }
+  @media (max-width: 767px) {
+    .room-topbar { flex-wrap: wrap; align-items: center; justify-content: space-between; padding: 10px 12px; height: auto; gap: 10px; }
+    .room-topbar > div { min-width: 0; }
+    .room-topbar .pill { font-size: 10px; padding: 4px 8px; }
+    .room-master-link { display: none; }
+    .room-content { flex-direction: column; }
+    .room-videos { min-height: 0; }
+    .room-controls { flex-wrap: nowrap; justify-content: flex-start; gap: 8px; padding: 8px 10px; height: auto; overflow-x: auto; overflow-y: visible; position: relative; }
+    .room-videos { min-height: 0; overflow: visible; }
+    .room-controls::-webkit-scrollbar { height: 6px; }
+    .room-controls::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.6); border-radius: 999px; }
+    .ctrl-btn { min-width: 42px; margin-right: 6px; }
+    .ctrl-btn-inner { width: 40px; height: 40px; }
+    .ctrl-btn-label { display: none; }
+    .divider { display: none; }
+    .more-action-btn { display: none; }
+    .more-menu-btn { display: flex; }
+    .more-popup {
+      position: fixed;
+      bottom: 96px;
+      right: 12px;
+      z-index: 9999;
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow-lg);
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      width: min(260px, calc(100vw - 24px));
+    }
+    .more-popup .btn { justify-content: flex-start; gap: 8px; }
+    .room-drawer { width: 100%; bottom: 0; height: 70%; right: 0; left: 0; top: auto; transform: translateY(100%); border-left: none; border-top: 1px solid var(--border); }
+    .room-drawer.open { transform: translateY(0); }
+    .drawer-backdrop { background: rgba(0,0,0,0.55); }
+    .drawer-header { padding: 14px 14px 12px; }
+    .video-grid { padding: 10px; gap: 8px; }
+    .video-tile { aspect-ratio: 4/3; }
+    .video-overflow-tile { aspect-ratio: 4/3; }
+    .chat-input-wrap { padding: 10px; }
+    .chat-input { font-size: 12px; }
+    .people-item { padding: 10px 12px; }
+    .agenda-item { padding: 10px 12px; }
+    .bg-panel { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .modal-box { width: 100%; max-width: 100%; margin: 0; border-radius: 16px; }
+    .summary-card { max-width: 100%; margin: 0; }
+    .guest-approval-panel { width: calc(100% - 24px); right: 12px; left: 12px; top: auto; bottom: 100px; }
+
+  }
   .video-grid.single { grid-template-columns: minmax(0, 1fr) !important; }
   .video-grid.double { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
   .video-grid.triple { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
@@ -400,6 +450,48 @@ const styles = `
   .bg-option-label { position: absolute; bottom: 0; left: 0; right: 0; padding: 3px; background: rgba(0,0,0,0.5); font-size: 8px; color: white; text-align: center; font-weight: 600; }
   .drawer-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.15); z-index: 19; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; }
   .drawer-backdrop.open { opacity: 1; pointer-events: all; }
+
+  /* Mobile responsiveness */
+  @media (max-width: 767px) {
+    .lobby-wrap { padding: 16px 12px; }
+    .lobby-inner { grid-template-columns: 1fr; gap: 16px; }
+    .lobby-preview { gap: 12px; }
+    .lobby-video-wrap { aspect-ratio: 4/3; }
+    .glass-card-inner { padding: 16px 18px; }
+    .room-topbar { height: 50px; padding: 0 12px; }
+    .room-drawer { width: 280px; }
+    .room-controls { height: 70px; padding: 0 12px; gap: 4px; }
+    .ctrl-btn-inner { width: 42px; height: 42px; border-radius: 11px; }
+    .ctrl-btn-danger .ctrl-btn-inner { width: 46px; height: 46px; border-radius: 12px; }
+    .ctrl-btn-label { font-size: 8px; }
+    .video-grid { padding: 8px; gap: 6px; }
+    .video-tile { border-radius: 12px; }
+    .video-overflow-tile { border-radius: 12px; }
+    .video-overflow-count { font-size: 28px; }
+    .video-overflow-label { font-size: 11px; margin-top: 4px; }
+    .video-tile-label { bottom: 6px; left: 6px; padding: 4px 8px; font-size: 10px; }
+    .chat-bubble-me, .chat-bubble-other { max-width: 180px; padding: 8px 11px; font-size: 12px; }
+    .chat-input-wrap { padding: 10px; }
+    .chat-input { padding: 8px 11px; font-size: 12px; }
+    .ended-root { padding: 16px; }
+    .summary-card { max-width: none; }
+    .summary-header { padding: 20px 20px 16px; }
+    .summary-body { padding: 16px 20px; max-height: 60vh; }
+    .modal-box { padding: 24px 20px; max-width: none; margin: 0 12px; }
+    .link-box { padding: 8px 12px; }
+    .meta-row { font-size: 11px; gap: 8px; }
+    .meta-icon { width: 24px; height: 24px; border-radius: 6px; }
+    .section-heading { padding: 12px 14px 4px; font-size: 8px; }
+    .bg-panel { grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 2px 0; }
+    .bg-option { border-radius: 6px; }
+    .bg-option-label { font-size: 7px; padding: 2px; }
+    .people-item { padding: 8px 12px; gap: 10px; }
+    .agenda-item { padding: 10px 12px; gap: 10px; }
+    .btn-sm { font-size: 11px; padding: 6px 12px; }
+    .btn-md { font-size: 12px; padding: 8px 16px; }
+    .btn-lg { font-size: 13px; padding: 12px 20px; border-radius: 12px; }
+    .pill { font-size: 9px; padding: 2px 8px; }
+  }
 `;
 
 // - Avatar -
@@ -711,6 +803,7 @@ function CtrlBtn({
   label,
   children,
   badge,
+  className,
 }) {
   const cls = activeMuted
     ? "active-muted"
@@ -723,7 +816,7 @@ function CtrlBtn({
           : "";
   return (
     <div
-      className={`ctrl-btn${danger ? " ctrl-btn-danger" : ""}`}
+      className={`ctrl-btn${danger ? " ctrl-btn-danger" : ""}${className ? ` ${className}` : ""}`}
       onClick={onClick}
       style={{ position: "relative" }}
     >
@@ -1658,6 +1751,9 @@ function LobbyScreen({
 export default function MeetingRoom() {
   const { roomId } = useParams();
   const [dark, setDark] = useState(getIsDarkTheme);
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth : 1440,
+  );
   const [meetingDbId, setMeetingDbId] = useState(null);
 
   const [phase, setPhase] = useState("lobby");
@@ -1676,6 +1772,7 @@ export default function MeetingRoom() {
   const [recOn, setRecOn] = useState(false);
   const [handRaised, setHandRaised] = useState(false);
   const [openDrawer, setOpenDrawer] = useState(null);
+  const [openMoreMenu, setOpenMoreMenu] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [speakingId, setSpeakingId] = useState(null);
@@ -3186,6 +3283,15 @@ export default function MeetingRoom() {
     }
   }, [speakingId, finalizeSpeakerSegment, resolveSpeakerName]);
 
+  // - Viewport tracking -
+  useEffect(() => {
+    const syncViewport = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", syncViewport);
+    return () => window.removeEventListener("resize", syncViewport);
+  }, []);
+
+  const isMobile = viewportWidth < 768;
+
   const addSysMsg = (text) => {
     setChatMessages((prev) => [
       ...prev,
@@ -4089,7 +4195,13 @@ Rules:
 
   const screenSharer = participants.find((p) => p.isScreenShare);
   const toggleDrawer = (name) => {
+    setOpenMoreMenu(false);
     setOpenDrawer((prev) => (prev === name ? null : name));
+  };
+
+  const toggleMoreMenu = () => {
+    setOpenDrawer(null);
+    setOpenMoreMenu((prev) => !prev);
   };
 
   // - PHASE: LOBBY -
@@ -4643,7 +4755,7 @@ Rules:
 
       {/* - Top bar - */}
       <div className="room-topbar">
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
           <div
             style={{
               width: 34,
@@ -4702,58 +4814,11 @@ Rules:
             </span>
           )}
         </div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 7,
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            borderRadius: 9,
-            padding: "6px 12px",
-            marginLeft: 4,
-          }}
-        >
-          <span
-            style={{
-              fontSize: 11,
-              color: "var(--text-3)",
-              fontFamily: "var(--font-mono)",
-              maxWidth: 180,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {window.location.origin}/meet/{roomId}
-          </span>
-          <button
-            onClick={copyLink}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--text-3)",
-              display: "flex",
-              padding: 0,
-              transition: "color var(--transition)",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.color = "var(--text-3)")
-            }
-          >
-            {copiedLink ? (
-              <Check size={12} style={{ color: "var(--green)" }} />
-            ) : (
-              <Copy size={12} />
-            )}
-          </button>
-        </div>
       </div>
 
       {isHost && guestJoinRequests.length > 0 && (
         <div
+          className="guest-approval-panel"
           style={{
             position: "fixed",
             top: 66,
@@ -5000,6 +5065,7 @@ Rules:
               onClick={() => toggleDrawer("chat")}
               activeOn={openDrawer === "chat"}
               label="Chat"
+              className="more-action-btn"
               badge={openDrawer !== "chat" ? unreadChat : 0}
             >
               <MessageSquare size={17} />
@@ -5008,6 +5074,7 @@ Rules:
               onClick={() => toggleDrawer("people")}
               activeOn={openDrawer === "people"}
               label="People"
+              className="more-action-btn"
             >
               <Users size={17} />
             </CtrlBtn>
@@ -5015,6 +5082,7 @@ Rules:
               onClick={() => toggleDrawer("agenda")}
               activeOn={openDrawer === "agenda"}
               label="Agenda"
+              className="more-action-btn"
             >
               <ListChecks size={17} />
             </CtrlBtn>
@@ -5022,9 +5090,46 @@ Rules:
               onClick={() => toggleDrawer("bg")}
               activeOn={openDrawer === "bg"}
               label="Background"
+              className="more-action-btn"
             >
               <ImageIcon size={17} />
             </CtrlBtn>
+            <CtrlBtn
+              onClick={toggleMoreMenu}
+              label="More"
+              className="more-menu-btn"
+            >
+              <MoreHorizontal size={17} />
+            </CtrlBtn>
+
+            {openMoreMenu && (
+              <div className="more-popup">
+                <button
+                  onClick={() => toggleDrawer("chat")}
+                  className="btn btn-ghost btn-sm"
+                >
+                  <MessageSquare size={14} /> Chat
+                </button>
+                <button
+                  onClick={() => toggleDrawer("people")}
+                  className="btn btn-ghost btn-sm"
+                >
+                  <Users size={14} /> People
+                </button>
+                <button
+                  onClick={() => toggleDrawer("agenda")}
+                  className="btn btn-ghost btn-sm"
+                >
+                  <ListChecks size={14} /> Agenda
+                </button>
+                <button
+                  onClick={() => toggleDrawer("bg")}
+                  className="btn btn-ghost btn-sm"
+                >
+                  <ImageIcon size={14} /> Background
+                </button>
+              </div>
+            )}
 
             <div className="divider" />
 
@@ -5597,6 +5702,50 @@ Rules:
                       : BG_OPTIONS.find((b) => b.id === selectedBg)?.label}
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+          {openDrawer === "more" && (
+            <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
+              <div className="section-heading" style={{ paddingLeft: 0 }}>
+                More actions
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 10,
+                  padding: "4px 0 0",
+                }}
+              >
+                <button
+                  onClick={() => toggleDrawer("chat")}
+                  className="btn btn-ghost btn-md"
+                  style={{ width: "100%", justifyContent: "center" }}
+                >
+                  <MessageSquare size={14} /> Chat
+                </button>
+                <button
+                  onClick={() => toggleDrawer("people")}
+                  className="btn btn-ghost btn-md"
+                  style={{ width: "100%", justifyContent: "center" }}
+                >
+                  <Users size={14} /> People
+                </button>
+                <button
+                  onClick={() => toggleDrawer("agenda")}
+                  className="btn btn-ghost btn-md"
+                  style={{ width: "100%", justifyContent: "center" }}
+                >
+                  <ListChecks size={14} /> Agenda
+                </button>
+                <button
+                  onClick={() => toggleDrawer("bg")}
+                  className="btn btn-ghost btn-md"
+                  style={{ width: "100%", justifyContent: "center" }}
+                >
+                  <ImageIcon size={14} /> Background
+                </button>
               </div>
             </div>
           )}
