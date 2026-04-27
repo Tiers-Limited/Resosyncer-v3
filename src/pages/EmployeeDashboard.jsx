@@ -142,7 +142,10 @@ const EmployeeDashboard = () => {
       const completed =
         timeLogs?.filter((l) => l.status === "completed").length || 0;
       const hasActiveOrPaused = timeLogs?.some(
-        (l) => l.status === "active" || l.status === "paused" || l.status === "break",
+        (l) =>
+          l.status === "active" ||
+          l.status === "paused" ||
+          l.status === "break",
       )
         ? 1
         : 0;
@@ -339,8 +342,16 @@ const EmployeeDashboard = () => {
     : isPaused
       ? { color: "#f59e0b", bg: dark ? "#3a2f16" : "#fef3c7", text: "On Break" }
       : totalDayHours > 0
-        ? { color: "#818cf8", bg: dark ? "#2d2a4a" : "#ede9fe", text: "Done for today" }
-        : { color: "#94a3b8", bg: dark ? "#1f2937" : "#f1f5f9", text: "Not started" };
+        ? {
+            color: "#818cf8",
+            bg: dark ? "#2d2a4a" : "#ede9fe",
+            text: "Done for today",
+          }
+        : {
+            color: "#94a3b8",
+            bg: dark ? "#1f2937" : "#f1f5f9",
+            text: "Not started",
+          };
 
   const ui = {
     text: dark ? "#e5e7eb" : "#111827",
@@ -352,8 +363,10 @@ const EmployeeDashboard = () => {
 
   const priorityTone = (priority) => {
     const p = String(priority || "medium").toLowerCase();
-    if (p === "high") return { bg: dark ? "#3f1b1b" : "#fee2e2", color: "#ef4444" };
-    if (p === "low") return { bg: dark ? "#133229" : "#d1fae5", color: "#10b981" };
+    if (p === "high")
+      return { bg: dark ? "#3f1b1b" : "#fee2e2", color: "#ef4444" };
+    if (p === "low")
+      return { bg: dark ? "#133229" : "#d1fae5", color: "#10b981" };
     return { bg: dark ? "#3a2f16" : "#fef3c7", color: "#f59e0b" };
   };
 
@@ -383,7 +396,9 @@ const EmployeeDashboard = () => {
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
                 <ClockCircleOutlined className="text-indigo-500 text-lg" />
-                <span className="font-semibold" style={{ color: ui.text }}>Today's Work</span>
+                <span className="font-semibold" style={{ color: ui.text }}>
+                  Today's Work
+                </span>
               </div>
               <span
                 className="text-xs font-semibold px-2.5 py-1 rounded-full"
@@ -410,15 +425,31 @@ const EmployeeDashboard = () => {
 
             <div className="grid grid-cols-3 gap-3 mb-5">
               {[
-                { label: "Total Hours", value: `${totalLiveHours.toFixed(2)}h`, color: "#6366f1" },
+                {
+                  label: "Total Hours",
+                  value: `${totalLiveHours.toFixed(2)}h`,
+                  color: "#6366f1",
+                },
                 { label: "Sessions", value: totalSessions, color: "#10b981" },
                 { label: "Breaks", value: totalBreaks, color: "#f59e0b" },
               ].map((s) => (
-                <div key={s.label} className="rounded-xl p-3 text-center" style={{ background: ui.soft }}>
-                  <div className="text-xl font-bold" style={{ color: s.color, fontFamily: "'DM Mono', monospace" }}>
+                <div
+                  key={s.label}
+                  className="rounded-xl p-3 text-center"
+                  style={{ background: ui.soft }}
+                >
+                  <div
+                    className="text-xl font-bold"
+                    style={{
+                      color: s.color,
+                      fontFamily: "'DM Mono', monospace",
+                    }}
+                  >
                     {s.value}
                   </div>
-                  <div className="text-xs mt-0.5" style={{ color: ui.sub }}>{s.label}</div>
+                  <div className="text-xs mt-0.5" style={{ color: ui.sub }}>
+                    {s.label}
+                  </div>
                 </div>
               ))}
             </div>
@@ -434,12 +465,18 @@ const EmployeeDashboard = () => {
                 <div className="text-xs font-semibold text-emerald-600 mb-1 flex items-center gap-1">
                   <CheckCircleOutlined /> Standup submitted
                 </div>
-                <p className="text-sm leading-relaxed m-0" style={{ color: dark ? "#d1fae5" : "#374151" }}>
+                <p
+                  className="text-sm leading-relaxed m-0"
+                  style={{ color: dark ? "#d1fae5" : "#374151" }}
+                >
                   {todayAttendance.standup_message}
                 </p>
                 <div className="text-xs mt-1.5" style={{ color: ui.sub }}>
-                  {todayAttendance.hours_worked?.toFixed(2)} hours worked -- Status:{" "}
-                  <span className="font-medium capitalize">{todayAttendance.status}</span>
+                  {todayAttendance.hours_worked?.toFixed(2)} hours worked --
+                  Status:{" "}
+                  <span className="font-medium capitalize">
+                    {todayAttendance.status}
+                  </span>
                 </div>
               </div>
             )}
@@ -453,8 +490,12 @@ const EmployeeDashboard = () => {
                 }}
               >
                 <DesktopOutlined className="text-indigo-400 text-lg mb-1" />
-                <p className="text-xs m-0" style={{ color: dark ? "#c7d2fe" : "#4f46e5" }}>
-                  Open the <strong>Resosyncer Desktop App</strong> to start your work timer
+                <p
+                  className="text-xs m-0"
+                  style={{ color: dark ? "#c7d2fe" : "#4f46e5" }}
+                >
+                  Open the <strong>Ryzent AI Desktop App</strong> to start your
+                  work timer
                 </p>
               </div>
             )}
@@ -464,14 +505,40 @@ const EmployeeDashboard = () => {
         <Col xs={24} lg={12}>
           <Row gutter={[16, 16]}>
             {[
-              { title: "Active Projects", value: stats.projects, color: dark ? "#cbd5e1" : "#001529" },
-              { title: "Active Tickets", value: stats.tickets, color: "#fa8c16" },
-              { title: "Completed Tickets", value: stats.completed, color: "#52c41a" },
-              { title: "Pending Requests", value: stats.pendingRequests, color: "#1890ff" },
+              {
+                title: "Active Projects",
+                value: stats.projects,
+                color: dark ? "#cbd5e1" : "#001529",
+              },
+              {
+                title: "Active Tickets",
+                value: stats.tickets,
+                color: "#fa8c16",
+              },
+              {
+                title: "Completed Tickets",
+                value: stats.completed,
+                color: "#52c41a",
+              },
+              {
+                title: "Pending Requests",
+                value: stats.pendingRequests,
+                color: "#1890ff",
+              },
             ].map((s) => (
               <Col xs={12} key={s.title}>
-                <Card className="rounded-2xl border-0 shadow-sm" style={{ background: ui.card, border: `1px solid ${ui.border}` }}>
-                  <Statistic title={<span style={{ color: ui.sub }}>{s.title}</span>} value={s.value} valueStyle={{ color: s.color }} />
+                <Card
+                  className="rounded-2xl border-0 shadow-sm"
+                  style={{
+                    background: ui.card,
+                    border: `1px solid ${ui.border}`,
+                  }}
+                >
+                  <Statistic
+                    title={<span style={{ color: ui.sub }}>{s.title}</span>}
+                    value={s.value}
+                    valueStyle={{ color: s.color }}
+                  />
                 </Card>
               </Col>
             ))}
@@ -480,26 +547,55 @@ const EmployeeDashboard = () => {
       </Row>
 
       <div className="mt-6">
-        <div className="rounded-2xl shadow-sm p-6" style={{ background: ui.card, border: `1px solid ${ui.border}` }}>
+        <div
+          className="rounded-2xl shadow-sm p-6"
+          style={{ background: ui.card, border: `1px solid ${ui.border}` }}
+        >
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: dark ? "#16213d" : "#eef2ff" }}>
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: dark ? "#16213d" : "#eef2ff" }}
+              >
                 <DesktopOutlined style={{ fontSize: 24, color: "#6366f1" }} />
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-0.5">
-                  <h2 className="font-bold text-base m-0" style={{ color: ui.text }}>Resosyncer Desktop</h2>
-                  <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: dark ? "#1f2937" : "#eef2ff", color: "#6366f1" }}>v1.0</span>
+                  <h2
+                    className="font-bold text-base m-0"
+                    style={{ color: ui.text }}
+                  >
+                    Ryzent AI Desktop
+                  </h2>
+                  <span
+                    className="text-xs font-medium px-2 py-0.5 rounded-full"
+                    style={{
+                      background: dark ? "#1f2937" : "#eef2ff",
+                      color: "#6366f1",
+                    }}
+                  >
+                    v1.0
+                  </span>
                 </div>
                 <p className="text-sm m-0" style={{ color: ui.sub }}>
                   Track work hours, and monitor app usage automatically.
                 </p>
                 <div className="flex flex-wrap items-center gap-4 mt-2">
                   {[
-                    { icon: <ClockCircleOutlined />, text: "Auto time tracking" },
-                    { icon: <ThunderboltOutlined />, text: "App usage analytics" },
+                    {
+                      icon: <ClockCircleOutlined />,
+                      text: "Auto time tracking",
+                    },
+                    {
+                      icon: <ThunderboltOutlined />,
+                      text: "App usage analytics",
+                    },
                   ].map((f) => (
-                    <div key={f.text} className="flex items-center gap-1 text-xs" style={{ color: ui.sub }}>
+                    <div
+                      key={f.text}
+                      className="flex items-center gap-1 text-xs"
+                      style={{ color: ui.sub }}
+                    >
                       {f.icon}
                       <span>{f.text}</span>
                     </div>
@@ -510,7 +606,7 @@ const EmployeeDashboard = () => {
 
             <div className="flex items-center gap-2 flex-shrink-0">
               <a
-                href="/Resosyncer Setup 1.0.0.exe"
+                href="/Ryzent Setup 1.0.0.exe"
                 className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all no-underline border hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50"
                 style={{ borderColor: ui.border, color: ui.text }}
               >
@@ -528,21 +624,42 @@ const EmployeeDashboard = () => {
         </Col>
 
         <Col xs={24} xl={12}>
-          <div className="rounded-2xl p-6 h-full" style={{ background: ui.card, border: `1px solid ${ui.border}` }}>
+          <div
+            className="rounded-2xl p-6 h-full"
+            style={{ background: ui.card, border: `1px solid ${ui.border}` }}
+          >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-bold m-0" style={{ color: ui.text }}>To Do List</h2>
+              <h2
+                className="text-base font-bold m-0"
+                style={{ color: ui.text }}
+              >
+                To Do List
+              </h2>
               <div className="flex items-center gap-2">
-                <span style={{ fontSize: 12, color: ui.sub }}>{todos.filter((t) => !t.completed).length} open</span>
-                <Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => setTodoModalOpen(true)}>
+                <span style={{ fontSize: 12, color: ui.sub }}>
+                  {todos.filter((t) => !t.completed).length} open
+                </span>
+                <Button
+                  type="primary"
+                  size="small"
+                  icon={<PlusOutlined />}
+                  onClick={() => setTodoModalOpen(true)}
+                >
                   Add
                 </Button>
               </div>
             </div>
 
             {todoLoading ? (
-              <div style={{ color: ui.sub, fontSize: 13 }}>Loading todos...</div>
+              <div style={{ color: ui.sub, fontSize: 13 }}>
+                Loading todos...
+              </div>
             ) : todos.length === 0 ? (
-              <Empty description={<span style={{ color: ui.sub }}>No todos yet</span>} />
+              <Empty
+                description={
+                  <span style={{ color: ui.sub }}>No todos yet</span>
+                }
+              />
             ) : (
               <div className="flex flex-col gap-2">
                 {todos.map((todo) => {
@@ -560,23 +677,50 @@ const EmployeeDashboard = () => {
                         gap: 12,
                       }}
                     >
-                      <div style={{ display: "flex", gap: 10, alignItems: "flex-start", flex: 1 }}>
-                        <Checkbox checked={!!todo.completed} onChange={() => toggleTodo(todo)} />
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 10,
+                          alignItems: "flex-start",
+                          flex: 1,
+                        }}
+                      >
+                        <Checkbox
+                          checked={!!todo.completed}
+                          onChange={() => toggleTodo(todo)}
+                        />
                         <div style={{ minWidth: 0 }}>
                           <div
                             style={{
                               fontWeight: 600,
                               color: ui.text,
-                              textDecoration: todo.completed ? "line-through" : "none",
+                              textDecoration: todo.completed
+                                ? "line-through"
+                                : "none",
                               opacity: todo.completed ? 0.75 : 1,
                             }}
                           >
                             {todo.title}
                           </div>
                           {todo.description && (
-                            <div style={{ color: ui.sub, fontSize: 12, marginTop: 2 }}>{todo.description}</div>
+                            <div
+                              style={{
+                                color: ui.sub,
+                                fontSize: 12,
+                                marginTop: 2,
+                              }}
+                            >
+                              {todo.description}
+                            </div>
                           )}
-                          <div style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <div
+                            style={{
+                              marginTop: 6,
+                              display: "flex",
+                              gap: 8,
+                              flexWrap: "wrap",
+                            }}
+                          >
                             <span
                               style={{
                                 fontSize: 11,
@@ -596,7 +740,12 @@ const EmployeeDashboard = () => {
                           </div>
                         </div>
                       </div>
-                      <Button type="text" danger icon={<DeleteOutlined />} onClick={() => removeTodo(todo)} />
+                      <Button
+                        type="text"
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={() => removeTodo(todo)}
+                      />
                     </div>
                   );
                 })}
@@ -618,7 +767,11 @@ const EmployeeDashboard = () => {
         confirmLoading={todoSaving}
       >
         <div className="grid gap-3">
-          <Input value={todoTitle} onChange={(e) => setTodoTitle(e.target.value)} placeholder="Todo title" />
+          <Input
+            value={todoTitle}
+            onChange={(e) => setTodoTitle(e.target.value)}
+            placeholder="Todo title"
+          />
           <Input.TextArea
             value={todoDescription}
             onChange={(e) => setTodoDescription(e.target.value)}
@@ -634,7 +787,12 @@ const EmployeeDashboard = () => {
               { label: "High", value: "high" },
             ]}
           />
-          <DatePicker value={todoDueDate} onChange={setTodoDueDate} placeholder="Due date" style={{ width: "100%" }} />
+          <DatePicker
+            value={todoDueDate}
+            onChange={setTodoDueDate}
+            placeholder="Due date"
+            style={{ width: "100%" }}
+          />
         </div>
       </Modal>
     </div>
@@ -642,5 +800,3 @@ const EmployeeDashboard = () => {
 };
 
 export default EmployeeDashboard;
-
-
