@@ -1195,6 +1195,7 @@ function LobbyScreen({
   const [stream, setStream] = useState(null);
   const [joining, setJoining] = useState(false);
   const videoRef = useRef(null);
+  const streamRef = useRef(null);
   const isGuest = !!currentUser?.isGuest;
 
   useEffect(() => {
@@ -1205,17 +1206,32 @@ function LobbyScreen({
           video: true,
           audio: true,
         });
+        streamRef.current = s;
+        if (videoRef.current) {
+          videoRef.current.srcObject = s;
+        }
         setStream(s);
-        if (videoRef.current) videoRef.current.srcObject = s;
       } catch {
         try {
           s = await navigator.mediaDevices.getUserMedia({ audio: true });
+          streamRef.current = s;
+          if (videoRef.current) {
+            videoRef.current.srcObject = s;
+          }
           setStream(s);
         } catch {}
       }
     })();
     return () => s?.getTracks().forEach((t) => t.stop());
   }, []);
+
+  // Ensure stream is attached to video element when it mounts
+  useEffect(() => {
+    if (videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [stream]);
 
   const toggleLobbyMic = () => {
     stream?.getAudioTracks().forEach((t) => (t.enabled = !micOn));
@@ -2351,16 +2367,18 @@ export default function MeetingRoom() {
   }, []);
 
   useEffect(() => {
-    if (!roomId || !currentUser?.id) return;
+    if (!roomId) return;
     let active = true;
 
     const setupApprovalChannel = async () => {
       if (approvalChannelRef.current) {
         await supabase.removeChannel(approvalChannelRef.current);
+        approvalChannelRef.current = null;
       }
       const ch = supabase.channel(`room-approval-${roomId}`, {
         config: { broadcast: { self: false } },
       });
+      approvalChannelRef.current = ch;
 
       ch.on("broadcast", { event: "guest-join-request" }, ({ payload }) => {
         if (!isHostRef.current || phase !== "room") return;
@@ -2395,7 +2413,7 @@ export default function MeetingRoom() {
 
       ch.subscribe((status) => {
         if (status === "SUBSCRIBED" && active) {
-          approvalChannelRef.current = ch;
+          // channel ready for use
         }
       });
     };
@@ -2408,7 +2426,7 @@ export default function MeetingRoom() {
         approvalChannelRef.current = null;
       }
     };
-  }, [roomId, phase, currentUser?.id]);
+  }, [roomId, phase]);
 
   // - createPC: clean peer connection setup -
   const createPC = useCallback((peerId, userId) => {
