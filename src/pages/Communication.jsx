@@ -963,27 +963,83 @@ const renderText = (text, mentionUsers = []) => {
         "gi",
       )
     : /@[\w]+/g;
+  const urlRegex = /https?:\/\/[^\s<>"']+/gi;
+
+  const tokens = [];
+  let m;
+  while ((m = mentionRegex.exec(text)) !== null) {
+    tokens.push({
+      type: "mention",
+      start: m.index,
+      end: m.index + m[0].length,
+      value: m[0],
+    });
+  }
+  while ((m = urlRegex.exec(text)) !== null) {
+    let rawUrl = m[0];
+    let end = m.index + rawUrl.length;
+    const trailing = rawUrl.match(/[.,!?;:]+$/);
+    if (trailing) {
+      rawUrl = rawUrl.slice(0, rawUrl.length - trailing[0].length);
+      end -= trailing[0].length;
+    }
+    if (!rawUrl) continue;
+    tokens.push({
+      type: "url",
+      start: m.index,
+      end,
+      value: rawUrl,
+    });
+  }
+
+  tokens.sort((a, b) => {
+    if (a.start !== b.start) return a.start - b.start;
+    return b.end - a.end;
+  });
 
   const parts = [];
   let lastIndex = 0;
-  let m;
-  while ((m = mentionRegex.exec(text)) !== null) {
-    if (m.index > lastIndex) parts.push(text.slice(lastIndex, m.index));
-    parts.push(
-      <span
-        key={`${m.index}-${m[0]}`}
-        style={{
-          color: "#60a5fa",
-          fontWeight: 700,
-          background: "rgba(59,130,246,.15)",
-          borderRadius: 4,
-          padding: "1px 4px",
-        }}
-      >
-        {m[0]}
-      </span>,
-    );
-    lastIndex = m.index + m[0].length;
+  for (const token of tokens) {
+    if (token.start < lastIndex) continue;
+    if (token.start > lastIndex) {
+      parts.push(text.slice(lastIndex, token.start));
+    }
+
+    if (token.type === "mention") {
+      parts.push(
+        <span
+          key={`${token.type}-${token.start}-${token.value}`}
+          style={{
+            color: "#60a5fa",
+            fontWeight: 700,
+            background: "rgba(59,130,246,.15)",
+            borderRadius: 4,
+            padding: "1px 4px",
+          }}
+        >
+          {token.value}
+        </span>,
+      );
+    } else {
+      parts.push(
+        <a
+          key={`${token.type}-${token.start}-${token.value}`}
+          href={token.value}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            color: "#2563eb",
+            fontWeight: 700,
+            textDecoration: "underline",
+            textUnderlineOffset: 2,
+          }}
+        >
+          {token.value}
+        </a>,
+      );
+    }
+
+    lastIndex = token.end;
   }
   if (lastIndex < text.length) parts.push(text.slice(lastIndex));
   return parts;
