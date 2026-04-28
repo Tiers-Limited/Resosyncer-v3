@@ -24,12 +24,41 @@ import { buildOtpEmail } from "../lib/emailTemplates";
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 const EMAIL_API = import.meta.env.VITE_EMAIL_API_URL;
 
-const sendEmail = async ({ to, subject, body, companyName }) => {
+const toPlainText = (html = "") =>
+  String(html)
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const sendEmail = async ({
+  to,
+  subject,
+  body,
+  companyName,
+  applicantName = "User",
+  textMessage = "",
+}) => {
   try {
     const res = await fetch(`${EMAIL_API}/api/email/send`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ to, subject, html: body, companyName }),
+      body: JSON.stringify({
+        to,
+        subject,
+        html: body,
+        companyName,
+        templateType: "custom",
+        applicantName,
+        customMessage: textMessage || toPlainText(body),
+      }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -276,6 +305,8 @@ const SignIn = () => {
 
   /* ------ Send email OTP ------ */
   const sendEmailOtp = async (profile) => {
+    const brandName = String(profile?.company_name || "").trim() || "Ryzent";
+    const recipientName = profile?.full_name || "there";
     const otp = generateOtp();
     const expiry = Date.now() + 10 * 60 * 1000; // 10 min
     setStoredOtp(otp);
@@ -285,9 +316,11 @@ const SignIn = () => {
 
     await sendEmail({
       to: profile.email,
-      subject: "Your Ryzent login code",
-      body: otpEmailHtml(otp, profile.full_name || "there"),
-      companyName: "Ryzent",
+      subject: `Your ${brandName} login code`,
+      body: otpEmailHtml(otp, recipientName),
+      companyName: brandName,
+      applicantName: recipientName,
+      textMessage: `Hi ${recipientName}, your login verification code is ${otp}. This code expires in 10 minutes.`,
     });
   };
 

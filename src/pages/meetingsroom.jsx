@@ -2560,6 +2560,52 @@ export default function MeetingsPage() {
       }
       if (createError) throw createError;
 
+      const participantsToNotify = selectedParticipants.filter(
+        (p) => p?.id && p.id !== userId,
+      );
+      if (participantsToNotify.length > 0) {
+        const meetingMeta = {
+          type: form.type === "audio" ? "audio" : "video",
+          title: form.title.trim(),
+          room_id: roomId,
+          meeting_id: newMeeting?.id ?? null,
+          status: "scheduled",
+        };
+        const baseMessages = participantsToNotify.map((p) => ({
+          tenant_id: tenantId,
+          sender_id: userId,
+          receiver_id: p.id,
+          message: form.title.trim(),
+          meeting_meta: meetingMeta,
+          is_read: false,
+        }));
+        const { error: notifyError } = await supabase
+          .from("messages")
+          .insert(baseMessages);
+        if (notifyError) {
+          const fallbackMessages = participantsToNotify.map((p) => ({
+            tenant_id: tenantId,
+            sender_id: userId,
+            receiver_id: p.id,
+            message: form.title.trim(),
+            meeting_meta: JSON.stringify(meetingMeta),
+            is_read: false,
+          }));
+          const { error: fallbackError } = await supabase
+            .from("messages")
+            .insert(fallbackMessages);
+          if (fallbackError) {
+            console.error("meeting participant notify failed:", {
+              notifyError,
+              fallbackError,
+            });
+            message.warning(
+              "Meeting created, but participant chat notifications failed.",
+            );
+          }
+        }
+      }
+
       let syncedToGoogleCalendar = false;
       if (googleCalendarConnected) {
         try {

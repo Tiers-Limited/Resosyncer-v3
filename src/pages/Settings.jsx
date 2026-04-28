@@ -81,12 +81,41 @@ import {
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 const EMAIL_API = import.meta.env.VITE_EMAIL_API_URL;
 
-const sendEmail = async ({ to, subject, body, companyName }) => {
+const toPlainText = (html = "") =>
+  String(html)
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const sendEmail = async ({
+  to,
+  subject,
+  body,
+  companyName,
+  applicantName = "User",
+  textMessage = "",
+}) => {
   try {
     const res = await fetch(`${EMAIL_API}/api/email/send`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ to, subject, html: body, companyName }),
+      body: JSON.stringify({
+        to,
+        subject,
+        html: body,
+        companyName,
+        templateType: "custom",
+        applicantName,
+        customMessage: textMessage || toPlainText(body),
+      }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -104,14 +133,14 @@ const sendEmail = async ({ to, subject, body, companyName }) => {
 const generateOtp = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
-const otpEmailHtml = (otp, name) =>
+const otpEmailHtml = (otp, name, companyName) =>
   buildOtpEmail({
     otp,
     name,
     title: "Your verification code",
     intro: `Hi ${name}, use the code below to enable Email OTP on your account.`,
     variant: "company",
-    companyName: "Resosyncer",
+    companyName,
   });
 
 const escapeHtml = (value) =>
@@ -603,6 +632,9 @@ const TwoFactorSection = ({ profile, dark = false }) => {
 
   /* ---------------- Email OTP -------- uses custom email API ---------------- */
   const sendOtpEmail = async () => {
+    const brandName =
+      String(profile?.company_name || "").trim() || "Ryzent";
+    const recipientName = profile?.full_name || "there";
     const otp = generateOtp();
     const expiry = Date.now() + 10 * 60 * 1000; // 10 min
     setStoredOtp(otp);
@@ -611,9 +643,11 @@ const TwoFactorSection = ({ profile, dark = false }) => {
     setResendCooldown(60);
     await sendEmail({
       to: profile.email,
-      subject: "Your Resosyncer verification code",
-      body: otpEmailHtml(otp, profile.full_name || "there"),
-      companyName: "Resosyncer",
+      subject: `Your ${brandName} verification code`,
+      body: otpEmailHtml(otp, recipientName, brandName),
+      companyName: brandName,
+      applicantName: recipientName,
+      textMessage: `Hi ${recipientName}, your verification code is ${otp}. This code expires in 10 minutes.`,
     });
   };
 

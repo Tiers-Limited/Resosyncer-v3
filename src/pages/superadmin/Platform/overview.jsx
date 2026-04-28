@@ -2,13 +2,10 @@
 import {
   Card,
   Table,
-  Tag,
   Tooltip,
-  Statistic,
   Badge,
   Spin,
   Button,
-  Typography,
   Progress,
 } from "antd";
 import {
@@ -22,12 +19,9 @@ import {
   ApartmentOutlined,
   TeamOutlined,
   DollarOutlined,
-  ApiOutlined,
 } from "@ant-design/icons";
 import { useTheme } from "../../../components/Layout/MainLayout";
 import { supabase } from "../../../lib/supabase";
-
-const { Text } = Typography;
 
 const Sparkline = ({ data, color, height = 32 }) => {
   if (!data?.length) return null;
@@ -122,10 +116,55 @@ const ALERT_ICON = {
   info: <CheckCircleOutlined className="text-blue-500 text-sm" />,
 };
 
-const SVC_COLOR = {
-  operational: "#10b981",
-  degraded: "#f59e0b",
-  down: "#ef4444",
+const parseDateValue = (value) => {
+  if (value == null || value === "") return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+const CompanyLogo = ({
+  photoUrl,
+  name,
+  plan,
+  isDark,
+  size = 28,
+  radius = "8px",
+}) => {
+  const [imgErr, setImgErr] = useState(false);
+  const planColor = PLAN_COLOR[plan] || PLAN_COLOR.Free || "#6b7280";
+
+  if (photoUrl && !imgErr) {
+    return (
+      <img
+        src={photoUrl}
+        alt={name}
+        onError={() => setImgErr(true)}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: radius,
+          objectFit: "cover",
+          flexShrink: 0,
+        }}
+      />
+    );
+  }
+
+  return (
+    <div
+      className="flex items-center justify-center font-bold text-[10px] flex-shrink-0"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: radius,
+        background: isDark ? "#1f2937" : "#f3f4f6",
+        color: planColor,
+        border: `1px solid ${isDark ? "#374151" : "#e5e7eb"}`,
+      }}
+    >
+      {name?.slice(0, 2).toUpperCase() || "??"}
+    </div>
+  );
 };
 
 const SuperadminDashboard = () => {
@@ -142,17 +181,15 @@ const SuperadminDashboard = () => {
     mrr: 0,
     tenants: 0,
     users: 0,
-    apiCalls: 0,
   });
   const [mrrHistory, setMrrHistory] = useState([]);
   const [userHistory, setUserHistory] = useState([]);
   const [signupHistory, setSignupHistory] = useState([]);
   const [alerts, setAlerts] = useState([]);
-  const [services, setServices] = useState([]);
   const [planDist, setPlanDist] = useState([]);
 
   const tk = {
-    cardBg: isDarkMode ? "#1f2937" : "#ffffff",
+    cardBg: isDarkMode ? "#141416" : "#ffffff",
     border: isDarkMode ? "#374151" : "#e5e7eb",
     divider: isDarkMode ? "#374151" : "#f3f4f6",
     textPri: isDarkMode ? "#f9fafb" : "#111827",
@@ -172,10 +209,41 @@ const SuperadminDashboard = () => {
     try {
       const { data: tenantRows } = await supabase
         .from("tenants")
-        .select("id, name, plan, status, created_at, mrr, health_score")
+        .select(
+          "id, name, plan, status, created_at, mrr, health_score, owner_email, current_period_end, subscription_end_date, plan_override",
+        )
         .order("created_at", { ascending: false });
 
       if (tenantRows) {
+        const ownerEmails = [
+          ...new Set(
+            tenantRows
+              .map((t) => String(t.owner_email || "").trim())
+              .filter(Boolean),
+          ),
+        ];
+
+        let ownerPhotoMap = {};
+        if (ownerEmails.length > 0) {
+          const { data: ownerProfiles } = await supabase
+            .from("profiles")
+            .select("email, user_photo")
+            .in("email", ownerEmails);
+
+          ownerPhotoMap = (ownerProfiles || []).reduce((acc, p) => {
+            const email = String(p.email || "").trim().toLowerCase();
+            if (!email) return acc;
+            const raw = String(p.user_photo || "").trim();
+            if (!raw) return acc;
+            const resolved = raw.startsWith("http")
+              ? raw
+              : supabase.storage.from("avatars").getPublicUrl(raw).data
+                  ?.publicUrl || null;
+            if (resolved) acc[email] = resolved;
+            return acc;
+          }, {});
+        }
+
         setTenants(
           tenantRows.map((t) => ({
             key: t.id,
@@ -185,6 +253,13 @@ const SuperadminDashboard = () => {
             status: t.status || "active",
             mrr: t.mrr || 0,
             health: t.health_score || 100,
+            owner_email: t.owner_email || "",
+            logo_photo:
+              ownerPhotoMap[String(t.owner_email || "").trim().toLowerCase()] ||
+              null,
+            current_period_end: t.current_period_end || null,
+            subscription_end_date: t.subscription_end_date || null,
+            plan_override: t.plan_override === true,
             joined: new Date(t.created_at).toLocaleDateString("en-US", {
               month: "short",
               year: "numeric",
@@ -221,22 +296,13 @@ const SuperadminDashboard = () => {
       // 3. Total MRR (sum from tenants)
       const totalMrr = tenantRows?.reduce((s, t) => s + (t.mrr || 0), 0) || 0;
 
-      // 4. API calls today (from an api_logs table --- adjust to yours)
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const { count: apiCount } = await supabase
-        .from("api_logs")
-        .select("id", { count: "exact", head: true })
-        .gte("created_at", today.toISOString());
-
       setKpiData({
         mrr: totalMrr,
         tenants: tenantRows?.length || 0,
         users: userCount || 0,
-        apiCalls: apiCount || 0,
       });
 
-      // 5. MRR history --- last 14 data points from mrr_snapshots (adjust to yours)
+      // 5. MRR history - last 14 data points from mrr_snapshots (adjust to yours)
       const { data: mrrSnaps } = await supabase
         .from("mrr_snapshots")
         .select("value")
@@ -261,7 +327,7 @@ const SuperadminDashboard = () => {
       setSignupHistory(buckets);
       setUserHistory(buckets);
 
-      // 7. Alerts --- from a platform_alerts table (adjust to yours)
+      // 7. Alerts - from a platform_alerts table (adjust to yours)
       const { data: alertRows } = await supabase
         .from("platform_alerts")
         .select("id, level, message, created_at")
@@ -274,21 +340,6 @@ const SuperadminDashboard = () => {
           level: a.level || "info",
           msg: a.message,
           time: formatTimeAgo(a.created_at),
-        })) || [],
-      );
-
-      // 8. Service health --- from service_health table (adjust to yours)
-      const { data: svcRows } = await supabase
-        .from("service_health")
-        .select("name, status, latency_ms, uptime_pct")
-        .order("name");
-
-      setServices(
-        svcRows?.map((s) => ({
-          name: s.name,
-          status: s.status || "operational",
-          latency: `${s.latency_ms || 0}ms`,
-          uptime: `${s.uptime_pct || 100}%`,
         })) || [],
       );
     } catch (err) {
@@ -310,7 +361,7 @@ const SuperadminDashboard = () => {
     setRefreshing(false);
   };
 
-  // ------ Helpers ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  // Helpers
   const formatTimeAgo = (iso) => {
     const diff = (Date.now() - new Date(iso).getTime()) / 1000;
     if (diff < 60) return `${Math.floor(diff)}s ago`;
@@ -326,7 +377,20 @@ const SuperadminDashboard = () => {
         ? `${(n / 1000).toFixed(1)}k`
         : String(n);
 
-  // ------ KPI definitions ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  const formatSubscriptionEnding = (row) => {
+    if (row?.plan_override) return "Free granted";
+    const endDate =
+      parseDateValue(row?.current_period_end) ||
+      parseDateValue(row?.subscription_end_date);
+    if (!endDate) return row?.plan === "Free" ? "Free granted" : "N/A";
+    return endDate.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
+  // KPI definitions
   const kpis = [
     {
       label: "Monthly Recurring Revenue",
@@ -355,40 +419,21 @@ const SuperadminDashboard = () => {
       icon: <TeamOutlined />,
       spark: userHistory,
     },
-    {
-      label: "API Calls / Day",
-      value: fmt(kpiData.apiCalls),
-      delta: "---3.2%",
-      up: false,
-      color: "#f59e0b",
-      icon: <ApiOutlined />,
-      spark: Array(14).fill(kpiData.apiCalls || 0),
-    },
   ];
 
-  // ------ Ant Design table columns ------------------------------------------------------------------------------------------------------------------------------------------
+  // Tenant table columns
   const tenantColumns = [
     {
       title: "Tenant",
       dataIndex: "name",
       render: (name, row) => (
         <div className="flex items-center gap-2">
-          <div
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold flex-shrink-0"
-            style={{
-              background:
-                row.status === "past_due"
-                  ? isDarkMode
-                    ? "#450a0a"
-                    : "#fef2f2"
-                  : isDarkMode
-                    ? "#2e1065"
-                    : "#f5f3ff",
-              color: row.status === "past_due" ? "#ef4444" : "#7c3aed",
-            }}
-          >
-            {row.av}
-          </div>
+          <CompanyLogo
+            photoUrl={row.logo_photo}
+            name={name}
+            plan={row.plan}
+            isDark={isDarkMode}
+          />
           <div>
             <div
               className="text-sm font-semibold"
@@ -414,6 +459,25 @@ const SuperadminDashboard = () => {
           {plan}
         </span>
       ),
+    },
+    {
+      title: "Subscription Ends",
+      dataIndex: "subscription_end_date",
+      render: (_, row) => {
+        const val = formatSubscriptionEnding(row);
+        if (val === "Free granted") {
+          return (
+            <span className="text-xs font-semibold" style={{ color: "#10b981" }}>
+              Free granted
+            </span>
+          );
+        }
+        return (
+          <span className="text-xs" style={{ color: tk.textSec }}>
+            {val}
+          </span>
+        );
+      },
     },
     {
       title: "MRR",
@@ -463,7 +527,7 @@ const SuperadminDashboard = () => {
     },
   ];
 
-  // ------ Ant Design card style helper ------------------------------------------------------------------------------------------------------------------------------
+  // Card style helpers
   const cardStyle = (delay = 0) => ({
     background: tk.cardBg,
     border: `1px solid ${tk.border}`,
@@ -475,7 +539,7 @@ const SuperadminDashboard = () => {
 
   const cardBodyStyle = { padding: 0 };
 
-  // ------ Render ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  // Render
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -485,8 +549,11 @@ const SuperadminDashboard = () => {
   }
 
   return (
-    <div style={{ color: tk.textPri, fontFamily: "inherit" }}>
-      {/* ------ Top bar ------------------------------------------------------------------------------------------------------------------------------------------------------------ */}
+    <div
+      key={isDarkMode ? "overview-dark" : "overview-light"}
+      style={{ color: tk.textPri, fontFamily: "inherit" }}
+    >
+      {/* Top bar */}
       <div className="flex items-center justify-between mb-5">
         <span className="text-sm" style={{ color: tk.textMuted }}>
           {now.toLocaleDateString("en-US", {
@@ -519,8 +586,8 @@ const SuperadminDashboard = () => {
         </div>
       </div>
 
-      {/* ------ KPI cards --------------------------------------------------------------------------------------------------------------------------------------------------------- */}
-      <div className="grid grid-cols-4 gap-3 mb-4">
+      {/* KPI cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 mb-4">
         {kpis.map((k, i) => (
           <Card
             key={i}
@@ -569,7 +636,7 @@ const SuperadminDashboard = () => {
         ))}
       </div>
 
-      {/* ------ Main grid --------------------------------------------------------------------------------------------------------------------------------------------------------- */}
+      {/* Main grid */}
       <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 296px" }}>
         {/* LEFT */}
         <div className="flex flex-col gap-3">
@@ -586,13 +653,13 @@ const SuperadminDashboard = () => {
               </span>
             }
             extra={
-              <span
-                className="text-xs font-semibold cursor-pointer"
-                style={{ color: "#7c3aed" }}
-              >
-                View All ---
-              </span>
-            }
+                <span
+                  className="text-xs font-semibold cursor-pointer"
+                  style={{ color: "#7c3aed" }}
+                >
+                  View All
+                </span>
+              }
           >
             <Table
               dataSource={tenants}
@@ -619,7 +686,7 @@ const SuperadminDashboard = () => {
                 className="text-sm font-semibold"
                 style={{ color: tk.textPri }}
               >
-                New Signups --- Last 14 Days
+                New Signups - Last 14 Days
               </span>
             }
             extra={
@@ -722,7 +789,7 @@ const SuperadminDashboard = () => {
                   l: "Avg MRR",
                   v: kpiData.tenants
                     ? `$${Math.round(kpiData.mrr / kpiData.tenants).toLocaleString()}`
-                    : "---",
+                    : "N/A",
                 },
                 { l: "Churn", v: "1.4%" },
                 { l: "Conv.", v: "62%" },
@@ -752,90 +819,9 @@ const SuperadminDashboard = () => {
             </div>
           </Card>
 
-          {/* System health */}
-          <Card
-            style={cardStyle(0.28)}
-            styles={{ body: cardBodyStyle }}
-            title={
-              <span
-                className="text-sm font-semibold"
-                style={{ color: tk.textPri }}
-              >
-                System Health
-              </span>
-            }
-            extra={
-              <Tag
-                color="success"
-                style={{ fontSize: 10, fontWeight: 700, margin: 0 }}
-              >
-                {services.filter((s) => s.status === "operational").length}/
-                {services.length} OK
-              </Tag>
-            }
-          >
-            {services.length === 0 ? (
-              <div
-                className="px-4 py-3 text-xs"
-                style={{ color: tk.textMuted }}
-              >
-                No service data available
-              </div>
-            ) : (
-              services.map((s, i) => {
-                const sc = SVC_COLOR[s.status] || "#6b7280";
-                return (
-                  <div
-                    key={s.name}
-                    className="flex items-center justify-between px-4 py-2.5"
-                    style={{
-                      borderBottom:
-                        i < services.length - 1
-                          ? `1px solid ${tk.divider}`
-                          : "none",
-                    }}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div
-                        className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                        style={{
-                          background: sc,
-                          boxShadow:
-                            s.status === "operational"
-                              ? `0 0 5px ${sc}`
-                              : "none",
-                        }}
-                      />
-                      <span
-                        className="text-sm font-medium"
-                        style={{ color: tk.textPri }}
-                      >
-                        {s.name}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span
-                        className="text-xs font-mono"
-                        style={{ color: tk.textMuted }}
-                      >
-                        {s.latency}
-                      </span>
-                      <span
-                        className="text-xs font-mono"
-                        style={{ color: tk.textMuted }}
-                      >
-                        {s.uptime}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </Card>
-
           {/* Alerts */}
           <Card
-            style={cardStyle(0.34)}
+            style={cardStyle(0.28)}
             styles={{ body: cardBodyStyle }}
             title={
               <span
@@ -862,7 +848,7 @@ const SuperadminDashboard = () => {
                   className="text-xs font-semibold cursor-pointer"
                   style={{ color: "#7c3aed" }}
                 >
-                  View All ---
+                  View All
                 </span>
               </div>
             }

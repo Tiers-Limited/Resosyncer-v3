@@ -946,12 +946,32 @@ const seenAtFmt = (ts) => {
   });
 };
 
-const renderText = (text) => {
+const escRe = (s = "") => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const renderText = (text, mentionUsers = []) => {
   if (!text) return null;
-  return text.split(/(@[A-Za-z0-9_]+(?:\s+[A-Za-z0-9_]+)*)/g).map((p, i) =>
-    p.startsWith("@") ? (
+
+  const mentionNames = [...new Set(
+    mentionUsers
+      .map((u) => (u?.full_name || "").trim())
+      .filter(Boolean),
+  )].sort((a, b) => b.length - a.length);
+
+  const mentionRegex = mentionNames.length
+    ? new RegExp(
+        `@(?:${mentionNames.map((n) => escRe(n)).join("|")})(?=\\s|$|[.,!?;:])`,
+        "gi",
+      )
+    : /@[\w]+/g;
+
+  const parts = [];
+  let lastIndex = 0;
+  let m;
+  while ((m = mentionRegex.exec(text)) !== null) {
+    if (m.index > lastIndex) parts.push(text.slice(lastIndex, m.index));
+    parts.push(
       <span
-        key={i}
+        key={`${m.index}-${m[0]}`}
         style={{
           color: "#60a5fa",
           fontWeight: 700,
@@ -960,12 +980,13 @@ const renderText = (text) => {
           padding: "1px 4px",
         }}
       >
-        {p}
-      </span>
-    ) : (
-      p
-    ),
-  );
+        {m[0]}
+      </span>,
+    );
+    lastIndex = m.index + m[0].length;
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+  return parts;
 };
 
 const extOf = (name = "") => name.split(".").pop()?.toUpperCase() || "FILE";
@@ -2421,7 +2442,7 @@ const MsgRow = ({
                       marginTop: msg.file_url ? 4 : 0,
                     }}
                   >
-                    {renderText(msg.message)}
+                    {renderText(msg.message, [RYZENT_AI_USER, ...users])}
                     {msg.edited_at && (
                       <span
                         style={{
@@ -5030,6 +5051,7 @@ ${ticketsToday.length ? ticketsToday.map((x) => `  - ${x}`).join("\n") : "  - no
       onKey(e);
       if (e.defaultPrevented) return;
       if (e.key === "Enter") {
+        if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
         e.preventDefault();
         handleEnterAction();
       }

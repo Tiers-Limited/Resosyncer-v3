@@ -49,6 +49,7 @@ const STATUS_OPTIONS = [
   "active",
   "trial",
   "past_due",
+  "free_granted",
   "cancel_pending",
   "suspended",
   "inactive",
@@ -80,6 +81,11 @@ const STATUS_CONFIG = {
   active: { badge: "success", label: "Active", color: "#10b981" },
   trial: { badge: "processing", label: "Trial", color: "#3b82f6" },
   past_due: { badge: "error", label: "Past Due", color: "#ef4444" },
+  free_granted: {
+    badge: "processing",
+    label: "Free Granted",
+    color: "#10b981",
+  },
   cancel_pending: {
     badge: "warning",
     label: "Cancels At Period End",
@@ -96,6 +102,7 @@ const parseDateValue = (value) => {
 };
 
 const deriveTenantStatus = (tenant) => {
+  if (tenant?.plan_override === true) return "free_granted";
   const raw = String(tenant?.status || "").toLowerCase();
   const autoRenew = tenant?.auto_renew !== false;
   const periodEnd =
@@ -107,9 +114,16 @@ const deriveTenantStatus = (tenant) => {
   return raw || "inactive";
 };
 
-// Company logo using favicon API with letter fallback
+const resolvePhotoUrl = (rawPhoto) => {
+  const raw = String(rawPhoto || "").trim();
+  if (!raw) return null;
+  if (raw.startsWith("http")) return raw;
+  return supabase.storage.from("avatars").getPublicUrl(raw).data?.publicUrl || null;
+};
+
+// Company logo using owner profile user_photo with letter fallback
 const CompanyLogo = ({
-  domain,
+  photoUrl,
   name,
   plan,
   size = 36,
@@ -118,14 +132,11 @@ const CompanyLogo = ({
 }) => {
   const [err, setErr] = useState(false);
   const pc = PLAN_COLOR[plan] || PLAN_COLOR.Free;
-  const src = domain
-    ? `https://www.google.com/s2/favicons?domain=${domain}&sz=64`
-    : null;
 
-  if (src && !err) {
+  if (photoUrl && !err) {
     return (
       <img
-        src={src}
+        src={photoUrl}
         alt={name}
         onError={() => setErr(true)}
         style={{
@@ -184,7 +195,7 @@ const TenantsPage = () => {
   });
 
   const tk = {
-    cardBg: isDarkMode ? "#1e293b" : "#ffffff",
+    cardBg: isDarkMode ? "#1c1c1f" : "#ffffff",
     border: isDarkMode ? "#334155" : "#e2e8f0",
     divider: isDarkMode ? "#1e293b" : "#f1f5f9",
     textPri: isDarkMode ? "#f1f5f9" : "#0f172a",
@@ -207,7 +218,7 @@ const TenantsPage = () => {
           `
           id, name, plan, status, mrr, health_score, created_at,
           owner_email, owner_name, domain, max_users, notes,
-          auto_renew, current_period_end, subscription_end_date,
+          auto_renew, current_period_end, subscription_end_date, plan_override,
           profiles(count)
         `,
           { count: "exact" },
@@ -216,8 +227,35 @@ const TenantsPage = () => {
 
       if (error) throw error;
 
-      const normalized = (data || []).map((t) => ({
+      const rows = data || [];
+      const ownerEmails = [
+        ...new Set(
+          rows
+            .map((t) => String(t.owner_email || "").trim())
+            .filter(Boolean),
+        ),
+      ];
+
+      let ownerPhotoMap = {};
+      if (ownerEmails.length > 0) {
+        const { data: ownerProfiles } = await supabase
+          .from("profiles")
+          .select("email, user_photo")
+          .in("email", ownerEmails);
+
+        ownerPhotoMap = (ownerProfiles || []).reduce((acc, p) => {
+          const email = String(p.email || "").trim().toLowerCase();
+          if (!email) return acc;
+          const url = resolvePhotoUrl(p.user_photo);
+          if (url) acc[email] = url;
+          return acc;
+        }, {});
+      }
+
+      const normalized = rows.map((t) => ({
         ...t,
+        logo_photo:
+          ownerPhotoMap[String(t.owner_email || "").trim().toLowerCase()] || null,
         user_count: t.profiles?.[0]?.count ?? 0,
         display_status: deriveTenantStatus(t),
       }));
@@ -229,7 +267,7 @@ const TenantsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [messageApi]);
 
   useEffect(() => {
     fetchTenants();
@@ -341,7 +379,10 @@ const TenantsPage = () => {
         key: "view",
         icon: <EyeOutlined />,
         label: "View Details",
-        onClick: () => navigate(`/tenants/${tenant.id}`),
+        onClick: (e) => {
+          e.domEvent.stopPropagation();
+          navigate(`/tenants/${tenant.id}`);
+        },
       },
       {
         key: "edit",
@@ -359,13 +400,19 @@ const TenantsPage = () => {
             icon: <StopOutlined />,
             label: "Suspend",
             danger: true,
-            onClick: () => handleStatusChange(tenant.id, "suspended"),
+            onClick: (e) => {
+              e.domEvent.stopPropagation();
+              handleStatusChange(tenant.id, "suspended");
+            },
           }
         : {
             key: "activate",
             icon: <CheckCircleOutlined />,
             label: "Activate",
-            onClick: () => handleStatusChange(tenant.id, "active"),
+            onClick: (e) => {
+              e.domEvent.stopPropagation();
+              handleStatusChange(tenant.id, "active");
+            },
           },
       { type: "divider" },
       {
@@ -373,7 +420,8 @@ const TenantsPage = () => {
         icon: <DeleteOutlined />,
         label: "Delete",
         danger: true,
-        onClick: () =>
+        onClick: (e) => {
+          e.domEvent.stopPropagation();
           Modal.confirm({
             title: `Delete "${tenant.name}"?`,
             content:
@@ -381,7 +429,8 @@ const TenantsPage = () => {
             okText: "Delete",
             okType: "danger",
             onOk: () => handleDelete(tenant.id),
-          }),
+          });
+        },
       },
     ],
   });
@@ -394,7 +443,7 @@ const TenantsPage = () => {
       render: (name, row) => (
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <CompanyLogo
-            domain={row.domain}
+            photoUrl={row.logo_photo}
             name={name}
             plan={row.plan}
             size={36}
@@ -557,6 +606,7 @@ const TenantsPage = () => {
           placement="bottomRight"
         >
           <Button
+            className="tenant-row-action"
             type="text"
             size="small"
             icon={<MoreOutlined />}
@@ -569,7 +619,10 @@ const TenantsPage = () => {
   ];
 
   return (
-    <div style={{ color: tk.textPri }}>
+    <div
+      key={isDarkMode ? "tenants-dark" : "tenants-light"}
+      style={{ color: tk.textPri }}
+    >
       {contextHolder}
 
       {/* Header */}
@@ -763,7 +816,7 @@ const TenantsPage = () => {
             }}
           >
             <Search
-              placeholder="Search tenants, email, domain---"
+              placeholder="Search tenants, email, domain"
               allowClear
               onChange={(e) => setSearch(e.target.value)}
               style={{ width: 270 }}
@@ -845,7 +898,7 @@ const TenantsPage = () => {
           </div>
         )}
 
-        {/* Table --- row click navigates to detail */}
+        {/* Table - row click navigates to detail */}
         <Table
           dataSource={filtered}
           columns={columns}
@@ -865,7 +918,10 @@ const TenantsPage = () => {
               setPagination((p) => ({ ...p, current: page, pageSize })),
           }}
           onRow={(row) => ({
-            onClick: () => navigate(`/tenants/${row.id}`),
+            onClick: (e) => {
+              if (e.target.closest(".tenant-row-action")) return;
+              navigate(`/tenants/${row.id}`);
+            },
             style: { cursor: "pointer" },
           })}
           locale={{
@@ -886,17 +942,17 @@ const TenantsPage = () => {
         title={
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {editingTenant && (
-              <CompanyLogo
-                domain={editingTenant.domain}
-                name={editingTenant.name}
-                plan={editingTenant.plan}
-                size={28}
-                isDark={isDarkMode}
-              />
+                <CompanyLogo
+                  photoUrl={editingTenant.logo_photo}
+                  name={editingTenant.name}
+                  plan={editingTenant.plan}
+                  size={28}
+                  isDark={isDarkMode}
+                />
             )}
             <span style={{ color: tk.textPri, fontWeight: 700 }}>
               {editingTenant
-                ? `Edit --- ${editingTenant.name}`
+                ? `Edit - ${editingTenant.name}`
                 : "Add New Tenant"}
             </span>
           </div>
@@ -973,7 +1029,7 @@ const TenantsPage = () => {
           <Form.Item name="notes" label="Notes">
             <Input.TextArea
               rows={3}
-              placeholder="Internal notes about this tenant---"
+              placeholder="Internal notes about this tenant"
             />
           </Form.Item>
         </Form>
